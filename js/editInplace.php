@@ -37,5 +37,8 @@ function fieldSave(key,val){
 		else if(val==''){$('#'+key).html($('#'+key).attr('title'));}
 		else {$("#"+key).html(data);}
 		changing = false;
+	}).fail(function(){
+		alert('保存に失敗しました。再試行してください。');
+		changing = false;
 	});
 }
