@@ -66,8 +66,10 @@ foreach($c as $key => $val){
 				exit;
 			}
 			if(isset($_GET['login'])){
-				if(is_loggedin())
+				if(is_loggedin()){
 					header('Location: ./');
+					exit;
+				}
 				$msg = '';
 				if(isset($_POST['sub']))
 					login();
@@ -137,7 +139,7 @@ function is_loggedin(): bool {
 
 function editTags(){
 	global $hook;
-	if(!is_loggedin() && !isset($_REQUEST['login']))
+	if(!is_loggedin() && !isset($_GET['login']))
 		return;
 	foreach($hook['admin-head'] as $o){
 		echo "\t".$o."\n";
