@@ -15,6 +15,11 @@
 - ワンクリックで ZIP をダウンロード・展開・適用（`data/`・`backup/` は保護）
 - 更新前に `backup/YYYYMMDD_His/` へ自動バックアップ
 - バックアップ一覧からロールバック（ブラウザから操作可能）
+- 更新適用前の環境チェック（ZipArchive / allow_url_fopen / ディスク容量）
+- GitHub API レスポンスを1時間キャッシュ（レート制限対策）
+- バックアップを最大 5 世代まで自動管理（`AP_BACKUP_GENERATIONS` 定数で変更可能）
+- バックアップに `meta.json`（更新前バージョン / 作成日時 / ファイル数 / サイズ）を記録
+- バックアップの個別削除機能
 
 **コンテンツ管理**
 - JSON フラットファイルストレージ（`data/settings.json` / `data/pages.json` / `data/auth.json`）
@@ -41,7 +46,7 @@
 - アップデート URL を GitHub ドメインのみ許可・バックアップ名をバリデーション
 
 **動作要件**
-- PHP 8.0+（PHP 5.3 以上で動作）
+- PHP 8.0+ 推奨（PHP 8.2 完全対応）
 - Apache（mod_rewrite・mod_headers 有効）
 - jQuery 3.7.1（CDN）
 - データベース不要
