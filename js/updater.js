@@ -63,8 +63,10 @@ $(document).ready(function () {
                     location.reload(true);
                 }
             })
-            .fail(function () {
-                alert('更新中にエラーが発生しました。');
+            .fail(function (xhr) {
+                var msg = (xhr.responseJSON && xhr.responseJSON.error)
+                    ? xhr.responseJSON.error : '更新中にエラーが発生しました。';
+                alert('エラー: ' + msg);
                 btn.prop('disabled', false).text('今すぐ更新する');
             });
     });
@@ -122,8 +124,10 @@ $(document).ready(function () {
                     location.reload(true);
                 }
             })
-            .fail(function () {
-                alert('復元中にエラーが発生しました。');
+            .fail(function (xhr) {
+                var msg = (xhr.responseJSON && xhr.responseJSON.error)
+                    ? xhr.responseJSON.error : '復元中にエラーが発生しました。';
+                alert('エラー: ' + msg);
                 btn.prop('disabled', false).text('復元');
             });
     });

@@ -409,18 +409,29 @@ function apply_update(string $zip_url, string $new_version = ''): void {
 		exit;
 	}
 	$extract_dir = sys_get_temp_dir().'/ap_update_extract_'.time();
-	$zip->extractTo($extract_dir);
+	$ok = $zip->extractTo($extract_dir);
 	$zip->close();
 	unlink($tmp);
+	if(!$ok){
+		header('HTTP/1.1 500 Internal Server Error');
+		echo json_encode(['error' => 'ZIP の展開に失敗しました。']);
+		exit;
+	}
 	$top = glob($extract_dir.'/*', GLOB_ONLYDIR);
 	$src = (is_array($top) && count($top) === 1) ? $top[0] : $extract_dir;
-	$exclude = ['data'];
+	$real_src = realpath($src);
+	if($real_src === false){
+		header('HTTP/1.1 500 Internal Server Error');
+		echo json_encode(['error' => 'ZIP 展開先のパス解決に失敗しました。']);
+		exit;
+	}
+	$exclude = ['data', 'backup'];
 	$iter = new RecursiveIteratorIterator(
 		new RecursiveDirectoryIterator($src, RecursiveDirectoryIterator::SKIP_DOTS),
 		RecursiveIteratorIterator::SELF_FIRST
 	);
 	foreach($iter as $item){
-		$rel   = substr($item->getRealPath(), strlen(realpath($src)) + 1);
+		$rel   = substr($item->getRealPath(), strlen($real_src) + 1);
 		$parts = explode(DIRECTORY_SEPARATOR, $rel);
 		if(in_array($parts[0], $exclude, true)) continue;
 		if($item->isDir()){
