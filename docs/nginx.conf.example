@@ -1,0 +1,96 @@
+# AdlairePlatform - Nginx 設定例
+# 使用方法: このファイルを参考に /etc/nginx/sites-available/ に設定ファイルを作成してください
+# 動作確認環境: Nginx 1.18+ / php-fpm 8.2
+#
+# Apache の .htaccess に相当する機能を手動で設定する必要があります。
+# mod_rewrite → try_files ディレクティブで代替します。
+
+server {
+    listen 80;
+    server_name example.com www.example.com;
+
+    # ドキュメントルートを AdlairePlatform の設置ディレクトリに合わせてください
+    root /var/www/html/AdlairePlatform;
+    index index.php;
+
+    # -----------------------------------------------------------------
+    # クリーンURL（拡張子なしURL → index.php へルーティング）
+    # .htaccess の RewriteRule に相当
+    # -----------------------------------------------------------------
+    location / {
+        try_files $uri $uri/ /index.php?page=$uri&$args;
+    }
+
+    # -----------------------------------------------------------------
+    # 機密ディレクトリへの直接アクセスを禁止
+    # .htaccess の RedirectMatch 403 に相当
+    # -----------------------------------------------------------------
+    location ~ ^/(data|backup|files)(/|$) {
+        deny all;
+        return 403;
+    }
+
+    # -----------------------------------------------------------------
+    # PHP ファイルの実行（php-fpm 経由）
+    # -----------------------------------------------------------------
+    location ~ \.php$ {
+        include        fastcgi_params;
+        fastcgi_pass   unix:/run/php/php8.2-fpm.sock;
+        fastcgi_index  index.php;
+        fastcgi_param  SCRIPT_FILENAME $document_root$fastcgi_script_name;
+    }
+
+    # -----------------------------------------------------------------
+    # セキュリティヘッダー
+    # .htaccess の Header always set に相当
+    # -----------------------------------------------------------------
+    add_header X-Content-Type-Options  "nosniff"       always;
+    add_header X-Frame-Options         "SAMEORIGIN"    always;
+    add_header Referrer-Policy         "same-origin"   always;
+    add_header Content-Security-Policy "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'self'" always;
+    add_header Permissions-Policy      "geolocation=(), microphone=(), camera=()" always;
+
+    # -----------------------------------------------------------------
+    # ディレクトリリスト無効化
+    # .htaccess の Options -Indexes に相当
+    # -----------------------------------------------------------------
+    autoindex off;
+
+    # -----------------------------------------------------------------
+    # ドットファイル・ドットディレクトリへのアクセス禁止
+    # .git/ などへのアクセスをブロック
+    # -----------------------------------------------------------------
+    location ~ /\. {
+        deny all;
+    }
+
+    # -----------------------------------------------------------------
+    # ログ設定（任意）
+    # -----------------------------------------------------------------
+    access_log /var/log/nginx/adlaire_access.log;
+    error_log  /var/log/nginx/adlaire_error.log;
+}
+
+# -----------------------------------------------------------------
+# HTTPS リダイレクト（Let's Encrypt 使用時の例）
+# Certbot 等で証明書取得後、以下のように server ブロックを追加してください
+# -----------------------------------------------------------------
+# server {
+#     listen 443 ssl http2;
+#     server_name example.com www.example.com;
+#     root /var/www/html/AdlairePlatform;
+#     index index.php;
+#
+#     ssl_certificate     /etc/letsencrypt/live/example.com/fullchain.pem;
+#     ssl_certificate_key /etc/letsencrypt/live/example.com/privkey.pem;
+#     ssl_protocols       TLSv1.2 TLSv1.3;
+#     ssl_ciphers         HIGH:!aNULL:!MD5;
+#
+#     # ... 上記の location ブロックをここに複製
+# }
+#
+# server {
+#     listen 80;
+#     server_name example.com www.example.com;
+#     return 301 https://$host$request_uri;
+# }
