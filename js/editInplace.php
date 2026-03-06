@@ -32,7 +32,7 @@ function nl2br(s){
 }
 
 function fieldSave(key,val){
-	$.post('index.php', {fieldname: key, content: val}).done(function(data){
+	$.post('index.php', {fieldname: key, content: val, csrf: $('meta[name="csrf-token"]').attr('content')}).done(function(data){
 		if(key == 'themeSelect'){location.reload(true);}
 		else if(val==''){$('#'+key).html($('#'+key).attr('title'));}
 		else {$("#"+key).html(data);}

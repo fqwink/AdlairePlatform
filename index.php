@@ -44,11 +44,15 @@ foreach($c as $key => $val){
 		$c[$key] = $fval;
 	switch($key){
 		case 'password':
-			if(!$fval)
+			if(!$fval){
 				$c[$key] = savePassword($val);
+			} elseif(strlen(trim($fval)) === 32 && ctype_xdigit(trim($fval))){
+				$c[$key] = savePassword('admin');
+				$c['migrate_warning'] = true;
+			}
 			break;
 		case 'loggedin':
-			if(isset($_SESSION['l']) && $_SESSION['l'] == $c['password'])
+			if(isset($_SESSION['l']) && $_SESSION['l'] === true)
 				$c[$key] = true;
 			if(isset($_REQUEST['logout'])){
 				session_destroy();
@@ -62,6 +66,7 @@ foreach($c as $key => $val){
 				if(isset($_POST['sub']))
 					login();
 				$c['content'] = "<form action='' method='POST'>
+				<input type='hidden' name='csrf' value='".csrf_token()."'>
 				<input type='password' name='password'>
 				<input type='submit' name='login' value='Login'> $msg
 				<p class='toggle'>Change password</p>
@@ -137,11 +142,16 @@ function content($id, $content){
 function edit(){
 	if(isset($_REQUEST['fieldname'], $_REQUEST['content'])){
 		$fieldname = $_REQUEST['fieldname'];
+		if(!preg_match('/^[a-zA-Z0-9_\-]+$/', $fieldname)){
+			header('HTTP/1.1 400 Bad Request');
+			exit;
+		}
 		$content = trim($_REQUEST['content']);
 		if(!isset($_SESSION['l'])){
 			header('HTTP/1.1 401 Unauthorized');
 			exit;
 		}
+		verify_csrf();
 		$file = @fopen("files/$fieldname", "w");
 		if(!$file){
 			echo 'Set 755 permission to the files folder.';
@@ -168,7 +178,8 @@ function menu(){
 
 function login(){
 	global $c, $msg;
-	if(md5($_POST['password']) <> $c['password']){
+	verify_csrf();
+	if(!password_verify($_POST['password'], $c['password'])){
 		$msg = 'wrong password';
 		return;
 	}
@@ -177,7 +188,8 @@ function login(){
 		$msg = 'password changed';
 		return;
 	}
-	$_SESSION['l'] = $c['password'];
+	session_regenerate_id(true);
+	$_SESSION['l'] = true;
 	header('Location: ./');
 	exit;
 }
@@ -188,9 +200,25 @@ function savePassword($p){
 		echo 'Set 644 permission to the password file.';
 		exit;
 	}
-	fwrite($file, md5($p));
+	$hash = password_hash($p, PASSWORD_BCRYPT);
+	fwrite($file, $hash);
 	fclose($file);
-	return md5($p);
+	return $hash;
+}
+
+function csrf_token(){
+	if(empty($_SESSION['csrf'])){
+		$_SESSION['csrf'] = bin2hex(random_bytes(32));
+	}
+	return $_SESSION['csrf'];
+}
+
+function verify_csrf(){
+	$token = $_POST['csrf'] ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? '');
+	if(!hash_equals($_SESSION['csrf'] ?? '', $token)){
+		header('HTTP/1.1 403 Forbidden');
+		exit;
+	}
 }
 
 function host(){
@@ -208,6 +236,8 @@ function host(){
 
 function settings(){
 	global $c, $d;
+	if(!empty($c['migrate_warning']))
+		echo "<div style='background:#c0392b;color:#fff;padding:10px;margin:5px 0;font-weight:bold;'>警告: パスワードが MD5 から bcrypt に移行されました。パスワードが \"admin\" にリセットされています。すぐに変更してください。</div>";
 	echo "<div class='settings'>
 	<h3 class='toggle'>↕ Settings ↕</h3>
 	<div class='hide'>
