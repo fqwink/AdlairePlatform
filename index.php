@@ -205,7 +205,7 @@ function menu(){
 		if(trim(strip_tags($cp)) === '') continue;
 		$slug = getSlug(strip_tags($cp));
 		?>
-			<li<?php if($c['page'] == $slug) echo ' id="active" '; ?>><a href='<?php echo h($slug); ?>'><?php echo h(strip_tags($cp)); ?></a></li>
+			<li<?php if($c['page'] == $slug) echo ' class="active"'; ?>><a href='<?php echo h($slug); ?>'><?php echo h(strip_tags($cp)); ?></a></li>
 	<?php } ?>
 	</ul>
 <?php
@@ -214,10 +214,17 @@ function menu(){
 function login(){
 	global $c, $msg;
 	verify_csrf();
+	$ip = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+	if(!check_login_rate($ip)){
+		$msg = '試行回数が多すぎます。しばらくしてから再試行してください。';
+		return;
+	}
 	if(!password_verify($_POST['password'] ?? '', $c['password'])){
+		record_login_failure($ip);
 		$msg = 'wrong password';
 		return;
 	}
+	clear_login_rate($ip);
 	if(!empty($_POST['new'])){
 		savePassword($_POST['new']);
 		$msg = 'password changed';
@@ -227,6 +234,32 @@ function login(){
 	$_SESSION['l'] = true;
 	header('Location: ./');
 	exit;
+}
+
+function check_login_rate(string $ip): bool {
+	$data     = json_read('login_attempts.json');
+	$attempts = $data[$ip] ?? ['count' => 0, 'locked_until' => 0];
+	return time() >= (int)$attempts['locked_until'];
+}
+
+function record_login_failure(string $ip): void {
+	$data     = json_read('login_attempts.json');
+	$attempts = $data[$ip] ?? ['count' => 0, 'locked_until' => 0];
+	if(time() >= (int)$attempts['locked_until']){
+		$attempts['count']++;
+	}
+	if($attempts['count'] >= 5){
+		$attempts['locked_until'] = time() + 900; /* 15分ロックアウト */
+		$attempts['count']        = 0;
+	}
+	$data[$ip] = $attempts;
+	json_write('login_attempts.json', $data);
+}
+
+function clear_login_rate(string $ip): void {
+	$data = json_read('login_attempts.json');
+	unset($data[$ip]);
+	json_write('login_attempts.json', $data);
 }
 
 function savePassword(string $p): string {
@@ -251,7 +284,8 @@ function json_read(string $file): array {
 function json_write(string $file, array $data): void {
 	$result = file_put_contents(
 		data_dir().'/'.$file,
-		json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT)
+		json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT),
+		LOCK_EX
 	);
 	if($result === false){
 		error_log('json_write failed: '.$file);
@@ -533,7 +567,7 @@ function apply_update(string $zip_url, string $new_version = ''): void {
 	}
 	$exclude = ['data', 'backup'];
 	$iter = new RecursiveIteratorIterator(
-		new RecursiveDirectoryIterator($src, RecursiveDirectoryIterator::SKIP_DOTS),
+		new RecursiveDirectoryIterator($real_src, RecursiveDirectoryIterator::SKIP_DOTS),
 		RecursiveIteratorIterator::SELF_FIRST
 	);
 	foreach($iter as $item){
@@ -633,7 +667,7 @@ function settings(){
 	echo "<div class='settings'>
 	<h3 class='toggle'>↕ Settings ↕</h3>
 	<div class='hide'>
-	<div class='change border'><b>Theme</b>&nbsp;<span id='themeSelect'><select name='themeSelect' onchange='fieldSave(\"themeSelect\",this.value);'>";
+	<div class='change border'><b>Theme</b>&nbsp;<span id='themeSelect'><select name='themeSelect' id='ap-theme-select'>";
 	$cwd = getcwd();
 	if(chdir("./themes/")){
 		$dirs = glob('*', GLOB_ONLYDIR);
@@ -645,7 +679,7 @@ function settings(){
 	}
 	chdir($cwd);
 	echo "</select></span></div>
-	<div class='change border'><b>Menu <small>(add a page below and <a href='javascript:location.reload(true);'>refresh</a>)</small></b><span id='menu' title='Home' class='editText'>".$c['menu']."</span></div>";
+	<div class='change border'><b>Menu <small>(add a page below and <a href='./' id='ap-refresh-link'>refresh</a>)</small></b><span id='menu' title='Home' class='editText'>".$c['menu']."</span></div>";
 	foreach(array('title','description','keywords','copyright') as $key){
 		echo "<div class='change border'><span title='".h($d['default'][$key])."' id='".h($key)."' class='editText'>".$c[$key]."</span></div>";
 	}

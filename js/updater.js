@@ -1,222 +1,216 @@
-$(document).ready(function () {
-    var csrf = $('meta[name="csrf-token"]').attr('content');
+document.addEventListener('DOMContentLoaded', function () {
+    var csrf = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
 
     /* ── 更新確認ボタン ── */
-    $('#ap-check-update').on('click', function () {
-        var btn = $(this);
-        btn.prop('disabled', true);
-        $('#ap-update-status').text('確認中...');
-        $('#ap-update-result').empty();
+    var checkBtn = document.getElementById('ap-check-update');
+    if (checkBtn) {
+        checkBtn.addEventListener('click', function () {
+            var btn = this;
+            btn.disabled = true;
+            document.getElementById('ap-update-status').textContent = '確認中...';
+            document.getElementById('ap-update-result').innerHTML = '';
 
-        $.post('index.php', { ap_action: 'check', csrf: csrf })
-            .done(function (data) {
-                $('#ap-update-status').text('');
-                if (data.error) {
-                    $('#ap-update-result').html(
-                        '<span style="color:#c0392b;">エラー: ' + esc(data.error) + '</span>'
-                    );
-                } else if (data.update_available) {
-                    $('#ap-update-result').html(
-                        '<b style="color:#27ae60;">バージョン ' + esc(data.latest) + ' が利用可能です</b>' +
-                        '（現在: ' + esc(data.current) + '）<br>' +
-                        '<button id="ap-apply-update"' +
-                        ' data-zip="' + esc(data.zip_url) + '"' +
-                        ' data-version="' + esc(data.latest) + '"' +
-                        ' style="margin-top:8px;cursor:pointer;">今すぐ更新する</button>' +
-                        ' <button id="ap-list-backups" style="margin-top:8px;cursor:pointer;">ロールバック</button>'
-                    );
-                } else {
-                    $('#ap-update-result').html(
-                        '<span style="color:#555;">最新バージョン ' + esc(data.current) + ' を使用中です。</span><br>' +
-                        '<button id="ap-list-backups" style="margin-top:8px;cursor:pointer;">ロールバック</button>'
-                    );
-                }
-            })
-            .fail(function () {
-                $('#ap-update-status').text('通信エラーが発生しました。');
-            })
-            .always(function () {
-                btn.prop('disabled', false);
-            });
-    });
-
-    /* ── 更新適用ボタン（動的生成）── */
-    $(document).on('click', '#ap-apply-update', function () {
-        var btn     = $(this);
-        var zip_url = btn.data('zip');
-        var version = btn.data('version');
-
-        /* 事前環境チェック */
-        btn.prop('disabled', true).text('環境確認中...');
-        $.post('index.php', { ap_action: 'check_env', csrf: csrf })
-            .done(function (env) {
-                if (!env.ok) {
-                    var issues = [];
-                    if (!env.ziparchive) issues.push('ZipArchive 拡張が無効です');
-                    if (!env.url_fopen)  issues.push('allow_url_fopen が無効です');
-                    if (!env.writable)   issues.push('ディレクトリへの書き込み権限がありません');
-                    alert('更新を実行できません:\n・' + issues.join('\n・'));
-                    btn.prop('disabled', false).text('今すぐ更新する');
-                    return;
-                }
-                var diskMsg = env.disk_free >= 0
-                    ? '（空き容量: ' + formatSize(env.disk_free) + '）'
-                    : '';
-                if (!confirm('アップデートを適用します。' + diskMsg + '\n事前にバックアップが自動作成されます。よろしいですか？')) {
-                    btn.prop('disabled', false).text('今すぐ更新する');
-                    return;
-                }
-                btn.text('更新中...');
-                $.post('index.php', {
-                    ap_action: 'apply',
-                    zip_url:   zip_url,
-                    version:   version,
-                    csrf:      csrf
+            _apPost({ ap_action: 'check', csrf: csrf })
+                .then(function (data) {
+                    document.getElementById('ap-update-status').textContent = '';
+                    if (data.error) {
+                        document.getElementById('ap-update-result').innerHTML =
+                            '<span style="color:#c0392b;">エラー: ' + _apEsc(data.error) + '</span>';
+                    } else if (data.update_available) {
+                        document.getElementById('ap-update-result').innerHTML =
+                            '<b style="color:#27ae60;">バージョン ' + _apEsc(data.latest) + ' が利用可能です</b>' +
+                            '（現在: ' + _apEsc(data.current) + '）<br>' +
+                            '<button id="ap-apply-update"' +
+                            ' data-zip="' + _apEsc(data.zip_url) + '"' +
+                            ' data-version="' + _apEsc(data.latest) + '"' +
+                            ' style="margin-top:8px;cursor:pointer;">今すぐ更新する</button>' +
+                            ' <button id="ap-list-backups" style="margin-top:8px;cursor:pointer;">ロールバック</button>';
+                    } else {
+                        document.getElementById('ap-update-result').innerHTML =
+                            '<span style="color:#555;">最新バージョン ' + _apEsc(data.current) + ' を使用中です。</span><br>' +
+                            '<button id="ap-list-backups" style="margin-top:8px;cursor:pointer;">ロールバック</button>';
+                    }
                 })
-                    .done(function (data) {
-                        if (data.error) {
-                            alert('エラー: ' + data.error);
-                            btn.prop('disabled', false).text('今すぐ更新する');
-                        } else {
-                            alert(data.message || 'アップデートが完了しました。');
-                            location.reload(true);
-                        }
-                    })
-                    .fail(function (xhr) {
-                        var msg = (xhr.responseJSON && xhr.responseJSON.error)
-                            ? xhr.responseJSON.error : '更新中にエラーが発生しました。';
-                        alert('エラー: ' + msg);
-                        btn.prop('disabled', false).text('今すぐ更新する');
-                    });
-            })
-            .fail(function () {
-                alert('環境チェックに失敗しました。');
-                btn.prop('disabled', false).text('今すぐ更新する');
-            });
-    });
+                .catch(function () {
+                    document.getElementById('ap-update-status').textContent = '通信エラーが発生しました。';
+                })
+                .finally(function () { btn.disabled = false; });
+        });
+    }
 
-    /* ── バックアップ一覧ボタン（動的生成）── */
-    $(document).on('click', '#ap-list-backups', function () {
-        var btn = $(this);
-        btn.prop('disabled', true);
-        $('#ap-backup-list').remove();
+    /* ── 動的生成ボタン用イベント委譲 ── */
+    document.addEventListener('click', function (e) {
+        var t = e.target;
+        if (!t) return;
 
-        $.post('index.php', { ap_action: 'list_backups', csrf: csrf })
-            .done(function (data) {
-                var html = '';
-                if (data.backups && data.backups.length > 0) {
-                    html = '<b>バックアップ一覧:</b>' +
-                        '<table style="margin-top:6px;border-collapse:collapse;font-size:0.9em;">' +
-                        '<tr style="background:#eee;">' +
-                        '<th style="padding:3px 8px;text-align:left;">作成日時</th>' +
-                        '<th style="padding:3px 8px;text-align:left;">更新前</th>' +
-                        '<th style="padding:3px 8px;text-align:right;">サイズ</th>' +
-                        '<th style="padding:3px 8px;"></th>' +
-                        '</tr>';
-                    data.backups.forEach(function (b) {
-                        var name    = b.name;
-                        var meta    = b.meta || {};
-                        var date    = meta.created_at  ? esc(meta.created_at)               : esc(formatBackupDate(name));
-                        var ver     = meta.version_before ? esc(meta.version_before)         : '―';
-                        var size    = meta.size_bytes >= 0 ? formatSize(meta.size_bytes)     : '―';
-                        html += '<tr>' +
-                            '<td style="padding:3px 8px;">' + date + '</td>' +
-                            '<td style="padding:3px 8px;">' + ver  + '</td>' +
-                            '<td style="padding:3px 8px;text-align:right;">' + size + '</td>' +
-                            '<td style="padding:3px 8px;white-space:nowrap;">' +
-                            '<button class="ap-do-rollback" data-name="' + esc(name) + '" style="cursor:pointer;">復元</button> ' +
-                            '<button class="ap-delete-backup" data-name="' + esc(name) + '" style="cursor:pointer;color:#c0392b;">削除</button>' +
-                            '</td></tr>';
-                    });
-                    html += '</table>';
-                } else {
-                    html = '<span style="color:#555;">バックアップはありません。</span>';
-                }
-                $('#ap-update-result').append(
-                    '<div id="ap-backup-list" style="margin-top:10px;">' + html + '</div>'
-                );
-            })
-            .fail(function () {
-                alert('通信エラーが発生しました。');
-            })
-            .always(function () {
-                btn.prop('disabled', false);
-            });
-    });
+        /* 更新適用ボタン */
+        if (t.id === 'ap-apply-update') {
+            var btn     = t;
+            var zip_url = btn.dataset.zip;
+            var version = btn.dataset.version;
+            btn.disabled = true;
+            btn.textContent = '環境確認中...';
 
-    /* ── ロールバック実行ボタン（動的生成）── */
-    $(document).on('click', '.ap-do-rollback', function () {
-        var name = $(this).data('name');
-        if (!confirm('バックアップ "' + name + '" に復元します。\n現在のファイルは上書きされます。よろしいですか？')) return;
-        var btn = $(this);
-        btn.prop('disabled', true).text('復元中...');
+            _apPost({ ap_action: 'check_env', csrf: csrf })
+                .then(function (env) {
+                    if (!env.ok) {
+                        var issues = [];
+                        if (!env.ziparchive) issues.push('ZipArchive 拡張が無効です');
+                        if (!env.url_fopen)  issues.push('allow_url_fopen が無効です');
+                        if (!env.writable)   issues.push('ディレクトリへの書き込み権限がありません');
+                        alert('更新を実行できません:\n・' + issues.join('\n・'));
+                        btn.disabled = false;
+                        btn.textContent = '今すぐ更新する';
+                        return;
+                    }
+                    var diskMsg = env.disk_free >= 0
+                        ? '（空き容量: ' + _apFmtSize(env.disk_free) + '）' : '';
+                    if (!confirm('アップデートを適用します。' + diskMsg + '\n事前にバックアップが自動作成されます。よろしいですか？')) {
+                        btn.disabled = false;
+                        btn.textContent = '今すぐ更新する';
+                        return;
+                    }
+                    btn.textContent = '更新中...';
+                    return _apPost({ ap_action: 'apply', zip_url: zip_url, version: version, csrf: csrf })
+                        .then(function (data) {
+                            if (data.error) {
+                                alert('エラー: ' + data.error);
+                                btn.disabled = false;
+                                btn.textContent = '今すぐ更新する';
+                            } else {
+                                alert(data.message || 'アップデートが完了しました。');
+                                location.reload(true);
+                            }
+                        });
+                })
+                .catch(function (err) {
+                    alert('エラー: ' + (err.message || '更新中にエラーが発生しました。'));
+                    btn.disabled = false;
+                    btn.textContent = '今すぐ更新する';
+                });
+        }
 
-        $.post('index.php', {
-            ap_action: 'rollback',
-            backup:    name,
-            csrf:      csrf
-        })
-            .done(function (data) {
-                if (data.error) {
-                    alert('エラー: ' + data.error);
-                    btn.prop('disabled', false).text('復元');
-                } else {
-                    alert(data.message || 'ロールバックが完了しました。');
-                    location.reload(true);
-                }
-            })
-            .fail(function (xhr) {
-                var msg = (xhr.responseJSON && xhr.responseJSON.error)
-                    ? xhr.responseJSON.error : '復元中にエラーが発生しました。';
-                alert('エラー: ' + msg);
-                btn.prop('disabled', false).text('復元');
-            });
-    });
+        /* バックアップ一覧ボタン */
+        if (t.id === 'ap-list-backups') {
+            var btn = t;
+            btn.disabled = true;
+            var ex = document.getElementById('ap-backup-list');
+            if (ex) ex.remove();
 
-    /* ── バックアップ削除ボタン（動的生成）── */
-    $(document).on('click', '.ap-delete-backup', function () {
-        var name = $(this).data('name');
-        if (!confirm('バックアップ "' + name + '" を削除します。この操作は取り消せません。よろしいですか？')) return;
-        var btn = $(this);
-        btn.prop('disabled', true).text('削除中...');
+            _apPost({ ap_action: 'list_backups', csrf: csrf })
+                .then(function (data) {
+                    var html = '';
+                    if (data.backups && data.backups.length > 0) {
+                        html = '<b>バックアップ一覧:</b>' +
+                            '<table style="margin-top:6px;border-collapse:collapse;font-size:0.9em;">' +
+                            '<tr style="background:#eee;">' +
+                            '<th style="padding:3px 8px;text-align:left;">作成日時</th>' +
+                            '<th style="padding:3px 8px;text-align:left;">更新前</th>' +
+                            '<th style="padding:3px 8px;text-align:right;">サイズ</th>' +
+                            '<th style="padding:3px 8px;"></th></tr>';
+                        data.backups.forEach(function (b) {
+                            var name = b.name;
+                            var meta = b.meta || {};
+                            var date = meta.created_at    ? _apEsc(meta.created_at)           : _apEsc(_apFmtDate(name));
+                            var ver  = meta.version_before ? _apEsc(meta.version_before)      : '―';
+                            var size = meta.size_bytes >= 0 ? _apFmtSize(meta.size_bytes)     : '―';
+                            html += '<tr>' +
+                                '<td style="padding:3px 8px;">' + date + '</td>' +
+                                '<td style="padding:3px 8px;">' + ver  + '</td>' +
+                                '<td style="padding:3px 8px;text-align:right;">' + size + '</td>' +
+                                '<td style="padding:3px 8px;white-space:nowrap;">' +
+                                '<button class="ap-do-rollback" data-name="' + _apEsc(name) + '" style="cursor:pointer;">復元</button> ' +
+                                '<button class="ap-delete-backup" data-name="' + _apEsc(name) + '" style="cursor:pointer;color:#c0392b;">削除</button>' +
+                                '</td></tr>';
+                        });
+                        html += '</table>';
+                    } else {
+                        html = '<span style="color:#555;">バックアップはありません。</span>';
+                    }
+                    document.getElementById('ap-update-result')
+                        .insertAdjacentHTML('beforeend', '<div id="ap-backup-list" style="margin-top:10px;">' + html + '</div>');
+                })
+                .catch(function () { alert('通信エラーが発生しました。'); })
+                .finally(function () { btn.disabled = false; });
+        }
 
-        $.post('index.php', {
-            ap_action: 'delete_backup',
-            backup:    name,
-            csrf:      csrf
-        })
-            .done(function (data) {
-                if (data.error) {
-                    alert('エラー: ' + data.error);
-                    btn.prop('disabled', false).text('削除');
-                } else {
-                    btn.closest('tr').fadeOut(300, function () { $(this).remove(); });
-                }
-            })
-            .fail(function (xhr) {
-                var msg = (xhr.responseJSON && xhr.responseJSON.error)
-                    ? xhr.responseJSON.error : '削除中にエラーが発生しました。';
-                alert('エラー: ' + msg);
-                btn.prop('disabled', false).text('削除');
-            });
+        /* ロールバック実行ボタン */
+        if (t.classList.contains('ap-do-rollback')) {
+            var btn  = t;
+            var name = btn.dataset.name;
+            if (!confirm('バックアップ "' + name + '" に復元します。\n現在のファイルは上書きされます。よろしいですか？')) return;
+            btn.disabled = true;
+            btn.textContent = '復元中...';
+            _apPost({ ap_action: 'rollback', backup: name, csrf: csrf })
+                .then(function (data) {
+                    if (data.error) {
+                        alert('エラー: ' + data.error);
+                        btn.disabled = false;
+                        btn.textContent = '復元';
+                    } else {
+                        alert(data.message || 'ロールバックが完了しました。');
+                        location.reload(true);
+                    }
+                })
+                .catch(function (err) {
+                    alert('エラー: ' + (err.message || '復元中にエラーが発生しました。'));
+                    btn.disabled = false;
+                    btn.textContent = '復元';
+                });
+        }
+
+        /* バックアップ削除ボタン */
+        if (t.classList.contains('ap-delete-backup')) {
+            var btn  = t;
+            var name = btn.dataset.name;
+            if (!confirm('バックアップ "' + name + '" を削除します。この操作は取り消せません。よろしいですか？')) return;
+            btn.disabled = true;
+            btn.textContent = '削除中...';
+            _apPost({ ap_action: 'delete_backup', backup: name, csrf: csrf })
+                .then(function (data) {
+                    if (data.error) {
+                        alert('エラー: ' + data.error);
+                        btn.disabled = false;
+                        btn.textContent = '削除';
+                    } else {
+                        var row = btn.closest('tr');
+                        if (row) row.remove();
+                    }
+                })
+                .catch(function (err) {
+                    alert('エラー: ' + (err.message || '削除中にエラーが発生しました。'));
+                    btn.disabled = false;
+                    btn.textContent = '削除';
+                });
+        }
     });
 
     /* ── ユーティリティ関数 ── */
 
-    /* XSS 対策エスケープ */
-    function esc(s) {
-        return $('<span>').text(String(s)).html();
+    function _apPost(params) {
+        return fetch('index.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams(params)
+        }).then(function (r) {
+            if (!r.ok) return r.json().then(function (d) { throw new Error(d.error || 'HTTP ' + r.status); });
+            return r.json();
+        });
     }
 
-    /* バックアップ名（YYYYMMDD_HHIISS）を読みやすい日時に変換 */
-    function formatBackupDate(name) {
+    function _apEsc(s) {
+        var d = document.createElement('div');
+        d.textContent = String(s);
+        return d.innerHTML;
+    }
+
+    function _apFmtDate(name) {
         var m = name.match(/^(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})$/);
         if (!m) return name;
-        return m[1]+'-'+m[2]+'-'+m[3]+' '+m[4]+':'+m[5]+':'+m[6];
+        return m[1] + '-' + m[2] + '-' + m[3] + ' ' + m[4] + ':' + m[5] + ':' + m[6];
     }
 
-    /* バイト数を KB / MB 表示に変換 */
-    function formatSize(bytes) {
+    function _apFmtSize(bytes) {
         if (bytes < 1024)        return bytes + ' B';
         if (bytes < 1024 * 1024) return Math.round(bytes / 1024) + ' KB';
         return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
