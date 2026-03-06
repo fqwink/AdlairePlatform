@@ -10,8 +10,8 @@ $(document).ready(function($){
 		if(a.hasClass('richText')){
 			<?php
 		$allowed_hooks = ['rte.php'];
-		if(isset($_REQUEST['hook']) && in_array($_REQUEST['hook'], $allowed_hooks, true)){
-			include(dirname(__FILE__).'/'.$_REQUEST['hook']);
+		if(isset($_GET['hook']) && in_array($_GET['hook'], $allowed_hooks, true)){
+			include(dirname(__FILE__).'/'.$_GET['hook']);
 		}
 		?>
 		}
