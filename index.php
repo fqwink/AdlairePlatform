@@ -196,6 +196,7 @@ function menu(){
 	?><ul>
 	<?php
 	foreach ($mlist as $cp){
+		if(trim(strip_tags($cp)) === '') continue;
 		$slug = getSlug(strip_tags($cp));
 		?>
 			<li<?php if($c['page'] == $slug) echo ' id="active" '; ?>><a href='<?php echo h($slug); ?>'><?php echo h(strip_tags($cp)); ?></a></li>
@@ -268,7 +269,10 @@ function migrate_from_files(){
 	$pages = [];
 	foreach(glob('files/*') ?: [] as $f){
 		$slug = basename($f);
-		if(!in_array($slug, $skip, true)) $pages[$slug] = file_get_contents($f);
+		if(!in_array($slug, $skip, true)){
+			$v = file_get_contents($f);
+			if($v !== false) $pages[$slug] = $v;
+		}
 	}
 	if($pages) json_write('pages.json', $pages);
 }
@@ -312,10 +316,11 @@ function settings(){
 	$cwd = getcwd();
 	if(chdir("./themes/")){
 		$dirs = glob('*', GLOB_ONLYDIR);
-		foreach($dirs as $val){
-			$select = ($val == $c['themeSelect']) ? ' selected' : '';
-			echo '<option value="'.h($val).'"'.$select.'>'.h($val)."</option>\n";
-		}
+		if(is_array($dirs))
+			foreach($dirs as $val){
+				$select = ($val == $c['themeSelect']) ? ' selected' : '';
+				echo '<option value="'.h($val).'"'.$select.'>'.h($val)."</option>\n";
+			}
 	}
 	chdir($cwd);
 	echo "</select></span></div>

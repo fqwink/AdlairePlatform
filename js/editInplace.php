@@ -4,8 +4,8 @@ var changing = false;
 $(document).ready(function($){
 	$('span.editText').click(function(){
 		if(changing)return;
-		a = $(this);
-		title=(a.attr('title'))?title="\""+a.attr('title')+"\" ":"";
+		var a = $(this);
+		var title=(a.attr('title'))?"\""+a.attr('title')+"\" ":"";
 
 		if(a.hasClass('richText')){
 			<?php
@@ -16,7 +16,7 @@ $(document).ready(function($){
 		?>
 		}
 		else{
-			a.html("<textarea "+title+"name=\"textarea\" id=\""+ a.attr('id') +"_field\" onblur=\"fieldSave(a.attr('id'),nl2br(this.value));\">" + a.html().replace(/<br>/gi, "") + "</textarea>");
+			a.html("<textarea "+title+"name=\"textarea\" id=\""+ a.attr('id') +"_field\" onblur=\"fieldSave(this.id.slice(0,-6),nl2br(this.value));\">" + a.html().replace(/<br\s*\/?>/gi, "\n") + "</textarea>");
 			a.children(':first').focus().autosize().trigger('autosize.resize');
 		}
 		changing = true;
