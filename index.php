@@ -31,24 +31,27 @@ $c['copyright'] = '&copy;'.date('Y').' Your website';
 $apcredit = "Powered by <a href=''>Adlaire Platform</a>";
 $hook['admin-richText'] = "rte.php";
 
-if(!file_exists('files')){
-	mkdir('files', 0755, true);
-	mkdir('plugins', 0755, true);
-}
+if(!file_exists('plugins')) mkdir('plugins', 0755, true);
+migrate_from_files();
+
+$_settings = json_read('settings.json');
+$_auth     = json_read('auth.json');
+$_pages    = json_read('pages.json');
 
 foreach($c as $key => $val){
 	if($key == 'content') continue;
-	$fval = @file_get_contents('files/'.$key);
 	$d['default'][$key] = $c[$key];
-	if($fval)
-		$c[$key] = $fval;
+	if(isset($_settings[$key]))
+		$c[$key] = $_settings[$key];
 	switch($key){
 		case 'password':
-			if(!$fval){
+			if(empty($_auth['password_hash'])){
 				$c[$key] = savePassword($val);
-			} elseif(strlen(trim($fval)) === 32 && ctype_xdigit(trim($fval))){
+			} elseif(strlen($_auth['password_hash']) === 32 && ctype_xdigit($_auth['password_hash'])){
 				$c[$key] = savePassword('admin');
 				$c['migrate_warning'] = true;
+			} else {
+				$c[$key] = $_auth['password_hash'];
 			}
 			break;
 		case 'loggedin':
@@ -84,7 +87,7 @@ foreach($c as $key => $val){
 				$c[$key] = $rp;
 			$c[$key] = getSlug($c[$key]);
 			if(isset($_REQUEST['login'])) continue 2;
-			$c['content'] = @file_get_contents("files/".$c[$key]);
+			$c['content'] = $_pages[$c[$key]] ?? null;
 			if(!$c['content']){
 				if(!isset($d['page'][$c[$key]])){
 					header('HTTP/1.1 404 Not Found');
@@ -152,13 +155,16 @@ function edit(){
 			exit;
 		}
 		verify_csrf();
-		$file = @fopen("files/$fieldname", "w");
-		if(!$file){
-			echo 'Set 755 permission to the files folder.';
-			exit;
+		$settings_keys = ['title','description','keywords','copyright','themeSelect','menu','subside'];
+		if(in_array($fieldname, $settings_keys, true)){
+			$settings = json_read('settings.json');
+			$settings[$fieldname] = $content;
+			json_write('settings.json', $settings);
+		} else {
+			$pages = json_read('pages.json');
+			$pages[$fieldname] = $content;
+			json_write('pages.json', $pages);
 		}
-		fwrite($file, $content);
-		fclose($file);
 		echo $content;
 		exit;
 	}
@@ -195,15 +201,46 @@ function login(){
 }
 
 function savePassword($p){
-	$file = @fopen('files/password', 'w');
-	if(!$file){
-		echo 'Set 644 permission to the password file.';
-		exit;
-	}
 	$hash = password_hash($p, PASSWORD_BCRYPT);
-	fwrite($file, $hash);
-	fclose($file);
+	json_write('auth.json', ['password_hash' => $hash]);
 	return $hash;
+}
+
+function data_dir(){
+	$dir = 'data';
+	if(!is_dir($dir)) mkdir($dir, 0755, true);
+	return $dir;
+}
+
+function json_read($file){
+	$path = data_dir().'/'.$file;
+	if(!file_exists($path)) return [];
+	$decoded = json_decode(file_get_contents($path), true);
+	return is_array($decoded) ? $decoded : [];
+}
+
+function json_write($file, array $data){
+	file_put_contents(data_dir().'/'.$file, json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+}
+
+function migrate_from_files(){
+	if(file_exists(data_dir().'/settings.json')) return;
+	$settings_keys = ['title','description','keywords','copyright','themeSelect','menu','subside'];
+	$settings = [];
+	foreach($settings_keys as $key){
+		$v = @file_get_contents('files/'.$key);
+		if($v !== false) $settings[$key] = $v;
+	}
+	if($settings) json_write('settings.json', $settings);
+	$pw = @file_get_contents('files/password');
+	if($pw) json_write('auth.json', ['password_hash' => trim($pw)]);
+	$skip = array_merge($settings_keys, ['password','loggedin']);
+	$pages = [];
+	foreach(glob('files/*') ?: [] as $f){
+		$slug = basename($f);
+		if(!in_array($slug, $skip, true)) $pages[$slug] = file_get_contents($f);
+	}
+	if($pages) json_write('pages.json', $pages);
 }
 
 function csrf_token(){
