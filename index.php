@@ -100,7 +100,7 @@ foreach($c as $key => $val){
 			if(!$c['content']){
 				if(!isset($d['page'][$c[$key]])){
 					header('HTTP/1.1 404 Not Found');
-					$c['content'] = (is_loggedin()) ? $d['new_page']['admin'] : $c['content'] = $d['new_page']['visitor'];
+					$c['content'] = (is_loggedin()) ? $d['new_page']['admin'] : $d['new_page']['visitor'];
 				} else{
 					$c['content'] = $d['page'][$c[$key]];
 				}
@@ -128,7 +128,7 @@ function loadPlugins(){
 			}
 	}
 	chdir($cwd);
-	$hook['admin-head'][] = "\n	<script type='text/javascript' src='./js/editInplace.php?hook=".$hook['admin-richText']."'></script>";
+	$hook['admin-head'][] = "\n	<script type='text/javascript' src='./js/editInplace.php?hook=".h($hook['admin-richText'])."'></script>";
 }
 
 function getSlug(string $p): string {
@@ -258,11 +258,11 @@ function migrate_from_files(){
 	$settings_keys = ['title','description','keywords','copyright','themeSelect','menu','subside'];
 	$settings = [];
 	foreach($settings_keys as $key){
-		$v = @file_get_contents('files/'.$key);
+		$v = file_exists('files/'.$key) ? file_get_contents('files/'.$key) : false;
 		if($v !== false) $settings[$key] = $v;
 	}
 	if($settings) json_write('settings.json', $settings);
-	$pw = @file_get_contents('files/password');
+	$pw = file_exists('files/password') ? file_get_contents('files/password') : false;
 	if($pw) json_write('auth.json', ['password_hash' => trim($pw)]);
 	$skip = array_merge($settings_keys, ['password','loggedin']);
 	$pages = [];
