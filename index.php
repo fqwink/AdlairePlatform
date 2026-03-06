@@ -309,6 +309,7 @@ function settings(){
 	<h3 class='toggle'>↕ Settings ↕</h3>
 	<div class='hide'>
 	<div class='change border'><b>Theme</b>&nbsp;<span id='themeSelect'><select name='themeSelect' onchange='fieldSave(\"themeSelect\",this.value);'>";
+	$cwd = getcwd();
 	if(chdir("./themes/")){
 		$dirs = glob('*', GLOB_ONLYDIR);
 		foreach($dirs as $val){
@@ -316,6 +317,7 @@ function settings(){
 			echo '<option value="'.h($val).'"'.$select.'>'.h($val)."</option>\n";
 		}
 	}
+	chdir($cwd);
 	echo "</select></span></div>
 	<div class='change border'><b>Menu <small>(add a page below and <a href='javascript:location.reload(true);'>refresh</a>)</small></b><span id='menu' title='Home' class='editText'>".$c['menu']."</span></div>";
 	foreach(array('title','description','keywords','copyright') as $key){
