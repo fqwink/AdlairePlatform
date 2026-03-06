@@ -2,6 +2,25 @@
 
 ---
 
+## 2026-03-06（アップデートエンジン改良 #7）
+
+- **[Feature]** `AP_BACKUP_GENERATIONS=5` 定数を追加
+- **[Feature]** `check_environment()` 追加（ZipArchive / allow_url_fopen / 書き込み権限 / ディスク空き容量を確認して結果配列を返す）
+- **[Feature]** `ap_action=check_env` エンドポイントを追加
+- **[Feature]** 更新適用ボタン押下時に環境チェックを実施し、問題があれば適用を中止してエラーを表示
+- **[Feature]** `check_update()` に GitHub API レスポンスを `data/update_cache.json` へ1時間キャッシュする機能を追加
+- **[Feature]** `check_update()` に GitHub API レート制限（HTTP 403/429）の検出と専用エラーメッセージを追加（`ignore_errors=true` で HTTP ステータスコードを取得）
+- **[Feature]** `prune_old_backups()` 追加：`apply_update()` 実行後に `AP_BACKUP_GENERATIONS` を超えた古い世代を自動削除
+- **[Feature]** `backup_current()` にメタデータ生成を追加（`backup/<name>/meta.json` へ `version_before` / `created_at` / `file_count` / `size_bytes` を記録）
+- **[Feature]** `delete_backup(string $name)` 追加（バックアップディレクトリを再帰削除）
+- **[Feature]** `ap_action=delete_backup` エンドポイントを追加
+- **[Feature]** `js/updater.js` のバックアップ一覧をテーブル形式に変更（作成日時・更新前バージョン・サイズを表示）
+- **[Feature]** `js/updater.js` に「削除」ボタンを追加（確認ダイアログ後にフェードアウト削除）
+- **[Fix]** `rollback_to_backup()` に `realpath()` の `false` チェックを追加
+- **[Fix]** `rollback_to_backup()` が `meta.json` をサイトルートへコピーしないよう除外
+
+---
+
 ## 2026-03-06（アップデートエンジン追加・バグ修正 #6）
 
 - **[Feature]** `AP_VERSION` / `AP_UPDATE_URL` 定数を `index.php` 先頭に追加
