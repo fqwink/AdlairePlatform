@@ -10,6 +10,7 @@
 ob_start();
 ini_set('session.cookie_httponly', 1);
 session_start();
+migrate_from_files();
 host();
 edit();
 
@@ -18,7 +19,7 @@ $c['loggedin'] = false;
 $c['page'] = 'home';
 $d['page']['home'] = "<h3>Your website is now powered by Adlaire Platform.</h3><br />\nLogin with the 'Login' link below. The password is admin.<br />\nChange the password as soon as possible.<br /><br />\n\nClick on the content to edit and click outside to save it.<br />";
 $d['page']['example'] = "This is an example page.<br /><br />\n\nTo add a new one, click on the existing pages (in the admin panel) and enter a new one below the others.";
-$d['new_page']['admin'] = "Page <sb>".$rp."</b> created.<br /><br />\n\nClick here to start editing!";
+$d['new_page']['admin'] = "Page <b>".$rp."</b> created.<br /><br />\n\nClick here to start editing!";
 $d['new_page']['visitor'] = "Sorry, but <b>".$rp."</b> doesn't exist. :(";
 $d['default']['content'] = 'Click to edit!';
 $c['themeSelect'] = 'AP-Default';
@@ -32,7 +33,6 @@ $apcredit = "Powered by <a href=''>Adlaire Platform</a>";
 $hook['admin-richText'] = "rte.php";
 
 if(!file_exists('plugins')) mkdir('plugins', 0755, true);
-migrate_from_files();
 
 $_settings = json_read('settings.json');
 $_auth     = json_read('auth.json');
@@ -143,13 +143,13 @@ function content($id, $content){
 }
 
 function edit(){
-	if(isset($_REQUEST['fieldname'], $_REQUEST['content'])){
-		$fieldname = $_REQUEST['fieldname'];
+	if(isset($_POST['fieldname'], $_POST['content'])){
+		$fieldname = $_POST['fieldname'];
 		if(!preg_match('/^[a-zA-Z0-9_\-]+$/', $fieldname)){
 			header('HTTP/1.1 400 Bad Request');
 			exit;
 		}
-		$content = trim($_REQUEST['content']);
+		$content = trim($_POST['content']);
 		if(!isset($_SESSION['l'])){
 			header('HTTP/1.1 401 Unauthorized');
 			exit;
