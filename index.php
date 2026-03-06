@@ -20,8 +20,8 @@ $c['loggedin'] = false;
 $c['page'] = 'home';
 $d['page']['home'] = "<h3>Your website is now powered by Adlaire Platform.</h3><br />\nLogin with the 'Login' link below. The password is admin.<br />\nChange the password as soon as possible.<br /><br />\n\nClick on the content to edit and click outside to save it.<br />";
 $d['page']['example'] = "This is an example page.<br /><br />\n\nTo add a new one, click on the existing pages (in the admin panel) and enter a new one below the others.";
-$d['new_page']['admin'] = "Page <b>".$rp."</b> created.<br /><br />\n\nClick here to start editing!";
-$d['new_page']['visitor'] = "Sorry, but <b>".$rp."</b> doesn't exist. :(";
+$d['new_page']['admin'] = "Page <b>".h($rp)."</b> created.<br /><br />\n\nClick here to start editing!";
+$d['new_page']['visitor'] = "Sorry, but <b>".h($rp)."</b> doesn't exist. :(";
 $d['default']['content'] = 'Click to edit!';
 $c['themeSelect'] = 'AP-Default';
 $c['menu'] = "Home<br />\nExample";
@@ -112,6 +112,9 @@ foreach($c as $key => $val){
 }
 loadPlugins();
 
+if(!preg_match('/^[a-zA-Z0-9_-]+$/', $c['themeSelect'])){
+	$c['themeSelect'] = 'AP-Default';
+}
 require("themes/".$c['themeSelect']."/theme.php");
 
 function loadPlugins(){
@@ -204,7 +207,7 @@ function menu(){
 function login(){
 	global $c, $msg;
 	verify_csrf();
-	if(!password_verify($_POST['password'], $c['password'])){
+	if(!password_verify($_POST['password'] ?? '', $c['password'])){
 		$msg = 'wrong password';
 		return;
 	}
