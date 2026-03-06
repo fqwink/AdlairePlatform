@@ -8,7 +8,12 @@ $(document).ready(function($){
 		title=(a.attr('title'))?title="\""+a.attr('title')+"\" ":"";
 
 		if(a.hasClass('richText')){
-			<?php if(isset($_REQUEST['hook']))include($_REQUEST['hook']); ?>
+			<?php
+		$allowed_hooks = ['rte.php'];
+		if(isset($_REQUEST['hook']) && in_array($_REQUEST['hook'], $allowed_hooks, true)){
+			include(dirname(__FILE__).'/'.$_REQUEST['hook']);
+		}
+		?>
 		}
 		else{
 			a.html("<textarea "+title+"name=\"textarea\" id=\""+ a.attr('id') +"_field\" onblur=\"fieldSave(a.attr('id'),nl2br(this.value));\">" + a.html().replace(/<br>/gi, "") + "</textarea>");

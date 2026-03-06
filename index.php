@@ -48,7 +48,7 @@ foreach($c as $key => $val){
 				$c[$key] = savePassword($val);
 			break;
 		case 'loggedin':
-			if(isset($_SESSION['l']) and $_SESSION['l'] == $c['password'])
+			if(isset($_SESSION['l']) && $_SESSION['l'] == $c['password'])
 				$c[$key] = true;
 			if(isset($_REQUEST['logout'])){
 				session_destroy();
@@ -78,7 +78,7 @@ foreach($c as $key => $val){
 			if($rp)
 				$c[$key] = $rp;
 			$c[$key] = getSlug($c[$key]);
-			if(isset($_REQUEST['login'])) continue;
+			if(isset($_REQUEST['login'])) continue 2;
 			$c['content'] = @file_get_contents("files/".$c[$key]);
 			if(!$c['content']){
 				if(!isset($d['page'][$c[$key]])){
@@ -137,7 +137,7 @@ function content($id, $content){
 function edit(){
 	if(isset($_REQUEST['fieldname'], $_REQUEST['content'])){
 		$fieldname = $_REQUEST['fieldname'];
-		$content = trim(rtrim(stripslashes($_REQUEST['content'])));
+		$content = trim($_REQUEST['content']);
 		if(!isset($_SESSION['l'])){
 			header('HTTP/1.1 401 Unauthorized');
 			exit;
@@ -172,7 +172,7 @@ function login(){
 		$msg = 'wrong password';
 		return;
 	}
-	if($_POST['new']){
+	if(!empty($_POST['new'])){
 		savePassword($_POST['new']);
 		$msg = 'password changed';
 		return;
