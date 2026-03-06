@@ -1,4 +1,5 @@
 RedirectMatch 403 ^.*/files/
+RedirectMatch 403 ^.*/data/
 ErrorDocument 403 &nbsp;
 RewriteEngine on
 Options -Indexes

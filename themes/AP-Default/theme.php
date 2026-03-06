@@ -9,7 +9,8 @@
 	<link rel='stylesheet' href='themes/".$c['themeSelect']."/style.css'>
 	<meta name='description' content='".$c['description']."'>
 	<meta name='keywords' content='".$c['keywords']."'>
-	<script src='//ajax.googleapis.com/ajax/libs/jquery/1.11.0/jquery.min.js'></script>";
+	<script src='//ajax.googleapis.com/ajax/libs/jquery/1.11.0/jquery.min.js'></script>
+	<meta name='csrf-token' content='".csrf_token()."'>";
 	editTags();
 ?>
 

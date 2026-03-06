@@ -10,6 +10,7 @@
 ob_start();
 ini_set('session.cookie_httponly', 1);
 session_start();
+migrate_from_files();
 host();
 edit();
 
@@ -18,7 +19,7 @@ $c['loggedin'] = false;
 $c['page'] = 'home';
 $d['page']['home'] = "<h3>Your website is now powered by Adlaire Platform.</h3><br />\nLogin with the 'Login' link below. The password is admin.<br />\nChange the password as soon as possible.<br /><br />\n\nClick on the content to edit and click outside to save it.<br />";
 $d['page']['example'] = "This is an example page.<br /><br />\n\nTo add a new one, click on the existing pages (in the admin panel) and enter a new one below the others.";
-$d['new_page']['admin'] = "Page <sb>".$rp."</b> created.<br /><br />\n\nClick here to start editing!";
+$d['new_page']['admin'] = "Page <b>".$rp."</b> created.<br /><br />\n\nClick here to start editing!";
 $d['new_page']['visitor'] = "Sorry, but <b>".$rp."</b> doesn't exist. :(";
 $d['default']['content'] = 'Click to edit!';
 $c['themeSelect'] = 'AP-Default';
@@ -31,24 +32,30 @@ $c['copyright'] = '&copy;'.date('Y').' Your website';
 $apcredit = "Powered by <a href=''>Adlaire Platform</a>";
 $hook['admin-richText'] = "rte.php";
 
-if(!file_exists('files')){
-	mkdir('files', 0755, true);
-	mkdir('plugins', 0755, true);
-}
+if(!file_exists('plugins')) mkdir('plugins', 0755, true);
+
+$_settings = json_read('settings.json');
+$_auth     = json_read('auth.json');
+$_pages    = json_read('pages.json');
 
 foreach($c as $key => $val){
 	if($key == 'content') continue;
-	$fval = @file_get_contents('files/'.$key);
 	$d['default'][$key] = $c[$key];
-	if($fval)
-		$c[$key] = $fval;
+	if(isset($_settings[$key]))
+		$c[$key] = $_settings[$key];
 	switch($key){
 		case 'password':
-			if(!$fval)
+			if(empty($_auth['password_hash'])){
 				$c[$key] = savePassword($val);
+			} elseif(strlen($_auth['password_hash']) === 32 && ctype_xdigit($_auth['password_hash'])){
+				$c[$key] = savePassword('admin');
+				$c['migrate_warning'] = true;
+			} else {
+				$c[$key] = $_auth['password_hash'];
+			}
 			break;
 		case 'loggedin':
-			if(isset($_SESSION['l']) && $_SESSION['l'] == $c['password'])
+			if(isset($_SESSION['l']) && $_SESSION['l'] === true)
 				$c[$key] = true;
 			if(isset($_REQUEST['logout'])){
 				session_destroy();
@@ -62,6 +69,7 @@ foreach($c as $key => $val){
 				if(isset($_POST['sub']))
 					login();
 				$c['content'] = "<form action='' method='POST'>
+				<input type='hidden' name='csrf' value='".csrf_token()."'>
 				<input type='password' name='password'>
 				<input type='submit' name='login' value='Login'> $msg
 				<p class='toggle'>Change password</p>
@@ -79,7 +87,7 @@ foreach($c as $key => $val){
 				$c[$key] = $rp;
 			$c[$key] = getSlug($c[$key]);
 			if(isset($_REQUEST['login'])) continue 2;
-			$c['content'] = @file_get_contents("files/".$c[$key]);
+			$c['content'] = $_pages[$c[$key]] ?? null;
 			if(!$c['content']){
 				if(!isset($d['page'][$c[$key]])){
 					header('HTTP/1.1 404 Not Found');
@@ -135,20 +143,28 @@ function content($id, $content){
 }
 
 function edit(){
-	if(isset($_REQUEST['fieldname'], $_REQUEST['content'])){
-		$fieldname = $_REQUEST['fieldname'];
-		$content = trim($_REQUEST['content']);
+	if(isset($_POST['fieldname'], $_POST['content'])){
+		$fieldname = $_POST['fieldname'];
+		if(!preg_match('/^[a-zA-Z0-9_\-]+$/', $fieldname)){
+			header('HTTP/1.1 400 Bad Request');
+			exit;
+		}
+		$content = trim($_POST['content']);
 		if(!isset($_SESSION['l'])){
 			header('HTTP/1.1 401 Unauthorized');
 			exit;
 		}
-		$file = @fopen("files/$fieldname", "w");
-		if(!$file){
-			echo 'Set 755 permission to the files folder.';
-			exit;
+		verify_csrf();
+		$settings_keys = ['title','description','keywords','copyright','themeSelect','menu','subside'];
+		if(in_array($fieldname, $settings_keys, true)){
+			$settings = json_read('settings.json');
+			$settings[$fieldname] = $content;
+			json_write('settings.json', $settings);
+		} else {
+			$pages = json_read('pages.json');
+			$pages[$fieldname] = $content;
+			json_write('pages.json', $pages);
 		}
-		fwrite($file, $content);
-		fclose($file);
 		echo $content;
 		exit;
 	}
@@ -168,7 +184,8 @@ function menu(){
 
 function login(){
 	global $c, $msg;
-	if(md5($_POST['password']) <> $c['password']){
+	verify_csrf();
+	if(!password_verify($_POST['password'], $c['password'])){
 		$msg = 'wrong password';
 		return;
 	}
@@ -177,20 +194,68 @@ function login(){
 		$msg = 'password changed';
 		return;
 	}
-	$_SESSION['l'] = $c['password'];
+	session_regenerate_id(true);
+	$_SESSION['l'] = true;
 	header('Location: ./');
 	exit;
 }
 
 function savePassword($p){
-	$file = @fopen('files/password', 'w');
-	if(!$file){
-		echo 'Set 644 permission to the password file.';
+	$hash = password_hash($p, PASSWORD_BCRYPT);
+	json_write('auth.json', ['password_hash' => $hash]);
+	return $hash;
+}
+
+function data_dir(){
+	$dir = 'data';
+	if(!is_dir($dir)) mkdir($dir, 0755, true);
+	return $dir;
+}
+
+function json_read($file){
+	$path = data_dir().'/'.$file;
+	if(!file_exists($path)) return [];
+	$decoded = json_decode(file_get_contents($path), true);
+	return is_array($decoded) ? $decoded : [];
+}
+
+function json_write($file, array $data){
+	file_put_contents(data_dir().'/'.$file, json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+}
+
+function migrate_from_files(){
+	if(file_exists(data_dir().'/settings.json')) return;
+	$settings_keys = ['title','description','keywords','copyright','themeSelect','menu','subside'];
+	$settings = [];
+	foreach($settings_keys as $key){
+		$v = @file_get_contents('files/'.$key);
+		if($v !== false) $settings[$key] = $v;
+	}
+	if($settings) json_write('settings.json', $settings);
+	$pw = @file_get_contents('files/password');
+	if($pw) json_write('auth.json', ['password_hash' => trim($pw)]);
+	$skip = array_merge($settings_keys, ['password','loggedin']);
+	$pages = [];
+	foreach(glob('files/*') ?: [] as $f){
+		$slug = basename($f);
+		if(!in_array($slug, $skip, true)) $pages[$slug] = file_get_contents($f);
+	}
+	if($pages) json_write('pages.json', $pages);
+}
+
+function csrf_token(){
+	if(empty($_SESSION['csrf'])){
+		$_SESSION['csrf'] = bin2hex(random_bytes(32));
+	}
+	return $_SESSION['csrf'];
+}
+
+function verify_csrf(){
+	$token = $_POST['csrf'] ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? '');
+	if(!hash_equals($_SESSION['csrf'] ?? '', $token)){
+		header('HTTP/1.1 403 Forbidden');
 		exit;
 	}
-	fwrite($file, md5($p));
-	fclose($file);
-	return md5($p);
 }
 
 function host(){
@@ -208,6 +273,8 @@ function host(){
 
 function settings(){
 	global $c, $d;
+	if(!empty($c['migrate_warning']))
+		echo "<div style='background:#c0392b;color:#fff;padding:10px;margin:5px 0;font-weight:bold;'>警告: パスワードが MD5 から bcrypt に移行されました。パスワードが \"admin\" にリセットされています。すぐに変更してください。</div>";
 	echo "<div class='settings'>
 	<h3 class='toggle'>↕ Settings ↕</h3>
 	<div class='hide'>
