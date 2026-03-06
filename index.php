@@ -9,6 +9,7 @@
 
 define('AP_VERSION', '1.0.0');
 define('AP_UPDATE_URL', 'https://api.github.com/repos/win-k/AdlairePlatform/releases/latest');
+define('AP_BACKUP_GENERATIONS', 5);
 
 ob_start();
 ini_set('session.cookie_httponly', 1);
@@ -282,6 +283,56 @@ function migrate_from_files(){
 	if($pages) json_write('pages.json', $pages);
 }
 
+function check_environment(): array {
+	$ziparchive = class_exists('ZipArchive');
+	$url_fopen  = (bool)ini_get('allow_url_fopen');
+	$writable   = is_writable('.');
+	$disk_free  = @disk_free_space('.');
+	$ok = $ziparchive && $url_fopen && $writable;
+	return [
+		'ziparchive' => $ziparchive,
+		'url_fopen'  => $url_fopen,
+		'writable'   => $writable,
+		'disk_free'  => $disk_free !== false ? (int)$disk_free : -1,
+		'ok'         => $ok,
+	];
+}
+
+function prune_old_backups(): void {
+	$backups = glob('backup/*', GLOB_ONLYDIR);
+	if(!is_array($backups) || count($backups) <= AP_BACKUP_GENERATIONS) return;
+	sort($backups);
+	$excess = count($backups) - AP_BACKUP_GENERATIONS;
+	for($i = 0; $i < $excess; $i++){
+		$dir  = $backups[$i];
+		$iter = new RecursiveIteratorIterator(
+			new RecursiveDirectoryIterator($dir, RecursiveDirectoryIterator::SKIP_DOTS),
+			RecursiveIteratorIterator::CHILD_FIRST
+		);
+		foreach($iter as $f){
+			$f->isDir() ? @rmdir($f->getRealPath()) : @unlink($f->getRealPath());
+		}
+		@rmdir($dir);
+	}
+}
+
+function delete_backup(string $name): void {
+	$dir = 'backup/'.$name;
+	if(!is_dir($dir)){
+		header('HTTP/1.1 404 Not Found');
+		echo json_encode(['error' => 'バックアップが見つかりません: '.h($name)]);
+		exit;
+	}
+	$iter = new RecursiveIteratorIterator(
+		new RecursiveDirectoryIterator($dir, RecursiveDirectoryIterator::SKIP_DOTS),
+		RecursiveIteratorIterator::CHILD_FIRST
+	);
+	foreach($iter as $f){
+		$f->isDir() ? @rmdir($f->getRealPath()) : @unlink($f->getRealPath());
+	}
+	@rmdir($dir);
+}
+
 function handle_update_action(): void {
 	if(!isset($_POST['ap_action'])) return;
 	if(!isset($_SESSION['l']) || $_SESSION['l'] !== true){
@@ -296,6 +347,9 @@ function handle_update_action(): void {
 		case 'check':
 			echo json_encode(check_update());
 			break;
+		case 'check_env':
+			echo json_encode(check_environment());
+			break;
 		case 'apply':
 			$zip_url = $_POST['zip_url'] ?? '';
 			if(!preg_match('#^https://(api\.github\.com|github\.com|codeload\.github\.com)/#', $zip_url)){
@@ -309,8 +363,20 @@ function handle_update_action(): void {
 			break;
 		case 'list_backups':
 			$backups = glob('backup/*', GLOB_ONLYDIR);
-			$list = is_array($backups) ? array_map('basename', $backups) : [];
-			rsort($list);
+			$list = [];
+			if(is_array($backups)){
+				rsort($backups);
+				foreach($backups as $path){
+					$name      = basename($path);
+					$meta_file = $path.'/meta.json';
+					$meta      = null;
+					if(file_exists($meta_file)){
+						$decoded = json_decode(file_get_contents($meta_file), true);
+						if(is_array($decoded)) $meta = $decoded;
+					}
+					$list[] = ['name' => $name, 'meta' => $meta];
+				}
+			}
 			echo json_encode(['backups' => $list]);
 			break;
 		case 'rollback':
@@ -323,6 +389,16 @@ function handle_update_action(): void {
 			rollback_to_backup($name);
 			echo json_encode(['success' => true, 'message' => 'ロールバックが完了しました。ページを再読み込みします。']);
 			break;
+		case 'delete_backup':
+			$name = $_POST['backup'] ?? '';
+			if(!preg_match('/^[0-9_]+$/', $name)){
+				header('HTTP/1.1 400 Bad Request');
+				echo json_encode(['error' => '無効なバックアップ名です']);
+				exit;
+			}
+			delete_backup($name);
+			echo json_encode(['success' => true, 'message' => 'バックアップを削除しました。']);
+			break;
 		default:
 			header('HTTP/1.1 400 Bad Request');
 			echo json_encode(['error' => '不明なアクションです']);
@@ -331,13 +407,29 @@ function handle_update_action(): void {
 }
 
 function check_update(): array {
+	$cache = json_read('update_cache.json');
+	if(!empty($cache['result']) && !empty($cache['expires_at']) && time() < (int)$cache['expires_at']){
+		return $cache['result'];
+	}
 	$ctx = stream_context_create(['http' => [
-		'method'  => 'GET',
-		'header'  => "User-Agent: AdlairePlatform/".AP_VERSION."\r\n",
-		'timeout' => 10,
+		'method'        => 'GET',
+		'header'        => "User-Agent: AdlairePlatform/".AP_VERSION."\r\n",
+		'timeout'       => 10,
+		'ignore_errors' => true,
 	]]);
-	$res = @file_get_contents(AP_UPDATE_URL, false, $ctx);
-	if($res === false){
+	$res    = @file_get_contents(AP_UPDATE_URL, false, $ctx);
+	$status = 200;
+	if(isset($http_response_header)){
+		foreach($http_response_header as $h){
+			if(preg_match('#^HTTP/\S+\s+(\d+)#', $h, $m)){
+				$status = (int)$m[1];
+			}
+		}
+	}
+	if($status === 403 || $status === 429){
+		return ['error' => 'GitHub API のレート制限に達しました。しばらく待ってから再試行してください。'];
+	}
+	if($res === false || $status !== 200){
 		return ['error' => 'アップデートサーバーに接続できませんでした。'];
 	}
 	$data = json_decode($res, true);
@@ -354,12 +446,14 @@ function check_update(): array {
 			}
 		}
 	}
-	return [
+	$result = [
 		'current'          => AP_VERSION,
 		'latest'           => $latest,
 		'update_available' => version_compare($latest, AP_VERSION, '>'),
 		'zip_url'          => $zip_url,
 	];
+	json_write('update_cache.json', ['result' => $result, 'expires_at' => time() + 3600]);
+	return $result;
 }
 
 function backup_current(): string {
@@ -372,6 +466,8 @@ function backup_current(): string {
 		new RecursiveDirectoryIterator('.', RecursiveDirectoryIterator::SKIP_DOTS),
 		RecursiveIteratorIterator::SELF_FIRST
 	);
+	$file_count = 0;
+	$size_bytes = 0;
 	foreach($iter as $item){
 		$path  = $iter->getSubPathname();
 		$parts = explode(DIRECTORY_SEPARATOR, $path);
@@ -379,14 +475,24 @@ function backup_current(): string {
 		if($item->isDir()){
 			@mkdir($dest.'/'.$path, 0755, true);
 		} else {
-			@copy($item->getRealPath(), $dest.'/'.$path);
+			if(@copy($item->getRealPath(), $dest.'/'.$path)){
+				$file_count++;
+				$size_bytes += $item->getSize();
+			}
 		}
 	}
+	@file_put_contents($dest.'/meta.json', json_encode([
+		'version_before' => AP_VERSION,
+		'created_at'     => date('Y-m-d H:i:s'),
+		'file_count'     => $file_count,
+		'size_bytes'     => $size_bytes,
+	], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
 	return $name;
 }
 
 function apply_update(string $zip_url, string $new_version = ''): void {
 	$backup = backup_current();
+	prune_old_backups();
 	$tmp = sys_get_temp_dir().'/ap_update_'.time().'.zip';
 	$ctx = stream_context_create(['http' => [
 		'method'  => 'GET',
@@ -468,14 +574,20 @@ function rollback_to_backup(string $backup_name): void {
 		echo json_encode(['error' => 'バックアップが見つかりません: '.h($backup_name)]);
 		exit;
 	}
-	$exclude = ['data'];
 	$real_src = realpath($src);
+	if($real_src === false){
+		header('HTTP/1.1 500 Internal Server Error');
+		echo json_encode(['error' => 'バックアップパスの解決に失敗しました。']);
+		exit;
+	}
+	$exclude = ['data'];
 	$iter = new RecursiveIteratorIterator(
 		new RecursiveDirectoryIterator($src, RecursiveDirectoryIterator::SKIP_DOTS),
 		RecursiveIteratorIterator::SELF_FIRST
 	);
 	foreach($iter as $item){
 		$rel   = substr($item->getRealPath(), strlen($real_src) + 1);
+		if($rel === 'meta.json') continue;
 		$parts = explode(DIRECTORY_SEPARATOR, $rel);
 		if(in_array($parts[0], $exclude, true)) continue;
 		if($item->isDir()){

@@ -42,31 +42,55 @@ $(document).ready(function () {
 
     /* ── 更新適用ボタン（動的生成）── */
     $(document).on('click', '#ap-apply-update', function () {
-        if (!confirm('アップデートを適用します。\n事前にバックアップが自動作成されます。よろしいですか？')) return;
         var btn     = $(this);
         var zip_url = btn.data('zip');
         var version = btn.data('version');
-        btn.prop('disabled', true).text('更新中...');
 
-        $.post('index.php', {
-            ap_action: 'apply',
-            zip_url:   zip_url,
-            version:   version,
-            csrf:      csrf
-        })
-            .done(function (data) {
-                if (data.error) {
-                    alert('エラー: ' + data.error);
+        /* 事前環境チェック */
+        btn.prop('disabled', true).text('環境確認中...');
+        $.post('index.php', { ap_action: 'check_env', csrf: csrf })
+            .done(function (env) {
+                if (!env.ok) {
+                    var issues = [];
+                    if (!env.ziparchive) issues.push('ZipArchive 拡張が無効です');
+                    if (!env.url_fopen)  issues.push('allow_url_fopen が無効です');
+                    if (!env.writable)   issues.push('ディレクトリへの書き込み権限がありません');
+                    alert('更新を実行できません:\n・' + issues.join('\n・'));
                     btn.prop('disabled', false).text('今すぐ更新する');
-                } else {
-                    alert(data.message || 'アップデートが完了しました。');
-                    location.reload(true);
+                    return;
                 }
+                var diskMsg = env.disk_free >= 0
+                    ? '（空き容量: ' + formatSize(env.disk_free) + '）'
+                    : '';
+                if (!confirm('アップデートを適用します。' + diskMsg + '\n事前にバックアップが自動作成されます。よろしいですか？')) {
+                    btn.prop('disabled', false).text('今すぐ更新する');
+                    return;
+                }
+                btn.text('更新中...');
+                $.post('index.php', {
+                    ap_action: 'apply',
+                    zip_url:   zip_url,
+                    version:   version,
+                    csrf:      csrf
+                })
+                    .done(function (data) {
+                        if (data.error) {
+                            alert('エラー: ' + data.error);
+                            btn.prop('disabled', false).text('今すぐ更新する');
+                        } else {
+                            alert(data.message || 'アップデートが完了しました。');
+                            location.reload(true);
+                        }
+                    })
+                    .fail(function (xhr) {
+                        var msg = (xhr.responseJSON && xhr.responseJSON.error)
+                            ? xhr.responseJSON.error : '更新中にエラーが発生しました。';
+                        alert('エラー: ' + msg);
+                        btn.prop('disabled', false).text('今すぐ更新する');
+                    });
             })
-            .fail(function (xhr) {
-                var msg = (xhr.responseJSON && xhr.responseJSON.error)
-                    ? xhr.responseJSON.error : '更新中にエラーが発生しました。';
-                alert('エラー: ' + msg);
+            .fail(function () {
+                alert('環境チェックに失敗しました。');
                 btn.prop('disabled', false).text('今すぐ更新する');
             });
     });
@@ -81,13 +105,30 @@ $(document).ready(function () {
             .done(function (data) {
                 var html = '';
                 if (data.backups && data.backups.length > 0) {
-                    html = '<b>バックアップ一覧:</b><ul style="margin:5px 0;padding-left:20px;">';
-                    data.backups.forEach(function (name) {
-                        html += '<li>' + esc(name) +
-                            ' <button class="ap-do-rollback" data-name="' + esc(name) +
-                            '" style="cursor:pointer;">復元</button></li>';
+                    html = '<b>バックアップ一覧:</b>' +
+                        '<table style="margin-top:6px;border-collapse:collapse;font-size:0.9em;">' +
+                        '<tr style="background:#eee;">' +
+                        '<th style="padding:3px 8px;text-align:left;">作成日時</th>' +
+                        '<th style="padding:3px 8px;text-align:left;">更新前</th>' +
+                        '<th style="padding:3px 8px;text-align:right;">サイズ</th>' +
+                        '<th style="padding:3px 8px;"></th>' +
+                        '</tr>';
+                    data.backups.forEach(function (b) {
+                        var name    = b.name;
+                        var meta    = b.meta || {};
+                        var date    = meta.created_at  ? esc(meta.created_at)               : esc(formatBackupDate(name));
+                        var ver     = meta.version_before ? esc(meta.version_before)         : '―';
+                        var size    = meta.size_bytes >= 0 ? formatSize(meta.size_bytes)     : '―';
+                        html += '<tr>' +
+                            '<td style="padding:3px 8px;">' + date + '</td>' +
+                            '<td style="padding:3px 8px;">' + ver  + '</td>' +
+                            '<td style="padding:3px 8px;text-align:right;">' + size + '</td>' +
+                            '<td style="padding:3px 8px;white-space:nowrap;">' +
+                            '<button class="ap-do-rollback" data-name="' + esc(name) + '" style="cursor:pointer;">復元</button> ' +
+                            '<button class="ap-delete-backup" data-name="' + esc(name) + '" style="cursor:pointer;color:#c0392b;">削除</button>' +
+                            '</td></tr>';
                     });
-                    html += '</ul>';
+                    html += '</table>';
                 } else {
                     html = '<span style="color:#555;">バックアップはありません。</span>';
                 }
@@ -132,8 +173,52 @@ $(document).ready(function () {
             });
     });
 
-    /* ── XSS 対策用エスケープヘルパー ── */
+    /* ── バックアップ削除ボタン（動的生成）── */
+    $(document).on('click', '.ap-delete-backup', function () {
+        var name = $(this).data('name');
+        if (!confirm('バックアップ "' + name + '" を削除します。この操作は取り消せません。よろしいですか？')) return;
+        var btn = $(this);
+        btn.prop('disabled', true).text('削除中...');
+
+        $.post('index.php', {
+            ap_action: 'delete_backup',
+            backup:    name,
+            csrf:      csrf
+        })
+            .done(function (data) {
+                if (data.error) {
+                    alert('エラー: ' + data.error);
+                    btn.prop('disabled', false).text('削除');
+                } else {
+                    btn.closest('tr').fadeOut(300, function () { $(this).remove(); });
+                }
+            })
+            .fail(function (xhr) {
+                var msg = (xhr.responseJSON && xhr.responseJSON.error)
+                    ? xhr.responseJSON.error : '削除中にエラーが発生しました。';
+                alert('エラー: ' + msg);
+                btn.prop('disabled', false).text('削除');
+            });
+    });
+
+    /* ── ユーティリティ関数 ── */
+
+    /* XSS 対策エスケープ */
     function esc(s) {
         return $('<span>').text(String(s)).html();
+    }
+
+    /* バックアップ名（YYYYMMDD_HHIISS）を読みやすい日時に変換 */
+    function formatBackupDate(name) {
+        var m = name.match(/^(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})$/);
+        if (!m) return name;
+        return m[1]+'-'+m[2]+'-'+m[3]+' '+m[4]+':'+m[5]+':'+m[6];
+    }
+
+    /* バイト数を KB / MB 表示に変換 */
+    function formatSize(bytes) {
+        if (bytes < 1024)        return bytes + ' B';
+        if (bytes < 1024 * 1024) return Math.round(bytes / 1024) + ' KB';
+        return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
     }
 });
