@@ -2,6 +2,29 @@
 
 ---
 
+## 2026-03-06（アップデートエンジン追加・バグ修正 #6）
+
+- **[Feature]** `AP_VERSION` / `AP_UPDATE_URL` 定数を `index.php` 先頭に追加
+- **[Feature]** `handle_update_action()` — POST `ap_action` ディスパッチャを追加（認証・CSRF 検証済み）
+  - `check`: GitHub Releases API からバージョン情報を取得
+  - `apply`: ZIP ダウンロード → 展開 → `data/`・`backup/` 保護して上書き適用
+  - `list_backups`: `backup/` ディレクトリの一覧を返す
+  - `rollback`: 指定バックアップから `data/` を除いてファイルを復元
+- **[Feature]** `check_update()` — GitHub API レスポンスを解析してバージョン比較結果を返す
+- **[Feature]** `backup_current()` — `backup/YYYYMMDD_His/` に全ファイルを再帰コピー（`data/`・`backup/`・`.git/` 除外）
+- **[Feature]** `apply_update()` — ZIP 取得・ZipArchive 展開・ファイル上書き・`data/version.json` 更新
+- **[Feature]** `rollback_to_backup()` — バックアップから復元（`data/` 除外・バックアップ名を `[0-9_]+` でバリデーション）
+- **[Feature]** `settings()` に「↕ アップデート ↕」折りたたみパネルを追加
+- **[Feature]** `js/updater.js` を新規作成（更新確認・適用・ロールバック AJAX UI、`esc()` で XSS エスケープ）
+- **[Feature]** `loadPlugins()` に `updater.js` を `admin-head` フックとして登録
+- **[Security]** `.htaccess` に `RedirectMatch 403 ^.*/backup/` を追加
+- **[Fix]** `apply_update()` — `ZipArchive::extractTo()` の戻り値未検査バグを修正（展開失敗時に処理続行していた）
+- **[Fix]** `apply_update()` — `realpath($src)` がループ内で毎回評価され `false` 返却時に `$rel` が壊れるバグを修正（`$real_src` を事前計算）
+- **[Fix]** `apply_update()` — 除外リストに `'backup'` を追加（ZIP 内の `backup/` ディレクトリが既存バックアップを上書きする問題を防止）
+- **[Fix]** `js/updater.js` — HTTP 4xx/5xx エラー時の `.fail()` ハンドラで `xhr.responseJSON.error` を読んでサーバーエラー詳細を表示
+
+---
+
 ## 2026-03-06（バグ修正 #5）
 
 - **[Fix]** `settings()` の `glob()` 戻り値に `is_array()` ガードを追加（`false` 返却時の PHP warning を防止）
