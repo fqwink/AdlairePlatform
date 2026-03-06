@@ -9,6 +9,7 @@
 
 ob_start();
 ini_set('session.cookie_httponly', 1);
+ini_set('session.cookie_samesite', 'Lax');
 session_start();
 migrate_from_files();
 host();
@@ -57,14 +58,18 @@ foreach($c as $key => $val){
 		case 'loggedin':
 			if(isset($_SESSION['l']) && $_SESSION['l'] === true)
 				$c[$key] = true;
-			if(isset($_REQUEST['logout'])){
+			if(isset($_POST['logout'])){
+				verify_csrf();
+				$_SESSION = [];
 				session_destroy();
 				header('Location: ./');
 				exit;
 			}
-			if(isset($_REQUEST['login'])){
-				if(is_loggedin())
+			if(isset($_GET['login'])){
+				if(is_loggedin()){
 					header('Location: ./');
+					exit;
+				}
 				$msg = '';
 				if(isset($_POST['sub']))
 					login();
@@ -80,13 +85,17 @@ foreach($c as $key => $val){
 				</div>
 				</form>";
 			}
-			$lstatus = (is_loggedin()) ? "<a href='$host?logout'>Logout</a>" : "<a href='$host?login'>Login</a>";
+			$logout_form = "<form method='POST' style='display:inline'>"
+				."<input type='hidden' name='csrf' value='".csrf_token()."'>"
+				."<button type='submit' name='logout' value='1' style='background:none;border:none;cursor:pointer;padding:0;color:inherit;text-decoration:underline;font:inherit'>Logout</button>"
+				."</form>";
+			$lstatus = (is_loggedin()) ? $logout_form : "<a href='".h($host)."?login'>Login</a>";
 			break;
 		case 'page':
 			if($rp)
 				$c[$key] = $rp;
 			$c[$key] = getSlug($c[$key]);
-			if(isset($_REQUEST['login'])) continue 2;
+			if(isset($_GET['login'])) continue 2;
 			$c['content'] = $_pages[$c[$key]] ?? null;
 			if(!$c['content']){
 				if(!isset($d['page'][$c[$key]])){
@@ -119,27 +128,35 @@ function loadPlugins(){
 	$hook['admin-head'][] = "\n	<script type='text/javascript' src='./js/editInplace.php?hook=".$hook['admin-richText']."'></script>";
 }
 
-function getSlug($p){
+function getSlug(string $p): string {
 	return mb_convert_case(str_replace(' ', '-', $p), MB_CASE_LOWER, "UTF-8");
 }
 
-function is_loggedin(){
+function is_loggedin(): bool {
 	global $c;
 	return $c['loggedin'];
 }
 
 function editTags(){
 	global $hook;
-	if(!is_loggedin() && !isset($_REQUEST['login']))
+	if(!is_loggedin() && !isset($_GET['login']))
 		return;
 	foreach($hook['admin-head'] as $o){
 		echo "\t".$o."\n";
 	}
 }
 
+function h(string $s): string {
+	return htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
+}
+
 function content($id, $content){
 	global $d;
-	echo (is_loggedin()) ? "<span title='".$d['default']['content']."' id='".$id."' class='editText richText'>".$content."</span>" : $content;
+	if(is_loggedin()){
+		echo "<span title='".h($d['default']['content'])."' id='".h($id)."' class='editText richText'>".$content."</span>";
+	} else {
+		echo $content;
+	}
 }
 
 function edit(){
@@ -175,8 +192,10 @@ function menu(){
 	$mlist = explode("<br />\n", $c['menu']);
 	?><ul>
 	<?php
-	foreach ($mlist as $cp){?>
-			<li<?php if($c['page'] == getSlug($cp)) echo ' id="active" '; ?>><a href='<?php echo getSlug($cp); ?>'><?php echo $cp; ?></a></li>
+	foreach ($mlist as $cp){
+		$slug = getSlug(strip_tags($cp));
+		?>
+			<li<?php if($c['page'] == $slug) echo ' id="active" '; ?>><a href='<?php echo h($slug); ?>'><?php echo h(strip_tags($cp)); ?></a></li>
 	<?php } ?>
 	</ul>
 <?php
@@ -200,27 +219,35 @@ function login(){
 	exit;
 }
 
-function savePassword($p){
+function savePassword(string $p): string {
 	$hash = password_hash($p, PASSWORD_BCRYPT);
 	json_write('auth.json', ['password_hash' => $hash]);
 	return $hash;
 }
 
-function data_dir(){
+function data_dir(): string {
 	$dir = 'data';
 	if(!is_dir($dir)) mkdir($dir, 0755, true);
 	return $dir;
 }
 
-function json_read($file){
+function json_read(string $file): array {
 	$path = data_dir().'/'.$file;
 	if(!file_exists($path)) return [];
 	$decoded = json_decode(file_get_contents($path), true);
 	return is_array($decoded) ? $decoded : [];
 }
 
-function json_write($file, array $data){
-	file_put_contents(data_dir().'/'.$file, json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+function json_write(string $file, array $data): void {
+	$result = file_put_contents(
+		data_dir().'/'.$file,
+		json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT)
+	);
+	if($result === false){
+		error_log('json_write failed: '.$file);
+		header('HTTP/1.1 500 Internal Server Error');
+		exit;
+	}
 }
 
 function migrate_from_files(){
@@ -243,14 +270,14 @@ function migrate_from_files(){
 	if($pages) json_write('pages.json', $pages);
 }
 
-function csrf_token(){
+function csrf_token(): string {
 	if(empty($_SESSION['csrf'])){
 		$_SESSION['csrf'] = bin2hex(random_bytes(32));
 	}
 	return $_SESSION['csrf'];
 }
 
-function verify_csrf(){
+function verify_csrf(): void {
 	$token = $_POST['csrf'] ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? '');
 	if(!hash_equals($_SESSION['csrf'] ?? '', $token)){
 		header('HTTP/1.1 403 Forbidden');
@@ -260,7 +287,7 @@ function verify_csrf(){
 
 function host(){
 	global $host, $rp;
-	$rp = preg_replace('#/+#', '/', (isset($_REQUEST['page'])) ? urldecode($_REQUEST['page']) : '');
+	$rp = preg_replace('#/+#', '/', (isset($_GET['page'])) ? urldecode($_GET['page']) : '');
 	$host = $_SERVER['HTTP_HOST'];
 	$uri = preg_replace('#/+#', '/', urldecode($_SERVER['REQUEST_URI']));
 	$host = (strrpos($uri, $rp) !== false) ? $host.'/'.substr($uri, 0, strlen($uri) - strlen($rp)) : $host.'/'.$uri;
@@ -283,13 +310,13 @@ function settings(){
 		$dirs = glob('*', GLOB_ONLYDIR);
 		foreach($dirs as $val){
 			$select = ($val == $c['themeSelect']) ? ' selected' : '';
-			echo '<option value="'.$val.'"'.$select.'>'.$val."</option>\n";
+			echo '<option value="'.h($val).'"'.$select.'>'.h($val)."</option>\n";
 		}
 	}
 	echo "</select></span></div>
 	<div class='change border'><b>Menu <small>(add a page below and <a href='javascript:location.reload(true);'>refresh</a>)</small></b><span id='menu' title='Home' class='editText'>".$c['menu']."</span></div>";
 	foreach(array('title','description','keywords','copyright') as $key){
-		echo "<div class='change border'><span title='".$d['default'][$key]."' id='".$key."' class='editText'>".$c[$key]."</span></div>";
+		echo "<div class='change border'><span title='".h($d['default'][$key])."' id='".h($key)."' class='editText'>".$c[$key]."</span></div>";
 	}
 	echo "</div></div>";
 }
