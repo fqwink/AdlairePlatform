@@ -205,7 +205,7 @@ function menu(){
 		if(trim(strip_tags($cp)) === '') continue;
 		$slug = getSlug(strip_tags($cp));
 		?>
-			<li<?php if($c['page'] == $slug) echo ' id="active" '; ?>><a href='<?php echo h($slug); ?>'><?php echo h(strip_tags($cp)); ?></a></li>
+			<li<?php if($c['page'] == $slug) echo ' class="active"'; ?>><a href='<?php echo h($slug); ?>'><?php echo h(strip_tags($cp)); ?></a></li>
 	<?php } ?>
 	</ul>
 <?php
@@ -284,7 +284,8 @@ function json_read(string $file): array {
 function json_write(string $file, array $data): void {
 	$result = file_put_contents(
 		data_dir().'/'.$file,
-		json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT)
+		json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT),
+		LOCK_EX
 	);
 	if($result === false){
 		error_log('json_write failed: '.$file);
@@ -566,7 +567,7 @@ function apply_update(string $zip_url, string $new_version = ''): void {
 	}
 	$exclude = ['data', 'backup'];
 	$iter = new RecursiveIteratorIterator(
-		new RecursiveDirectoryIterator($src, RecursiveDirectoryIterator::SKIP_DOTS),
+		new RecursiveDirectoryIterator($real_src, RecursiveDirectoryIterator::SKIP_DOTS),
 		RecursiveIteratorIterator::SELF_FIRST
 	);
 	foreach($iter as $item){
@@ -678,7 +679,7 @@ function settings(){
 	}
 	chdir($cwd);
 	echo "</select></span></div>
-	<div class='change border'><b>Menu <small>(add a page below and <a href='javascript:location.reload(true);'>refresh</a>)</small></b><span id='menu' title='Home' class='editText'>".$c['menu']."</span></div>";
+	<div class='change border'><b>Menu <small>(add a page below and <a href='./' id='ap-refresh-link'>refresh</a>)</small></b><span id='menu' title='Home' class='editText'>".$c['menu']."</span></div>";
 	foreach(array('title','description','keywords','copyright') as $key){
 		echo "<div class='change border'><span title='".h($d['default'][$key])."' id='".h($key)."' class='editText'>".$c[$key]."</span></div>";
 	}

@@ -32,6 +32,15 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 
+    /* ── メニューリフレッシュリンク ── */
+    var refreshLink = document.getElementById('ap-refresh-link');
+    if (refreshLink) {
+        refreshLink.addEventListener('click', function (e) {
+            e.preventDefault();
+            location.reload(true);
+        });
+    }
+
     /* ── テーマ選択 ── */
     var themeSelect = document.getElementById('ap-theme-select');
     if (themeSelect) {
@@ -63,9 +72,9 @@ function _apAutosize(el) {
     });
 }
 
-/* 改行 → <br /> 変換 */
+/* 改行 → <br /> 変換（\r\n を \n に正規化してから変換） */
 function _apNl2br(s) {
-    return (s + '').replace(/([^>\r\n]?)(\r\n|\n\r|\r|\n)/g, '$1<br />$2');
+    return (s + '').replace(/\r\n|\r/g, '\n').replace(/([^>\n]?)(\n)/g, '$1<br />\n');
 }
 
 /* フィールド保存（Fetch API） */

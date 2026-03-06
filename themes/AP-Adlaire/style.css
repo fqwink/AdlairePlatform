@@ -64,7 +64,7 @@ h3{margin: 0;}
 }
 
 #nav li a:hover{color: #ffffff;}
-#active a{color: #ffffff !important;}
+.active a{color: #ffffff !important;}
 
 #wrapper {
 	color: #444;
