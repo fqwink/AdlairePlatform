@@ -45,9 +45,10 @@ document.addEventListener('DOMContentLoaded', function () {
 	/* ── 設定パネル開閉 ── */
 	document.querySelectorAll('.toggle').forEach(function (el) {
 		el.addEventListener('click', function () {
-			document.querySelectorAll('.hide').forEach(function (h) {
-				h.style.display = (h.style.display === 'block') ? 'none' : 'block';
-			});
+			var panel = this.parentElement.querySelector('.hide');
+			if (panel) {
+				panel.style.display = (panel.style.display === 'block') ? 'none' : 'block';
+			}
 		});
 	});
 });
@@ -59,7 +60,9 @@ function _apNl2br(s) {
 
 /* フィールド保存（Fetch API） */
 function _apFieldSave(key, val) {
-	var csrf = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+	var csrfMeta = document.querySelector('meta[name="csrf-token"]');
+	if (!csrfMeta) { _apChanging = false; return; }
+	var csrf = csrfMeta.getAttribute('content');
 	fetch('index.php', {
 		method: 'POST',
 		headers: {
