@@ -61,7 +61,7 @@ function _apNl2br(s) {
 /* フィールド保存（Fetch API） */
 function _apFieldSave(key, val) {
 	var csrfMeta = document.querySelector('meta[name="csrf-token"]');
-	if (!csrfMeta) { _apChanging = false; return; }
+	if (!csrfMeta) { console.error('[AdlairePlatform] CSRF token meta tag not found'); _apChanging = false; return; }
 	var csrf = csrfMeta.getAttribute('content');
 	fetch('index.php', {
 		method: 'POST',

@@ -37,6 +37,12 @@ function prune_old_backups(): void {
 }
 
 function delete_backup(string $name): void {
+	$name = basename($name);
+	if(!preg_match('/^[0-9_]+$/', $name)){
+		header('HTTP/1.1 400 Bad Request');
+		echo json_encode(['error' => '無効なバックアップ名です']);
+		exit;
+	}
 	$dir = 'backup/'.$name;
 	if(!is_dir($dir)){
 		header('HTTP/1.1 404 Not Found');
@@ -288,6 +294,12 @@ function apply_update(string $zip_url, string $new_version = ''): void {
 }
 
 function rollback_to_backup(string $backup_name): void {
+	$backup_name = basename($backup_name);
+	if(!preg_match('/^[0-9_]+$/', $backup_name)){
+		header('HTTP/1.1 400 Bad Request');
+		echo json_encode(['error' => '無効なバックアップ名です']);
+		exit;
+	}
 	$src = 'backup/'.$backup_name;
 	if(!is_dir($src)){
 		header('HTTP/1.1 404 Not Found');

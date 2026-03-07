@@ -154,8 +154,9 @@ function h(string $s): string {
 	return htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
 }
 
-function content($id, $content){
+function content(string $id, $content = ''): void {
 	global $d;
+	$content = (string)($content ?? '');
 	if(is_loggedin()){
 		echo "<span title='".h($d['default']['content'])."' id='".h($id)."' class='editText'>".$content."</span>";
 	} else {
