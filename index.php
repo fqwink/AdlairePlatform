@@ -13,9 +13,12 @@ if (PHP_VERSION_ID < 80200) {
 	exit('AdlairePlatform requires PHP 8.2 or later. Current version: ' . PHP_VERSION);
 }
 
-define('AP_VERSION', '1.0.0');
+define('AP_VERSION', '1.2.0');
 define('AP_UPDATE_URL', 'https://api.github.com/repos/win-k/AdlairePlatform/releases/latest');
 define('AP_BACKUP_GENERATIONS', 5);
+
+require 'engines/ThemeEngine.php';
+require 'engines/UpdateEngine.php';
 
 ob_start();
 ini_set('session.cookie_httponly', 1);
@@ -42,11 +45,10 @@ $c['description'] = 'Your website description.';
 $c['keywords'] = 'enter, your website, keywords';
 $c['copyright'] = '&copy;'.date('Y').' Your website';
 $apcredit = "Powered by <a href=''>Adlaire Platform</a>";
-if(!file_exists('plugins')) mkdir('plugins', 0755, true);
 
-$_settings = json_read('settings.json');
-$_auth     = json_read('auth.json');
-$_pages    = json_read('pages.json');
+$_settings = json_read('settings.json', settings_dir());
+$_auth     = json_read('auth.json', settings_dir());
+$_pages    = json_read('pages.json', content_dir());
 
 foreach($c as $key => $val){
 	if($key == 'content') continue;
@@ -119,26 +121,15 @@ foreach($c as $key => $val){
 			break;
 	}
 }
-loadPlugins();
+registerCoreHooks();
 
-if(!preg_match('/^[a-zA-Z0-9_-]+$/', $c['themeSelect'])){
-	$c['themeSelect'] = 'AP-Default';
-}
-require("themes/".$c['themeSelect']."/theme.php");
+ThemeEngine::load($c['themeSelect']);
 
-function loadPlugins(){
-	global $hook, $c;
-	$cwd = getcwd();
-	if(chdir("./plugins/")){
-		$dirs = glob('*', GLOB_ONLYDIR);
-		if(is_array($dirs))
-			foreach($dirs as $dir){
-				require_once($cwd.'/plugins/'.$dir.'/index.php');
-			}
-	}
-	chdir($cwd);
-	$hook['admin-head'][] = "\n\t<script type='text/javascript' src='./js/editInplace.php'></script>";
-	$hook['admin-head'][] = "\n	<script type='text/javascript' src='./js/updater.js'></script>";
+function registerCoreHooks(): void {
+	global $hook;
+	$hook['admin-head'][] = "\n\t<script src='engines/JsEngine/autosize.js'></script>";
+	$hook['admin-head'][] = "\n\t<script src='engines/JsEngine/editInplace.js'></script>";
+	$hook['admin-head'][] = "\n\t<script src='engines/JsEngine/updater.js'></script>";
 }
 
 function getSlug(string $p): string {
@@ -187,13 +178,13 @@ function edit(){
 		verify_csrf();
 		$settings_keys = ['title','description','keywords','copyright','themeSelect','menu','subside'];
 		if(in_array($fieldname, $settings_keys, true)){
-			$settings = json_read('settings.json');
+			$settings = json_read('settings.json', settings_dir());
 			$settings[$fieldname] = $content;
-			json_write('settings.json', $settings);
+			json_write('settings.json', $settings, settings_dir());
 		} else {
-			$pages = json_read('pages.json');
+			$pages = json_read('pages.json', content_dir());
 			$pages[$fieldname] = $content;
-			json_write('pages.json', $pages);
+			json_write('pages.json', $pages, content_dir());
 		}
 		echo $content;
 		exit;
@@ -241,13 +232,13 @@ function login(){
 }
 
 function check_login_rate(string $ip): bool {
-	$data     = json_read('login_attempts.json');
+	$data     = json_read('login_attempts.json', settings_dir());
 	$attempts = $data[$ip] ?? ['count' => 0, 'locked_until' => 0];
 	return time() >= (int)$attempts['locked_until'];
 }
 
 function record_login_failure(string $ip): void {
-	$data     = json_read('login_attempts.json');
+	$data     = json_read('login_attempts.json', settings_dir());
 	$attempts = $data[$ip] ?? ['count' => 0, 'locked_until' => 0];
 	if(time() >= (int)$attempts['locked_until']){
 		$attempts['count']++;
@@ -257,18 +248,18 @@ function record_login_failure(string $ip): void {
 		$attempts['count']        = 0;
 	}
 	$data[$ip] = $attempts;
-	json_write('login_attempts.json', $data);
+	json_write('login_attempts.json', $data, settings_dir());
 }
 
 function clear_login_rate(string $ip): void {
-	$data = json_read('login_attempts.json');
+	$data = json_read('login_attempts.json', settings_dir());
 	unset($data[$ip]);
-	json_write('login_attempts.json', $data);
+	json_write('login_attempts.json', $data, settings_dir());
 }
 
 function savePassword(string $p): string {
 	$hash = password_hash($p, PASSWORD_BCRYPT);
-	json_write('auth.json', ['password_hash' => $hash]);
+	json_write('auth.json', ['password_hash' => $hash], settings_dir());
 	return $hash;
 }
 
@@ -278,16 +269,28 @@ function data_dir(): string {
 	return $dir;
 }
 
-function json_read(string $file): array {
-	$path = data_dir().'/'.$file;
+function settings_dir(): string {
+	$dir = 'data/settings';
+	if(!is_dir($dir)) mkdir($dir, 0755, true);
+	return $dir;
+}
+
+function content_dir(): string {
+	$dir = 'data/content';
+	if(!is_dir($dir)) mkdir($dir, 0755, true);
+	return $dir;
+}
+
+function json_read(string $file, string $dir = ''): array {
+	$path = ($dir ?: data_dir()).'/'.$file;
 	if(!file_exists($path)) return [];
 	$decoded = json_decode(file_get_contents($path), true);
 	return is_array($decoded) ? $decoded : [];
 }
 
-function json_write(string $file, array $data): void {
+function json_write(string $file, array $data, string $dir = ''): void {
 	$result = file_put_contents(
-		data_dir().'/'.$file,
+		($dir ?: data_dir()).'/'.$file,
 		json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT),
 		LOCK_EX
 	);
@@ -298,341 +301,43 @@ function json_write(string $file, array $data): void {
 	}
 }
 
-function migrate_from_files(){
-	if(file_exists(data_dir().'/settings.json')) return;
-	$settings_keys = ['title','description','keywords','copyright','themeSelect','menu','subside'];
-	$settings = [];
-	foreach($settings_keys as $key){
-		$v = file_exists('files/'.$key) ? file_get_contents('files/'.$key) : false;
-		if($v !== false) $settings[$key] = $v;
-	}
-	if($settings) json_write('settings.json', $settings);
-	$pw = file_exists('files/password') ? file_get_contents('files/password') : false;
-	if($pw) json_write('auth.json', ['password_hash' => trim($pw)]);
-	$skip = array_merge($settings_keys, ['password','loggedin']);
-	$pages = [];
-	foreach(glob('files/*') ?: [] as $f){
-		$slug = basename($f);
-		if(!in_array($slug, $skip, true)){
-			$v = file_get_contents($f);
-			if($v !== false) $pages[$slug] = $v;
+function migrate_from_files(): void {
+	/* Phase 1: files/ フラット構造 → data/ への旧来マイグレーション */
+	if(!file_exists(data_dir().'/settings.json') && !file_exists(settings_dir().'/settings.json')){
+		$settings_keys = ['title','description','keywords','copyright','themeSelect','menu','subside'];
+		$settings = [];
+		foreach($settings_keys as $key){
+			$v = file_exists('files/'.$key) ? file_get_contents('files/'.$key) : false;
+			if($v !== false) $settings[$key] = $v;
 		}
-	}
-	if($pages) json_write('pages.json', $pages);
-}
-
-function check_environment(): array {
-	$ziparchive = class_exists('ZipArchive');
-	$url_fopen  = (bool)ini_get('allow_url_fopen');
-	$writable   = is_writable('.');
-	$disk_free  = @disk_free_space('.');
-	$ok = $ziparchive && $url_fopen && $writable;
-	return [
-		'ziparchive' => $ziparchive,
-		'url_fopen'  => $url_fopen,
-		'writable'   => $writable,
-		'disk_free'  => $disk_free !== false ? (int)$disk_free : -1,
-		'ok'         => $ok,
-	];
-}
-
-function prune_old_backups(): void {
-	$backups = glob('backup/*', GLOB_ONLYDIR);
-	if(!is_array($backups) || count($backups) <= AP_BACKUP_GENERATIONS) return;
-	sort($backups);
-	$excess = count($backups) - AP_BACKUP_GENERATIONS;
-	for($i = 0; $i < $excess; $i++){
-		$dir  = $backups[$i];
-		$iter = new RecursiveIteratorIterator(
-			new RecursiveDirectoryIterator($dir, RecursiveDirectoryIterator::SKIP_DOTS),
-			RecursiveIteratorIterator::CHILD_FIRST
-		);
-		foreach($iter as $f){
-			$f->isDir() ? @rmdir($f->getRealPath()) : @unlink($f->getRealPath());
-		}
-		@rmdir($dir);
-	}
-}
-
-function delete_backup(string $name): void {
-	$dir = 'backup/'.$name;
-	if(!is_dir($dir)){
-		header('HTTP/1.1 404 Not Found');
-		echo json_encode(['error' => 'バックアップが見つかりません: '.h($name)]);
-		exit;
-	}
-	$iter = new RecursiveIteratorIterator(
-		new RecursiveDirectoryIterator($dir, RecursiveDirectoryIterator::SKIP_DOTS),
-		RecursiveIteratorIterator::CHILD_FIRST
-	);
-	foreach($iter as $f){
-		$f->isDir() ? @rmdir($f->getRealPath()) : @unlink($f->getRealPath());
-	}
-	@rmdir($dir);
-}
-
-function handle_update_action(): void {
-	if(!isset($_POST['ap_action'])) return;
-	if(!isset($_SESSION['l']) || $_SESSION['l'] !== true){
-		header('HTTP/1.1 401 Unauthorized');
-		header('Content-Type: application/json');
-		echo json_encode(['error' => '認証が必要です']);
-		exit;
-	}
-	verify_csrf();
-	header('Content-Type: application/json');
-	switch($_POST['ap_action']){
-		case 'check':
-			echo json_encode(check_update());
-			break;
-		case 'check_env':
-			echo json_encode(check_environment());
-			break;
-		case 'apply':
-			$zip_url = $_POST['zip_url'] ?? '';
-			if(!preg_match('#^https://(api\.github\.com|github\.com|codeload\.github\.com)/#', $zip_url)){
-				header('HTTP/1.1 400 Bad Request');
-				echo json_encode(['error' => '無効な URL です']);
-				exit;
-			}
-			$version = $_POST['version'] ?? '';
-			apply_update($zip_url, $version);
-			echo json_encode(['success' => true, 'message' => 'アップデートが完了しました。ページを再読み込みします。']);
-			break;
-		case 'list_backups':
-			$backups = glob('backup/*', GLOB_ONLYDIR);
-			$list = [];
-			if(is_array($backups)){
-				rsort($backups);
-				foreach($backups as $path){
-					$name      = basename($path);
-					$meta_file = $path.'/meta.json';
-					$meta      = null;
-					if(file_exists($meta_file)){
-						$decoded = json_decode(file_get_contents($meta_file), true);
-						if(is_array($decoded)) $meta = $decoded;
-					}
-					$list[] = ['name' => $name, 'meta' => $meta];
-				}
-			}
-			echo json_encode(['backups' => $list]);
-			break;
-		case 'rollback':
-			$name = $_POST['backup'] ?? '';
-			if(!preg_match('/^[0-9_]+$/', $name)){
-				header('HTTP/1.1 400 Bad Request');
-				echo json_encode(['error' => '無効なバックアップ名です']);
-				exit;
-			}
-			rollback_to_backup($name);
-			echo json_encode(['success' => true, 'message' => 'ロールバックが完了しました。ページを再読み込みします。']);
-			break;
-		case 'delete_backup':
-			$name = $_POST['backup'] ?? '';
-			if(!preg_match('/^[0-9_]+$/', $name)){
-				header('HTTP/1.1 400 Bad Request');
-				echo json_encode(['error' => '無効なバックアップ名です']);
-				exit;
-			}
-			delete_backup($name);
-			echo json_encode(['success' => true, 'message' => 'バックアップを削除しました。']);
-			break;
-		default:
-			header('HTTP/1.1 400 Bad Request');
-			echo json_encode(['error' => '不明なアクションです']);
-	}
-	exit;
-}
-
-function check_update(): array {
-	$cache = json_read('update_cache.json');
-	if(!empty($cache['result']) && !empty($cache['expires_at']) && time() < (int)$cache['expires_at']){
-		return $cache['result'];
-	}
-	$ctx = stream_context_create(['http' => [
-		'method'        => 'GET',
-		'header'        => "User-Agent: AdlairePlatform/".AP_VERSION."\r\n",
-		'timeout'       => 10,
-		'ignore_errors' => true,
-	]]);
-	$res    = @file_get_contents(AP_UPDATE_URL, false, $ctx);
-	$status = 200;
-	if(isset($http_response_header)){
-		foreach($http_response_header as $h){
-			if(preg_match('#^HTTP/\S+\s+(\d+)#', $h, $m)){
-				$status = (int)$m[1];
+		if($settings) json_write('settings.json', $settings, settings_dir());
+		$pw = file_exists('files/password') ? file_get_contents('files/password') : false;
+		if($pw) json_write('auth.json', ['password_hash' => trim($pw)], settings_dir());
+		$skip = array_merge($settings_keys, ['password','loggedin']);
+		$pages = [];
+		foreach(glob('files/*') ?: [] as $f){
+			$slug = basename($f);
+			if(!in_array($slug, $skip, true)){
+				$v = file_get_contents($f);
+				if($v !== false) $pages[$slug] = $v;
 			}
 		}
+		if($pages) json_write('pages.json', $pages, content_dir());
 	}
-	if($status === 403 || $status === 429){
-		return ['error' => 'GitHub API のレート制限に達しました。しばらく待ってから再試行してください。'];
-	}
-	if($res === false || $status !== 200){
-		return ['error' => 'アップデートサーバーに接続できませんでした。'];
-	}
-	$data = json_decode($res, true);
-	if(!is_array($data) || !isset($data['tag_name'])){
-		return ['error' => 'バージョン情報の取得に失敗しました。'];
-	}
-	$latest  = ltrim($data['tag_name'], 'v');
-	$zip_url = $data['zipball_url'] ?? '';
-	if(isset($data['assets']) && is_array($data['assets'])){
-		foreach($data['assets'] as $asset){
-			if(isset($asset['browser_download_url']) && str_ends_with($asset['browser_download_url'], '.zip')){
-				$zip_url = $asset['browser_download_url'];
-				break;
-			}
+	/* Phase 2: data/*.json → data/settings/ & data/content/ への移行 */
+	$s_dir = settings_dir();
+	$c_dir = content_dir();
+	foreach(['settings.json','auth.json','update_cache.json','login_attempts.json','version.json'] as $f){
+		$old = data_dir().'/'.$f;
+		$new = $s_dir.'/'.$f;
+		if(file_exists($old) && !file_exists($new)){
+			rename($old, $new);
 		}
 	}
-	$result = [
-		'current'          => AP_VERSION,
-		'latest'           => $latest,
-		'update_available' => version_compare($latest, AP_VERSION, '>'),
-		'zip_url'          => $zip_url,
-	];
-	json_write('update_cache.json', ['result' => $result, 'expires_at' => time() + 3600]);
-	return $result;
-}
-
-function backup_current(): string {
-	$name = date('Ymd_His');
-	$dest = 'backup/'.$name;
-	if(!is_dir('backup')) mkdir('backup', 0755, true);
-	mkdir($dest, 0755, true);
-	$exclude = ['data', 'backup', '.git'];
-	$iter = new RecursiveIteratorIterator(
-		new RecursiveDirectoryIterator('.', RecursiveDirectoryIterator::SKIP_DOTS),
-		RecursiveIteratorIterator::SELF_FIRST
-	);
-	$file_count = 0;
-	$size_bytes = 0;
-	foreach($iter as $item){
-		$path  = $iter->getSubPathname();
-		$parts = explode(DIRECTORY_SEPARATOR, $path);
-		if(in_array($parts[0], $exclude, true)) continue;
-		if($item->isDir()){
-			@mkdir($dest.'/'.$path, 0755, true);
-		} else {
-			if(@copy($item->getRealPath(), $dest.'/'.$path)){
-				$file_count++;
-				$size_bytes += $item->getSize();
-			}
-		}
-	}
-	@file_put_contents($dest.'/meta.json', json_encode([
-		'version_before' => AP_VERSION,
-		'created_at'     => date('Y-m-d H:i:s'),
-		'file_count'     => $file_count,
-		'size_bytes'     => $size_bytes,
-	], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
-	return $name;
-}
-
-function apply_update(string $zip_url, string $new_version = ''): void {
-	$backup = backup_current();
-	prune_old_backups();
-	$tmp = sys_get_temp_dir().'/ap_update_'.time().'.zip';
-	$ctx = stream_context_create(['http' => [
-		'method'  => 'GET',
-		'header'  => "User-Agent: AdlairePlatform/".AP_VERSION."\r\n",
-		'timeout' => 60,
-	]]);
-	$zip_data = @file_get_contents($zip_url, false, $ctx);
-	if($zip_data === false){
-		error_log('apply_update: download failed: '.$zip_url);
-		header('HTTP/1.1 502 Bad Gateway');
-		echo json_encode(['error' => 'ダウンロードに失敗しました。']);
-		exit;
-	}
-	file_put_contents($tmp, $zip_data);
-	$zip = new ZipArchive();
-	if($zip->open($tmp) !== true){
-		unlink($tmp);
-		header('HTTP/1.1 500 Internal Server Error');
-		echo json_encode(['error' => 'ZIP の展開に失敗しました。']);
-		exit;
-	}
-	$extract_dir = sys_get_temp_dir().'/ap_update_extract_'.time();
-	$ok = $zip->extractTo($extract_dir);
-	$zip->close();
-	unlink($tmp);
-	if(!$ok){
-		header('HTTP/1.1 500 Internal Server Error');
-		echo json_encode(['error' => 'ZIP の展開に失敗しました。']);
-		exit;
-	}
-	$top = glob($extract_dir.'/*', GLOB_ONLYDIR);
-	$src = (is_array($top) && count($top) === 1) ? $top[0] : $extract_dir;
-	$real_src = realpath($src);
-	if($real_src === false){
-		header('HTTP/1.1 500 Internal Server Error');
-		echo json_encode(['error' => 'ZIP 展開先のパス解決に失敗しました。']);
-		exit;
-	}
-	$exclude = ['data', 'backup'];
-	$iter = new RecursiveIteratorIterator(
-		new RecursiveDirectoryIterator($real_src, RecursiveDirectoryIterator::SKIP_DOTS),
-		RecursiveIteratorIterator::SELF_FIRST
-	);
-	foreach($iter as $item){
-		$rel   = substr($item->getRealPath(), strlen($real_src) + 1);
-		$parts = explode(DIRECTORY_SEPARATOR, $rel);
-		if(in_array($parts[0], $exclude, true)) continue;
-		if($item->isDir()){
-			@mkdir('./'.$rel, 0755, true);
-		} else {
-			@copy($item->getRealPath(), './'.$rel);
-		}
-	}
-	$clean = new RecursiveIteratorIterator(
-		new RecursiveDirectoryIterator($extract_dir, RecursiveDirectoryIterator::SKIP_DOTS),
-		RecursiveIteratorIterator::CHILD_FIRST
-	);
-	foreach($clean as $f){
-		$f->isDir() ? @rmdir($f->getRealPath()) : @unlink($f->getRealPath());
-	}
-	@rmdir($extract_dir);
-	$ver_data = json_read('version.json');
-	if(empty($ver_data['history'])) $ver_data['history'] = [];
-	$applied = $new_version ?: AP_VERSION;
-	$ver_data['version']    = $applied;
-	$ver_data['updated_at'] = date('Y-m-d');
-	$ver_data['history'][]  = [
-		'version'    => $applied,
-		'applied_at' => date('Y-m-d H:i:s'),
-		'backup'     => $backup,
-	];
-	json_write('version.json', $ver_data);
-}
-
-function rollback_to_backup(string $backup_name): void {
-	$src = 'backup/'.$backup_name;
-	if(!is_dir($src)){
-		header('HTTP/1.1 404 Not Found');
-		echo json_encode(['error' => 'バックアップが見つかりません: '.h($backup_name)]);
-		exit;
-	}
-	$real_src = realpath($src);
-	if($real_src === false){
-		header('HTTP/1.1 500 Internal Server Error');
-		echo json_encode(['error' => 'バックアップパスの解決に失敗しました。']);
-		exit;
-	}
-	$exclude = ['data'];
-	$iter = new RecursiveIteratorIterator(
-		new RecursiveDirectoryIterator($src, RecursiveDirectoryIterator::SKIP_DOTS),
-		RecursiveIteratorIterator::SELF_FIRST
-	);
-	foreach($iter as $item){
-		$rel   = substr($item->getRealPath(), strlen($real_src) + 1);
-		if($rel === 'meta.json') continue;
-		$parts = explode(DIRECTORY_SEPARATOR, $rel);
-		if(in_array($parts[0], $exclude, true)) continue;
-		if($item->isDir()){
-			@mkdir('./'.$rel, 0755, true);
-		} else {
-			@copy($item->getRealPath(), './'.$rel);
-		}
+	$old_pages = data_dir().'/pages.json';
+	$new_pages = $c_dir.'/pages.json';
+	if(file_exists($old_pages) && !file_exists($new_pages)){
+		rename($old_pages, $new_pages);
 	}
 }
 
@@ -672,16 +377,10 @@ function settings(){
 	<h3 class='toggle'>↕ Settings ↕</h3>
 	<div class='hide'>
 	<div class='change border'><b>Theme</b>&nbsp;<span id='themeSelect'><select name='themeSelect' id='ap-theme-select'>";
-	$cwd = getcwd();
-	if(chdir("./themes/")){
-		$dirs = glob('*', GLOB_ONLYDIR);
-		if(is_array($dirs))
-			foreach($dirs as $val){
-				$select = ($val == $c['themeSelect']) ? ' selected' : '';
-				echo '<option value="'.h($val).'"'.$select.'>'.h($val)."</option>\n";
-			}
+	foreach(ThemeEngine::listThemes() as $val){
+		$select = ($val == $c['themeSelect']) ? ' selected' : '';
+		echo '<option value="'.h($val).'"'.$select.'>'.h($val)."</option>\n";
 	}
-	chdir($cwd);
 	echo "</select></span></div>
 	<div class='change border'><b>Menu <small>(add a page below and <a href='./' id='ap-refresh-link'>refresh</a>)</small></b><span id='menu' title='Home' class='editText'>".$c['menu']."</span></div>";
 	foreach(array('title','description','keywords','copyright') as $key){
