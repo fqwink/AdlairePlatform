@@ -31,6 +31,15 @@ server {
     }
 
     # -----------------------------------------------------------------
+    # engines/ の PHP ファイルへの直接アクセスを禁止
+    # .htaccess の RedirectMatch 403 ^.*/engines/.*\.php$ に相当
+    # -----------------------------------------------------------------
+    location ~ ^/engines/.*\.php$ {
+        deny all;
+        return 403;
+    }
+
+    # -----------------------------------------------------------------
     # PHP ファイルの実行（php-fpm 経由）
     # -----------------------------------------------------------------
     location ~ \.php$ {
@@ -47,7 +56,7 @@ server {
     add_header X-Content-Type-Options  "nosniff"       always;
     add_header X-Frame-Options         "SAMEORIGIN"    always;
     add_header Referrer-Policy         "same-origin"   always;
-    add_header Content-Security-Policy "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'self'" always;
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'self'" always;
     add_header Permissions-Policy      "geolocation=(), microphone=(), camera=()" always;
 
     # -----------------------------------------------------------------
