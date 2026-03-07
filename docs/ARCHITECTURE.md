@@ -1,6 +1,6 @@
 # AdlairePlatform アーキテクチャ設計書
 
-> バージョン: Ver.1.2-15
+> バージョン: Ver.1.2-17
 > 最終更新: 2026-03-07
 > 分類: 社内限り
 
@@ -36,7 +36,8 @@ AdlairePlatform/
 │  ├─ UpdateEngine.php          # アップデート・バックアップ・ロールバック
 │  └─ JsEngine/
 │     ├─ autosize.js            # テキストエリア自動リサイズ
-│     ├─ editInplace.js         # インプレイス編集（バニラJS）
+│     ├─ editInplace.js         # インプレイス編集（バニラJS・plain text）
+│     ├─ wysiwyg.js             # WYSIWYG エディタ（Ph2-1・依存なし）
 │     └─ updater.js             # アップデートUI
 ├─ themes/
 │  ├─ AP-Default/
@@ -109,7 +110,8 @@ delete_backup()           ─ 指定バックアップの削除
 | ファイル | 役割 |
 |---------|------|
 | `autosize.js` | `apAutosize(el)` 関数を提供。`textarea[data-autosize]` を DOMContentLoaded で自動初期化 |
-| `editInplace.js` | `.editText` スパンのクリックで textarea に変換、blur 時に Fetch API で保存 |
+| `editInplace.js` | `.editText` スパンのクリックで textarea に変換、blur 時に Fetch API で保存（plain text 用） |
+| `wysiwyg.js` | `.editRich` スパンのクリックで contenteditable + ツールバーを起動、Ctrl+Enter/blur で保存（HTML コンテンツ用） |
 | `updater.js` | アップデート確認・適用・バックアップ一覧・ロールバック・削除 UI |
 
 ---
@@ -140,7 +142,7 @@ index.php
 ThemeEngine::load()
     └─ themes/{themeSelect}/theme.php
             ├─ HTML head 出力（editTags() → JsEngine スクリプト）
-            ├─ content() ─ ページコンテンツ出力（ログイン時は editText span）
+            ├─ content() ─ ページコンテンツ出力（ログイン時は editRich span → WYSIWYG）
             ├─ menu() ─ ナビゲーション出力
             └─ settings() ─ 管理パネル出力（ログイン時のみ）
     │
@@ -195,6 +197,7 @@ Phase 2 は起動時に毎回チェックするが、移行済みの場合は `f
 // registerCoreHooks() が admin-head フックに JsEngine スクリプトを登録
 $hook['admin-head'][] = "<script src='engines/JsEngine/autosize.js'>";
 $hook['admin-head'][] = "<script src='engines/JsEngine/editInplace.js'>";
+$hook['admin-head'][] = "<script src='engines/JsEngine/wysiwyg.js'>";
 $hook['admin-head'][] = "<script src='engines/JsEngine/updater.js'>";
 
 // editTags() がログイン時のみ <head> 内で echo

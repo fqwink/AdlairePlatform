@@ -129,6 +129,7 @@ function registerCoreHooks(): void {
 	global $hook;
 	$hook['admin-head'][] = "\n\t<script src='engines/JsEngine/autosize.js'></script>";
 	$hook['admin-head'][] = "\n\t<script src='engines/JsEngine/editInplace.js'></script>";
+	$hook['admin-head'][] = "\n\t<script src='engines/JsEngine/wysiwyg.js'></script>";
 	$hook['admin-head'][] = "\n\t<script src='engines/JsEngine/updater.js'></script>";
 }
 
@@ -158,7 +159,7 @@ function content(string $id, $content = ''): void {
 	global $d;
 	$content = (string)($content ?? '');
 	if(is_loggedin()){
-		echo "<span title='".h($d['default']['content'])."' id='".h($id)."' class='editText'>".$content."</span>";
+		echo "<span title='".h($d['default']['content'])."' id='".h($id)."' class='editRich'>".$content."</span>";
 	} else {
 		echo $content;
 	}
