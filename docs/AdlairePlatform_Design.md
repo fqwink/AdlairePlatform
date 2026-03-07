@@ -336,7 +336,7 @@ Header always set Content-Security-Policy "default-src 'self'; script-src 'self'
 - ✅ autosize（CDN依存）
 - ✅ クリーンURL（mod_rewrite）
 
-### 計画中（Ver.1.1-1.2）
+### 計画中（Ver.1.1-12 〜 Ver.1.2-15）
 
 - 🔧 PHP 8.2 バージョンチェック（P1-1）
 - 🔧 jQuery廃止 → バニラJS移行（P1）
