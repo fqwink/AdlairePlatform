@@ -1,6 +1,6 @@
 # AdlairePlatform アーキテクチャ設計書
 
-> バージョン: Ver.1.2-17
+> バージョン: Ver.1.2-18
 > 最終更新: 2026-03-07
 > 分類: 社内限り
 
@@ -55,6 +55,8 @@ AdlairePlatform/
 │  │  └─ version.json           # アップデート履歴
 │  └─ content/
 │     └─ pages.json             # ページコンテンツ
+├─ uploads/                     # アップロード済み画像（公開・PHP実行不可）
+│  └─ .htaccess                 # Options -Indexes + PHP 禁止
 └─ backup/                      # 自動バックアップ（最大5世代）
    └─ YYYYMMDD_HHmmss/
       └─ meta.json              # バックアップメタ情報
@@ -74,6 +76,7 @@ AdlairePlatform/
 | レート制限 | `check_login_rate()`, `record_login_failure()`, `clear_login_rate()` | IP ベースのログイン試行制限 |
 | CSRF | `csrf_token()`, `verify_csrf()` | トークン生成・検証 |
 | コンテンツ | `content()`, `menu()`, `edit()` | 表示・インライン保存 |
+| 画像UP | `upload_image()` | 認証済みユーザーの画像アップロード（JPEG/PNG/GIF/WebP、2MB制限） |
 | フック | `registerCoreHooks()`, `editTags()` | JsEngine スクリプト注入 |
 | データ層 | `json_read()`, `json_write()`, `data_dir()`, `settings_dir()`, `content_dir()` | JSON ファイル読み書き |
 | マイグレーション | `migrate_from_files()` | 旧データ構造からの自動移行 |
@@ -111,7 +114,7 @@ delete_backup()           ─ 指定バックアップの削除
 |---------|------|
 | `autosize.js` | `apAutosize(el)` 関数を提供。`textarea[data-autosize]` を DOMContentLoaded で自動初期化 |
 | `editInplace.js` | `.editText` スパンのクリックで textarea に変換、blur 時に Fetch API で保存（plain text 用） |
-| `wysiwyg.js` | `.editRich` スパンのクリックで contenteditable + ツールバーを起動、Ctrl+Enter/blur で保存（HTML コンテンツ用） |
+| `wysiwyg.js` | `.editRich` スパンのクリックで contenteditable + ツールバーを起動。画像 D&D/貼り付け/ボタン挿入、30秒定期自動保存、Ctrl+Enter/blur で手動保存 |
 | `updater.js` | アップデート確認・適用・バックアップ一覧・ロールバック・削除 UI |
 
 ---
@@ -186,6 +189,7 @@ Phase 2 は起動時に毎回チェックするが、移行済みの場合は `f
 | XSS | `h()` = `htmlspecialchars(ENT_QUOTES)` による出力エスケープ |
 | レート制限 | 5回失敗で15分ロックアウト（IP ベース、`login_attempts.json`） |
 | ディレクトリ保護 | `.htaccess` で `data/`, `backup/`, `files/`, `engines/*.php` を 403 |
+| 画像アップロード | MIME 検証（`finfo`）、2MB 制限、ランダムファイル名（`random_bytes(12)`）、`uploads/` 内 PHP 実行不可 |
 | CSP | `script-src 'self'` を含む包括的 Content-Security-Policy |
 | engines/ 保護 | `RedirectMatch 403 ^.*/engines/.*\.php$` で直接アクセス禁止 |
 
