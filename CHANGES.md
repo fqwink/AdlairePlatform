@@ -2,6 +2,51 @@
 
 ---
 
+## 2026-03-07（Ver.1.2-16 — バグ修正・defense-in-depth強化）
+
+- **[Security]** `delete_backup()` に内部バリデーションを追加（`basename()` + `/^[0-9_]+$/` 正規表現検証）— handle_update_action() 側の検証に依存せず defense-in-depth として各関数内でも入力を検証
+- **[Security]** `rollback_to_backup()` に同様の内部バリデーションを追加
+- **[Fix]** `content()` 関数の引数を型安全に修正（`string` 型宣言 + `(string)($content ?? '')` null強制変換）— PHP 8.2 で null 連結が Deprecation になる問題を防止
+- **[Fix]** `editInplace.js` — CSRF メタタグが未検出の場合に `console.error('[AdlairePlatform] CSRF token meta tag not found')` を出力（サイレントフェイルから明示的なデバッグログへ）
+- **[Docs]** `AP_VERSION` を `1.2.0` から `1.2.16` へ更新
+- **[Docs]** `docs/AdlairePlatform_Design.md` を現在の実装状態（Ver.1.2-16）に完全同期（設計書ヘッダー・ディレクトリ構成・バージョン計画・タスクリスト・機能リストを更新）
+
+## 2026-03-07（Ver.1.2-15 — P4: ドキュメント整備）
+
+- **[Docs]** `docs/ARCHITECTURE.md` 新規作成（設計概念・ファイル責務・アーキテクチャ方針）
+- **[Docs]** `docs/STATIC_GENERATOR.md` 草稿作成（StaticEngine 設計）
+- **[Docs]** `docs/HEADLESS_CMS.md` 草稿作成（ApiEngine 設計）
+- **[Fix]** 各ドキュメントのバージョン表記を `docs/VERSIONING.md` 規則（`Ver.{Major}.{Minor}-{Revision}`）に準拠させる
+
+## 2026-03-07（Ver.1.2-14 — P3: セキュリティ強化）
+
+- **[Security]** `.htaccess` に `engines/` 内 PHP ファイルへの直接アクセス禁止ルールを追加
+- **[Security]** `.htaccess` に CSP ヘッダー（`default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'`）を追加
+- **[Docs]** `nginx.conf.example` 新規作成（CSP・`engines/` 保護・`data/` / `backup/` 保護・URL rewrite を含む Nginx 設定リファレンス）
+
+## 2026-03-07（Ver.1.2-13 — P2: エンジン分離・データ層分割・サードパーティ排除）
+
+- **[Refactor]** `loadPlugins()` を廃止し `registerCoreHooks()` へ置き換え（内部専用フック管理）
+- **[Refactor]** `plugins/` ディレクトリを廃止
+- **[Feature]** `engines/ThemeEngine.php` 新規作成・分離（テーマ自動検出・切替ロジック）
+- **[Feature]** `engines/UpdateEngine.php` 新規作成・分離（アップデート・バックアップ・ロールバック・環境チェック）
+- **[Feature]** `engines/JsEngine/` ディレクトリ新規作成（`editInplace.js`, `autosize.js`, `updater.js` を集約）
+- **[Feature]** `data/settings/` サブディレクトリ新規作成（`settings.json`, `auth.json`, `update_cache.json`, `version.json` を格納）
+- **[Feature]** `data/content/` サブディレクトリ新規作成（`pages.json` を格納）
+- **[Refactor]** `index.php` のパス参照を `settings_dir()` / `content_dir()` ユーティリティへ更新
+- **[Feature]** `migrate_from_files()` に旧パス（`data/*.json`）から新パスへの自動移行ロジックを追加
+- **[Refactor]** `js/` ディレクトリを廃止（`engines/JsEngine/` へ移行）
+- **[Refactor]** `admin-richText` フック削除（Phase 1 完了により不要）
+
+## 2026-03-07（Ver.1.1-12 — P1: PHP 8.2 必須化・jQuery廃止・JsEngine・RTE廃止）
+
+- **[Compat]** PHP 8.2+ 必須チェックを `index.php` 先頭に追加（`PHP_VERSION_ID < 80200` で HTTP 500 エラーを返す）
+- **[Refactor]** jQuery CDN タグを `themes/AP-Default/theme.php` および `themes/AP-Adlaire/theme.php` から削除
+- **[Feature]** `engines/JsEngine/editInplace.js` 新規作成（jQuery依存を全廃・バニラJS ES2020+ で完全リライト・CSRF対応・Fetch API保存）
+- **[Feature]** `engines/JsEngine/autosize.js` セルフホスト配置（CDN 依存排除）
+- **[Refactor]** `rte.php` / `rte.js` 削除・`richText` クラスを廃止し `editText` に統合
+- **[Refactor]** `admin-richText` フックを Phase 1 で廃止（Phase 2 で WYSIWYG採用時に復活予定）
+
 ## 2026-03-06（アップデートエンジン改良 #7）
 
 - **[Feature]** `AP_BACKUP_GENERATIONS=5` 定数を追加
