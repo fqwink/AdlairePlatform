@@ -7,6 +7,12 @@
 *
 */
 
+if (PHP_VERSION_ID < 80200) {
+	http_response_code(500);
+	header('Content-Type: text/plain; charset=UTF-8');
+	exit('AdlairePlatform requires PHP 8.2 or later. Current version: ' . PHP_VERSION);
+}
+
 define('AP_VERSION', '1.0.0');
 define('AP_UPDATE_URL', 'https://api.github.com/repos/win-k/AdlairePlatform/releases/latest');
 define('AP_BACKUP_GENERATIONS', 5);
@@ -36,8 +42,6 @@ $c['description'] = 'Your website description.';
 $c['keywords'] = 'enter, your website, keywords';
 $c['copyright'] = '&copy;'.date('Y').' Your website';
 $apcredit = "Powered by <a href=''>Adlaire Platform</a>";
-$hook['admin-richText'] = "rte.php";
-
 if(!file_exists('plugins')) mkdir('plugins', 0755, true);
 
 $_settings = json_read('settings.json');
@@ -133,7 +137,7 @@ function loadPlugins(){
 			}
 	}
 	chdir($cwd);
-	$hook['admin-head'][] = "\n	<script type='text/javascript' src='./js/editInplace.php?hook=".h($hook['admin-richText'])."'></script>";
+	$hook['admin-head'][] = "\n\t<script type='text/javascript' src='./js/editInplace.php'></script>";
 	$hook['admin-head'][] = "\n	<script type='text/javascript' src='./js/updater.js'></script>";
 }
 
@@ -162,7 +166,7 @@ function h(string $s): string {
 function content($id, $content){
 	global $d;
 	if(is_loggedin()){
-		echo "<span title='".h($d['default']['content'])."' id='".h($id)."' class='editText richText'>".$content."</span>";
+		echo "<span title='".h($d['default']['content'])."' id='".h($id)."' class='editText'>".$content."</span>";
 	} else {
 		echo $content;
 	}
