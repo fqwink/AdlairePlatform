@@ -2,6 +2,81 @@
 
 ---
 
+## 2026-03-08（Ver.1.2-26 — Ver.1.2系 最終バグ修正）
+
+- **[Fix/Critical]** `UpdateEngine::handle_update_action()` — 全 `ap_action` 値を捕捉して `default: exit` で処理終了していた問題を修正。リビジョン API（`list_revisions`, `restore_revision` 等）が完全に動作不能だった。明示的な有効アクションリスト `in_array()` チェックに変更
+- **[Fix/High]** `index.php` — 空コンテンツのページが 404 扱いになるバグを修正。`!$c['content']`（falsy チェック）を `$c['content'] === null`（厳密 null 比較）に変更
+- **[Fix/High]** `save_revision()` — `fopen()` が `false` を返した場合に `flock()` が TypeError を発生させるバグを修正。`fopen()` 戻り値の `false` チェックを追加
+- **[Fix/Security]** `upload_image()` / `edit()` / `handle_revision_action()` — 認証チェックを `!isset($_SESSION['l'])` から `!isset($_SESSION['l']) || $_SESSION['l'] !== true` に統一。`handle_update_action()` と同レベルの厳密な認証チェックに統一
+- **[Fix]** `docs/nginx.conf.example` — `deny all; return 403;` の冗長な記述を修正（`return` ディレクティブが優先されるため `deny all` は到達不能コード）
+- **[Fix/High]** `wysiwyg.js` — テーブルセル・画像キャプション・Alt入力・チェックリスト内で `e.stopPropagation()` が全キーイベントを遮断し、Ctrl+Enter（保存）・Escape（キャンセル）が動作不能だった問題を修正。save/cancel キーのみバブルアップを許可
+- **[Fix/Security]** `editInplace.js` — サーバーレスポンスを innerHTML に直接代入する XSS 脆弱性を修正。送信済み値 `val` を使用し、空値フォールバックの title 属性は `textContent` で安全に代入
+- **[Fix/High]** `updater.js` — `getElementById()` の null 未チェックによる例外を修正。DOM 要素をキャッシュして null ガードを追加
+- **[Fix]** `updater.js` — エラーレスポンスが JSON でない場合に `r.json()` が例外を投げる問題を修正。`r.text()` + 手動 JSON パースにフォールバック
+- **[Fix]** `wysiwyg.js` — `_apFieldSave()` が未定義の場合に ReferenceError になる問題を修正。`typeof` ガードを追加
+- **[Fix]** `wysiwyg.js` — エディタ終了時に `mousedown`（docHandler）/ `keydown`（typePopup）/ `mousedown`（typePopupClose）イベントリスナーが document に残留するメモリリークを修正
+- **[Fix]** `wysiwyg.js` — スラッシュメニューがエディタ終了後も DOM に残留する問題を修正。`display:none` から `remove()` に変更
+- **[Fix]** `wysiwyg.js` — タイプ変換ポップアップで `getBoundingClientRect()` の null 参照エラーを修正
+
+---
+
+## 2026-03-08（Ver.1.2-26 — TemplateEngine 改良・パーシャル・ループ変数・エラー検出）
+
+- **[Enhancement]** `{{> partial}}` パーシャル構文を追加 — 部分テンプレートの読み込み（循環参照防止: 最大深度10）
+- **[Enhancement]** `{{#each}}` ループ内メタ変数を追加 — `@index`（インデックス）・`@first`（最初の要素）・`@last`（最後の要素）
+- **[Enhancement]** 未処理テンプレートタグ検出 — レンダリング後に残存する `{{...}}` タグを `error_log()` で警告出力
+- **[Refactor]** `settings.html` パーシャル分離 — 管理者設定パネルを `theme.html` から独立した部分テンプレートに抽出
+- **[Refactor]** `ThemeEngine::buildSettingsContext()` 新設 — 設定パネル用コンテキスト変数を構造化データとして構築
+- **[Refactor]** `settings_panel` コンテキスト変数を廃止 — `{{> settings}}` パーシャルに置換
+- **[Theme]** `themes/AP-Default/settings.html` 新規追加
+- **[Theme]** `themes/AP-Adlaire/settings.html` 新規追加
+- **[Theme]** `themes/AP-Default/theme.html` 更新 — `{{> settings}}` パーシャル呼び出しに変更
+- **[Theme]** `themes/AP-Adlaire/theme.html` 更新 — 同上
+- **[Docs]** SPEC.md Ver.0.2-6 — パーシャル構文・ループメタ変数・未処理タグ検出・管理者コンテキスト変数を追加
+- **[Docs]** ARCHITECTURE.md — TemplateEngine にパーシャル・ループ変数・警告検出を反映、テーマ構成に settings.html を追加
+
+---
+
+## 2026-03-08（Ver.1.2-26 — TemplateEngine 導入・テーマ PHP フリー化）
+
+- **[Architecture]** `engines/TemplateEngine.php` 新規作成 — 軽量テンプレートエンジン（変数展開・条件分岐・ループの3構文）
+- **[Architecture]** `engines/ThemeEngine.php` 改修 — `theme.html` 優先ロード・`buildContext()` / `buildStaticContext()` / `parseMenu()` メソッド追加
+- **[Architecture]** テーマ形式に `theme.html`（テンプレートエンジン方式・PHP フリー）を追加、`theme.php` はレガシーフォールバックとして維持
+- **[Security]** テーマファイル内での任意 PHP コード実行を排除（`theme.html` 方式使用時）
+- **[Enhancement]** テーマ作成に PHP 知識が不要に — HTML/CSS のみでテーマ作成可能
+- **[Enhancement]** StaticEngine 向け設計改善 — `ob_start()` + `stripAdminUI()` 方式を廃止、`TemplateEngine::render()` + `ThemeEngine::buildStaticContext()` 方式に変更
+- **[Theme]** `themes/AP-Default/theme.html` 新規追加
+- **[Theme]** `themes/AP-Adlaire/theme.html` 新規追加
+- **[Docs]** STATIC_GENERATOR.md Ver.0.3-1 — レンダリング戦略を TemplateEngine ベースに更新
+- **[Docs]** ARCHITECTURE.md — TemplateEngine 追加・ThemeEngine 改修を反映
+- **[Docs]** SPEC.md Ver.0.2-5 — テンプレート構文・コンテキスト変数・テーマ構造を追加
+
+---
+
+## 2026-03-08（Ver.1.2-25 — WYSIWYG エディタ 編集履歴機能改良）
+
+- **[Security]** CSRF トークンの GET パラメータ露出修正 — `list_revisions` API を POST に統一、トークンはヘッダーで送信
+- **[Security]** リビジョン API レート制限 — セッション単位で 60 秒あたり 30 リクエスト上限
+- **[Fix]** リビジョン削除の競合状態修正 — `save_revision()` にディレクトリ単位ファイルロック追加
+- **[Fix]** 復元時のエラーハンドリング強化 — `_parseHtmlToBlocks()` の結果検証、HTTP エラーコードの適切な処理
+- **[Fix]** 復元前の未保存変更警告 — 未保存の編集がある場合に明示的な警告メッセージ表示
+- **[Fix]** 大容量コンテンツの diff ガード — 2000 行超のコンテンツで LCS フォールバックに切替（ブラウザフリーズ防止）
+- **[UX]** 履歴パネルのキーボード操作 — Escape で閉じる、←→ でタブ切替、↑↓ でリスト移動、Enter で選択
+- **[UX]** diff 等行折りたたみ — 変更のない行が 4 行超の場合に折りたたみ表示（クリックで展開）
+- **[UX]** 色覚多様性対応 — `+`/`-` プレフィックス記号と左ボーダーで差分を視覚的に区別
+- **[UX]** 復元リビジョンのマーキング — 復元操作で作成されたリビジョンに「復元」バッジ表示
+- **[UX]** タブ説明テキスト追加 — 「セッション（ブラウザ内の操作履歴）」「リビジョン（サーバー保存の版管理）」
+- **[Feature]** リビジョン間の比較 — 任意の 2 つのリビジョンを選択して差分を表示
+- **[Feature]** ユーザー帰属情報 — リビジョンに保存ユーザー名を記録・表示
+- **[Feature]** リビジョン検索・フィルタ — キーワードでリビジョン内容を全文検索
+- **[Feature]** リビジョンのピン留め — 重要なバージョンに★マークを付けて自動削除対象から除外
+- **[Feature]** リビジョンコンテンツ取得専用 API — `ap_action=get_revision` エンドポイント追加
+- **[Quality]** fetch エラーの console.warn ロギング追加
+- **[Accessibility]** ARIA role/label 属性追加（dialog, tablist, tab, button, log）
+- **[Accessibility]** フォーカストラップ・フォーカス管理の実装
+
+---
+
 ## 2026-03-08（Ver.1.2-24 — WYSIWYG エディタ 編集履歴機能）
 
 - **[Feature]** リビジョン管理 — コンテンツ保存ごとにサーバーサイドでリビジョンを `data/content/revisions/` に保存（最大30世代）

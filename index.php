@@ -12,11 +12,12 @@ if (PHP_VERSION_ID < 80200) {
 	exit('AdlairePlatform requires PHP 8.2 or later. Current version: ' . PHP_VERSION);
 }
 
-define('AP_VERSION', '1.2.24');
+define('AP_VERSION', '1.2.26');
 define('AP_UPDATE_URL', 'https://api.github.com/repos/win-k/AdlairePlatform/releases/latest');
 define('AP_BACKUP_GENERATIONS', 5);
 define('AP_REVISION_LIMIT', 30);
 
+require 'engines/TemplateEngine.php';
 require 'engines/ThemeEngine.php';
 require 'engines/UpdateEngine.php';
 
@@ -110,7 +111,7 @@ foreach($c as $key => $val){
 			$c[$key] = getSlug($c[$key]);
 			if(isset($_GET['login'])) continue 2;
 			$c['content'] = $_pages[$c[$key]] ?? null;
-			if(!$c['content']){
+			if($c['content'] === null){
 				if(!isset($d['page'][$c[$key]])){
 					header('HTTP/1.1 404 Not Found');
 					$c['content'] = (is_loggedin()) ? $d['new_page']['admin'] : $d['new_page']['visitor'];
@@ -170,7 +171,7 @@ function content(string $id, $content = ''): void {
 function upload_image(): void {
 	if (!isset($_POST['ap_action']) || $_POST['ap_action'] !== 'upload_image') return;
 	header('Content-Type: application/json; charset=UTF-8');
-	if (!isset($_SESSION['l'])) {
+	if (!isset($_SESSION['l']) || $_SESSION['l'] !== true) {
 		http_response_code(401);
 		echo json_encode(['error' => '未ログイン']);
 		exit;
@@ -219,7 +220,7 @@ function edit(){
 			exit;
 		}
 		$content = trim($_POST['content']);
-		if(!isset($_SESSION['l'])){
+		if(!isset($_SESSION['l']) || $_SESSION['l'] !== true){
 			header('HTTP/1.1 401 Unauthorized');
 			exit;
 		}
@@ -354,15 +355,24 @@ function json_write(string $file, array $data, string $dir = ''): void {
    リビジョン管理
    ══════════════════════════════════════════════ */
 
-function save_revision(string $fieldname, string $content): void {
+function save_revision(string $fieldname, string $content, bool $restored = false): void {
 	if(!preg_match('/^[a-zA-Z0-9_\-]+$/', $fieldname)) return;
 	$dir = content_dir() . '/revisions/' . $fieldname . '/';
 	if(!is_dir($dir)) mkdir($dir, 0755, true);
+
+	/* B1: ディレクトリ単位ロックで競合状態防止 */
+	$lockFile = $dir . '.lock';
+	$lf = fopen($lockFile, 'c');
+	if($lf === false) return;
+	if(!flock($lf, LOCK_EX)){ fclose($lf); return; }
+
 	$ts = date('Ymd_His');
 	$rev = [
 		'timestamp' => date('c'),
 		'content'   => $content,
 		'size'      => strlen($content),
+		'user'      => $_SESSION['l'] ?? '',       /* D2: ユーザー帰属 */
+		'restored'  => $restored,                   /* C4: 復元マーキング */
 	];
 	file_put_contents(
 		$dir . 'rev_' . $ts . '.json',
@@ -370,20 +380,31 @@ function save_revision(string $fieldname, string $content): void {
 		LOCK_EX
 	);
 	prune_revisions($dir);
+
+	flock($lf, LOCK_UN);
+	fclose($lf);
 }
 
 function prune_revisions(string $dir): void {
 	$files = glob($dir . 'rev_*.json') ?: [];
 	sort($files);
-	while(count($files) > AP_REVISION_LIMIT){
-		unlink(array_shift($files));
+	/* D4: ピン留めリビジョンは削除対象から除外 */
+	$unpinned = [];
+	foreach($files as $f){
+		$data = json_decode(file_get_contents($f), true);
+		if(is_array($data) && !empty($data['pinned'])) continue;
+		$unpinned[] = $f;
+	}
+	while(count($unpinned) > AP_REVISION_LIMIT){
+		unlink(array_shift($unpinned));
 	}
 }
 
 function handle_revision_action(): void {
-	$action = $_POST['ap_action'] ?? $_GET['ap_action'] ?? '';
-	if($action !== 'list_revisions' && $action !== 'restore_revision') return;
-	if(!isset($_SESSION['l'])){
+	$action = $_POST['ap_action'] ?? '';
+	$valid = ['list_revisions','restore_revision','get_revision','pin_revision','search_revisions'];
+	if(!in_array($action, $valid, true)) return;
+	if(!isset($_SESSION['l']) || $_SESSION['l'] !== true){
 		http_response_code(401);
 		echo json_encode(['error' => 'Unauthorized']);
 		exit;
@@ -391,8 +412,20 @@ function handle_revision_action(): void {
 	verify_csrf();
 	header('Content-Type: application/json; charset=UTF-8');
 
+	/* A2: レート制限（セッション単位、60秒あたり30リクエスト） */
+	$now = time();
+	$_SESSION['_rev_requests'] = $_SESSION['_rev_requests'] ?? [];
+	$_SESSION['_rev_requests'] = array_filter($_SESSION['_rev_requests'], fn($t) => $t > $now - 60);
+	if(count($_SESSION['_rev_requests']) >= 30){
+		http_response_code(429);
+		echo json_encode(['error' => 'Too many requests']);
+		exit;
+	}
+	$_SESSION['_rev_requests'][] = $now;
+
+	/* A1: list_revisions も POST に統一（CSRF を GET から除去） */
 	if($action === 'list_revisions'){
-		$fieldname = $_GET['fieldname'] ?? '';
+		$fieldname = $_POST['fieldname'] ?? '';
 		if(!preg_match('/^[a-zA-Z0-9_\-]+$/', $fieldname)){
 			http_response_code(400);
 			echo json_encode(['error' => 'Invalid fieldname']);
@@ -409,9 +442,38 @@ function handle_revision_action(): void {
 				'file'      => basename($f, '.json'),
 				'timestamp' => $data['timestamp'] ?? '',
 				'size'      => $data['size'] ?? 0,
+				'user'      => $data['user'] ?? '',
+				'restored'  => !empty($data['restored']),
+				'pinned'    => !empty($data['pinned']),
 			];
 		}
 		echo json_encode(['revisions' => $revisions]);
+		exit;
+	}
+
+	/* D5: リビジョンコンテンツ取得専用 API */
+	if($action === 'get_revision'){
+		$fieldname = $_POST['fieldname'] ?? '';
+		$revFile   = $_POST['revision'] ?? '';
+		if(!preg_match('/^[a-zA-Z0-9_\-]+$/', $fieldname) ||
+		   !preg_match('/^rev_[0-9_]+$/', $revFile)){
+			http_response_code(400);
+			echo json_encode(['error' => 'Invalid parameters']);
+			exit;
+		}
+		$path = content_dir() . '/revisions/' . $fieldname . '/' . $revFile . '.json';
+		if(!file_exists($path)){
+			http_response_code(404);
+			echo json_encode(['error' => 'Revision not found']);
+			exit;
+		}
+		$rev = json_decode(file_get_contents($path), true);
+		if(!is_array($rev) || !isset($rev['content'])){
+			http_response_code(500);
+			echo json_encode(['error' => 'Invalid revision data']);
+			exit;
+		}
+		echo json_encode(['ok' => true, 'content' => $rev['content']]);
 		exit;
 	}
 
@@ -437,14 +499,71 @@ function handle_revision_action(): void {
 			exit;
 		}
 		$content = $rev['content'];
-		$preview = ($_POST['preview'] ?? '') === '1';
-		if(!$preview){
-			save_revision($fieldname, $content);
-			$pages = json_read('pages.json', content_dir());
-			$pages[$fieldname] = $content;
-			json_write('pages.json', $pages, content_dir());
-		}
+		save_revision($fieldname, $content, true);
+		$pages = json_read('pages.json', content_dir());
+		$pages[$fieldname] = $content;
+		json_write('pages.json', $pages, content_dir());
 		echo json_encode(['ok' => true, 'content' => $content]);
+		exit;
+	}
+
+	/* D4: ピン留め切り替え */
+	if($action === 'pin_revision'){
+		$fieldname = $_POST['fieldname'] ?? '';
+		$revFile   = $_POST['revision'] ?? '';
+		if(!preg_match('/^[a-zA-Z0-9_\-]+$/', $fieldname) ||
+		   !preg_match('/^rev_[0-9_]+$/', $revFile)){
+			http_response_code(400);
+			echo json_encode(['error' => 'Invalid parameters']);
+			exit;
+		}
+		$path = content_dir() . '/revisions/' . $fieldname . '/' . $revFile . '.json';
+		if(!file_exists($path)){
+			http_response_code(404);
+			echo json_encode(['error' => 'Revision not found']);
+			exit;
+		}
+		$rev = json_decode(file_get_contents($path), true);
+		if(!is_array($rev)){
+			http_response_code(500);
+			echo json_encode(['error' => 'Invalid revision data']);
+			exit;
+		}
+		$rev['pinned'] = empty($rev['pinned']);
+		file_put_contents($path,
+			json_encode($rev, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE),
+			LOCK_EX);
+		echo json_encode(['ok' => true, 'pinned' => $rev['pinned']]);
+		exit;
+	}
+
+	/* D3: リビジョン検索 */
+	if($action === 'search_revisions'){
+		$fieldname = $_POST['fieldname'] ?? '';
+		$query     = $_POST['query'] ?? '';
+		if(!preg_match('/^[a-zA-Z0-9_\-]+$/', $fieldname)){
+			http_response_code(400);
+			echo json_encode(['error' => 'Invalid fieldname']);
+			exit;
+		}
+		$dir = content_dir() . '/revisions/' . $fieldname . '/';
+		$files = glob($dir . 'rev_*.json') ?: [];
+		rsort($files);
+		$results = [];
+		foreach($files as $f){
+			$data = json_decode(file_get_contents($f), true);
+			if(!is_array($data)) continue;
+			if($query !== '' && stripos($data['content'] ?? '', $query) === false) continue;
+			$results[] = [
+				'file'      => basename($f, '.json'),
+				'timestamp' => $data['timestamp'] ?? '',
+				'size'      => $data['size'] ?? 0,
+				'user'      => $data['user'] ?? '',
+				'restored'  => !empty($data['restored']),
+				'pinned'    => !empty($data['pinned']),
+			];
+		}
+		echo json_encode(['revisions' => $results]);
 		exit;
 	}
 }

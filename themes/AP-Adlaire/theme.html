@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="ja">
+<head>
+	<meta charset="utf-8">
+	<title>{{title}} - {{page}}</title>
+	<base href="{{host}}">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<link rel="stylesheet" href="themes/{{themeSelect}}/style.css">
+	<meta name="description" content="{{description}}">
+	<meta name="keywords" content="{{keywords}}">
+	{{#if admin}}
+	<meta name="csrf-token" content="{{csrf_token}}">
+	{{{admin_scripts}}}
+	{{/if}}
+
+</head>
+<body>
+	<nav id="nav">
+		<h1><a href="./">{{title}}</a></h1>
+		<ul>
+		{{#each menu_items}}
+			<li{{#if active}} class="active"{{/if}}><a href="{{slug}}">{{label}}</a></li>
+		{{/each}}
+		</ul>
+		<div class="clear"></div>
+	</nav>
+	{{#if admin}}{{> settings}}{{/if}}
+
+	<div id="wrapper" class="border">
+		<div class="pad">
+			{{{content}}}
+
+		</div>
+	</div>
+
+	<div id="side" class="border">
+		<div class="pad">
+			{{{subside}}}
+
+		</div>
+	</div>
+
+	<div class="clear"></div>
+	<footer>
+		<p>{{{copyright}}} | {{{login_status}}} | {{{credit}}}</p>
+	</footer>
+</body>
+</html>

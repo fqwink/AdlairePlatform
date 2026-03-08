@@ -60,7 +60,9 @@ function delete_backup(string $name): void {
 }
 
 function handle_update_action(): void {
-	if(!isset($_POST['ap_action'])) return;
+	$action = $_POST['ap_action'] ?? '';
+	$valid_actions = ['check', 'check_env', 'apply', 'list_backups', 'rollback', 'delete_backup'];
+	if(!in_array($action, $valid_actions, true)) return;
 	if(!isset($_SESSION['l']) || $_SESSION['l'] !== true){
 		header('HTTP/1.1 401 Unauthorized');
 		header('Content-Type: application/json');
