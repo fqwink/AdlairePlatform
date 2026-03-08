@@ -43,10 +43,12 @@ AdlairePlatform/
 ├─ themes/
 │  ├─ AP-Default/
 │  │  ├─ theme.html             # テンプレートエンジン方式（推奨）
+│  │  ├─ settings.html          # 管理者設定パネル（パーシャル）
 │  │  ├─ theme.php              # レガシー PHP 方式（フォールバック）
 │  │  └─ style.css
 │  └─ AP-Adlaire/
 │     ├─ theme.html
+│     ├─ settings.html
 │     ├─ theme.php
 │     └─ style.css
 ├─ data/
@@ -93,11 +95,13 @@ AdlairePlatform/
 ### engines/TemplateEngine.php
 
 ```
-TemplateEngine::render(string $template, array $context): string
-  ├─ processEach()    — {{#each items}}...{{/each}} ループ処理
-  ├─ processIf()      — {{#if var}}...{{else}}...{{/if}} 条件分岐（ネスト対応）
-  ├─ processRawVars() — {{{var}}} 生 HTML 出力
-  └─ processVars()    — {{var}} エスケープ出力（htmlspecialchars）
+TemplateEngine::render(string $template, array $context, string $partialsDir = ''): string
+  ├─ processPartials() — {{> name}} 部分テンプレート読み込み（最大深度10・循環参照防止）
+  ├─ processEach()     — {{#each items}}...{{/each}} ループ処理（@index, @first, @last 対応）
+  ├─ processIf()       — {{#if var}}...{{else}}...{{/if}} 条件分岐（ネスト対応・@変数対応）
+  ├─ processRawVars()  — {{{var}}} 生 HTML 出力
+  ├─ processVars()     — {{var}} エスケープ出力（htmlspecialchars）
+  └─ warnUnprocessed() — 未処理テンプレートタグを error_log() で警告
 ```
 
 ### engines/ThemeEngine.php
@@ -110,7 +114,8 @@ ThemeEngine::load(string $themeSelect): void
   └─ どちらもなければ AP-Default にフォールバック
 
 ThemeEngine::buildContext(): array
-  └─ 動的 CMS 用テンプレートコンテキストを構築（$c, $host 等からマッピング）
+  ├─ 動的 CMS 用テンプレートコンテキストを構築（$c, $host 等からマッピング）
+  └─ admin=true 時に buildSettingsContext() をマージ
 
 ThemeEngine::buildStaticContext(string $slug, string $content, array $settings): array
   └─ StaticEngine 用コンテキスト（admin=false、管理者 UI 除外）
@@ -120,6 +125,9 @@ ThemeEngine::parseMenu(string $menuStr, string $currentPage): array
 
 ThemeEngine::listThemes(): array
   └─ themes/ ディレクトリ内のサブディレクトリ一覧を返す
+
+ThemeEngine::buildSettingsContext(): array  [private]
+  └─ settings.html パーシャル用のコンテキスト変数を構築（テーマ選択・設定フィールド等）
 ```
 
 ### engines/UpdateEngine.php

@@ -18,19 +18,21 @@ class ThemeEngine {
 			$themeSelect = self::FALLBACK;
 		}
 
-		$htmlPath = self::THEMES_DIR . '/' . $themeSelect . '/theme.html';
-		$phpPath  = self::THEMES_DIR . '/' . $themeSelect . '/theme.php';
+		$themeDir  = self::THEMES_DIR . '/' . $themeSelect;
+		$htmlPath  = $themeDir . '/theme.html';
+		$phpPath   = $themeDir . '/theme.php';
 
 		if (file_exists($htmlPath)) {
 			$context = self::buildContext();
-			echo TemplateEngine::render(file_get_contents($htmlPath), $context);
+			echo TemplateEngine::render(file_get_contents($htmlPath), $context, $themeDir);
 		} elseif (file_exists($phpPath)) {
 			require $phpPath;
 		} else {
-			$fallbackHtml = self::THEMES_DIR . '/' . self::FALLBACK . '/theme.html';
-			$fallbackPhp  = self::THEMES_DIR . '/' . self::FALLBACK . '/theme.php';
+			$fallbackDir  = self::THEMES_DIR . '/' . self::FALLBACK;
+			$fallbackHtml = $fallbackDir . '/theme.html';
+			$fallbackPhp  = $fallbackDir . '/theme.php';
 			if (file_exists($fallbackHtml)) {
-				echo TemplateEngine::render(file_get_contents($fallbackHtml), self::buildContext());
+				echo TemplateEngine::render(file_get_contents($fallbackHtml), self::buildContext(), $fallbackDir);
 			} else {
 				require $fallbackPhp;
 			}
@@ -61,7 +63,7 @@ class ThemeEngine {
 		$contentHtml = self::renderContent($c['page'] ?? '', $c['content'] ?? '', $admin);
 		$subsideHtml = self::renderContent('subside', $c['subside'] ?? '', $admin);
 
-		return [
+		$ctx = [
 			'title'          => $c['title'] ?? '',
 			'page'           => $c['page'] ?? '',
 			'host'           => $host ?? '',
@@ -71,7 +73,6 @@ class ThemeEngine {
 			'admin'          => $admin,
 			'csrf_token'     => csrf_token(),
 			'admin_scripts'  => $adminScripts,
-			'settings_panel' => $admin ? self::renderSettingsPanel() : '',
 			'content'        => $contentHtml,
 			'subside'        => $subsideHtml,
 			'copyright'      => $c['copyright'] ?? '',
@@ -79,6 +80,12 @@ class ThemeEngine {
 			'credit'         => $apcredit ?? '',
 			'menu_items'     => $menuItems,
 		];
+
+		if ($admin) {
+			$ctx = array_merge($ctx, self::buildSettingsContext());
+		}
+
+		return $ctx;
 	}
 
 	/**
@@ -99,7 +106,6 @@ class ThemeEngine {
 			'admin'          => false,
 			'csrf_token'     => '',
 			'admin_scripts'  => '',
-			'settings_panel' => '',
 			'content'        => $content,
 			'subside'        => $settings['subside'] ?? '',
 			'copyright'      => $settings['copyright'] ?? '',
@@ -142,39 +148,33 @@ class ThemeEngine {
 	}
 
 	/**
-	 * settings() の文字列返却版
+	 * settings.html パーシャル用のコンテキスト変数を構築
 	 */
-	private static function renderSettingsPanel(): string {
+	private static function buildSettingsContext(): array {
 		global $c, $d;
-		$html = '';
-		if (!empty($c['migrate_warning'])) {
-			$html .= "<div style='background:#c0392b;color:#fff;padding:10px;margin:5px 0;font-weight:bold;'>警告: パスワードが MD5 から bcrypt に移行されました。パスワードが \"admin\" にリセットされています。すぐに変更してください。</div>";
-		}
-		$html .= "<div class='settings'>
-	<h3 class='toggle'>↕ Settings ↕</h3>
-	<div class='hide'>
-	<div class='change border'><b>Theme</b>&nbsp;<span id='themeSelect'><select name='themeSelect' id='ap-theme-select'>";
+
+		$selectHtml = "<select name='themeSelect' id='ap-theme-select'>";
 		foreach (self::listThemes() as $val) {
-			$select = ($val == $c['themeSelect']) ? ' selected' : '';
-			$html .= '<option value="' . h($val) . '"' . $select . '>' . h($val) . "</option>\n";
+			$selected = ($val == $c['themeSelect']) ? ' selected' : '';
+			$selectHtml .= '<option value="' . h($val) . '"' . $selected . '>' . h($val) . "</option>\n";
 		}
-		$html .= "</select></span></div>
-	<div class='change border'><b>Menu <small>(add a page below and <a href='./' id='ap-refresh-link'>refresh</a>)</small></b><span id='menu' title='Home' class='editText'>" . $c['menu'] . "</span></div>";
+		$selectHtml .= '</select>';
+
+		$fields = [];
 		foreach (['title', 'description', 'keywords', 'copyright'] as $key) {
-			$html .= "<div class='change border'><span title='" . h($d['default'][$key] ?? '') . "' id='" . h($key) . "' class='editText'>" . $c[$key] . "</span></div>";
+			$fields[] = [
+				'key'           => $key,
+				'default_value' => $d['default'][$key] ?? '',
+				'value'         => $c[$key] ?? '',
+			];
 		}
-		$html .= "</div></div>";
-		$html .= "<div class='settings'>
-	<h3 class='toggle'>↕ アップデート ↕</h3>
-	<div class='hide'>
-	<div class='change border'>
-		<b>現在のバージョン:</b> " . h(AP_VERSION) . "
-		<br><br>
-		<button id='ap-check-update' style='cursor:pointer;'>更新を確認</button>
-		<span id='ap-update-status' style='margin-left:10px;'></span>
-		<div id='ap-update-result' style='margin-top:10px;'></div>
-	</div>
-	</div></div>";
-		return $html;
+
+		return [
+			'migrate_warning'  => !empty($c['migrate_warning']),
+			'theme_select_html' => $selectHtml,
+			'menu_raw'         => $c['menu'] ?? '',
+			'settings_fields'  => $fields,
+			'ap_version'       => AP_VERSION,
+		];
 	}
 }

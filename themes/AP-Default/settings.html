@@ -1,0 +1,25 @@
+{{#if migrate_warning}}
+<div style="background:#c0392b;color:#fff;padding:10px;margin:5px 0;font-weight:bold;">警告: パスワードが MD5 から bcrypt に移行されました。パスワードが "admin" にリセットされています。すぐに変更してください。</div>
+{{/if}}
+<div class="settings">
+	<h3 class="toggle">↕ Settings ↕</h3>
+	<div class="hide">
+	<div class="change border"><b>Theme</b>&nbsp;<span id="themeSelect">{{{theme_select_html}}}</span></div>
+	<div class="change border"><b>Menu <small>(add a page below and <a href="./" id="ap-refresh-link">refresh</a>)</small></b><span id="menu" title="Home" class="editText">{{{menu_raw}}}</span></div>
+	{{#each settings_fields}}
+	<div class="change border"><span title="{{default_value}}" id="{{key}}" class="editText">{{{value}}}</span></div>
+	{{/each}}
+	</div>
+</div>
+<div class="settings">
+	<h3 class="toggle">↕ アップデート ↕</h3>
+	<div class="hide">
+	<div class="change border">
+		<b>現在のバージョン:</b> {{ap_version}}
+		<br><br>
+		<button id="ap-check-update" style="cursor:pointer;">更新を確認</button>
+		<span id="ap-update-status" style="margin-left:10px;"></span>
+		<div id="ap-update-result" style="margin-top:10px;"></div>
+	</div>
+	</div>
+</div>

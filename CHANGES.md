@@ -2,6 +2,23 @@
 
 ---
 
+## 2026-03-08（Ver.1.2-26 — TemplateEngine 改良・パーシャル・ループ変数・エラー検出）
+
+- **[Enhancement]** `{{> partial}}` パーシャル構文を追加 — 部分テンプレートの読み込み（循環参照防止: 最大深度10）
+- **[Enhancement]** `{{#each}}` ループ内メタ変数を追加 — `@index`（インデックス）・`@first`（最初の要素）・`@last`（最後の要素）
+- **[Enhancement]** 未処理テンプレートタグ検出 — レンダリング後に残存する `{{...}}` タグを `error_log()` で警告出力
+- **[Refactor]** `settings.html` パーシャル分離 — 管理者設定パネルを `theme.html` から独立した部分テンプレートに抽出
+- **[Refactor]** `ThemeEngine::buildSettingsContext()` 新設 — 設定パネル用コンテキスト変数を構造化データとして構築
+- **[Refactor]** `settings_panel` コンテキスト変数を廃止 — `{{> settings}}` パーシャルに置換
+- **[Theme]** `themes/AP-Default/settings.html` 新規追加
+- **[Theme]** `themes/AP-Adlaire/settings.html` 新規追加
+- **[Theme]** `themes/AP-Default/theme.html` 更新 — `{{> settings}}` パーシャル呼び出しに変更
+- **[Theme]** `themes/AP-Adlaire/theme.html` 更新 — 同上
+- **[Docs]** SPEC.md Ver.0.2-6 — パーシャル構文・ループメタ変数・未処理タグ検出・管理者コンテキスト変数を追加
+- **[Docs]** ARCHITECTURE.md — TemplateEngine にパーシャル・ループ変数・警告検出を反映、テーマ構成に settings.html を追加
+
+---
+
 ## 2026-03-08（Ver.1.2-26 — TemplateEngine 導入・テーマ PHP フリー化）
 
 - **[Architecture]** `engines/TemplateEngine.php` 新規作成 — 軽量テンプレートエンジン（変数展開・条件分岐・ループの3構文）

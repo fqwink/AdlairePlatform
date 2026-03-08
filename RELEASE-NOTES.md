@@ -4,17 +4,21 @@
 
 ## AdlairePlatform Ver.1.2-26（2026-03-08）
 
-テーマシステムのアーキテクチャを刷新。自前の軽量テンプレートエンジンを導入し、テーマファイルから PHP コードを排除。
+テーマシステムのアーキテクチャを刷新。自前の軽量テンプレートエンジンを導入し、テーマファイルから PHP コードを排除。さらにパーシャル・ループ変数・エラー検出の改良を実施。
 
 ### 新機能
 
-- **TemplateEngine** — `{{var}}` / `{{{raw}}}` / `{{#if}}` / `{{#each}}` の4構文による軽量テンプレートエンジン（外部依存なし）
+- **TemplateEngine** — `{{var}}` / `{{{raw}}}` / `{{#if}}` / `{{#each}}` / `{{> partial}}` の5構文による軽量テンプレートエンジン（外部依存なし）
+- **パーシャル（部分テンプレート）** — `{{> name}}` 構文でテーマ内の `.html` ファイルを読み込み。循環参照防止（最大深度10）
+- **ループメタ変数** — `{{#each}}` 内で `@index`（インデックス）・`@first`（最初の要素）・`@last`（最後の要素）が使用可能
+- **未処理タグ検出** — レンダリング後に残存する `{{...}}` タグを `error_log()` で警告。テーマ開発時のデバッグを支援
 - **PHP フリーテーマ** — テーマを `theme.html`（HTML/CSS のみ）で作成可能に。PHP 知識不要
 - **StaticEngine 対応設計** — `buildStaticContext()` で `admin=false` を渡すだけで管理者 UI が自動除外。`stripAdminUI()` の正規表現操作が不要に
 
 ### アーキテクチャ改善
 
-- `ThemeEngine` に `buildContext()` / `buildStaticContext()` / `parseMenu()` メソッドを追加
+- `ThemeEngine` に `buildContext()` / `buildStaticContext()` / `parseMenu()` / `buildSettingsContext()` メソッドを追加
+- 管理者設定パネルを `settings.html` パーシャルに分離（テーマごとにカスタマイズ可能）
 - テーマロード時に `theme.html` を優先、なければ `theme.php` にフォールバック（後方互換維持）
 - テーマ内での任意 PHP コード実行リスクを排除（`theme.html` 方式使用時）
 
