@@ -1,7 +1,6 @@
 # AdlairePlatform アーキテクチャ設計書
 
-> バージョン: Ver.1.2-21
-> 最終更新: 2026-03-08
+
 > 分類: 社内限り
 
 ---
@@ -39,10 +38,7 @@ AdlairePlatform/
 │  └─ JsEngine/
 │     ├─ autosize.js            # テキストエリア自動リサイズ
 │     ├─ editInplace.js         # インプレイス編集（バニラJS・plain text）
-│     ├─ wysiwyg.js             # WYSIWYG エディタ（Ph2+Ph3・依存なし）
-│     ├─ updater.js             # アップデートUI
-│     ├─ static_builder.js      # 静的書き出し管理 UI（計画）
-│     └─ ap-api-client.js       # 静的サイト向け API クライアント（計画）
+
 ├─ themes/
 │  ├─ AP-Default/
 │  │  ├─ theme.php
@@ -192,7 +188,7 @@ ApiEngine::checkContactRate(): void
 |---------|------|
 | `autosize.js` | `apAutosize(el)` 関数を提供。`textarea[data-autosize]` を DOMContentLoaded で自動初期化 |
 | `editInplace.js` | `.editText` スパンのクリックで textarea に変換、blur 時に Fetch API で保存（plain text 用） |
-| `wysiwyg.js` | `.editRich` スパンのクリックで contenteditable + ツールバーを起動。B/I/U/H2/H3/引用/コード/区切り線/テーブル/Undo/Redo。画像 D&D/貼り付け/ボタン挿入・リサイズ&alt編集。フローティングツールバー。テーブルサポート（行/列追加削除）。`"/"` スラッシュコマンドメニュー・ブロックハンドル（⠿）によるタイプ変換・ドラッグ並べ替え。30秒定期自動保存・Ctrl+Enter/blur で手動保存。HTML サニタイザー（ホワイトリスト）。依存ライブラリなし（ES5 互換）。 |
+| `wysiwyg.js` | `.editRich` スパンのクリックで contenteditable + ツールバーを起動。画像 D&D/貼り付け/ボタン挿入、30秒定期自動保存、Ctrl+Enter/blur で手動保存 |
 | `updater.js` | アップデート確認・適用・バックアップ一覧・ロールバック・削除 UI |
 | `static_builder.js` | 静的書き出し管理 UI（差分ビルド・全件ビルド・クリア・ZIP ダウンロード）（計画） |
 | `ap-api-client.js` | 静的サイト向け軽量 API クライアント。`window.AP.api()` 提供・`<form class="ap-contact">` 自動バインド（計画） |
