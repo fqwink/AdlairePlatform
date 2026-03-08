@@ -255,6 +255,8 @@
 
 		/* ── ブラウザ標準の画像リサイズハンドルを無効化（カスタムハンドルと競合防止） ── */
 		try { document.execCommand('enableObjectResizing', false, false); } catch (e) { /* 非対応ブラウザを無視 */ }
+		/* ── Chrome で Enter 時に <p> を使う（<div> 生成を防止） ── */
+		try { document.execCommand('defaultParagraphSeparator', false, 'p'); } catch (e) { /* 非対応ブラウザを無視 */ }
 
 		/* ── 自動保存 ── */
 		_lastSaved = _cleanHtml(originalHtml);
@@ -319,7 +321,7 @@
 				node.nodeType === 3 ? node.parentNode : node, editor);
 			if (!block) { _hideSlashMenu(); return; }
 			var text = block.textContent;
-			if (text === '/') {
+			if (text.trim() === '/') {
 				_slashBlock  = block;
 				_slashFilter = '';
 				_showSlashMenu(sel.getRangeAt(0), editor);
@@ -335,6 +337,9 @@
 
 		/* ── C: 画像クリック検出 ── */
 		editor.addEventListener('click', function (e) {
+			/* F/G: クリック時にポップアップ類を閉じる */
+			_hideTypePopup();
+			_hideSlashMenu();
 			if (e.target.tagName === 'IMG') {
 				_showImageControls(e.target);
 			} else {
