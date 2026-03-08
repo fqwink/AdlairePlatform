@@ -23,16 +23,22 @@ class ThemeEngine {
 		$phpPath   = $themeDir . '/theme.php';
 
 		if (file_exists($htmlPath)) {
-			$context = self::buildContext();
-			echo TemplateEngine::render(file_get_contents($htmlPath), $context, $themeDir);
+			$tpl = file_get_contents($htmlPath);
+			if ($tpl !== false) {
+				$context = self::buildContext();
+				echo TemplateEngine::render($tpl, $context, $themeDir);
+			} elseif (file_exists($phpPath)) {
+				require $phpPath;
+			}
 		} elseif (file_exists($phpPath)) {
 			require $phpPath;
 		} else {
 			$fallbackDir  = self::THEMES_DIR . '/' . self::FALLBACK;
 			$fallbackHtml = $fallbackDir . '/theme.html';
 			$fallbackPhp  = $fallbackDir . '/theme.php';
-			if (file_exists($fallbackHtml)) {
-				echo TemplateEngine::render(file_get_contents($fallbackHtml), self::buildContext(), $fallbackDir);
+			$tpl = file_exists($fallbackHtml) ? file_get_contents($fallbackHtml) : false;
+			if ($tpl !== false) {
+				echo TemplateEngine::render($tpl, self::buildContext(), $fallbackDir);
 			} else {
 				require $fallbackPhp;
 			}
