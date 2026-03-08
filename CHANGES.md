@@ -2,7 +2,6 @@
 
 ---
 
-## 2026-03-07（Ver.1.2-16 — バグ修正・defense-in-depth強化）
 
 - **[Security]** `delete_backup()` に内部バリデーションを追加（`basename()` + `/^[0-9_]+$/` 正規表現検証）— handle_update_action() 側の検証に依存せず defense-in-depth として各関数内でも入力を検証
 - **[Security]** `rollback_to_backup()` に同様の内部バリデーションを追加

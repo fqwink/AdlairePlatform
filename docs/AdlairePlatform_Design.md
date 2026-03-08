@@ -2,8 +2,6 @@
 
 > 確定日: 2026-03-07
 > バージョン規則: `Ver.{メジャー}.{マイナー}-{リビジョン}` (AFE VERSIONING.md準拠)
-> 現在バージョン: `Ver.1.2-16`
-
 ---
 
 ## 1. アーキテクチャ方針
@@ -31,6 +29,7 @@ AdlairePlatform/
 │  └─ JsEngine/
 │     ├─ editInplace.js     # インプレイス編集（バニラJS）
 │     ├─ autosize.js        # テキストエリア自動リサイズ
+│     ├─ wysiwyg.js         # WYSIWYGエディタ（依存なし）
 │     └─ updater.js         # アップデートUI（AJAX）
 ├─ themes/
 │  ├─ AP-Default/
@@ -236,8 +235,7 @@ Header always set Content-Security-Policy "default-src 'self'; script-src 'self'
 | P2完了 | `Ver.1.2-13` | ✅ 完了 | エンジン分離・データ層分割・サードパーティ排除 |
 | P3完了 | `Ver.1.2-14` | ✅ 完了 | セキュリティ強化（CSP・engines/保護・nginx設定） |
 | P4完了 | `Ver.1.2-15` | ✅ 完了 | ドキュメント整備 |
-| バグ修正 | `Ver.1.2-16` | ✅ 完了（現在） | defense-in-depth強化・型安全・CSRFデバッグログ |
-| 将来 | 未定 | 🔜 予定 | StaticEngine, ApiEngine, WYSIWYG (Phase 2) |
+
 
 > **バージョン規則**: リビジョンはリセット禁止、常に累積加算
 > **正しい例**: `Ver.1.0-11 → Ver.1.1-12 → Ver.1.2-13 → Ver.1.2-14 → Ver.1.2-15 → Ver.1.2-16`
@@ -377,4 +375,3 @@ Adlaire License Ver.2.0（ソース公開型・非オープンソース）
 
 ---
 
-*このドキュメントは実装完了後の確定状態を反映しています。最終更新: 2026-03-07*

@@ -1,9 +1,8 @@
 <?php
 /**
 *
-*@copyright Copyright (c) 2014 - 2015 IEAS Group
-*@copyright Copyright (c) 2014 - 2015 AIZM
-*@license　Adlaire License
+*@copyright Copyright (c) 2014 - 2026 Adlaire Group
+*@license Adlaire License Ver.2.0
 *
 */
 
@@ -13,7 +12,7 @@ if (PHP_VERSION_ID < 80200) {
 	exit('AdlairePlatform requires PHP 8.2 or later. Current version: ' . PHP_VERSION);
 }
 
-define('AP_VERSION', '1.2.16');
+define('AP_VERSION', '1.2.20');
 define('AP_UPDATE_URL', 'https://api.github.com/repos/win-k/AdlairePlatform/releases/latest');
 define('AP_BACKUP_GENERATIONS', 5);
 
@@ -26,8 +25,8 @@ ini_set('session.cookie_samesite', 'Lax');
 session_start();
 migrate_from_files();
 host();
+upload_image();          /* upload_image を先に処理（handle_update_action の default:exit に遮断されないよう） */
 handle_update_action();
-upload_image();
 edit();
 
 $c['password'] = 'admin';
@@ -397,7 +396,8 @@ function csrf_token(): string {
 
 function verify_csrf(): void {
 	$token = $_POST['csrf'] ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? '');
-	if(!hash_equals($_SESSION['csrf'] ?? '', $token)){
+	/* $_SESSION['csrf'] が未設定の場合も Forbidden とする（空文字同士で hash_equals が true になる CSRF バイパスを防止） */
+	if(empty($_SESSION['csrf']) || !hash_equals($_SESSION['csrf'], $token)){
 		header('HTTP/1.1 403 Forbidden');
 		exit;
 	}

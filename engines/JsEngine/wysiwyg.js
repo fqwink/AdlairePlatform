@@ -249,9 +249,6 @@
 		if (!_active) return;
 		_stopAutoSave();
 		_active = false;
-		_currentSpan = null;
-		_currentEditor = null;
-		span.innerHTML = originalHtml;
 	}
 
 	/* ─────────────────── 自動保存 ─────────────────── */
