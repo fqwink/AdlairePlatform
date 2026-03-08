@@ -140,6 +140,42 @@ const _css = `
 /* ── 空ブロックプレースホルダ ── */
 .ap-wy-block[data-type="paragraph"] .ap-wy-block-content:empty::before{
   content:'/ を入力してコマンド...';color:#666;pointer-events:none;font-style:italic;}
+
+/* ── 履歴パネル ── */
+.ap-wy-history-panel{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+  z-index:2000;background:#1e1e1e;border:1px solid #555;border-radius:8px;
+  width:640px;max-width:90vw;max-height:80vh;display:flex;flex-direction:column;
+  box-shadow:0 8px 32px rgba(0,0,0,.6);}
+.ap-wy-history-header{display:flex;align-items:center;padding:10px 14px;
+  border-bottom:1px solid #444;gap:8px;}
+.ap-wy-history-header h3{margin:0;font-size:14px;color:#eee;flex:1;}
+.ap-wy-history-close{cursor:pointer;color:#aaa;font-size:18px;background:none;
+  border:none;padding:4px 8px;}
+.ap-wy-history-close:hover{color:#fff;}
+.ap-wy-history-tabs{display:flex;border-bottom:1px solid #444;}
+.ap-wy-history-tab{padding:8px 16px;cursor:pointer;font-size:13px;color:#aaa;
+  background:none;border:none;border-bottom:2px solid transparent;}
+.ap-wy-history-tab.active{color:#0ad;border-bottom-color:#0ad;}
+.ap-wy-history-tab:hover{color:#ddd;}
+.ap-wy-history-body{flex:1;overflow-y:auto;padding:8px;}
+.ap-wy-history-item{display:flex;align-items:center;gap:8px;padding:8px 10px;
+  cursor:pointer;border-radius:4px;font-size:13px;color:#ccc;}
+.ap-wy-history-item:hover{background:rgba(255,255,255,.06);}
+.ap-wy-history-item.active{background:#0ad;color:#000;}
+.ap-wy-history-item-time{font-size:11px;color:#888;min-width:80px;}
+.ap-wy-history-item-info{flex:1;}
+.ap-wy-history-item-btn{padding:3px 8px;font-size:11px;background:#444;color:#ddd;
+  border:1px solid #555;border-radius:3px;cursor:pointer;}
+.ap-wy-history-item-btn:hover{background:#666;}
+.ap-wy-history-item-btn.primary{background:#0ad;color:#000;border-color:#0ad;}
+.ap-wy-history-overlay{position:fixed;top:0;left:0;right:0;bottom:0;
+  background:rgba(0,0,0,.5);z-index:1999;}
+.ap-wy-diff-view{padding:8px;font-family:monospace;font-size:12px;
+  white-space:pre-wrap;line-height:1.6;max-height:40vh;overflow-y:auto;
+  background:#111;border-radius:4px;margin:8px;}
+.ap-wy-diff-add{background:rgba(0,180,0,.2);color:#8f8;}
+.ap-wy-diff-del{background:rgba(255,0,0,.2);color:#f88;text-decoration:line-through;}
+.ap-wy-diff-eq{color:#888;}
 `;
 const _styleEl = document.createElement('style');
 _styleEl.textContent = _css;
@@ -172,6 +208,7 @@ const TOOLS = [
 	{ cmd:'img',   label:'🖼', title:'画像挿入',          aria:'画像' },
 	{ cmd:'table', label:'📊', title:'テーブル挿入',      aria:'テーブル' },
 	{ cmd:'removeFormat', label:'✕', title:'書式クリア', aria:'書式クリア' },
+	{ cmd:'history', label:'📋', title:'編集履歴', aria:'編集履歴' },
 	{ sep:true },
 	{ cmd:'save',   label:'✓ 保存', title:'保存 (Ctrl+Enter)', aria:'保存' },
 	{ cmd:'cancel', label:'✕ 取消', title:'キャンセル (Esc)',   aria:'取消' },
@@ -222,6 +259,7 @@ let _idCounter    = 0;
 let _undoStack    = [];
 let _redoStack    = [];
 const _UNDO_LIMIT = 50;
+let _historyPanel = null;
 
 /* ── ユーティリティ ── */
 function _uid() { return 'b' + (++_idCounter) + '-' + Math.random().toString(36).slice(2, 7); }
@@ -1163,8 +1201,9 @@ function _setCursorAtOffset(el, htmlOffset) {
 function _saveSnapshot() {
 	_syncAllBlocks();
 	const snap = JSON.stringify(_blocks);
-	if (_undoStack.length > 0 && _undoStack[_undoStack.length - 1] === snap) return;
-	_undoStack.push(snap);
+	const last = _undoStack[_undoStack.length - 1];
+	if (last && last.snap === snap) return;
+	_undoStack.push({ snap, time: Date.now(), blockCount: _blocks.length });
 	if (_undoStack.length > _UNDO_LIMIT) _undoStack.shift();
 	_redoStack.length = 0;
 }
@@ -1172,9 +1211,9 @@ function _saveSnapshot() {
 function _undo() {
 	if (_undoStack.length === 0) return;
 	_syncAllBlocks();
-	_redoStack.push(JSON.stringify(_blocks));
-	const snap = _undoStack.pop();
-	_restoreSnapshot(snap);
+	_redoStack.push({ snap: JSON.stringify(_blocks), time: Date.now(), blockCount: _blocks.length });
+	const entry = _undoStack.pop();
+	_restoreSnapshot(entry.snap);
 	_setStatus('↩ 元に戻しました');
 	setTimeout(() => _setStatus(''), 2000);
 }
@@ -1182,9 +1221,9 @@ function _undo() {
 function _redo() {
 	if (_redoStack.length === 0) return;
 	_syncAllBlocks();
-	_undoStack.push(JSON.stringify(_blocks));
-	const snap = _redoStack.pop();
-	_restoreSnapshot(snap);
+	_undoStack.push({ snap: JSON.stringify(_blocks), time: Date.now(), blockCount: _blocks.length });
+	const entry = _redoStack.pop();
+	_restoreSnapshot(entry.snap);
 	_setStatus('↪ やり直しました');
 	setTimeout(() => _setStatus(''), 2000);
 }
@@ -1264,6 +1303,9 @@ function _exec(cmd, span, originalHtml) {
 			}
 			break;
 		}
+		case 'history':
+			_showHistoryPanel(span);
+			break;
 		case 'save':
 			_manualSave(span);
 			break;
@@ -1931,6 +1973,374 @@ function _insertImageBlock(file) {
 		_setStatus('⚠ アップロード失敗: ' + e.message);
 		setTimeout(() => _setStatus(''), 5000);
 	});
+}
+
+/* ══════════════════════════════════════════════
+   編集履歴パネル
+   ══════════════════════════════════════════════ */
+
+function _showHistoryPanel(span) {
+	if (_historyPanel) { _closeHistoryPanel(); return; }
+
+	const overlay = document.createElement('div');
+	overlay.className = 'ap-wy-history-overlay';
+	overlay.addEventListener('click', _closeHistoryPanel);
+
+	const panel = document.createElement('div');
+	panel.className = 'ap-wy-history-panel';
+
+	/* ヘッダー */
+	const header = document.createElement('div');
+	header.className = 'ap-wy-history-header';
+	header.innerHTML = '<span>編集履歴</span>';
+	const closeBtn = document.createElement('button');
+	closeBtn.textContent = '✕';
+	closeBtn.style.cssText = 'background:none;border:none;font-size:18px;cursor:pointer;color:#666;';
+	closeBtn.addEventListener('click', _closeHistoryPanel);
+	header.appendChild(closeBtn);
+
+	/* タブ */
+	const tabs = document.createElement('div');
+	tabs.className = 'ap-wy-history-tabs';
+	const tabSession = document.createElement('button');
+	tabSession.className = 'ap-wy-history-tab active';
+	tabSession.textContent = 'セッション';
+	tabSession.dataset.tab = 'session';
+	const tabRevision = document.createElement('button');
+	tabRevision.className = 'ap-wy-history-tab';
+	tabRevision.textContent = 'リビジョン';
+	tabRevision.dataset.tab = 'revision';
+	tabs.appendChild(tabSession);
+	tabs.appendChild(tabRevision);
+
+	/* ボディ */
+	const body = document.createElement('div');
+	body.className = 'ap-wy-history-body';
+
+	panel.appendChild(header);
+	panel.appendChild(tabs);
+	panel.appendChild(body);
+
+	document.body.appendChild(overlay);
+	document.body.appendChild(panel);
+
+	_historyPanel = { panel, overlay, body, span };
+
+	/* タブ切り替え */
+	tabSession.addEventListener('click', () => {
+		tabSession.classList.add('active');
+		tabRevision.classList.remove('active');
+		_renderSessionHistory(body);
+	});
+	tabRevision.addEventListener('click', () => {
+		tabRevision.classList.add('active');
+		tabSession.classList.remove('active');
+		_renderRevisionTab(body, span);
+	});
+
+	/* 初期表示: セッションタブ */
+	_renderSessionHistory(body);
+}
+
+function _closeHistoryPanel() {
+	if (!_historyPanel) return;
+	_historyPanel.panel.remove();
+	_historyPanel.overlay.remove();
+	_historyPanel = null;
+}
+
+/* ── セッション履歴タブ ── */
+
+function _renderSessionHistory(container) {
+	container.innerHTML = '';
+	const total = _undoStack.length;
+	if (total === 0) {
+		container.innerHTML = '<div style="padding:16px;color:#999;">操作履歴がありません</div>';
+		return;
+	}
+
+	/* 現在の状態 */
+	const currentItem = document.createElement('div');
+	currentItem.className = 'ap-wy-history-item';
+	currentItem.style.borderLeft = '3px solid #2196F3';
+	currentItem.innerHTML = '<strong>▶ 現在の状態</strong><br><small>ブロック数: ' + _blocks.length + '</small>';
+	container.appendChild(currentItem);
+
+	/* undoStack を新しい順に */
+	for (let i = total - 1; i >= 0; i--) {
+		const entry = _undoStack[i];
+		const item = document.createElement('div');
+		item.className = 'ap-wy-history-item';
+		const time = entry.time ? new Date(entry.time).toLocaleTimeString('ja-JP') : '';
+		const bc = entry.blockCount || '?';
+		item.innerHTML = '<span>操作 #' + (i + 1) + '</span>' +
+			'<small style="float:right;color:#999;">' + time + '</small>' +
+			'<br><small>ブロック数: ' + bc + '</small>';
+		item.style.cursor = 'pointer';
+		item.addEventListener('click', ((idx) => () => {
+			_jumpToSnapshot(idx);
+			_closeHistoryPanel();
+		})(i));
+		container.appendChild(item);
+	}
+}
+
+function _jumpToSnapshot(targetIdx) {
+	_syncAllBlocks();
+	/* 現在の状態を redoStack に保存 */
+	const currentSnap = JSON.stringify(_blocks);
+	/* targetIdx 以降の undoStack エントリを redo に移動 */
+	const moveCount = _undoStack.length - targetIdx - 1;
+	_redoStack.push({ snap: currentSnap, time: Date.now(), blockCount: _blocks.length });
+	for (let i = 0; i < moveCount; i++) {
+		_redoStack.push(_undoStack.pop());
+	}
+	const entry = _undoStack.pop();
+	_restoreSnapshot(entry.snap);
+	_setStatus('↩ スナップショット #' + (targetIdx + 1) + ' に戻しました');
+	setTimeout(() => _setStatus(''), 3000);
+}
+
+/* ── リビジョンタブ ── */
+
+function _renderRevisionTab(container, span) {
+	container.innerHTML = '<div style="padding:16px;color:#999;">読み込み中...</div>';
+	const fieldname = span ? span.id : '';
+	if (!fieldname) {
+		container.innerHTML = '<div style="padding:16px;color:#999;">フィールドが不明です</div>';
+		return;
+	}
+
+	/* 前回保存時との比較ボタン */
+	const diffBar = document.createElement('div');
+	diffBar.style.cssText = 'padding:8px 16px;border-bottom:1px solid #eee;';
+	const diffBtn = document.createElement('button');
+	diffBtn.textContent = '前回保存時と比較';
+	diffBtn.style.cssText = 'padding:4px 12px;border:1px solid #ccc;border-radius:4px;background:#fff;cursor:pointer;font-size:13px;';
+	diffBtn.addEventListener('click', () => {
+		_syncAllBlocks();
+		const currentHtml = _serializeBlocks();
+		const oldHtml = _lastSaved || '';
+		const diff = _computeDiff(_stripTags(oldHtml), _stripTags(currentHtml));
+		_renderDiffView(container, diff, diffBar);
+	});
+	diffBar.appendChild(diffBtn);
+
+	_fetchRevisions(fieldname, (revisions) => {
+		container.innerHTML = '';
+		container.appendChild(diffBar);
+
+		if (revisions.length === 0) {
+			const msg = document.createElement('div');
+			msg.style.cssText = 'padding:16px;color:#999;';
+			msg.textContent = '保存されたリビジョンがありません';
+			container.appendChild(msg);
+			return;
+		}
+
+		revisions.forEach(rev => {
+			const item = document.createElement('div');
+			item.className = 'ap-wy-history-item';
+			const d = rev.timestamp ? new Date(rev.timestamp) : null;
+			const ts = d ? d.toLocaleString('ja-JP') : rev.file;
+			const kb = rev.size ? (rev.size / 1024).toFixed(1) + ' KB' : '';
+			item.innerHTML = '<span>' + ts + '</span>' +
+				'<small style="float:right;color:#999;">' + kb + '</small>';
+
+			const btnWrap = document.createElement('div');
+			btnWrap.style.cssText = 'margin-top:6px;display:flex;gap:8px;';
+
+			const restoreBtn = document.createElement('button');
+			restoreBtn.textContent = '復元';
+			restoreBtn.style.cssText = 'padding:2px 10px;border:1px solid #2196F3;border-radius:3px;background:#fff;color:#2196F3;cursor:pointer;font-size:12px;';
+			restoreBtn.addEventListener('click', () => {
+				if (!confirm('このリビジョンを復元しますか？現在の内容は上書きされます。')) return;
+				_restoreRevision(fieldname, rev.file, span);
+			});
+
+			const diffRevBtn = document.createElement('button');
+			diffRevBtn.textContent = '差分を見る';
+			diffRevBtn.style.cssText = 'padding:2px 10px;border:1px solid #999;border-radius:3px;background:#fff;color:#666;cursor:pointer;font-size:12px;';
+			diffRevBtn.addEventListener('click', () => {
+				_fetchRevisionContent(fieldname, rev.file, (content) => {
+					_syncAllBlocks();
+					const currentHtml = _serializeBlocks();
+					const diff = _computeDiff(_stripTags(content), _stripTags(currentHtml));
+					_renderDiffView(container, diff, diffBar);
+				});
+			});
+
+			btnWrap.appendChild(restoreBtn);
+			btnWrap.appendChild(diffRevBtn);
+			item.appendChild(btnWrap);
+			container.appendChild(item);
+		});
+	});
+}
+
+function _fetchRevisions(fieldname, callback) {
+	const csrf = _getCsrf();
+	fetch('index.php?ap_action=list_revisions&fieldname=' + encodeURIComponent(fieldname) + '&csrf=' + encodeURIComponent(csrf || ''))
+	.then(r => r.json())
+	.then(data => { callback(data.revisions || []); })
+	.catch(() => { callback([]); });
+}
+
+function _fetchRevisionContent(fieldname, revFile, callback) {
+	const csrf = _getCsrf();
+	const dir = 'data/content/revisions/' + encodeURIComponent(fieldname) + '/' + encodeURIComponent(revFile) + '.json';
+	/* リビジョンファイルの内容は restore API で取得できるが、diff 用には直接取得が必要。
+	   restore API を使わず、list_revisions にコンテンツは含まれないため、
+	   restore_revision を preview モードで呼ぶか、新しい API を追加する。
+	   ここでは restore と同じエンドポイントで content のみ取得するアプローチ。 */
+	fetch('index.php', {
+		method: 'POST',
+		headers: {
+			'Content-Type': 'application/x-www-form-urlencoded',
+			'X-CSRF-TOKEN': csrf,
+		},
+		body: new URLSearchParams({
+			ap_action: 'restore_revision',
+			fieldname: fieldname,
+			revision: revFile,
+			preview: '1',
+			csrf: csrf || '',
+		}),
+	}).then(r => r.json())
+	  .then(data => { callback(data.content || ''); })
+	  .catch(() => { callback(''); });
+}
+
+function _restoreRevision(fieldname, revFile, span) {
+	const csrf = _getCsrf();
+	_setStatus('復元中...');
+	fetch('index.php', {
+		method: 'POST',
+		headers: {
+			'Content-Type': 'application/x-www-form-urlencoded',
+			'X-CSRF-TOKEN': csrf,
+		},
+		body: new URLSearchParams({
+			ap_action: 'restore_revision',
+			fieldname: fieldname,
+			revision: revFile,
+			csrf: csrf || '',
+		}),
+	}).then(r => r.json())
+	  .then(data => {
+		if (data.ok && data.content != null) {
+			_saveSnapshot();
+			_blocks = _parseHtmlToBlocks(data.content);
+			_blocksEl.innerHTML = '';
+			_blocks.forEach(b => _blocksEl.appendChild(_renderBlock(b)));
+			if (_blocks.length > 0) _focusBlock(_blocks[0], 'start');
+			_lastSaved = data.content;
+			_setStatus('✓ リビジョンを復元しました');
+			_closeHistoryPanel();
+			setTimeout(() => _setStatus(''), 3000);
+		} else {
+			_setStatus('⚠ 復元失敗: ' + (data.error || ''));
+			setTimeout(() => _setStatus(''), 5000);
+		}
+	  })
+	  .catch(e => {
+		_setStatus('⚠ 復元失敗: ' + e.message);
+		setTimeout(() => _setStatus(''), 5000);
+	  });
+}
+
+/* ── 簡易 diff（LCS ベース） ── */
+
+function _computeDiff(oldText, newText) {
+	const oldLines = oldText.split('\n');
+	const newLines = newText.split('\n');
+	const m = oldLines.length;
+	const n = newLines.length;
+
+	/* LCS テーブル構築 */
+	const dp = [];
+	for (let i = 0; i <= m; i++) {
+		dp[i] = new Array(n + 1).fill(0);
+	}
+	for (let i = 1; i <= m; i++) {
+		for (let j = 1; j <= n; j++) {
+			if (oldLines[i - 1] === newLines[j - 1]) {
+				dp[i][j] = dp[i - 1][j - 1] + 1;
+			} else {
+				dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1]);
+			}
+		}
+	}
+
+	/* バックトレースで diff 生成 */
+	const result = [];
+	let i = m, j = n;
+	while (i > 0 || j > 0) {
+		if (i > 0 && j > 0 && oldLines[i - 1] === newLines[j - 1]) {
+			result.unshift({ type: 'equal', text: oldLines[i - 1] });
+			i--; j--;
+		} else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
+			result.unshift({ type: 'add', text: newLines[j - 1] });
+			j--;
+		} else {
+			result.unshift({ type: 'remove', text: oldLines[i - 1] });
+			i--;
+		}
+	}
+	return result;
+}
+
+function _stripTags(html) {
+	const tmp = document.createElement('div');
+	tmp.innerHTML = html || '';
+	return (tmp.textContent || tmp.innerText || '').trim();
+}
+
+function _renderDiffView(container, diff, keepEl) {
+	container.innerHTML = '';
+	if (keepEl) container.appendChild(keepEl);
+
+	const backBtn = document.createElement('button');
+	backBtn.textContent = '← 一覧に戻る';
+	backBtn.style.cssText = 'margin:8px 16px;padding:4px 12px;border:1px solid #ccc;border-radius:4px;background:#fff;cursor:pointer;font-size:13px;';
+	backBtn.addEventListener('click', () => {
+		if (_historyPanel) {
+			const tab = _historyPanel.panel.querySelector('.ap-wy-history-tab.active');
+			if (tab && tab.dataset.tab === 'revision') {
+				_renderRevisionTab(container, _historyPanel.span);
+			} else {
+				_renderSessionHistory(container);
+			}
+		}
+	});
+	container.appendChild(backBtn);
+
+	const view = document.createElement('div');
+	view.className = 'ap-wy-diff-view';
+
+	let hasChanges = false;
+	diff.forEach(d => {
+		const line = document.createElement('div');
+		if (d.type === 'add') {
+			line.className = 'ap-wy-diff-add';
+			line.textContent = '+ ' + d.text;
+			hasChanges = true;
+		} else if (d.type === 'remove') {
+			line.className = 'ap-wy-diff-del';
+			line.textContent = '- ' + d.text;
+			hasChanges = true;
+		} else {
+			line.className = 'ap-wy-diff-eq';
+			line.textContent = '  ' + d.text;
+		}
+		view.appendChild(line);
+	});
+
+	if (!hasChanges) {
+		view.innerHTML = '<div style="padding:16px;color:#999;">変更はありません</div>';
+	}
+
+	container.appendChild(view);
 }
 
 /* ══════════════════════════════════════════════

@@ -2,6 +2,19 @@
 
 ---
 
+## 2026-03-08（Ver.1.2-24 — WYSIWYG エディタ 編集履歴機能）
+
+- **[Feature]** リビジョン管理 — コンテンツ保存ごとにサーバーサイドでリビジョンを `data/content/revisions/` に保存（最大30世代）
+- **[Feature]** リビジョン復元 — 管理画面から過去リビジョンの内容を選択して復元可能
+- **[Feature]** リビジョン API — `ap_action=list_revisions` / `restore_revision` エンドポイント追加（認証・CSRF・入力バリデーション付き）
+- **[Feature]** 変更差分表示 — LCS ベースの簡易 diff アルゴリズムによるテキスト差分表示（追加=緑、削除=赤）
+- **[Feature]** セッション内履歴 UI — Undo/Redo スタックを可視化するパネル（操作番号・タイムスタンプ・ブロック数表示）
+- **[Feature]** 編集履歴パネル — 「セッション」「リビジョン」2タブのモーダル UI（ツールバーの📋ボタンから表示）
+- **[Feature]** スナップショットジャンプ — セッション履歴の任意のスナップショットにクリックで移動
+- **[Enhancement]** スナップショットメタデータ — Undo/Redo スタックにタイムスタンプ・ブロック数を記録
+
+---
+
 ## 2026-03-08（Ver.1.2-23 — WYSIWYG エディタ改良）
 
 - **[Security]** SVG data URI XSS 防止 — `data:image/svg+xml` を img src で拒否（png/jpeg/gif/webp のみ許可）
