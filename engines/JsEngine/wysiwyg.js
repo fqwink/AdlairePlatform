@@ -266,6 +266,9 @@
 		/* ── D: テーブル操作バー初期化 ── */
 		_initTableBar(editor);
 
+		/* ── G: ブロックハンドル初期化 ── */
+		_initBlockHandle(editor);
+
 		/* ── ツールバー操作 ── */
 		toolbar.addEventListener('mousedown', function (e) {
 			e.preventDefault();
@@ -616,6 +619,192 @@
 		}
 	}
 
+	/* ══════════════════════════ G: ブロックハンドル ══════════════════════════ */
+
+	function _initBlockHandle(editor) {
+		var handle = document.createElement('div');
+		handle.className = 'ap-wy-block-handle';
+
+		var dot = document.createElement('div');
+		dot.className = 'ap-wy-block-hdot';
+		dot.textContent = '⠿';
+		dot.title = 'クリック: 種類変更 / ドラッグ: 並べ替え';
+		handle.appendChild(dot);
+		document.body.appendChild(handle);
+		_blockHandle = handle;
+
+		handle.addEventListener('mouseenter', function () {
+			if (_hideHandleTimer) { clearTimeout(_hideHandleTimer); _hideHandleTimer = null; }
+		});
+		handle.addEventListener('mouseleave', function () { _scheduleHideHandle(); });
+
+		dot.addEventListener('click', function (e) {
+			e.preventDefault();
+			_showTypePopup(editor);
+		});
+
+		dot.addEventListener('mousedown', function (e) {
+			if (e.button !== 0) return;
+			e.preventDefault();
+			_startDrag(editor);
+		});
+
+		_blockHandleMoveFn = function (e) {
+			if (_dragBlock) return;
+			var el = e.target;
+			if (el.nodeType === 3) el = el.parentNode;
+			var block = _findBlockParent(el, editor);
+			if (!block) { _scheduleHideHandle(); return; }
+			if (_hideHandleTimer) { clearTimeout(_hideHandleTimer); _hideHandleTimer = null; }
+			_handleTarget = block;
+			var rect = block.getBoundingClientRect();
+			handle.style.left = Math.max(4, rect.left - 26) + 'px';
+			handle.style.top  = rect.top + 'px';
+			handle.classList.add('vis');
+		};
+		editor.addEventListener('mousemove', _blockHandleMoveFn);
+
+		_editorLeaveFn = function () { _scheduleHideHandle(); };
+		editor.addEventListener('mouseleave', _editorLeaveFn);
+	}
+
+	function _scheduleHideHandle() {
+		if (_hideHandleTimer) return;
+		_hideHandleTimer = setTimeout(function () {
+			if (_blockHandle) _blockHandle.classList.remove('vis');
+			_hideHandleTimer = null;
+		}, 300);
+	}
+
+	function _showTypePopup(editor) {
+		_hideTypePopup();
+		if (!_handleTarget || !_blockHandle) return;
+		var hRect = _blockHandle.getBoundingClientRect();
+		var popup = document.createElement('div');
+		popup.className = 'ap-wy-type-popup';
+		popup.style.left = (hRect.right + 6) + 'px';
+		popup.style.top  = hRect.top + 'px';
+
+		BLOCK_CMDS.filter(function (t) {
+			return !t.isVoid && t.cmd !== 'img' && t.cmd !== 'table';
+		}).forEach(function (t) {
+			var item = document.createElement('div');
+			item.className = 'ap-wy-type-item';
+			item.innerHTML = '<span class="ap-wy-type-icon">' + t.icon +
+			                 '</span><span>' + t.name + '</span>';
+			item.addEventListener('mousedown', function (e) {
+				e.preventDefault();
+				_changeBlockType(_handleTarget, t.cmd, editor);
+				_hideTypePopup();
+			});
+			popup.appendChild(item);
+		});
+
+		document.body.appendChild(popup);
+		_typePopup = popup;
+
+		_typePopupOutFn = function (e) {
+			if (_typePopup &&
+			    !_typePopup.contains(e.target) &&
+			    !(_blockHandle && _blockHandle.contains(e.target))) {
+				_hideTypePopup();
+			}
+		};
+		setTimeout(function () { document.addEventListener('click', _typePopupOutFn); }, 0);
+	}
+
+	function _hideTypePopup() {
+		if (_typePopup && _typePopup.parentNode) _typePopup.parentNode.removeChild(_typePopup);
+		if (_typePopupOutFn) {
+			document.removeEventListener('click', _typePopupOutFn);
+			_typePopupOutFn = null;
+		}
+		_typePopup = null;
+	}
+
+	function _changeBlockType(block, cmd, editor) {
+		if (!block) return;
+		var sel   = window.getSelection();
+		var range = document.createRange();
+		range.selectNodeContents(block);
+		sel.removeAllRanges();
+		sel.addRange(range);
+		editor.focus();
+		if (cmd === 'ul') {
+			document.execCommand('insertUnorderedList', false, null);
+		} else if (cmd === 'ol') {
+			document.execCommand('insertOrderedList', false, null);
+		} else {
+			document.execCommand('formatBlock', false, cmd);
+		}
+	}
+
+	/* ══════════════════════════ H: ドラッグ並べ替え ══════════════════════════ */
+
+	function _startDrag(editor) {
+		if (!_handleTarget) return;
+		_dragBlock = _handleTarget;
+		_dragBlock.style.opacity = '0.4';
+		_blockHandle.classList.remove('vis');
+		_hideSlashMenu();
+
+		_dropLine = document.createElement('div');
+		_dropLine.className = 'ap-wy-drop-line';
+		document.body.appendChild(_dropLine);
+
+		var _insertTarget = undefined;
+
+		function onMove(ev) {
+			var blocks  = Array.from(editor.children).filter(function (b) { return b !== _dragBlock; });
+			var edRect  = editor.getBoundingClientRect();
+			_dropLine.style.left  = edRect.left + 'px';
+			_dropLine.style.width = edRect.width + 'px';
+
+			var bestDist = Infinity;
+			var bestY    = edRect.top;
+			_insertTarget = null;
+
+			for (var i = 0; i <= blocks.length; i++) {
+				var gapY;
+				if (i === 0) {
+					gapY = blocks[0] ? blocks[0].getBoundingClientRect().top : edRect.top;
+				} else if (i === blocks.length) {
+					gapY = blocks[blocks.length - 1].getBoundingClientRect().bottom;
+				} else {
+					var r1 = blocks[i - 1].getBoundingClientRect();
+					var r2 = blocks[i].getBoundingClientRect();
+					gapY = (r1.bottom + r2.top) / 2;
+				}
+				var dist = Math.abs(ev.clientY - gapY);
+				if (dist < bestDist) {
+					bestDist = dist;
+					bestY = gapY;
+					_insertTarget = (i < blocks.length) ? blocks[i] : null;
+				}
+			}
+			_dropLine.style.top = bestY + 'px';
+		}
+
+		function onUp() {
+			document.removeEventListener('mousemove', onMove);
+			document.removeEventListener('mouseup',   onUp);
+			_dragBlock.style.opacity = '';
+			if (_dropLine && _dropLine.parentNode) _dropLine.parentNode.removeChild(_dropLine);
+			_dropLine = null;
+			if (_insertTarget !== undefined) {
+				if (_insertTarget) {
+					editor.insertBefore(_dragBlock, _insertTarget);
+				} else {
+					editor.appendChild(_dragBlock);
+				}
+			}
+			_dragBlock = null;
+		}
+
+		document.addEventListener('mousemove', onMove);
+		document.addEventListener('mouseup',   onUp);
+	}
+
 	/* ══════════════════════════ A: Undo/Redo（execCommand 利用） ══════════════════════════ */
 	/* _exec() 内の case 'undo' / 'redo' で処理済み */
 
@@ -665,6 +854,7 @@
 	}
 
 	function _updateFloatBar(editor) {
+		if (_dragBlock) return; /* H: ドラッグ中はフローティングバーを更新しない */
 		var sel = window.getSelection();
 		if (!sel || sel.isCollapsed || !sel.rangeCount) {
 			if (_floatBar) _floatBar.style.display = 'none';
