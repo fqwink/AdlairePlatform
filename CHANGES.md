@@ -2,7 +2,19 @@
 
 ---
 
-## 2026-03-07（Ver.1.2-16 — バグ修正・defense-in-depth強化）
+## 2026-03-08（Ver.1.2-19 — Ph2-2: WYSIWYG 深化）
+
+- **[Feature]** `wysiwyg.js` — Undo/Redo ボタン（↩/↪）をツールバーに追加（`execCommand('undo'/'redo')`）
+- **[Feature]** `wysiwyg.js` — フローティングツールバー: テキスト選択時に選択範囲上部へ B/I/U/🔗/✕ ボタンを浮かせる（`selectionchange` + `Range.getBoundingClientRect()`）
+- **[Feature]** `wysiwyg.js` — 画像リサイズ: 画像クリックで青枠+4コーナーハンドルを表示、ドラッグでアスペクト比維持リサイズ（`position:fixed` オーバーレイ）
+- **[Feature]** `wysiwyg.js` — alt 属性編集: 画像リサイズ枠の下に alt 入力欄を表示、入力が即座に `img.alt` へ反映
+- **[Feature]** `wysiwyg.js` — テーブルサポート: 「表」ボタン → 8×8 グリッドピッカー → `execCommand('insertHTML')` でテーブル挿入
+- **[Feature]** `wysiwyg.js` — テーブル操作バー: カーソルがテーブル内にある時にテーブル上部へ「行+/行−/列+/列−」バーを表示
+- **[Security]** `wysiwyg.js` — サニタイザーに `TABLE/TBODY/THEAD/TFOOT/TR/TD/TH` を追加（`TD`/`TH` は `colspan`/`rowspan` のみ許可）
+- **[Fix]** `wysiwyg.js` — `_cleanup()` を導入し、保存・キャンセル時に全オーバーレイ・イベントリスナーを確実に解除（メモリリーク防止）
+
+## 2026-03-08（Ver.1.2-18 — Ph2-1: WYSIWYG 独自仕様）
+
 
 - **[Security]** `delete_backup()` に内部バリデーションを追加（`basename()` + `/^[0-9_]+$/` 正規表現検証）— handle_update_action() 側の検証に依存せず defense-in-depth として各関数内でも入力を検証
 - **[Security]** `rollback_to_backup()` に同様の内部バリデーションを追加

@@ -236,11 +236,13 @@ Header always set Content-Security-Policy "default-src 'self'; script-src 'self'
 | P2完了 | `Ver.1.2-13` | ✅ 完了 | エンジン分離・データ層分割・サードパーティ排除 |
 | P3完了 | `Ver.1.2-14` | ✅ 完了 | セキュリティ強化（CSP・engines/保護・nginx設定） |
 | P4完了 | `Ver.1.2-15` | ✅ 完了 | ドキュメント整備 |
-| バグ修正 | `Ver.1.2-16` | ✅ 完了（現在） | defense-in-depth強化・型安全・CSRFデバッグログ |
-| 将来 | 未定 | 🔜 予定 | StaticEngine, ApiEngine, WYSIWYG (Phase 2) |
+| バグ修正 | `Ver.1.2-16` | ✅ 完了 | defense-in-depth強化・型安全・CSRFデバッグログ |
+| Ph2-1完了 | `Ver.1.2-18` | ✅ 完了 | WYSIWYG: 画像挿入・定期自動保存 |
+| Ph2-2完了 | `Ver.1.2-19` | ✅ 完了（現在） | WYSIWYG: Undo/Redo・フロートバー・画像リサイズ・テーブル |
+| 将来 | 未定 | 🔜 予定 | StaticEngine, ApiEngine |
 
 > **バージョン規則**: リビジョンはリセット禁止、常に累積加算
-> **正しい例**: `Ver.1.0-11 → Ver.1.1-12 → Ver.1.2-13 → Ver.1.2-14 → Ver.1.2-15 → Ver.1.2-16`
+> **正しい例**: `Ver.1.0-11 → Ver.1.1-12 → Ver.1.2-13 → … → Ver.1.2-19`
 
 ---
 
@@ -291,13 +293,13 @@ Header always set Content-Security-Policy "default-src 'self'; script-src 'self'
 | P4-2 | ✅ `docs/STATIC_GENERATOR.md` 草稿 | `docs/STATIC_GENERATOR.md` |
 | P4-3 | ✅ `docs/HEADLESS_CMS.md` 草稿 | `docs/HEADLESS_CMS.md` |
 
-### Phase 2 – 将来タスク（時期未定）
+### Phase 2 – WYSIWYGエディタ（✅ 完了）
 
-| # | タスク |
-|---|-------|
-| Ph2-1 | WYSIWYGライブラリ選定（Quill / TipTap / Editor.js 等） |
-| Ph2-2 | WYSIWYGエディタ実装（`editInplace.js` 拡張 または 専用アダプタ） |
-| Ph2-3 | `admin-richText` フック復活・WYSIWYG差し込み |
+| # | タスク | バージョン |
+|---|-------|-----------|
+| Ph2-1 | ✅ `wysiwyg.js` 新規作成・画像挿入（D&D/貼付/ボタン）・30秒自動保存 | Ver.1.2-18 |
+| Ph2-2 | ✅ Undo/Redo ボタン・フローティングツールバー・画像リサイズ&alt編集・テーブルサポート | Ver.1.2-19 |
+| Ph2-3 | ✅ `admin-head` フックへ `wysiwyg.js` 登録・`editRich` クラスで有効化 | Ver.1.2-18 |
 
 ---
 
