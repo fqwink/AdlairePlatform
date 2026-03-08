@@ -611,6 +611,13 @@
 			var hr = document.createElement('hr');
 			block.parentNode.insertBefore(hr, block);
 			block.innerHTML = '<br>';
+			/* innerHTML 変更後にカーソルをブロック内へ再設定（古いrangeが無効になるため） */
+			var hrRange = document.createRange();
+			hrRange.setStart(block, 0);
+			hrRange.collapse(true);
+			var hrSel = window.getSelection();
+			hrSel.removeAllRanges();
+			hrSel.addRange(hrRange);
 		} else if (cmd === 'img') {
 			var inp = document.createElement('input');
 			inp.type = 'file';
@@ -742,12 +749,12 @@
 
 	function _changeBlockType(block, cmd, editor) {
 		if (!block) return;
+		editor.focus(); /* focus() より前に selection を設定すると focus() でリセットされるため先に呼ぶ */
 		var sel   = window.getSelection();
 		var range = document.createRange();
 		range.selectNodeContents(block);
 		sel.removeAllRanges();
 		sel.addRange(range);
-		editor.focus();
 		if (cmd === 'ul') {
 			document.execCommand('insertUnorderedList', false, null);
 		} else if (cmd === 'ol') {

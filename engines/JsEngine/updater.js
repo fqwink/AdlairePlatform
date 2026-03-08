@@ -1,5 +1,7 @@
 document.addEventListener('DOMContentLoaded', function () {
-    var csrf = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+    var csrfMeta = document.querySelector('meta[name="csrf-token"]');
+    if (!csrfMeta) return; /* CSRF メタタグが存在しない（非ログインページ等）場合は何もしない */
+    var csrf = csrfMeta.getAttribute('content');
 
     /* ── 更新確認ボタン ── */
     var checkBtn = document.getElementById('ap-check-update');
