@@ -12,6 +12,23 @@ ErrorDocument 403 &nbsp;
 </IfModule>
 RewriteEngine on
 Options -Indexes
+
+# ── 静的ファイル優先配信（Static-First モード） ──────────────────
+# static/index.html が存在すればトップページを静的配信
+RewriteCond %{DOCUMENT_ROOT}/%{REQUEST_URI}/static/index.html -f [OR]
+RewriteCond static/index.html -f
+RewriteCond %{QUERY_STRING} !(?:^|&)(ap_action|ap_api|admin|login)
+RewriteRule ^$ static/index.html [L]
+
+# /slug → static/slug/index.html が存在すれば静的配信
+RewriteCond static/%1/index.html -f
+RewriteCond %{QUERY_STRING} !(?:^|&)(ap_action|ap_api|admin|login)
+RewriteRule ^([a-zA-Z0-9_-]+)/?$ static/$1/index.html [L]
+
+# static/ 内の既存ファイルへの直接アクセスはそのまま通す
+RewriteRule ^static/ - [L]
+
+# ── 動的 PHP（index.php へのフォールバック） ──────────────────
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteCond $1#%{REQUEST_URI} ([^#]*)#(.*)\1$

@@ -2,8 +2,8 @@
 /**
  * ThemeEngine - テーマ検証・読み込み・コンテキスト構築
  *
- * theme.html（テンプレートエンジン方式）を優先し、
- * なければ theme.php（レガシー PHP 方式）にフォールバック。
+ * theme.html（テンプレートエンジン方式）でレンダリング。
+ * theme.php（レガシー PHP 方式）は Ver.1.3-28 で廃止。
  */
 class ThemeEngine {
 	private const FALLBACK   = 'AP-Default';
@@ -11,37 +11,26 @@ class ThemeEngine {
 
 	/**
 	 * テーマをロードしてレンダリング
-	 * theme.html があれば TemplateEngine で処理、なければ theme.php を require
+	 * theme.html を TemplateEngine で処理。なければ AP-Default にフォールバック
 	 */
 	public static function load(string $themeSelect): void {
 		if (!preg_match('/^[a-zA-Z0-9_-]+$/', $themeSelect)) {
 			$themeSelect = self::FALLBACK;
 		}
 
-		$themeDir  = self::THEMES_DIR . '/' . $themeSelect;
-		$htmlPath  = $themeDir . '/theme.html';
-		$phpPath   = $themeDir . '/theme.php';
+		$themeDir = self::THEMES_DIR . '/' . $themeSelect;
+		$htmlPath = $themeDir . '/theme.html';
 
-		if (file_exists($htmlPath)) {
-			$tpl = file_get_contents($htmlPath);
-			if ($tpl !== false) {
-				$context = self::buildContext();
-				echo TemplateEngine::render($tpl, $context, $themeDir);
-			} elseif (file_exists($phpPath)) {
-				require $phpPath;
-			}
-		} elseif (file_exists($phpPath)) {
-			require $phpPath;
+		if (!file_exists($htmlPath)) {
+			$themeDir = self::THEMES_DIR . '/' . self::FALLBACK;
+			$htmlPath = $themeDir . '/theme.html';
+		}
+
+		$tpl = file_get_contents($htmlPath);
+		if ($tpl !== false) {
+			echo TemplateEngine::render($tpl, self::buildContext(), $themeDir);
 		} else {
-			$fallbackDir  = self::THEMES_DIR . '/' . self::FALLBACK;
-			$fallbackHtml = $fallbackDir . '/theme.html';
-			$fallbackPhp  = $fallbackDir . '/theme.php';
-			$tpl = file_exists($fallbackHtml) ? file_get_contents($fallbackHtml) : false;
-			if ($tpl !== false) {
-				echo TemplateEngine::render($tpl, self::buildContext(), $fallbackDir);
-			} else {
-				require $fallbackPhp;
-			}
+			echo '<!-- ThemeEngine: テンプレート読み込みエラー -->';
 		}
 	}
 

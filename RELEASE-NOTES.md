@@ -2,6 +2,58 @@
 
 ---
 
+## AdlairePlatform Ver.1.3-28（2026-03-08）
+
+StaticEngine（静的サイト生成エンジン）を実装。コンテンツを静的 HTML として書き出し、`.htaccess` で静的ファイルを優先配信する Static-First Hybrid アーキテクチャを実現。
+同時に `theme.php`（レガシー PHP テーマ方式）を廃止し、テーマは `theme.html`（TemplateEngine 方式）のみに統一。
+
+### 新機能
+
+- **StaticEngine** — 静的サイト生成エンジン（`engines/StaticEngine.php`）
+  - 差分ビルド: `content_hash` / `settings_hash` に基づき変更ページのみ再生成
+  - フルビルド: 全ページ強制再生成
+  - クリーン: `static/` を完全削除
+  - ZIP ダウンロード: 静的ファイル一式を ZIP 圧縮してブラウザダウンロード
+  - アセット管理: テーマ CSS/JS + uploads/ を `static/assets/` に差分コピー
+  - `static/.htaccess` 自動生成（PHP 実行禁止）
+- **静的書き出し管理 UI** — ダッシュボード（`?admin`）に「静的書き出し」セクションを追加
+  - 差分ビルド / フルビルド / クリーン / ZIP ダウンロード ボタン
+  - ページ別ビルド状態（✅最新 / ⚠️更新必要 / ❌未生成）のリアルタイム表示
+- **Static-First 配信** — `.htaccess` に静的ファイル優先配信ルールを追加
+  - `static/index.html` が存在すればトップページを静的配信
+  - `static/{slug}/index.html` が存在すればスラッグページを静的配信
+  - 管理・API・ログインは常に PHP にルーティング
+
+### 破壊的変更
+
+- **theme.php 廃止** — レガシー PHP テーマ方式を完全廃止
+  - `themes/AP-Default/theme.php` / `themes/AP-Adlaire/theme.php` を削除
+  - `ThemeEngine::load()` から PHP フォールバックを削除
+  - レガシーラッパー関数 `content()` / `editTags()` / `menu()` を index.php から削除
+  - カスタムテーマは `theme.html`（TemplateEngine 方式）への移行が必要
+
+### 新規ファイル
+
+| ファイル | 説明 |
+|---------|------|
+| `engines/StaticEngine.php` | 静的サイト生成エンジン |
+| `engines/JsEngine/static_builder.js` | 静的書き出し管理 UI |
+
+### 削除ファイル
+
+| ファイル | 理由 |
+|---------|------|
+| `themes/AP-Default/theme.php` | theme.html に統一（レガシー廃止） |
+| `themes/AP-Adlaire/theme.php` | theme.html に統一（レガシー廃止） |
+
+### 後方互換性
+
+- `is_loggedin()` / `csrf_token()` / `verify_csrf()` / `h()` / `getSlug()` は維持
+- `theme.php` を使用するカスタムテーマは `theme.html` への移行が必要
+- 静的書き出しは追加機能であり、動的 PHP 動作には影響なし
+
+---
+
 ## AdlairePlatform Ver.1.3-27（2026-03-08）
 
 管理ツールをエンジン駆動モデルに再設計し、専用ダッシュボード（`?admin`）を導入。

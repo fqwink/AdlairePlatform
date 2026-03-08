@@ -12,7 +12,7 @@ if (PHP_VERSION_ID < 80200) {
 	exit('AdlairePlatform requires PHP 8.2 or later. Current version: ' . PHP_VERSION);
 }
 
-define('AP_VERSION', '1.3.27');
+define('AP_VERSION', '1.3.28');
 define('AP_UPDATE_URL', 'https://api.github.com/repos/win-k/AdlairePlatform/releases/latest');
 define('AP_BACKUP_GENERATIONS', 5);
 define('AP_REVISION_LIMIT', 30);
@@ -21,6 +21,7 @@ require 'engines/TemplateEngine.php';
 require 'engines/ThemeEngine.php';
 require 'engines/UpdateEngine.php';
 require 'engines/AdminEngine.php';
+require 'engines/StaticEngine.php';
 
 ob_start();
 ini_set('session.cookie_httponly', 1);
@@ -29,6 +30,7 @@ session_start();
 migrate_from_files();
 host();
 AdminEngine::handle();       /* edit_field, upload_image, revision 等 */
+StaticEngine::handle();      /* generate_static_*, clean_static, build_zip 等 */
 handle_update_action();      /* update, backup, rollback 等 */
 
 $c['password'] = 'admin';
@@ -140,7 +142,7 @@ AdminEngine::registerHooks();
 ThemeEngine::load($c['themeSelect']);
 
 /* ══════════════════════════════════════════════
-   レガシー互換ラッパー（theme.php フォールバック用）
+   ラッパー関数（エンジン・ユーティリティ）
    ══════════════════════════════════════════════ */
 
 function is_loggedin(): bool {
@@ -161,35 +163,6 @@ function getSlug(string $p): string {
 
 function h(string $s): string {
 	return htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
-}
-
-function content(string $id, $content = ''): void {
-	$content = (string)($content ?? '');
-	echo AdminEngine::renderEditableContent($id, $content);
-}
-
-function editTags(){
-	global $hook;
-	if(!is_loggedin() && !isset($_GET['login']))
-		return;
-	foreach($hook['admin-head'] as $o){
-		echo "\t".$o."\n";
-	}
-}
-
-function menu(){
-	global $c, $host;
-	$mlist = explode("<br />\n", $c['menu']);
-	?><ul>
-	<?php
-	foreach ($mlist as $cp){
-		if(trim(strip_tags($cp)) === '') continue;
-		$slug = getSlug(strip_tags($cp));
-		?>
-			<li<?php if($c['page'] == $slug) echo ' class="active"'; ?>><a href='<?php echo h($slug); ?>'><?php echo h(strip_tags($cp)); ?></a></li>
-	<?php } ?>
-	</ul>
-<?php
 }
 
 /* ══════════════════════════════════════════════

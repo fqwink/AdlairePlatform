@@ -2,6 +2,37 @@
 
 ---
 
+## 2026-03-08（Ver.1.3-28 — StaticEngine 実装・theme.php 廃止）
+
+- **[Feature]** `engines/StaticEngine.php` 新規作成 — 静的サイト生成エンジン
+  - 差分ビルド（`buildDiff()`）: `content_hash` / `settings_hash` で変更ページのみ再生成
+  - フルビルド（`buildAll()`）: 全ページ強制再生成
+  - クリーン（`clean()`）: `static/` ディレクトリを完全削除
+  - ZIP ダウンロード（`serveZip()`）: 静的ファイル一式を ZIP 圧縮してダウンロード
+  - ステータス取得（`getStatus()`）: ページ別ビルド状態（current/outdated/not_built）
+  - アセットコピー（`copyAssets()`）: テーマ CSS/JS + uploads/ を `static/assets/` に差分コピー
+  - `static/.htaccess` 自動生成（PHP 実行禁止・404 フォールバック）
+  - `TemplateEngine::render()` + `ThemeEngine::buildStaticContext()` でレンダリング
+  - アセットパス書き換え（`rewriteAssetPaths()`）: CSS/画像パスを静的配信向けに変換
+  - パストラバーサル防止（`realpath()` + プロジェクトルート内チェック）
+- **[Feature]** `engines/JsEngine/static_builder.js` 新規作成 — ダッシュボード上の静的書き出し管理 UI
+  - 差分ビルド / フルビルド / クリーン / ZIP ダウンロード ボタン
+  - ページ別ビルド状態のリアルタイム表示
+- **[Feature]** `engines/AdminEngine/dashboard.html` 改修 — 「静的書き出し」セクション追加
+- **[Architecture]** `.htaccess` 改修 — Static-First モードの静的ファイル優先配信ルール追加
+  - `static/index.html` が存在すればトップページを静的配信
+  - `static/{slug}/index.html` が存在すればスラッグページを静的配信
+  - `?admin` / `?login` / `?ap_action` / `?ap_api` クエリは常に PHP にルーティング
+- **[Breaking]** `theme.php`（レガシー PHP テーマ方式）を廃止
+  - `themes/AP-Default/theme.php` 削除
+  - `themes/AP-Adlaire/theme.php` 削除
+  - `ThemeEngine::load()` を簡素化 — theme.html のみ対応、PHP フォールバック削除
+  - レガシーラッパー関数 `content()` / `editTags()` / `menu()` を index.php から削除
+  - `is_loggedin()` / `csrf_token()` / `verify_csrf()` / `h()` / `getSlug()` は維持
+- **[Version]** `AP_VERSION` を `'1.3.28'` に更新
+
+---
+
 ## 2026-03-08（Ver.1.3-27 — AdminEngine・ダッシュボード）
 
 - **[Architecture]** `engines/AdminEngine.php` 新規作成 — 認証・CSRF・フィールド保存・画像アップロード・リビジョン管理・ダッシュボードを集約

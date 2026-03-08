@@ -10,6 +10,7 @@
 	<script src="engines/JsEngine/autosize.js"></script>
 	<script src="engines/JsEngine/editInplace.js"></script>
 	<script src="engines/JsEngine/updater.js"></script>
+	<script src="engines/JsEngine/static_builder.js"></script>
 	<script src="engines/JsEngine/dashboard.js" defer></script>
 </head>
 <body>
@@ -61,6 +62,21 @@
 			{{else}}
 			<p>ページがありません。メニューにページ名を追加し、サイト表示からコンテンツを編集してください。</p>
 			{{/if}}
+		</section>
+
+		<section class="ap-dash-card">
+			<h2>静的書き出し</h2>
+			<div class="ap-dash-field">
+				<span id="ap-static-status">読み込み中...</span>
+			</div>
+			<div id="ap-static-pages" class="ap-dash-field"></div>
+			<div class="ap-dash-buttons">
+				<button id="ap-static-diff">差分ビルド</button>
+				<button id="ap-static-full">フルビルド</button>
+				<button id="ap-static-clean">クリーン</button>
+				<button id="ap-static-zip">ZIP DL</button>
+			</div>
+			<div id="ap-static-result" class="ap-dash-field"></div>
 		</section>
 
 		<section class="ap-dash-card">
