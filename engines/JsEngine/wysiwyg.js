@@ -253,10 +253,11 @@
 		span.appendChild(wrap);
 		editor.focus();
 
-		/* ── ブラウザ標準の画像リサイズハンドルを無効化（カスタムハンドルと競合防止） ── */
-		try { document.execCommand('enableObjectResizing', false, false); } catch (e) { /* 非対応ブラウザを無視 */ }
+		/* ── ブラウザ標準の画像リサイズハンドル / テーブルインライン編集を無効化（カスタムハンドルと競合防止） ── */
+		try { document.execCommand('enableObjectResizing',      false, false); } catch (e) { /* 非対応ブラウザを無視 */ }
+		try { document.execCommand('enableInlineTableEditing',  false, false); } catch (e) { /* 非対応ブラウザを無視 */ }
 		/* ── Chrome で Enter 時に <p> を使う（<div> 生成を防止） ── */
-		try { document.execCommand('defaultParagraphSeparator', false, 'p'); } catch (e) { /* 非対応ブラウザを無視 */ }
+		try { document.execCommand('defaultParagraphSeparator', false, 'p');   } catch (e) { /* 非対応ブラウザを無視 */ }
 
 		/* ── 自動保存 ── */
 		_lastSaved = _cleanHtml(originalHtml);
@@ -534,13 +535,19 @@
 		var rect = range.getBoundingClientRect();
 		var menu = document.createElement('div');
 		menu.className = 'ap-wy-slash-menu';
-		menu.style.left = rect.left + 'px';
-		menu.style.top  = (rect.bottom + 4) + 'px';
 		_slashMenu   = menu;
 		_slashIndex  = 0;
 		_slashFilter = '';
 		_renderSlashItems(menu, editor);
 		document.body.appendChild(menu);
+		/* ビューポートを考慮した位置決め（画面外にはみ出さないようクランプ） */
+		var mRect = menu.getBoundingClientRect();
+		var top  = rect.bottom + 4;
+		var left = rect.left;
+		if (top  + mRect.height > window.innerHeight - 8) top  = Math.max(8, rect.top - mRect.height - 4);
+		if (left + mRect.width  > window.innerWidth  - 8) left = Math.max(8, window.innerWidth - mRect.width - 8);
+		menu.style.top  = top  + 'px';
+		menu.style.left = left + 'px';
 		_updateSlashSelection();
 		_slashOutFn = function (e) {
 			if (_slashMenu && !_slashMenu.contains(e.target)) _hideSlashMenu();
@@ -592,13 +599,13 @@
 		if (!block) return;
 		/* "/" テキストを消去してカーソルをブロック内に置く */
 		block.innerHTML = '';
+		editor.focus(); /* focus() より前に selection を設定すると focus() でリセットされるため先に呼ぶ */
 		var range = document.createRange();
 		range.setStart(block, 0);
 		range.collapse(true);
 		var sel = window.getSelection();
 		sel.removeAllRanges();
 		sel.addRange(range);
-		editor.focus();
 
 		if (cmd === 'hr') {
 			var hr = document.createElement('hr');
@@ -687,8 +694,6 @@
 		var hRect = _blockHandle.getBoundingClientRect();
 		var popup = document.createElement('div');
 		popup.className = 'ap-wy-type-popup';
-		popup.style.left = (hRect.right + 6) + 'px';
-		popup.style.top  = hRect.top + 'px';
 
 		BLOCK_CMDS.filter(function (t) {
 			return !t.isVoid && t.cmd !== 'img' && t.cmd !== 'table';
@@ -707,6 +712,14 @@
 
 		document.body.appendChild(popup);
 		_typePopup = popup;
+		/* ビューポートを考慮した位置決め（画面外にはみ出さないようクランプ） */
+		var pRect = popup.getBoundingClientRect();
+		var left  = hRect.right + 6;
+		var top   = hRect.top;
+		if (left + pRect.width  > window.innerWidth  - 8) left = Math.max(8, hRect.left - pRect.width - 6);
+		if (top  + pRect.height > window.innerHeight - 8) top  = Math.max(8, window.innerHeight - pRect.height - 8);
+		popup.style.left = left + 'px';
+		popup.style.top  = top  + 'px';
 
 		_typePopupOutFn = function (e) {
 			if (_typePopup &&
@@ -748,18 +761,25 @@
 
 	function _startDrag(editor) {
 		if (!_handleTarget) return;
-		_dragBlock = _handleTarget;
-		_dragBlock.style.opacity = '0.4';
-		_blockHandle.classList.remove('vis');
-		_hideSlashMenu();
-
-		_dropLine = document.createElement('div');
-		_dropLine.className = 'ap-wy-drop-line';
-		document.body.appendChild(_dropLine);
-
+		var pendingBlock  = _handleTarget;   /* mousedown 時点のターゲット */
+		var _dragStarted  = false;           /* 実際に mousemove が起きたか */
 		var _insertTarget = undefined;
 
 		function onMove(ev) {
+			/* _cleanup() が呼ばれた後は処理しない（Ctrl+Enter 等でエディタが閉じた場合） */
+			if (!_active) { onUp(); return; }
+			/* 初回 mousemove で初めてドラッグ視覚効果を適用（クリック時のフラッシュを防止） */
+			if (!_dragStarted) {
+				_dragBlock = pendingBlock;
+				_dragBlock.style.opacity = '0.4';
+				_blockHandle.classList.remove('vis');
+				_hideSlashMenu();
+				_dropLine = document.createElement('div');
+				_dropLine.className = 'ap-wy-drop-line';
+				document.body.appendChild(_dropLine);
+				_dragStarted = true;
+			}
+
 			var blocks  = Array.from(editor.children).filter(function (b) { return b !== _dragBlock; });
 			var edRect  = editor.getBoundingClientRect();
 			_dropLine.style.left  = edRect.left + 'px';
@@ -793,6 +813,8 @@
 		function onUp() {
 			document.removeEventListener('mousemove', onMove);
 			document.removeEventListener('mouseup',   onUp);
+			/* マウスが動いていない（純粋なクリック）場合は何もせず終了 */
+			if (!_dragStarted) return;
 			_dragBlock.style.opacity = '';
 			if (_dropLine && _dropLine.parentNode) _dropLine.parentNode.removeChild(_dropLine);
 			_dropLine = null;
