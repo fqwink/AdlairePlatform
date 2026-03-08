@@ -144,38 +144,52 @@ const _css = `
 /* ── 履歴パネル ── */
 .ap-wy-history-panel{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
   z-index:2000;background:#1e1e1e;border:1px solid #555;border-radius:8px;
-  width:640px;max-width:90vw;max-height:80vh;display:flex;flex-direction:column;
+  width:640px;max-width:90vw;min-height:300px;max-height:80vh;display:flex;flex-direction:column;
   box-shadow:0 8px 32px rgba(0,0,0,.6);}
+@media(max-width:480px){.ap-wy-history-panel{width:98vw;max-height:90vh;border-radius:4px;}}
 .ap-wy-history-header{display:flex;align-items:center;padding:10px 14px;
   border-bottom:1px solid #444;gap:8px;}
-.ap-wy-history-header h3{margin:0;font-size:14px;color:#eee;flex:1;}
+.ap-wy-history-header span{margin:0;font-size:14px;color:#eee;flex:1;}
 .ap-wy-history-close{cursor:pointer;color:#aaa;font-size:18px;background:none;
   border:none;padding:4px 8px;}
 .ap-wy-history-close:hover{color:#fff;}
 .ap-wy-history-tabs{display:flex;border-bottom:1px solid #444;}
 .ap-wy-history-tab{padding:8px 16px;cursor:pointer;font-size:13px;color:#aaa;
-  background:none;border:none;border-bottom:2px solid transparent;}
+  background:none;border:none;border-bottom:2px solid transparent;flex-direction:column;}
 .ap-wy-history-tab.active{color:#0ad;border-bottom-color:#0ad;}
 .ap-wy-history-tab:hover{color:#ddd;}
-.ap-wy-history-body{flex:1;overflow-y:auto;padding:8px;}
-.ap-wy-history-item{display:flex;align-items:center;gap:8px;padding:8px 10px;
-  cursor:pointer;border-radius:4px;font-size:13px;color:#ccc;}
+.ap-wy-history-tab:focus{outline:2px solid #0ad;outline-offset:-2px;}
+.ap-wy-history-tab small{display:block;font-size:10px;color:#777;margin-top:2px;}
+.ap-wy-history-body{flex:1;overflow-y:auto;padding:8px;min-height:0;}
+.ap-wy-history-item{display:block;padding:8px 10px;border-radius:4px;font-size:13px;
+  color:#ccc;border:1px solid transparent;margin-bottom:2px;}
 .ap-wy-history-item:hover{background:rgba(255,255,255,.06);}
-.ap-wy-history-item.active{background:#0ad;color:#000;}
-.ap-wy-history-item-time{font-size:11px;color:#888;min-width:80px;}
+.ap-wy-history-item.active,.ap-wy-history-item:focus{outline:2px solid #0ad;background:rgba(0,170,221,.1);}
+.ap-wy-history-item-time{font-size:11px;color:#888;}
 .ap-wy-history-item-info{flex:1;}
-.ap-wy-history-item-btn{padding:3px 8px;font-size:11px;background:#444;color:#ddd;
+.ap-wy-history-item-badge{display:inline-block;font-size:10px;padding:1px 6px;border-radius:3px;margin-left:6px;}
+.ap-wy-history-item-badge.restored{background:#553;color:#fc0;}
+.ap-wy-history-item-badge.pinned{background:#335;color:#6cf;}
+.ap-wy-history-btn{padding:3px 8px;font-size:11px;background:#444;color:#ddd;
   border:1px solid #555;border-radius:3px;cursor:pointer;}
-.ap-wy-history-item-btn:hover{background:#666;}
-.ap-wy-history-item-btn.primary{background:#0ad;color:#000;border-color:#0ad;}
+.ap-wy-history-btn:hover{background:#666;}
+.ap-wy-history-btn:focus{outline:2px solid #0ad;}
+.ap-wy-history-btn.primary{background:#0ad;color:#000;border-color:#0ad;}
 .ap-wy-history-overlay{position:fixed;top:0;left:0;right:0;bottom:0;
   background:rgba(0,0,0,.5);z-index:1999;}
+.ap-wy-history-search{display:flex;gap:6px;padding:8px 10px;border-bottom:1px solid #444;}
+.ap-wy-history-search input{flex:1;padding:4px 8px;font-size:12px;border:1px solid #555;
+  border-radius:3px;background:#2a2a2a;color:#ddd;}
+.ap-wy-history-search input:focus{border-color:#0ad;outline:none;}
+.ap-wy-history-search button{padding:4px 10px;font-size:12px;}
 .ap-wy-diff-view{padding:8px;font-family:monospace;font-size:12px;
   white-space:pre-wrap;line-height:1.6;max-height:40vh;overflow-y:auto;
   background:#111;border-radius:4px;margin:8px;}
-.ap-wy-diff-add{background:rgba(0,180,0,.2);color:#8f8;}
-.ap-wy-diff-del{background:rgba(255,0,0,.2);color:#f88;text-decoration:line-through;}
+.ap-wy-diff-add{background:rgba(0,180,0,.15);color:#8f8;border-left:3px solid #4c4;}
+.ap-wy-diff-del{background:rgba(255,0,0,.15);color:#f88;text-decoration:line-through;border-left:3px solid #c44;}
 .ap-wy-diff-eq{color:#888;}
+.ap-wy-diff-fold{color:#0ad;cursor:pointer;padding:2px 0;font-style:italic;font-size:11px;}
+.ap-wy-diff-fold:hover{text-decoration:underline;}
 `;
 const _styleEl = document.createElement('style');
 _styleEl.textContent = _css;
@@ -1979,8 +1993,12 @@ function _insertImageBlock(file) {
    編集履歴パネル
    ══════════════════════════════════════════════ */
 
+/* D1: リビジョン間比較用の選択状態 */
+let _diffCompareA = null;
+
 function _showHistoryPanel(span) {
 	if (_historyPanel) { _closeHistoryPanel(); return; }
+	_diffCompareA = null;
 
 	const overlay = document.createElement('div');
 	overlay.className = 'ap-wy-history-overlay';
@@ -1988,27 +2006,37 @@ function _showHistoryPanel(span) {
 
 	const panel = document.createElement('div');
 	panel.className = 'ap-wy-history-panel';
+	panel.setAttribute('role', 'dialog');
+	panel.setAttribute('aria-label', '編集履歴');
 
 	/* ヘッダー */
 	const header = document.createElement('div');
 	header.className = 'ap-wy-history-header';
-	header.innerHTML = '<span>編集履歴</span>';
+	const title = document.createElement('span');
+	title.textContent = '編集履歴';
+	header.appendChild(title);
 	const closeBtn = document.createElement('button');
+	closeBtn.className = 'ap-wy-history-close';
 	closeBtn.textContent = '✕';
-	closeBtn.style.cssText = 'background:none;border:none;font-size:18px;cursor:pointer;color:#666;';
+	closeBtn.setAttribute('aria-label', '閉じる');
 	closeBtn.addEventListener('click', _closeHistoryPanel);
 	header.appendChild(closeBtn);
 
-	/* タブ */
+	/* C5: タブ（説明テキスト付き） */
 	const tabs = document.createElement('div');
 	tabs.className = 'ap-wy-history-tabs';
+	tabs.setAttribute('role', 'tablist');
 	const tabSession = document.createElement('button');
 	tabSession.className = 'ap-wy-history-tab active';
-	tabSession.textContent = 'セッション';
+	tabSession.setAttribute('role', 'tab');
+	tabSession.setAttribute('aria-selected', 'true');
+	tabSession.innerHTML = 'セッション<small>ブラウザ内の操作履歴</small>';
 	tabSession.dataset.tab = 'session';
 	const tabRevision = document.createElement('button');
 	tabRevision.className = 'ap-wy-history-tab';
-	tabRevision.textContent = 'リビジョン';
+	tabRevision.setAttribute('role', 'tab');
+	tabRevision.setAttribute('aria-selected', 'false');
+	tabRevision.innerHTML = 'リビジョン<small>サーバー保存の版管理</small>';
 	tabRevision.dataset.tab = 'revision';
 	tabs.appendChild(tabSession);
 	tabs.appendChild(tabRevision);
@@ -2016,6 +2044,7 @@ function _showHistoryPanel(span) {
 	/* ボディ */
 	const body = document.createElement('div');
 	body.className = 'ap-wy-history-body';
+	body.setAttribute('role', 'tabpanel');
 
 	panel.appendChild(header);
 	panel.appendChild(tabs);
@@ -2029,14 +2058,47 @@ function _showHistoryPanel(span) {
 	/* タブ切り替え */
 	tabSession.addEventListener('click', () => {
 		tabSession.classList.add('active');
+		tabSession.setAttribute('aria-selected', 'true');
 		tabRevision.classList.remove('active');
+		tabRevision.setAttribute('aria-selected', 'false');
+		_diffCompareA = null;
 		_renderSessionHistory(body);
 	});
 	tabRevision.addEventListener('click', () => {
 		tabRevision.classList.add('active');
+		tabRevision.setAttribute('aria-selected', 'true');
 		tabSession.classList.remove('active');
+		tabSession.setAttribute('aria-selected', 'false');
+		_diffCompareA = null;
 		_renderRevisionTab(body, span);
 	});
+
+	/* C1: キーボード操作 */
+	panel.addEventListener('keydown', (e) => {
+		if (e.key === 'Escape') { _closeHistoryPanel(); e.preventDefault(); return; }
+		if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+			const active = panel.querySelector('.ap-wy-history-tab.active');
+			const other = active === tabSession ? tabRevision : tabSession;
+			other.click();
+			other.focus();
+			e.preventDefault();
+			return;
+		}
+		/* リスト内の上下移動 */
+		if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+			const items = Array.from(body.querySelectorAll('.ap-wy-history-item[tabindex]'));
+			if (items.length === 0) return;
+			const cur = document.activeElement;
+			let idx = items.indexOf(cur);
+			if (e.key === 'ArrowDown') idx = Math.min(idx + 1, items.length - 1);
+			else idx = Math.max(idx - 1, 0);
+			items[idx].focus();
+			e.preventDefault();
+		}
+	});
+
+	/* フォーカストラップ */
+	closeBtn.focus();
 
 	/* 初期表示: セッションタブ */
 	_renderSessionHistory(body);
@@ -2047,6 +2109,7 @@ function _closeHistoryPanel() {
 	_historyPanel.panel.remove();
 	_historyPanel.overlay.remove();
 	_historyPanel = null;
+	_diffCompareA = null;
 }
 
 /* ── セッション履歴タブ ── */
@@ -2062,8 +2125,14 @@ function _renderSessionHistory(container) {
 	/* 現在の状態 */
 	const currentItem = document.createElement('div');
 	currentItem.className = 'ap-wy-history-item';
-	currentItem.style.borderLeft = '3px solid #2196F3';
-	currentItem.innerHTML = '<strong>▶ 現在の状態</strong><br><small>ブロック数: ' + _blocks.length + '</small>';
+	currentItem.style.borderLeft = '3px solid #0ad';
+	const curInfo = document.createElement('div');
+	curInfo.innerHTML = '<strong>\u25B6 現在の状態</strong>';
+	const curDetail = document.createElement('small');
+	curDetail.className = 'ap-wy-history-item-time';
+	curDetail.textContent = 'ブロック数: ' + _blocks.length;
+	currentItem.appendChild(curInfo);
+	currentItem.appendChild(curDetail);
 	container.appendChild(currentItem);
 
 	/* undoStack を新しい順に */
@@ -2071,25 +2140,34 @@ function _renderSessionHistory(container) {
 		const entry = _undoStack[i];
 		const item = document.createElement('div');
 		item.className = 'ap-wy-history-item';
+		item.setAttribute('tabindex', '0');
+		item.setAttribute('role', 'button');
+		item.setAttribute('aria-label', '操作 #' + (i + 1) + ' に戻す');
 		const time = entry.time ? new Date(entry.time).toLocaleTimeString('ja-JP') : '';
 		const bc = entry.blockCount || '?';
-		item.innerHTML = '<span>操作 #' + (i + 1) + '</span>' +
-			'<small style="float:right;color:#999;">' + time + '</small>' +
-			'<br><small>ブロック数: ' + bc + '</small>';
+		const info = document.createElement('div');
+		info.className = 'ap-wy-history-item-info';
+		info.textContent = '操作 #' + (i + 1);
+		const detail = document.createElement('small');
+		detail.className = 'ap-wy-history-item-time';
+		detail.textContent = time + '  ブロック: ' + bc;
+		item.appendChild(info);
+		item.appendChild(detail);
 		item.style.cursor = 'pointer';
-		item.addEventListener('click', ((idx) => () => {
+		const handler = ((idx) => (e) => {
+			if (e.type === 'keydown' && e.key !== 'Enter') return;
 			_jumpToSnapshot(idx);
 			_closeHistoryPanel();
-		})(i));
+		})(i);
+		item.addEventListener('click', handler);
+		item.addEventListener('keydown', handler);
 		container.appendChild(item);
 	}
 }
 
 function _jumpToSnapshot(targetIdx) {
 	_syncAllBlocks();
-	/* 現在の状態を redoStack に保存 */
 	const currentSnap = JSON.stringify(_blocks);
-	/* targetIdx 以降の undoStack エントリを redo に移動 */
 	const moveCount = _undoStack.length - targetIdx - 1;
 	_redoStack.push({ snap: currentSnap, time: Date.now(), blockCount: _blocks.length });
 	for (let i = 0; i < moveCount; i++) {
@@ -2097,7 +2175,7 @@ function _jumpToSnapshot(targetIdx) {
 	}
 	const entry = _undoStack.pop();
 	_restoreSnapshot(entry.snap);
-	_setStatus('↩ スナップショット #' + (targetIdx + 1) + ' に戻しました');
+	_setStatus('\u21A9 スナップショット #' + (targetIdx + 1) + ' に戻しました');
 	setTimeout(() => _setStatus(''), 3000);
 }
 
@@ -2111,24 +2189,57 @@ function _renderRevisionTab(container, span) {
 		return;
 	}
 
-	/* 前回保存時との比較ボタン */
-	const diffBar = document.createElement('div');
-	diffBar.style.cssText = 'padding:8px 16px;border-bottom:1px solid #eee;';
-	const diffBtn = document.createElement('button');
-	diffBtn.textContent = '前回保存時と比較';
-	diffBtn.style.cssText = 'padding:4px 12px;border:1px solid #ccc;border-radius:4px;background:#fff;cursor:pointer;font-size:13px;';
-	diffBtn.addEventListener('click', () => {
-		_syncAllBlocks();
-		const currentHtml = _serializeBlocks();
-		const oldHtml = _lastSaved || '';
-		const diff = _computeDiff(_stripTags(oldHtml), _stripTags(currentHtml));
-		_renderDiffView(container, diff, diffBar);
-	});
-	diffBar.appendChild(diffBtn);
-
 	_fetchRevisions(fieldname, (revisions) => {
 		container.innerHTML = '';
-		container.appendChild(diffBar);
+
+		/* D3: 検索バー */
+		const searchBar = document.createElement('div');
+		searchBar.className = 'ap-wy-history-search';
+		const searchInput = document.createElement('input');
+		searchInput.type = 'text';
+		searchInput.placeholder = 'キーワードで検索...';
+		searchInput.setAttribute('aria-label', 'リビジョン検索');
+		const searchBtn = document.createElement('button');
+		searchBtn.className = 'ap-wy-history-btn';
+		searchBtn.textContent = '検索';
+		searchBtn.addEventListener('click', () => {
+			const q = searchInput.value.trim();
+			_searchRevisions(fieldname, q, container, span);
+		});
+		searchInput.addEventListener('keydown', (e) => {
+			if (e.key === 'Enter') searchBtn.click();
+		});
+		searchBar.appendChild(searchInput);
+		searchBar.appendChild(searchBtn);
+		container.appendChild(searchBar);
+
+		/* ツールバー */
+		const toolbar = document.createElement('div');
+		toolbar.style.cssText = 'padding:6px 10px;border-bottom:1px solid #444;display:flex;gap:8px;flex-wrap:wrap;';
+
+		/* 前回保存時との比較 */
+		const diffBtn = document.createElement('button');
+		diffBtn.className = 'ap-wy-history-btn';
+		diffBtn.textContent = '前回保存時と比較';
+		diffBtn.setAttribute('aria-label', '前回保存時と現在の内容を比較');
+		diffBtn.addEventListener('click', () => {
+			_syncAllBlocks();
+			const currentHtml = _serializeBlocks();
+			const oldHtml = _lastSaved || '';
+			const diff = _computeDiff(_stripTags(oldHtml), _stripTags(currentHtml));
+			_renderDiffView(container, diff, null);
+		});
+		toolbar.appendChild(diffBtn);
+
+		/* D1: 2つのリビジョンを比較ボタン */
+		const cmpBtn = document.createElement('button');
+		cmpBtn.className = 'ap-wy-history-btn';
+		cmpBtn.textContent = _diffCompareA ? '比較対象A: ' + _diffCompareA.file.replace('rev_','') : '2つを比較';
+		cmpBtn.setAttribute('aria-label', '2つのリビジョンを比較');
+		if (_diffCompareA) cmpBtn.style.background = '#335';
+		toolbar.appendChild(cmpBtn);
+
+		container.appendChild(toolbar);
 
 		if (revisions.length === 0) {
 			const msg = document.createElement('div');
@@ -2138,77 +2249,211 @@ function _renderRevisionTab(container, span) {
 			return;
 		}
 
-		revisions.forEach(rev => {
-			const item = document.createElement('div');
-			item.className = 'ap-wy-history-item';
-			const d = rev.timestamp ? new Date(rev.timestamp) : null;
-			const ts = d ? d.toLocaleString('ja-JP') : rev.file;
-			const kb = rev.size ? (rev.size / 1024).toFixed(1) + ' KB' : '';
-			item.innerHTML = '<span>' + ts + '</span>' +
-				'<small style="float:right;color:#999;">' + kb + '</small>';
-
-			const btnWrap = document.createElement('div');
-			btnWrap.style.cssText = 'margin-top:6px;display:flex;gap:8px;';
-
-			const restoreBtn = document.createElement('button');
-			restoreBtn.textContent = '復元';
-			restoreBtn.style.cssText = 'padding:2px 10px;border:1px solid #2196F3;border-radius:3px;background:#fff;color:#2196F3;cursor:pointer;font-size:12px;';
-			restoreBtn.addEventListener('click', () => {
-				if (!confirm('このリビジョンを復元しますか？現在の内容は上書きされます。')) return;
-				_restoreRevision(fieldname, rev.file, span);
-			});
-
-			const diffRevBtn = document.createElement('button');
-			diffRevBtn.textContent = '差分を見る';
-			diffRevBtn.style.cssText = 'padding:2px 10px;border:1px solid #999;border-radius:3px;background:#fff;color:#666;cursor:pointer;font-size:12px;';
-			diffRevBtn.addEventListener('click', () => {
-				_fetchRevisionContent(fieldname, rev.file, (content) => {
-					_syncAllBlocks();
-					const currentHtml = _serializeBlocks();
-					const diff = _computeDiff(_stripTags(content), _stripTags(currentHtml));
-					_renderDiffView(container, diff, diffBar);
-				});
-			});
-
-			btnWrap.appendChild(restoreBtn);
-			btnWrap.appendChild(diffRevBtn);
-			item.appendChild(btnWrap);
-			container.appendChild(item);
-		});
+		_renderRevisionList(container, revisions, fieldname, span, cmpBtn);
 	});
 }
 
-function _fetchRevisions(fieldname, callback) {
-	const csrf = _getCsrf();
-	fetch('index.php?ap_action=list_revisions&fieldname=' + encodeURIComponent(fieldname) + '&csrf=' + encodeURIComponent(csrf || ''))
-	.then(r => r.json())
-	.then(data => { callback(data.revisions || []); })
-	.catch(() => { callback([]); });
+function _renderRevisionList(container, revisions, fieldname, span, cmpBtn) {
+	revisions.forEach((rev, idx) => {
+		const item = document.createElement('div');
+		item.className = 'ap-wy-history-item';
+		item.setAttribute('tabindex', '0');
+		const d = rev.timestamp ? new Date(rev.timestamp) : null;
+		const ts = d && !isNaN(d.getTime()) ? d.toLocaleString('ja-JP') : rev.file;
+		const kb = rev.size ? (rev.size / 1024).toFixed(1) + ' KB' : '';
+
+		const info = document.createElement('div');
+		info.style.cssText = 'flex:1;';
+		const tsSpan = document.createElement('span');
+		tsSpan.textContent = ts;
+		info.appendChild(tsSpan);
+
+		/* C4: 復元マーキング */
+		if (rev.restored) {
+			const badge = document.createElement('span');
+			badge.className = 'ap-wy-history-item-badge restored';
+			badge.textContent = '復元';
+			info.appendChild(badge);
+		}
+		/* D4: ピン留めバッジ */
+		if (rev.pinned) {
+			const badge = document.createElement('span');
+			badge.className = 'ap-wy-history-item-badge pinned';
+			badge.textContent = '\u2605 固定';
+			info.appendChild(badge);
+		}
+
+		/* D2: ユーザー帰属 */
+		const meta = document.createElement('small');
+		meta.className = 'ap-wy-history-item-time';
+		let metaText = kb;
+		if (rev.user) metaText += '  by ' + rev.user;
+		meta.textContent = metaText;
+
+		item.appendChild(info);
+		item.appendChild(meta);
+
+		/* ボタン群 */
+		const btnWrap = document.createElement('div');
+		btnWrap.style.cssText = 'margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;';
+
+		const restoreBtn = document.createElement('button');
+		restoreBtn.className = 'ap-wy-history-btn primary';
+		restoreBtn.textContent = '復元';
+		restoreBtn.setAttribute('aria-label', ts + ' のリビジョンを復元');
+		restoreBtn.addEventListener('click', (e) => {
+			e.stopPropagation();
+			/* B3: 未保存変更警告 */
+			_syncAllBlocks();
+			const currentHtml = _serializeBlocks();
+			const hasUnsaved = _lastSaved !== undefined && currentHtml !== _lastSaved;
+			const msg = hasUnsaved
+				? 'このリビジョンを復元しますか？\n\n⚠ 未保存の変更があります。復元すると現在の編集内容は失われます。'
+				: 'このリビジョンを復元しますか？現在の内容は上書きされます。';
+			if (!confirm(msg)) return;
+			_restoreRevision(fieldname, rev.file, span);
+		});
+
+		const diffRevBtn = document.createElement('button');
+		diffRevBtn.className = 'ap-wy-history-btn';
+		diffRevBtn.textContent = '現在と比較';
+		diffRevBtn.setAttribute('aria-label', ts + ' と現在の内容を比較');
+		diffRevBtn.addEventListener('click', (e) => {
+			e.stopPropagation();
+			_fetchRevisionContent(fieldname, rev.file, (content) => {
+				_syncAllBlocks();
+				const currentHtml = _serializeBlocks();
+				const diff = _computeDiff(_stripTags(content), _stripTags(currentHtml));
+				_renderDiffView(container, diff, null);
+			});
+		});
+
+		/* D4: ピン留めボタン */
+		const pinBtn = document.createElement('button');
+		pinBtn.className = 'ap-wy-history-btn';
+		pinBtn.textContent = rev.pinned ? '\u2605 固定解除' : '\u2606 固定';
+		pinBtn.setAttribute('aria-label', rev.pinned ? 'ピン留め解除' : 'ピン留め');
+		pinBtn.addEventListener('click', (e) => {
+			e.stopPropagation();
+			_pinRevision(fieldname, rev.file, () => {
+				_renderRevisionTab(container, span);
+			});
+		});
+
+		/* D1: 比較対象選択ボタン */
+		const selectBtn = document.createElement('button');
+		selectBtn.className = 'ap-wy-history-btn';
+		if (_diffCompareA && _diffCompareA.file === rev.file) {
+			selectBtn.textContent = '選択中 (A)';
+			selectBtn.style.background = '#335';
+		} else if (_diffCompareA) {
+			selectBtn.textContent = 'Bとして比較';
+		} else {
+			selectBtn.textContent = 'Aとして選択';
+		}
+		selectBtn.addEventListener('click', (e) => {
+			e.stopPropagation();
+			if (!_diffCompareA) {
+				_diffCompareA = rev;
+				_renderRevisionTab(container, span);
+			} else if (_diffCompareA.file === rev.file) {
+				_diffCompareA = null;
+				_renderRevisionTab(container, span);
+			} else {
+				/* D1: 2つのリビジョンを比較実行 */
+				const revA = _diffCompareA;
+				_fetchRevisionContent(fieldname, revA.file, (contentA) => {
+					_fetchRevisionContent(fieldname, rev.file, (contentB) => {
+						const diff = _computeDiff(_stripTags(contentA), _stripTags(contentB));
+						_diffCompareA = null;
+						_renderDiffView(container, diff, null);
+					});
+				});
+			}
+		});
+
+		btnWrap.appendChild(restoreBtn);
+		btnWrap.appendChild(diffRevBtn);
+		btnWrap.appendChild(pinBtn);
+		btnWrap.appendChild(selectBtn);
+		item.appendChild(btnWrap);
+		container.appendChild(item);
+	});
 }
 
-function _fetchRevisionContent(fieldname, revFile, callback) {
+/* D3: リビジョン検索 */
+function _searchRevisions(fieldname, query, container, span) {
 	const csrf = _getCsrf();
-	const dir = 'data/content/revisions/' + encodeURIComponent(fieldname) + '/' + encodeURIComponent(revFile) + '.json';
-	/* リビジョンファイルの内容は restore API で取得できるが、diff 用には直接取得が必要。
-	   restore API を使わず、list_revisions にコンテンツは含まれないため、
-	   restore_revision を preview モードで呼ぶか、新しい API を追加する。
-	   ここでは restore と同じエンドポイントで content のみ取得するアプローチ。 */
 	fetch('index.php', {
 		method: 'POST',
-		headers: {
-			'Content-Type': 'application/x-www-form-urlencoded',
-			'X-CSRF-TOKEN': csrf,
-		},
-		body: new URLSearchParams({
-			ap_action: 'restore_revision',
-			fieldname: fieldname,
-			revision: revFile,
-			preview: '1',
-			csrf: csrf || '',
-		}),
+		headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRF-TOKEN': csrf },
+		body: new URLSearchParams({ ap_action: 'search_revisions', fieldname, query, csrf: csrf || '' }),
 	}).then(r => r.json())
-	  .then(data => { callback(data.content || ''); })
-	  .catch(() => { callback(''); });
+	  .then(data => {
+		/* 検索バーは維持、リスト部分のみ再描画 */
+		const items = container.querySelectorAll('.ap-wy-history-item');
+		items.forEach(el => el.remove());
+		const msg = container.querySelector('.ap-wy-history-nomatch');
+		if (msg) msg.remove();
+		const revisions = data.revisions || [];
+		if (revisions.length === 0) {
+			const noMatch = document.createElement('div');
+			noMatch.className = 'ap-wy-history-nomatch';
+			noMatch.style.cssText = 'padding:16px;color:#999;';
+			noMatch.textContent = query ? '「' + query + '」に一致するリビジョンはありません' : 'リビジョンがありません';
+			container.appendChild(noMatch);
+			return;
+		}
+		const cmpBtn = container.querySelector('.ap-wy-history-btn[aria-label="2つのリビジョンを比較"]');
+		_renderRevisionList(container, revisions, fieldname, span, cmpBtn);
+	  })
+	  .catch(() => { console.warn('revision search failed'); });
+}
+
+/* A1: 全 API を POST に統一（CSRF をヘッダーで送信） */
+function _fetchRevisions(fieldname, callback) {
+	const csrf = _getCsrf();
+	fetch('index.php', {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRF-TOKEN': csrf },
+		body: new URLSearchParams({ ap_action: 'list_revisions', fieldname, csrf: csrf || '' }),
+	}).then(r => {
+		if (!r.ok) throw new Error('HTTP ' + r.status);
+		return r.json();
+	}).then(data => { callback(data.revisions || []); })
+	  .catch(e => { console.warn('fetchRevisions:', e.message); callback([]); });
+}
+
+/* D5: リビジョンコンテンツ取得専用 API */
+function _fetchRevisionContent(fieldname, revFile, callback) {
+	const csrf = _getCsrf();
+	fetch('index.php', {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRF-TOKEN': csrf },
+		body: new URLSearchParams({ ap_action: 'get_revision', fieldname, revision: revFile, csrf: csrf || '' }),
+	}).then(r => {
+		if (!r.ok) throw new Error('HTTP ' + r.status);
+		return r.json();
+	}).then(data => { callback(data.content || ''); })
+	  .catch(e => { console.warn('fetchRevisionContent:', e.message); callback(''); });
+}
+
+/* D4: ピン留め切り替え */
+function _pinRevision(fieldname, revFile, callback) {
+	const csrf = _getCsrf();
+	fetch('index.php', {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRF-TOKEN': csrf },
+		body: new URLSearchParams({ ap_action: 'pin_revision', fieldname, revision: revFile, csrf: csrf || '' }),
+	}).then(r => r.json())
+	  .then(data => {
+		if (data.ok) {
+			_setStatus(data.pinned ? '\u2605 固定しました' : '\u2606 固定解除しました');
+			setTimeout(() => _setStatus(''), 2000);
+		}
+		if (callback) callback();
+	  })
+	  .catch(e => { console.warn('pinRevision:', e.message); if (callback) callback(); });
 }
 
 function _restoreRevision(fieldname, revFile, span) {
@@ -2216,46 +2461,56 @@ function _restoreRevision(fieldname, revFile, span) {
 	_setStatus('復元中...');
 	fetch('index.php', {
 		method: 'POST',
-		headers: {
-			'Content-Type': 'application/x-www-form-urlencoded',
-			'X-CSRF-TOKEN': csrf,
-		},
-		body: new URLSearchParams({
-			ap_action: 'restore_revision',
-			fieldname: fieldname,
-			revision: revFile,
-			csrf: csrf || '',
-		}),
-	}).then(r => r.json())
-	  .then(data => {
+		headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRF-TOKEN': csrf },
+		body: new URLSearchParams({ ap_action: 'restore_revision', fieldname, revision: revFile, csrf: csrf || '' }),
+	}).then(r => {
+		if (!r.ok) throw new Error('HTTP ' + r.status);
+		return r.json();
+	}).then(data => {
 		if (data.ok && data.content != null) {
+			/* B2: コンテンツ検証 */
+			let blocks;
+			try {
+				blocks = _parseHtmlToBlocks(data.content);
+				if (!Array.isArray(blocks)) throw new Error('invalid blocks');
+			} catch (err) {
+				_setStatus('\u26A0 復元失敗: コンテンツの解析エラー');
+				setTimeout(() => _setStatus(''), 5000);
+				return;
+			}
 			_saveSnapshot();
-			_blocks = _parseHtmlToBlocks(data.content);
+			_blocks = blocks;
 			_blocksEl.innerHTML = '';
 			_blocks.forEach(b => _blocksEl.appendChild(_renderBlock(b)));
 			if (_blocks.length > 0) _focusBlock(_blocks[0], 'start');
 			_lastSaved = data.content;
-			_setStatus('✓ リビジョンを復元しました');
+			_setStatus('\u2713 リビジョンを復元しました');
 			_closeHistoryPanel();
 			setTimeout(() => _setStatus(''), 3000);
 		} else {
-			_setStatus('⚠ 復元失敗: ' + (data.error || ''));
+			_setStatus('\u26A0 復元失敗: ' + (data.error || '不明なエラー'));
 			setTimeout(() => _setStatus(''), 5000);
 		}
-	  })
-	  .catch(e => {
-		_setStatus('⚠ 復元失敗: ' + e.message);
+	}).catch(e => {
+		_setStatus('\u26A0 復元失敗: ' + e.message);
 		setTimeout(() => _setStatus(''), 5000);
-	  });
+	});
 }
 
 /* ── 簡易 diff（LCS ベース） ── */
+
+const _DIFF_LINE_LIMIT = 2000; /* B4: 大容量コンテンツガード */
 
 function _computeDiff(oldText, newText) {
 	const oldLines = oldText.split('\n');
 	const newLines = newText.split('\n');
 	const m = oldLines.length;
 	const n = newLines.length;
+
+	/* B4: 行数が多すぎる場合は簡易比較にフォールバック */
+	if (m * n > _DIFF_LINE_LIMIT * _DIFF_LINE_LIMIT) {
+		return _computeSimpleDiff(oldLines, newLines);
+	}
 
 	/* LCS テーブル構築 */
 	const dp = [];
@@ -2290,19 +2545,39 @@ function _computeDiff(oldText, newText) {
 	return result;
 }
 
+/* B4: 大容量フォールバック — 行単位の直接比較 */
+function _computeSimpleDiff(oldLines, newLines) {
+	const result = [];
+	const max = Math.max(oldLines.length, newLines.length);
+	for (let i = 0; i < max; i++) {
+		const o = i < oldLines.length ? oldLines[i] : undefined;
+		const n = i < newLines.length ? newLines[i] : undefined;
+		if (o === n) {
+			result.push({ type: 'equal', text: o });
+		} else {
+			if (o !== undefined) result.push({ type: 'remove', text: o });
+			if (n !== undefined) result.push({ type: 'add', text: n });
+		}
+	}
+	return result;
+}
+
 function _stripTags(html) {
 	const tmp = document.createElement('div');
 	tmp.innerHTML = html || '';
 	return (tmp.textContent || tmp.innerText || '').trim();
 }
 
+/* C2: 等行折りたたみ付き diff 表示 */
 function _renderDiffView(container, diff, keepEl) {
 	container.innerHTML = '';
 	if (keepEl) container.appendChild(keepEl);
 
 	const backBtn = document.createElement('button');
-	backBtn.textContent = '← 一覧に戻る';
-	backBtn.style.cssText = 'margin:8px 16px;padding:4px 12px;border:1px solid #ccc;border-radius:4px;background:#fff;cursor:pointer;font-size:13px;';
+	backBtn.className = 'ap-wy-history-btn';
+	backBtn.textContent = '\u2190 一覧に戻る';
+	backBtn.style.margin = '8px 10px';
+	backBtn.setAttribute('aria-label', '一覧に戻る');
 	backBtn.addEventListener('click', () => {
 		if (_historyPanel) {
 			const tab = _historyPanel.panel.querySelector('.ap-wy-history-tab.active');
@@ -2317,24 +2592,78 @@ function _renderDiffView(container, diff, keepEl) {
 
 	const view = document.createElement('div');
 	view.className = 'ap-wy-diff-view';
+	view.setAttribute('role', 'log');
+	view.setAttribute('aria-label', '変更差分');
 
 	let hasChanges = false;
-	diff.forEach(d => {
-		const line = document.createElement('div');
-		if (d.type === 'add') {
-			line.className = 'ap-wy-diff-add';
-			line.textContent = '+ ' + d.text;
+	const FOLD_THRESHOLD = 4;
+
+	/* C2: 等行を折りたたみ */
+	let i = 0;
+	while (i < diff.length) {
+		const d = diff[i];
+		if (d.type !== 'equal') {
+			const line = document.createElement('div');
+			/* C3: 色覚多様性対応 — プレフィックス記号で区別 */
+			if (d.type === 'add') {
+				line.className = 'ap-wy-diff-add';
+				line.textContent = '+ ' + d.text;
+			} else {
+				line.className = 'ap-wy-diff-del';
+				line.textContent = '- ' + d.text;
+			}
+			view.appendChild(line);
 			hasChanges = true;
-		} else if (d.type === 'remove') {
-			line.className = 'ap-wy-diff-del';
-			line.textContent = '- ' + d.text;
-			hasChanges = true;
+			i++;
 		} else {
-			line.className = 'ap-wy-diff-eq';
-			line.textContent = '  ' + d.text;
+			/* 連続する equal 行をカウント */
+			let eqStart = i;
+			while (i < diff.length && diff[i].type === 'equal') i++;
+			const eqCount = i - eqStart;
+			if (eqCount <= FOLD_THRESHOLD) {
+				for (let k = eqStart; k < i; k++) {
+					const line = document.createElement('div');
+					line.className = 'ap-wy-diff-eq';
+					line.textContent = '  ' + diff[k].text;
+					view.appendChild(line);
+				}
+			} else {
+				/* 前後1行は表示、中間は折りたたみ */
+				const firstLine = document.createElement('div');
+				firstLine.className = 'ap-wy-diff-eq';
+				firstLine.textContent = '  ' + diff[eqStart].text;
+				view.appendChild(firstLine);
+
+				const foldCount = eqCount - 2;
+				const fold = document.createElement('div');
+				fold.className = 'ap-wy-diff-fold';
+				fold.textContent = '\u2026 ' + foldCount + ' 行省略（クリックで展開）';
+				fold.setAttribute('role', 'button');
+				fold.setAttribute('tabindex', '0');
+				const foldLines = [];
+				for (let k = eqStart + 1; k < i - 1; k++) {
+					foldLines.push(diff[k].text);
+				}
+				fold.addEventListener('click', () => {
+					const expanded = document.createDocumentFragment();
+					foldLines.forEach(t => {
+						const line = document.createElement('div');
+						line.className = 'ap-wy-diff-eq';
+						line.textContent = '  ' + t;
+						expanded.appendChild(line);
+					});
+					fold.replaceWith(expanded);
+				});
+				fold.addEventListener('keydown', (e) => { if (e.key === 'Enter') fold.click(); });
+				view.appendChild(fold);
+
+				const lastLine = document.createElement('div');
+				lastLine.className = 'ap-wy-diff-eq';
+				lastLine.textContent = '  ' + diff[i - 1].text;
+				view.appendChild(lastLine);
+			}
 		}
-		view.appendChild(line);
-	});
+	}
 
 	if (!hasChanges) {
 		view.innerHTML = '<div style="padding:16px;color:#999;">変更はありません</div>';
