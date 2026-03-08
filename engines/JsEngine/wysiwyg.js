@@ -176,6 +176,9 @@
 		span.appendChild(wrap);
 		editor.focus();
 
+		/* ── ブラウザ標準の画像リサイズハンドルを無効化（カスタムハンドルと競合防止） ── */
+		try { document.execCommand('enableObjectResizing', false, false); } catch (e) { /* 非対応ブラウザを無視 */ }
+
 		/* ── 自動保存 ── */
 		_lastSaved = _cleanHtml(originalHtml);
 		_startAutoSave(span.id);
@@ -480,6 +483,8 @@
 		altInput.addEventListener('input', function () { img.alt = altInput.value; });
 		/* クリックが editor の blur 保存をトリガーしないよう止める */
 		altInput.addEventListener('mousedown', function (e) { e.stopPropagation(); });
+		/* Escape/Enter がエディタのキーハンドラに届かないよう止める */
+		altInput.addEventListener('keydown', function (e) { e.stopPropagation(); });
 
 		panel.appendChild(altLabel);
 		panel.appendChild(altInput);
@@ -715,7 +720,8 @@
 			}
 			html += '</tr>';
 		}
-		html += '</tbody></table>';
+		/* 末尾の <p> でテーブル外へカーソルを移動できるようにする */
+		html += '</tbody></table><p><br></p>';
 		editor.focus();
 		document.execCommand('insertHTML', false, html);
 	}
