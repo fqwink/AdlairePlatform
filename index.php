@@ -12,7 +12,7 @@ if (PHP_VERSION_ID < 80200) {
 	exit('AdlairePlatform requires PHP 8.2 or later. Current version: ' . PHP_VERSION);
 }
 
-define('AP_VERSION', '1.2.20');
+define('AP_VERSION', '1.2.23');
 define('AP_UPDATE_URL', 'https://api.github.com/repos/win-k/AdlairePlatform/releases/latest');
 define('AP_BACKUP_GENERATIONS', 5);
 

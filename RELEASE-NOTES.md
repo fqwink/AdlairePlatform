@@ -2,6 +2,47 @@
 
 ---
 
+## AdlairePlatform Ver.1.2-23（2026-03-08）
+
+WYSIWYG エディタ改良版（セキュリティ・バグ修正・新機能・UX 改善）。
+
+### セキュリティ修正
+
+- SVG data URI 経由の XSS 防止（`data:image/svg+xml` をブロック、png/jpeg/gif/webp のみ許可）
+- リンク URL バリデーション（`javascript:` / `data:` スキーム拒否、`_isSafeUrl()` ヘルパー追加）
+- リッチテキスト貼り付け時の HTML サニタイズ（`_cleanHtml()` 経由で浄化後に挿入）
+
+### バグ修正
+
+- ブロック結合時のカーソル位置が結合点に正しく配置されるよう修正（HTML オフセットベース）
+- スラッシュメニューのインデックス範囲外エラー防止
+- 画像アップロード時の `_getFocusedBlock()` null フォールバック修正
+- テーブル最終セルで Tab → 新行追加、最初のセルで Shift+Tab → 前ブロックへ移動
+- チェックリスト最初の空項目 + Backspace → 段落に変換
+
+### 新機能
+
+- **Undo/Redo** — Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y（最大50操作、構造変更時にスナップショット保存）
+- **空ブロックプレースホルダ** — 「/ を入力してコマンド...」を CSS `::before` で表示
+- **インラインツールバーアクティブ状態** — 太字/斜体/下線/取消線のアクティブ表示
+- **タイプ変換ポップアップキーボード操作** — ArrowDown/Up で選択、Enter で確定、Escape で閉じ
+- **タッチデバイスドラッグ** — touchstart/touchmove/touchend でブロック並べ替え対応
+
+### UX 改善
+
+- `alert()` をステータスバー通知に置換（5秒後自動消去）
+- インラインツールバーのビューポートクランプ
+- サイレントエラー catch を `console.warn` に改善
+- RAF 重複設定を削除（パフォーマンス改善）
+
+### 動作要件
+- PHP 8.2+ **必須**
+- Apache（mod_rewrite・mod_headers 有効）または Nginx（php-fpm）
+- ZipArchive 拡張（アップデート機能に必要）
+- データベース不要
+
+---
+
 ## AdlairePlatform Ver.1.2-22（2026-03-08）
 
 Ph3: Editor.js スタイル ブロックベースエディタ 完成版（全面改修）。

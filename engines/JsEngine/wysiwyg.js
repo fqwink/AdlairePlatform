@@ -136,6 +136,10 @@ const _css = `
 /* ── Block Tunes ── */
 .ap-wy-block[data-align="center"] .ap-wy-block-content{text-align:center;}
 .ap-wy-block[data-align="right"] .ap-wy-block-content{text-align:right;}
+
+/* ── 空ブロックプレースホルダ ── */
+.ap-wy-block[data-type="paragraph"] .ap-wy-block-content:empty::before{
+  content:'/ を入力してコマンド...';color:#666;pointer-events:none;font-style:italic;}
 `;
 const _styleEl = document.createElement('style');
 _styleEl.textContent = _css;
@@ -215,9 +219,19 @@ let _dragBlock    = null;
 let _dragStarted  = false;
 let _dropLine     = null;
 let _idCounter    = 0;
+let _undoStack    = [];
+let _redoStack    = [];
+const _UNDO_LIMIT = 50;
 
 /* ── ユーティリティ ── */
 function _uid() { return 'b' + (++_idCounter) + '-' + Math.random().toString(36).slice(2, 7); }
+
+function _isSafeUrl(url) {
+	const trimmed = (url || '').trim();
+	if (/^(https?:|mailto:|\/)/i.test(trimmed)) return true;
+	if (/^[a-z0-9#]/i.test(trimmed) && !trimmed.includes(':')) return true; /* 相対パス */
+	return false;
+}
 
 function _getCsrf() {
 	const meta = document.querySelector('meta[name="csrf-token"]');
@@ -246,7 +260,7 @@ function _activate(span) {
 	try {
 		document.execCommand('enableObjectResizing', false, false);
 		document.execCommand('enableInlineTableEditing', false, false);
-	} catch (_) { /* 非対応ブラウザは無視 */ }
+	} catch (e) { console.warn('[AP WYSIWYG] execCommand not supported:', e.message); }
 
 	/* ─ ツールバー構築 ─ */
 	const toolbar = document.createElement('div');
@@ -304,6 +318,9 @@ function _activate(span) {
 
 	/* ─ 自動保存開始 ─ */
 	_lastSaved = _cleanHtml(originalHtml);
+	_undoStack = [];
+	_redoStack = [];
+	_saveSnapshot();
 	_startAutoSave(span.id);
 
 	/* ─ ツールバークリック ─ */
@@ -323,6 +340,9 @@ function _activate(span) {
 		else if (mod && e.shiftKey && e.key.toLowerCase() === 'm') { e.preventDefault(); _toggleMarker(); }
 		else if (mod && e.key.toLowerCase() === 'e') { e.preventDefault(); _toggleInlineCode(); }
 		else if (mod && e.key.toLowerCase() === 'k') { e.preventDefault(); _showLinkInput(); }
+		else if (mod && e.shiftKey && e.key.toLowerCase() === 'z') { e.preventDefault(); _redo(); }
+		else if (mod && e.key.toLowerCase() === 'z') { e.preventDefault(); _undo(); }
+		else if (mod && e.key.toLowerCase() === 'y') { e.preventDefault(); _redo(); }
 	});
 
 	/* ─ テキスト選択時にインラインツールバー表示 ─ */
@@ -345,16 +365,33 @@ function _activate(span) {
 		}
 	});
 
-	/* ─ クリップボード画像 ─ */
+	/* ─ クリップボード（画像 & リッチテキスト） ─ */
 	_blocksEl.addEventListener('paste', e => {
-		const items = e.clipboardData && e.clipboardData.items;
-		if (!items) return;
-		for (let i = 0; i < items.length; i++) {
-			if (items[i].type.indexOf('image/') === 0) {
-				e.preventDefault();
-				_insertImageBlock(items[i].getAsFile());
-				return;
+		const cd = e.clipboardData;
+		if (!cd) return;
+
+		/* 画像ペースト */
+		const items = cd.items;
+		if (items) {
+			for (let i = 0; i < items.length; i++) {
+				if (items[i].type.indexOf('image/') === 0) {
+					e.preventDefault();
+					_insertImageBlock(items[i].getAsFile());
+					return;
+				}
 			}
+		}
+
+		/* コードブロック内では plaintext のみ（既存の per-block handler で処理済み） */
+		const focused = _getFocusedBlock();
+		if (focused && focused.type === 'code') return;
+
+		/* リッチテキストペースト: HTML をサニタイズして挿入 */
+		const html = cd.getData('text/html');
+		if (html) {
+			e.preventDefault();
+			const clean = _cleanHtml(html);
+			document.execCommand('insertHTML', false, clean);
 		}
 	});
 
@@ -508,6 +545,11 @@ function _renderBlock(block) {
 		e.preventDefault();
 		_startDrag(block, el, e);
 	});
+	handle.addEventListener('touchstart', e => {
+		if (e.touches.length !== 1) return;
+		e.preventDefault();
+		_startDrag(block, el, e.touches[0], true);
+	}, { passive: false });
 	handle.addEventListener('click', e => {
 		if (_dragStarted) return;
 		e.stopPropagation();
@@ -677,8 +719,24 @@ function _renderTableBlock(el, block) {
 						e.preventDefault();
 						const tds = Array.from(table.querySelectorAll('td'));
 						const idx = tds.indexOf(td);
-						const next = e.shiftKey ? tds[idx - 1] : tds[idx + 1];
-						if (next) { next.focus(); _setCursorToEnd(next); }
+						if (e.shiftKey) {
+							if (idx > 0) { tds[idx - 1].focus(); _setCursorToEnd(tds[idx - 1]); }
+							else {
+								/* 最初のセルで Shift+Tab → 前のブロックへ */
+								const bIdx = _blocks.indexOf(block);
+								if (bIdx > 0) _focusBlock(_blocks[bIdx - 1], 'end');
+							}
+						} else {
+							if (idx < tds.length - 1) { tds[idx + 1].focus(); _setCursorToEnd(tds[idx + 1]); }
+							else {
+								/* 最後のセルで Tab → 新しい行を追加 */
+								rows.push(new Array(rows[0]?.length || 3).fill(''));
+								_buildTable();
+								const newTds = Array.from(table.querySelectorAll('td'));
+								const first = newTds[newTds.length - (rows[0]?.length || 3)];
+								if (first) { first.focus(); _setCursorToEnd(first); }
+							}
+						}
 					}
 					e.stopPropagation(); /* ブロック間キー処理を防止 */
 				});
@@ -810,12 +868,23 @@ function _renderChecklistBlock(el, block) {
 					const newText = content.querySelectorAll('.ap-wy-check-text')[idx + 1];
 					if (newText) newText.focus();
 				}
-				if (e.key === 'Backspace' && text.textContent.trim() === '' && items.length > 1) {
+				if (e.key === 'Backspace' && text.textContent.trim() === '') {
 					e.preventDefault();
-					items.splice(idx, 1);
-					_buildChecklist();
-					const prev = content.querySelectorAll('.ap-wy-check-text')[Math.max(0, idx - 1)];
-					if (prev) { prev.focus(); _setCursorToEnd(prev); }
+					if (idx === 0 && items.length === 1) {
+						/* 唯一の空項目 → 段落に変換 */
+						_changeBlockType(block, 'paragraph');
+					} else if (idx === 0) {
+						/* 最初の項目を削除、次の項目にフォーカス */
+						items.splice(0, 1);
+						_buildChecklist();
+						const first = content.querySelectorAll('.ap-wy-check-text')[0];
+						if (first) { first.focus(); _setCursorToStart(first); }
+					} else {
+						items.splice(idx, 1);
+						_buildChecklist();
+						const prev = content.querySelectorAll('.ap-wy-check-text')[idx - 1];
+						if (prev) { prev.focus(); _setCursorToEnd(prev); }
+					}
 				}
 				e.stopPropagation();
 			});
@@ -902,21 +971,16 @@ function _attachBlockKeyHandler(contentWrap, block, editableEl) {
 					const prevEl = _getBlockEl(prev);
 					const prevContent = prevEl?.querySelector('.ap-wy-block-content');
 					if (prevContent) {
-						_setCursorToEnd(prevContent);
-						const savedRange = window.getSelection().getRangeAt(0).cloneRange();
+						const prevLen = (prev.data.text || '').length;
 						prevContent.innerHTML = (prev.data.text || '') + (block.data.text || '');
 						prev.data.text = prevContent.innerHTML;
 
 						/* ブロック削除 */
 						_removeBlock(block);
 
-						/* カーソル復元 */
+						/* カーソルを結合点に配置 */
 						prevContent.focus();
-						try {
-							const sel = window.getSelection();
-							sel.removeAllRanges();
-							sel.addRange(savedRange);
-						} catch (_) { _setCursorToEnd(prevContent); }
+						_setCursorAtOffset(prevContent, prevLen);
 					}
 				} else {
 					/* 前のブロックにフォーカス移動のみ */
@@ -982,6 +1046,7 @@ function _attachBlockKeyHandler(contentWrap, block, editableEl) {
 /* ── ブロック追加・削除・フォーカス ── */
 
 function _addBlockAfter(afterBlock, type, data) {
+	_saveSnapshot();
 	const idx = _blocks.indexOf(afterBlock);
 	const newBlock = { id: _uid(), type, data };
 	_blocks.splice(idx + 1, 0, newBlock);
@@ -997,6 +1062,7 @@ function _addBlockAfter(afterBlock, type, data) {
 }
 
 function _removeBlock(block) {
+	_saveSnapshot();
 	const idx = _blocks.indexOf(block);
 	if (idx === -1) return;
 	_blocks.splice(idx, 1);
@@ -1067,6 +1133,67 @@ function _setCursorToEnd(el) {
 	range.collapse(false);
 	sel.removeAllRanges();
 	sel.addRange(range);
+}
+
+function _setCursorAtOffset(el, htmlOffset) {
+	/* HTML文字列のオフセット位置にカーソルを配置するため、
+	   一時的にマーカーを挿入して位置を特定する */
+	const html = el.innerHTML;
+	const marker = '\u200B\u200B\u200B';
+	el.innerHTML = html.slice(0, htmlOffset) + marker + html.slice(htmlOffset);
+	const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+	while (walker.nextNode()) {
+		const idx = walker.currentNode.textContent.indexOf(marker);
+		if (idx !== -1) {
+			walker.currentNode.textContent = walker.currentNode.textContent.replace(marker, '');
+			const range = document.createRange();
+			range.setStart(walker.currentNode, idx);
+			range.collapse(true);
+			const sel = window.getSelection();
+			sel.removeAllRanges();
+			sel.addRange(range);
+			return;
+		}
+	}
+	_setCursorToEnd(el);
+}
+
+/* ── Undo / Redo ── */
+
+function _saveSnapshot() {
+	_syncAllBlocks();
+	const snap = JSON.stringify(_blocks);
+	if (_undoStack.length > 0 && _undoStack[_undoStack.length - 1] === snap) return;
+	_undoStack.push(snap);
+	if (_undoStack.length > _UNDO_LIMIT) _undoStack.shift();
+	_redoStack.length = 0;
+}
+
+function _undo() {
+	if (_undoStack.length === 0) return;
+	_syncAllBlocks();
+	_redoStack.push(JSON.stringify(_blocks));
+	const snap = _undoStack.pop();
+	_restoreSnapshot(snap);
+	_setStatus('↩ 元に戻しました');
+	setTimeout(() => _setStatus(''), 2000);
+}
+
+function _redo() {
+	if (_redoStack.length === 0) return;
+	_syncAllBlocks();
+	_undoStack.push(JSON.stringify(_blocks));
+	const snap = _redoStack.pop();
+	_restoreSnapshot(snap);
+	_setStatus('↪ やり直しました');
+	setTimeout(() => _setStatus(''), 2000);
+}
+
+function _restoreSnapshot(snap) {
+	_blocks = JSON.parse(snap);
+	_blocksEl.innerHTML = '';
+	_blocks.forEach(b => _blocksEl.appendChild(_renderBlock(b)));
+	if (_blocks.length > 0) _focusBlock(_blocks[0], 'start');
 }
 
 /* ══════════════════════════════════════════════
@@ -1155,6 +1282,7 @@ function _getFocusedBlock() {
 }
 
 function _changeBlockType(block, newType, extra = {}) {
+	_saveSnapshot();
 	const oldEl = _getBlockEl(block);
 	if (!oldEl) return;
 
@@ -1226,7 +1354,7 @@ function _toggleInlineCode() {
 		const newRange = document.createRange();
 		newRange.selectNodeContents(code);
 		sel.addRange(newRange);
-	} catch (_) { /* フォールバック */ }
+	} catch (e) { console.warn('[AP WYSIWYG] inlineCode:', e.message); }
 }
 
 function _toggleMarker() {
@@ -1252,14 +1380,17 @@ function _toggleMarker() {
 		const newRange = document.createRange();
 		newRange.selectNodeContents(mark);
 		sel.addRange(newRange);
-	} catch (_) { /* フォールバック */ }
+	} catch (e) { console.warn('[AP WYSIWYG] marker:', e.message); }
 }
 
 function _showLinkInput() {
 	const sel = window.getSelection();
 	if (!sel.rangeCount || sel.isCollapsed) {
 		const url = prompt('URL を入力してください:');
-		if (url?.trim()) document.execCommand('createLink', false, url.trim());
+		if (url?.trim()) {
+			if (!_isSafeUrl(url)) { _setStatus('⚠ 安全でないURLです'); return; }
+			document.execCommand('createLink', false, url.trim());
+		}
 		return;
 	}
 
@@ -1272,7 +1403,10 @@ function _showLinkInput() {
 		document.execCommand('unlink', false, null);
 	} else {
 		const url = prompt('URL を入力してください:');
-		if (url?.trim()) document.execCommand('createLink', false, url.trim());
+		if (url?.trim()) {
+			if (!_isSafeUrl(url)) { _setStatus('⚠ 安全でないURLです'); return; }
+			document.execCommand('createLink', false, url.trim());
+		}
 	}
 }
 
@@ -1316,6 +1450,7 @@ function _showInlineToolbar(range) {
 			const btn = document.createElement('button');
 			btn.type = 'button';
 			btn.className = 'ap-wy-btn';
+			btn.dataset.cmd = t.cmd;
 			btn.innerHTML = t.label;
 			btn.setAttribute('aria-label', t.aria);
 			btn.addEventListener('mousedown', e => {
@@ -1330,10 +1465,33 @@ function _showInlineToolbar(range) {
 		document.body.appendChild(_inlineToolbar);
 	}
 
+	/* アクティブ状態を更新 */
+	_inlineToolbar.querySelectorAll('.ap-wy-btn').forEach(btn => {
+		const cmd = btn.dataset.cmd;
+		let active = false;
+		try {
+			if (cmd === 'bold') active = document.queryCommandState('bold');
+			else if (cmd === 'italic') active = document.queryCommandState('italic');
+			else if (cmd === 'underline') active = document.queryCommandState('underline');
+			else if (cmd === 'strikeThrough') active = document.queryCommandState('strikeThrough');
+		} catch (_e) { /* ignore */ }
+		btn.classList.toggle('ap-wy-active', active);
+	});
+
 	const rect = range.getBoundingClientRect();
 	_inlineToolbar.style.display = 'flex';
-	_inlineToolbar.style.top = (window.scrollY + rect.top - 40) + 'px';
-	_inlineToolbar.style.left = (window.scrollX + rect.left + rect.width / 2) + 'px';
+	let top = window.scrollY + rect.top - 40;
+	let left = window.scrollX + rect.left + rect.width / 2;
+	_inlineToolbar.style.top = top + 'px';
+	_inlineToolbar.style.left = left + 'px';
+	/* ビューポートクランプ */
+	requestAnimationFrame(() => {
+		if (!_inlineToolbar) return;
+		const tbRect = _inlineToolbar.getBoundingClientRect();
+		if (tbRect.top < 0) _inlineToolbar.style.top = (window.scrollY + rect.bottom + 4) + 'px';
+		if (tbRect.right > window.innerWidth) _inlineToolbar.style.left = (window.innerWidth - tbRect.width - 8) + 'px';
+		if (tbRect.left < 0) _inlineToolbar.style.left = '4px';
+	});
 }
 
 function _hideInlineToolbar() {
@@ -1385,15 +1543,16 @@ function _showSlashMenu(target) {
 		let left = window.scrollX + rect.left;
 
 		/* DOM追加後に実寸でビューポートクランプ (Ph3-F) */
+		_slashMenu.style.top = top + 'px';
+		_slashMenu.style.left = Math.max(4, left) + 'px';
 		requestAnimationFrame(() => {
+			if (!_slashMenu) return;
 			const menuRect = _slashMenu.getBoundingClientRect();
 			if (menuRect.bottom > window.innerHeight) top = window.scrollY + rect.top - menuRect.height - 4;
 			if (menuRect.right > window.innerWidth) left = window.innerWidth - menuRect.width - 8;
 			_slashMenu.style.top = top + 'px';
 			_slashMenu.style.left = Math.max(4, left) + 'px';
 		});
-		_slashMenu.style.top = top + 'px';
-		_slashMenu.style.left = Math.max(4, left) + 'px';
 	}
 }
 
@@ -1422,6 +1581,7 @@ function _applySlashCmd() {
 		c.keywords.includes(_slashFilter) ||
 		c.type.includes(_slashFilter)
 	);
+	if (_slashIdx >= filtered.length) _slashIdx = Math.max(0, filtered.length - 1);
 	const selected = filtered[_slashIdx];
 	if (!selected) { _hideSlashMenu(); return; }
 
@@ -1581,21 +1741,53 @@ function _showTypePopup(block, blockEl) {
 	let left = window.scrollX + handleRect.left;
 
 	/* ビューポートクランプ (Ph3-G) */
+	_typePopup.style.top = top + 'px';
+	_typePopup.style.left = Math.max(4, left) + 'px';
 	requestAnimationFrame(() => {
+		if (!_typePopup) return;
 		const popRect = _typePopup.getBoundingClientRect();
 		if (popRect.bottom > window.innerHeight) top = window.scrollY + handleRect.top - popRect.height - 2;
 		if (popRect.right > window.innerWidth) left = window.innerWidth - popRect.width - 8;
 		_typePopup.style.top = top + 'px';
 		_typePopup.style.left = Math.max(4, left) + 'px';
 	});
-	_typePopup.style.top = top + 'px';
-	_typePopup.style.left = Math.max(4, left) + 'px';
+
+	/* キーボード操作 */
+	let _popIdx = -1;
+	const allItems = _typePopup.querySelectorAll('.ap-wy-type-popup-item');
+	const _keyHandler = e => {
+		if (e.key === 'ArrowDown') {
+			e.preventDefault();
+			if (_popIdx >= 0) allItems[_popIdx].style.background = '';
+			_popIdx = (_popIdx + 1) % allItems.length;
+			allItems[_popIdx].style.background = '#0ad';
+			allItems[_popIdx].style.color = '#000';
+			allItems[_popIdx].scrollIntoView({ block: 'nearest' });
+		} else if (e.key === 'ArrowUp') {
+			e.preventDefault();
+			if (_popIdx >= 0) { allItems[_popIdx].style.background = ''; allItems[_popIdx].style.color = ''; }
+			_popIdx = (_popIdx - 1 + allItems.length) % allItems.length;
+			allItems[_popIdx].style.background = '#0ad';
+			allItems[_popIdx].style.color = '#000';
+			allItems[_popIdx].scrollIntoView({ block: 'nearest' });
+		} else if (e.key === 'Enter' && _popIdx >= 0) {
+			e.preventDefault();
+			document.removeEventListener('keydown', _keyHandler);
+			allItems[_popIdx].dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+		} else if (e.key === 'Escape') {
+			e.preventDefault();
+			document.removeEventListener('keydown', _keyHandler);
+			_hideTypePopup();
+		}
+	};
+	setTimeout(() => document.addEventListener('keydown', _keyHandler), 0);
 
 	/* 外部クリックで閉じる */
 	const _closeHandler = e => {
 		if (!_typePopup?.contains(e.target)) {
 			_hideTypePopup();
 			document.removeEventListener('mousedown', _closeHandler);
+			document.removeEventListener('keydown', _keyHandler);
 		}
 	};
 	setTimeout(() => document.addEventListener('mousedown', _closeHandler), 0);
@@ -1609,7 +1801,7 @@ function _hideTypePopup() {
    ドラッグ並べ替え
    ══════════════════════════════════════════════ */
 
-function _startDrag(block, blockEl, startEvent) {
+function _startDrag(block, blockEl, startEvent, isTouch) {
 	_dragStarted = false;
 	_dragBlock = block;
 
@@ -1622,8 +1814,11 @@ function _startDrag(block, blockEl, startEvent) {
 		_dropLine.style.display = 'none';
 	}
 
+	const _getY = e => isTouch ? e.touches[0].clientY : e.clientY;
+
 	const _onMove = e => {
-		if (!moved && Math.abs(e.clientY - startY) < 5) return;
+		const y = isTouch ? (e.touches?.[0]?.clientY ?? startY) : e.clientY;
+		if (!moved && Math.abs(y - startY) < 5) return;
 
 		if (!moved) {
 			moved = true;
@@ -1641,7 +1836,7 @@ function _startDrag(block, blockEl, startEvent) {
 			if (el === blockEl) continue;
 			const rect = el.getBoundingClientRect();
 			const mid = rect.top + rect.height / 2;
-			if (e.clientY < mid) {
+			if (y < mid) {
 				insertBefore = el;
 				lineTop = rect.top - _blocksEl.getBoundingClientRect().top - 2;
 				break;
@@ -1654,11 +1849,15 @@ function _startDrag(block, blockEl, startEvent) {
 		_dropLine.dataset.beforeId = insertBefore?.dataset.id || '';
 	};
 
+	const moveEvt = isTouch ? 'touchmove' : 'mousemove';
+	const upEvt = isTouch ? 'touchend' : 'mouseup';
+
 	const _onUp = () => {
-		document.removeEventListener('mousemove', _onMove);
-		document.removeEventListener('mouseup', _onUp);
+		document.removeEventListener(moveEvt, _onMove);
+		document.removeEventListener(upEvt, _onUp);
 
 		if (moved) {
+			_saveSnapshot();
 			blockEl.classList.remove('dragging');
 			_dropLine.style.display = 'none';
 
@@ -1686,8 +1885,8 @@ function _startDrag(block, blockEl, startEvent) {
 		setTimeout(() => { _dragStarted = false; _dragBlock = null; }, 50);
 	};
 
-	document.addEventListener('mousemove', _onMove);
-	document.addEventListener('mouseup', _onUp);
+	document.addEventListener(moveEvt, _onMove, isTouch ? { passive: false } : undefined);
+	document.addEventListener(upEvt, _onUp);
 }
 
 /* ══════════════════════════════════════════════
@@ -1696,7 +1895,8 @@ function _startDrag(block, blockEl, startEvent) {
 
 function _insertImageBlock(file) {
 	if (!file || !file.type.match(/^image\//)) {
-		alert('画像ファイルのみアップロードできます (JPEG/PNG/GIF/WebP)');
+		_setStatus('⚠ 画像ファイルのみ対応 (JPEG/PNG/GIF/WebP)');
+		setTimeout(() => _setStatus(''), 5000);
 		return;
 	}
 	const csrf = _getCsrf();
@@ -1719,18 +1919,17 @@ function _insertImageBlock(file) {
 	}).then(data => {
 		if (data.error) throw new Error(data.error);
 		_setStatus('');
-		const focused = _getFocusedBlock();
-		const newBlock = focused
-			? _addBlockAfter(focused, 'image', { src: data.url, alt: '', caption: '', width: '100%' })
-			: (() => {
-				const b = { id: _uid(), type: 'image', data: { src: data.url, alt: '', caption: '', width: '100%' } };
-				_blocks.push(b);
-				_blocksEl.appendChild(_renderBlock(b));
-				return b;
-			})();
+		const focused = _getFocusedBlock() || _blocks[_blocks.length - 1];
+		if (focused) {
+			_addBlockAfter(focused, 'image', { src: data.url, alt: '', caption: '', width: '100%' });
+		} else {
+			const b = { id: _uid(), type: 'image', data: { src: data.url, alt: '', caption: '', width: '100%' } };
+			_blocks.push(b);
+			_blocksEl.appendChild(_renderBlock(b));
+		}
 	}).catch(e => {
-		alert('画像アップロード失敗: ' + e.message);
-		_setStatus('');
+		_setStatus('⚠ アップロード失敗: ' + e.message);
+		setTimeout(() => _setStatus(''), 5000);
 	});
 }
 
@@ -1889,12 +2088,12 @@ function _sanitizeNode(node) {
 		/* 危険スキーム除去 */
 		if (child.tagName === 'A') {
 			const href = child.getAttribute('href') || '';
-			if (/^javascript:/i.test(href.trim())) child.removeAttribute('href');
+			if (!_isSafeUrl(href)) child.removeAttribute('href');
 		}
 		if (child.tagName === 'IMG') {
 			const src = child.getAttribute('src') || '';
 			if (/^javascript:/i.test(src.trim()) ||
-				(/^data:/i.test(src.trim()) && !/^data:image\//i.test(src.trim()))) {
+				(/^data:/i.test(src.trim()) && !/^data:image\/(png|jpeg|gif|webp)/i.test(src.trim()))) {
 				child.removeAttribute('src');
 			}
 		}

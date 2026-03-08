@@ -2,6 +2,28 @@
 
 ---
 
+## 2026-03-08（Ver.1.2-23 — WYSIWYG エディタ改良）
+
+- **[Security]** SVG data URI XSS 防止 — `data:image/svg+xml` を img src で拒否（png/jpeg/gif/webp のみ許可）
+- **[Security]** リンク URL バリデーション — `_isSafeUrl()` ヘルパー追加、`javascript:` / `data:` スキームを拒否
+- **[Security]** リッチテキスト貼り付けサニタイズ — HTML ペースト時に `_cleanHtml()` でサニタイズ後に挿入
+- **[Fix]** ブロック結合時のカーソル復元 — `savedRange` ベースから HTML オフセットベースに変更（`_setCursorAtOffset` 新設）
+- **[Fix]** スラッシュメニューインデックス範囲外防止 — `_slashIdx` をフィルタ結果長で制限
+- **[Fix]** 画像アップロードフォールバック — `_getFocusedBlock()` null 時に最後のブロック後に `_addBlockAfter` を使用
+- **[Fix]** テーブル Tab 端のエッジケース — 最後のセルで Tab → 行追加、最初のセルで Shift+Tab → 前ブロックへ
+- **[Fix]** チェックリスト最初の項目削除 — idx=0 で空 + Backspace → 段落に変換
+- **[Feature]** Undo/Redo スタック — Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y（上限50操作、ブロック追加/削除/タイプ変更/ドラッグ完了時にスナップショット保存）
+- **[Feature]** 空ブロックプレースホルダ — CSS `::before` で「/ を入力してコマンド...」を表示
+- **[Feature]** インラインツールバーアクティブ状態 — `queryCommandState` で B/I/U/S のアクティブ表示
+- **[Feature]** タイプ変換ポップアップのキーボード操作 — ArrowDown/Up/Enter/Escape 対応
+- **[Feature]** タッチデバイスドラッグ対応 — touchstart/touchmove/touchend リスナー追加
+- **[UX]** `alert()` をステータスバー通知に置換（画像アップロード失敗等）
+- **[UX]** インラインツールバーのビューポートクランプ（画面端での位置補正）
+- **[Quality]** サイレント `catch (_)` を `catch (e) { console.warn() }` に改善
+- **[Quality]** RAF 重複設定を削除（スラッシュメニュー・タイプ変換ポップアップ）
+
+---
+
 ## 2026-03-08（Ver.1.2-22 — Ph3: Editor.js スタイル ブロックベースエディタ）
 
 - **[Feature]** `engines/JsEngine/wysiwyg.js` — Editor.js スタイルのブロックベースアーキテクチャに全面改修（393行 → 1905行）
