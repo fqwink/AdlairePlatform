@@ -26,7 +26,6 @@ server {
     # .htaccess の RedirectMatch 403 に相当
     # -----------------------------------------------------------------
     location ~ ^/(data|backup|files)(/|$) {
-        deny all;
         return 403;
     }
 
@@ -35,7 +34,6 @@ server {
     # .htaccess の RedirectMatch 403 ^.*/engines/.*\.php$ に相当
     # -----------------------------------------------------------------
     location ~ ^/engines/.*\.php$ {
-        deny all;
         return 403;
     }
 

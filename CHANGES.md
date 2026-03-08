@@ -2,6 +2,16 @@
 
 ---
 
+## 2026-03-08（Ver.1.2-26 — Ver.1.2系 最終バグ修正）
+
+- **[Fix/Critical]** `UpdateEngine::handle_update_action()` — 全 `ap_action` 値を捕捉して `default: exit` で処理終了していた問題を修正。リビジョン API（`list_revisions`, `restore_revision` 等）が完全に動作不能だった。明示的な有効アクションリスト `in_array()` チェックに変更
+- **[Fix/High]** `index.php` — 空コンテンツのページが 404 扱いになるバグを修正。`!$c['content']`（falsy チェック）を `$c['content'] === null`（厳密 null 比較）に変更
+- **[Fix/High]** `save_revision()` — `fopen()` が `false` を返した場合に `flock()` が TypeError を発生させるバグを修正。`fopen()` 戻り値の `false` チェックを追加
+- **[Fix/Security]** `upload_image()` / `edit()` / `handle_revision_action()` — 認証チェックを `!isset($_SESSION['l'])` から `!isset($_SESSION['l']) || $_SESSION['l'] !== true` に統一。`handle_update_action()` と同レベルの厳密な認証チェックに統一
+- **[Fix]** `docs/nginx.conf.example` — `deny all; return 403;` の冗長な記述を修正（`return` ディレクティブが優先されるため `deny all` は到達不能コード）
+
+---
+
 ## 2026-03-08（Ver.1.2-26 — TemplateEngine 改良・パーシャル・ループ変数・エラー検出）
 
 - **[Enhancement]** `{{> partial}}` パーシャル構文を追加 — 部分テンプレートの読み込み（循環参照防止: 最大深度10）

@@ -111,7 +111,7 @@ foreach($c as $key => $val){
 			$c[$key] = getSlug($c[$key]);
 			if(isset($_GET['login'])) continue 2;
 			$c['content'] = $_pages[$c[$key]] ?? null;
-			if(!$c['content']){
+			if($c['content'] === null){
 				if(!isset($d['page'][$c[$key]])){
 					header('HTTP/1.1 404 Not Found');
 					$c['content'] = (is_loggedin()) ? $d['new_page']['admin'] : $d['new_page']['visitor'];
@@ -171,7 +171,7 @@ function content(string $id, $content = ''): void {
 function upload_image(): void {
 	if (!isset($_POST['ap_action']) || $_POST['ap_action'] !== 'upload_image') return;
 	header('Content-Type: application/json; charset=UTF-8');
-	if (!isset($_SESSION['l'])) {
+	if (!isset($_SESSION['l']) || $_SESSION['l'] !== true) {
 		http_response_code(401);
 		echo json_encode(['error' => '未ログイン']);
 		exit;
@@ -220,7 +220,7 @@ function edit(){
 			exit;
 		}
 		$content = trim($_POST['content']);
-		if(!isset($_SESSION['l'])){
+		if(!isset($_SESSION['l']) || $_SESSION['l'] !== true){
 			header('HTTP/1.1 401 Unauthorized');
 			exit;
 		}
@@ -363,6 +363,7 @@ function save_revision(string $fieldname, string $content, bool $restored = fals
 	/* B1: ディレクトリ単位ロックで競合状態防止 */
 	$lockFile = $dir . '.lock';
 	$lf = fopen($lockFile, 'c');
+	if($lf === false) return;
 	if(!flock($lf, LOCK_EX)){ fclose($lf); return; }
 
 	$ts = date('Ymd_His');
@@ -403,7 +404,7 @@ function handle_revision_action(): void {
 	$action = $_POST['ap_action'] ?? '';
 	$valid = ['list_revisions','restore_revision','get_revision','pin_revision','search_revisions'];
 	if(!in_array($action, $valid, true)) return;
-	if(!isset($_SESSION['l'])){
+	if(!isset($_SESSION['l']) || $_SESSION['l'] !== true){
 		http_response_code(401);
 		echo json_encode(['error' => 'Unauthorized']);
 		exit;
