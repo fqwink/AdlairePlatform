@@ -1,7 +1,7 @@
 'use strict';
 
 /* ─────────────────────────────────────────────────────────────────────
-   AdlairePlatform WYSIWYG Editor  (Ph2-2)
+   AdlairePlatform WYSIWYG Editor  (Ph3)
    依存ライブラリなし / vanilla JS
 
    機能:
@@ -9,6 +9,10 @@
    B. フローティングツールバー（テキスト選択時に浮上）
    C. 画像リサイズ（ドラッグハンドル）& alt 属性編集
    D. テーブルサポート（グリッドピッカー / 行列追加削除）
+   E. 新ブロックタイプ: 引用（blockquote）・コード（pre）・区切り線（hr）
+   F. "/" スラッシュコマンドメニュー（空行で "/" 入力）
+   G. ブロックハンドル（ホバーで ⠿ → タイプ変換ポップアップ）
+   H. ドラッグ並べ替え（ハンドルをドラッグ → ブロック順序変更）
    + 画像挿入: ツールバー / ドラッグ&ドロップ / クリップボード貼り付け
    + 定期自動保存（30秒）/ Ctrl+Enter 手動保存 / Esc キャンセル
    ───────────────────────────────────────────────────────────────────── */
@@ -65,6 +69,46 @@
 		'  background:#2a2a2a;border:1px solid #555;border-radius:3px;',
 		'  padding:2px;gap:2px;box-shadow:0 2px 6px rgba(0,0,0,.4);}',
 		'.ap-wy-tbl-bar .ap-wy-btn{font-size:11px;padding:1px 5px;}',
+		/* ── E: 新ブロックタイプ ── */
+		'.ap-wy-editor blockquote{border-left:3px solid #1ab;margin:4px 0;',
+		'  padding:4px 12px;color:#aaa;font-style:italic;}',
+		'.ap-wy-editor pre{background:#1a1a1a;border:1px solid #444;',
+		'  border-radius:4px;padding:8px 12px;font-family:monospace;',
+		'  font-size:13px;white-space:pre-wrap;overflow-x:auto;margin:4px 0;}',
+		'.ap-wy-editor pre code{background:none;padding:0;border:none;}',
+		'.ap-wy-editor hr{border:none;border-top:2px solid #555;margin:12px 0;}',
+		/* ── F: スラッシュメニュー ── */
+		'.ap-wy-slash-menu{position:fixed;z-index:9995;background:#222;',
+		'  border:1px solid #555;border-radius:4px;padding:4px;',
+		'  min-width:180px;max-height:240px;overflow-y:auto;',
+		'  box-shadow:0 2px 8px rgba(0,0,0,.5);}',
+		'.ap-wy-slash-item{display:flex;align-items:center;gap:8px;',
+		'  padding:5px 10px;border-radius:3px;cursor:pointer;color:#eee;font-size:13px;}',
+		'.ap-wy-slash-item:hover,.ap-wy-slash-item.sel{background:#1ab;color:#fff;}',
+		'.ap-wy-slash-icon{width:24px;height:24px;display:flex;align-items:center;',
+		'  justify-content:center;background:#333;border-radius:3px;',
+		'  font-size:11px;font-weight:bold;flex-shrink:0;}',
+		/* ── G: ブロックハンドル ── */
+		'.ap-wy-block-handle{position:fixed;z-index:9990;width:20px;',
+		'  display:none;flex-direction:column;align-items:center;',
+		'  padding:2px 0;cursor:pointer;user-select:none;}',
+		'.ap-wy-block-handle.vis{display:flex;}',
+		'.ap-wy-block-hdot{width:18px;height:22px;display:flex;align-items:center;',
+		'  justify-content:center;color:#666;font-size:15px;',
+		'  border-radius:3px;line-height:1;}',
+		'.ap-wy-block-hdot:hover{background:#444;color:#bbb;}',
+		'.ap-wy-type-popup{position:fixed;z-index:9995;background:#222;',
+		'  border:1px solid #555;border-radius:4px;padding:4px;',
+		'  min-width:150px;box-shadow:0 2px 8px rgba(0,0,0,.5);}',
+		'.ap-wy-type-item{display:flex;align-items:center;gap:8px;',
+		'  padding:4px 8px;border-radius:3px;cursor:pointer;color:#eee;font-size:13px;}',
+		'.ap-wy-type-item:hover{background:#1ab;color:#fff;}',
+		'.ap-wy-type-icon{width:22px;text-align:center;font-weight:bold;',
+		'  font-size:12px;color:#aaa;flex-shrink:0;}',
+		/* ── H: ドロップライン ── */
+		'.ap-wy-drop-line{position:fixed;z-index:9990;height:2px;',
+		'  background:#0df;pointer-events:none;',
+		'  box-shadow:0 0 6px rgba(0,221,255,.6);}',
 	].join('');
 	var _styleEl = document.createElement('style');
 	_styleEl.textContent = _css;
@@ -86,6 +130,9 @@
 		{ cmd:'link',                label:'🔗',        title:'リンク挿入' },
 		{ cmd:'img',                 label:'🖼',        title:'画像挿入' },
 		{ cmd:'table',               label:'表',        title:'表を挿入' },
+		{ cmd:'blockquote',          label:'❝',         title:'引用ブロック' },
+		{ cmd:'pre',                 label:'{}',        title:'コードブロック' },
+		{ cmd:'hr',                  label:'—',         title:'区切り線' },
 		{ cmd:'removeFormat',        label:'✕',         title:'書式クリア' },
 		{ sep:true },
 		{ cmd:'undo',   label:'↩',      title:'元に戻す (Ctrl+Z)' },
@@ -118,6 +165,36 @@
 	var _tblBar        = null;
 	var _currentTd     = null;
 	var _currentTable  = null;
+
+	/* Ph3: Editor.js スタイル */
+	var _blockHandle      = null;   /* G: ブロックハンドル div */
+	var _handleTarget     = null;   /* G: 現在指しているブロック要素 */
+	var _hideHandleTimer  = null;   /* G: ハンドル非表示タイマー */
+	var _blockHandleMoveFn = null;  /* G: mousemove ハンドラ参照（cleanup用） */
+	var _editorLeaveFn    = null;   /* G: mouseleave ハンドラ参照（cleanup用） */
+	var _typePopup        = null;   /* G: ブロックタイプ変換ポップアップ */
+	var _typePopupOutFn   = null;   /* G: ポップアップ外クリックハンドラ参照 */
+	var _slashMenu        = null;   /* F: "/" スラッシュメニュー */
+	var _slashBlock       = null;   /* F: "/" を入力したブロック要素 */
+	var _slashFilter      = '';     /* F: "/" 以降のフィルタ文字列 */
+	var _slashIndex       = 0;      /* F: 現在選択中のメニュー項目 */
+	var _slashOutFn       = null;   /* F: メニュー外クリックハンドラ参照 */
+	var _dragBlock        = null;   /* H: ドラッグ中のブロック */
+	var _dropLine         = null;   /* H: 挿入位置インジケータ */
+
+	/* Ph3: ブロックタイプ定義（スラッシュメニュー・ハンドルポップアップ共用） */
+	var BLOCK_CMDS = [
+		{ cmd:'p',          icon:'¶',  name:'段落'          },
+		{ cmd:'h2',         icon:'H2', name:'見出し2'        },
+		{ cmd:'h3',         icon:'H3', name:'見出し3'        },
+		{ cmd:'blockquote', icon:'❝',  name:'引用ブロック'   },
+		{ cmd:'pre',        icon:'{}', name:'コードブロック' },
+		{ cmd:'ul',         icon:'•',  name:'箇条書き'       },
+		{ cmd:'ol',         icon:'1.', name:'番号リスト'     },
+		{ cmd:'hr',         icon:'—',  name:'区切り線', isVoid:true },
+		{ cmd:'table',      icon:'⊞',  name:'テーブル'       },
+		{ cmd:'img',        icon:'🖼', name:'画像挿入'       },
+	];
 
 	/* ══════════════════════════ DOMContentLoaded ══════════════════════════ */
 	document.addEventListener('DOMContentLoaded', function () {
@@ -311,6 +388,19 @@
 			/* D: テーブル */
 			case 'table':
 				_showTablePicker(editor, triggerEl);
+				break;
+			/* E: 新ブロックタイプ */
+			case 'blockquote':
+				document.execCommand('formatBlock', false, 'blockquote');
+				editor.focus();
+				break;
+			case 'pre':
+				document.execCommand('formatBlock', false, 'pre');
+				editor.focus();
+				break;
+			case 'hr':
+				document.execCommand('insertHTML', false, '<hr><p><br></p>');
+				editor.focus();
 				break;
 			case 'save':
 				_manualSave(editor, span);
@@ -838,6 +928,8 @@
 		H2:1, H3:1, P:1, BR:1,
 		UL:1, OL:1, LI:1, A:1, IMG:1,
 		TABLE:1, TBODY:1, THEAD:1, TFOOT:1, TR:1, TD:1, TH:1,
+		/* Ph3 E: 新ブロックタイプ */
+		BLOCKQUOTE:1, PRE:1, CODE:1, HR:1,
 	};
 
 	function _sanitizeNode(node) {
