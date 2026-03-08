@@ -1,9 +1,8 @@
 <?php
 /**
 *
-*@copyright Copyright (c) 2014 - 2015 IEAS Group
-*@copyright Copyright (c) 2014 - 2015 AIZM
-*@license　Adlaire License
+*@copyright Copyright (c) 2014 - 2026 Adlaire Group
+*@license Adlaire License Ver.2.0
 *
 */
 
