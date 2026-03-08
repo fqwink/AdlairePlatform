@@ -1,8 +1,8 @@
 # AdlairePlatform 設計書
 
-> 確定日: 2026-03-07
+> 確定日: 2026-03-08
 > バージョン規則: `Ver.{メジャー}.{マイナー}-{リビジョン}` (AFE VERSIONING.md準拠)
-> 現在バージョン: `Ver.1.2-16`
+> 現在バージョン: `Ver.1.2-20`
 
 ---
 
@@ -125,11 +125,13 @@ AdlairePlatform/
 - **統合**: `class="editText"` に一本化し、HTMLタグ直接入力モードとして再定義
 - **削除対象**: `admin-richText` フック、`rte.js`（JsEngineに含まない）
 
-### Phase 2（将来・WYSIWYG選定後）
+### Phase 2（✅ 完了・独自 WYSIWYG 実装）
 
-- 外部WYSIWYGライブラリを採用（候補: Quill, TipTap, Editor.js）
-- `editInplace.js` を拡張またはWYSIWYGアダプタを追加
-- `admin-richText` フックを復活させてWYSIWYGを差し込む設計
+- **外部ライブラリ採用を撤廃**し、依存ゼロの独自 WYSIWYG (`wysiwyg.js`) を実装
+- `editInplace.js` とは独立した `editRich` クラスで起動、コア hooks に `wysiwyg.js` を登録
+- Ph2-1: 画像挿入（D&D/貼付/ボタン）・30秒自動保存
+- Ph2-2: Undo/Redo・フローティングツールバー・画像リサイズ&alt編集・テーブルサポート
+- Ph3: Editor.js 寄りのブロック体験（新ブロックタイプ・スラッシュコマンド・ブロックハンドル・ドラッグ並べ替え）
 
 ---
 
@@ -140,7 +142,7 @@ AdlairePlatform/
 | フック名 | 用途 |
 |---------|-----|
 | `admin-head` | 管理画面 `<head>` 内スクリプト挿入 |
-| `admin-richText` | Phase 1では廃止済み、Phase 2でWYSIWYG用に復活予定 |
+| `admin-richText` | Phase 1では廃止済み（独自 WYSIWYG 実装により外部ライブラリ採用を撤廃） |
 
 ### 廃止済み
 
@@ -156,6 +158,7 @@ function registerCoreHooks(): void {
     global $hook;
     $hook['admin-head'][] = "\n\t<script src='engines/JsEngine/autosize.js'></script>";
     $hook['admin-head'][] = "\n\t<script src='engines/JsEngine/editInplace.js'></script>";
+    $hook['admin-head'][] = "\n\t<script src='engines/JsEngine/wysiwyg.js'></script>";
     $hook['admin-head'][] = "\n\t<script src='engines/JsEngine/updater.js'></script>";
 }
 ```
@@ -236,11 +239,14 @@ Header always set Content-Security-Policy "default-src 'self'; script-src 'self'
 | P2完了 | `Ver.1.2-13` | ✅ 完了 | エンジン分離・データ層分割・サードパーティ排除 |
 | P3完了 | `Ver.1.2-14` | ✅ 完了 | セキュリティ強化（CSP・engines/保護・nginx設定） |
 | P4完了 | `Ver.1.2-15` | ✅ 完了 | ドキュメント整備 |
-| バグ修正 | `Ver.1.2-16` | ✅ 完了（現在） | defense-in-depth強化・型安全・CSRFデバッグログ |
-| 将来 | 未定 | 🔜 予定 | StaticEngine, ApiEngine, WYSIWYG (Phase 2) |
+| バグ修正 | `Ver.1.2-16` | ✅ 完了 | defense-in-depth強化・型安全・CSRFデバッグログ |
+| Ph2-1完了 | `Ver.1.2-18` | ✅ 完了 | WYSIWYG: 画像挿入・定期自動保存 |
+| Ph2-2完了 | `Ver.1.2-19` | ✅ 完了 | WYSIWYG: Undo/Redo・フロートバー・画像リサイズ・テーブル |
+| Ph3完了 | `Ver.1.2-20` | ✅ 完了（現在） | WYSIWYG: Editor.js スタイル ブロック体験（blockquote/pre/hr・スラッシュコマンド・ブロックハンドル・ドラッグ並べ替え） |
+| 将来 | 未定 | 🔜 予定 | StaticEngine, ApiEngine |
 
 > **バージョン規則**: リビジョンはリセット禁止、常に累積加算
-> **正しい例**: `Ver.1.0-11 → Ver.1.1-12 → Ver.1.2-13 → Ver.1.2-14 → Ver.1.2-15 → Ver.1.2-16`
+> **正しい例**: `Ver.1.0-11 → Ver.1.1-12 → Ver.1.2-13 → … → Ver.1.2-19`
 
 ---
 
@@ -291,19 +297,28 @@ Header always set Content-Security-Policy "default-src 'self'; script-src 'self'
 | P4-2 | ✅ `docs/STATIC_GENERATOR.md` 草稿 | `docs/STATIC_GENERATOR.md` |
 | P4-3 | ✅ `docs/HEADLESS_CMS.md` 草稿 | `docs/HEADLESS_CMS.md` |
 
-### Phase 2 – 将来タスク（時期未定）
+### Phase 2 – WYSIWYGエディタ（✅ 完了）
 
-| # | タスク |
-|---|-------|
-| Ph2-1 | WYSIWYGライブラリ選定（Quill / TipTap / Editor.js 等） |
-| Ph2-2 | WYSIWYGエディタ実装（`editInplace.js` 拡張 または 専用アダプタ） |
-| Ph2-3 | `admin-richText` フック復活・WYSIWYG差し込み |
+| # | タスク | バージョン |
+|---|-------|-----------|
+| Ph2-1 | ✅ `wysiwyg.js` 新規作成・画像挿入（D&D/貼付/ボタン）・30秒自動保存 | Ver.1.2-18 |
+| Ph2-2 | ✅ Undo/Redo ボタン・フローティングツールバー・画像リサイズ&alt編集・テーブルサポート | Ver.1.2-19 |
+| Ph2-3 | ✅ `admin-head` フックへ `wysiwyg.js` 登録・`editRich` クラスで有効化 | Ver.1.2-18 |
+
+### Phase 3 – Editor.js スタイル ブロック体験（✅ 完了）
+
+| # | タスク | バージョン |
+|---|-------|-----------|
+| Ph3-E | ✅ 新ブロックタイプ追加（blockquote/pre/hr）— `_allowedTags` 拡張・ツールバーボタン・CSS | Ver.1.2-20 |
+| Ph3-F | ✅ `"/"` スラッシュコマンドメニュー — 空行で `/` 入力 → ブロック種類選択・絞り込みフィルタ・キーボード操作 | Ver.1.2-20 |
+| Ph3-G | ✅ ブロックハンドル（⠿）— ホバーで左端に表示・クリックでタイプ変換ポップアップ | Ver.1.2-20 |
+| Ph3-H | ✅ ドラッグ並べ替え — ハンドルドラッグでブロック順序変更・シアン色ドロップラインインジケータ | Ver.1.2-20 |
 
 ---
 
 ## 11. 機能リスト
 
-### 実装済み（Ver.1.2-16 現在）
+### 実装済み（Ver.1.2-20 現在）
 
 #### コンテンツ管理
 - ✅ ページ作成・編集・保存（JSON）
@@ -351,14 +366,29 @@ Header always set Content-Security-Policy "default-src 'self'; script-src 'self'
 - ✅ PHP 8.2 バージョンチェック（起動時）
 - ✅ jQuery廃止済み
 
+#### WYSIWYGエディタ（`engines/JsEngine/wysiwyg.js`）
+- ✅ contenteditable ベース（依存ライブラリなし）
+- ✅ ツールバー: B/I/U/リンク/H2/H3/箇条書き/番号リスト/引用/コード/区切り線/テーブル/Undo/Redo
+- ✅ 画像挿入（D&D / クリップボード貼付 / ボタン選択）・JPEG/PNG/GIF/WebP 対応
+- ✅ 画像リサイズ（4コーナーハンドル・アスペクト比維持）・alt 属性インライン編集
+- ✅ フローティングツールバー（テキスト選択時に B/I/U/リンク/✕ を浮かせる）
+- ✅ テーブルサポート（8×8 グリッドピッカー・行/列の追加削除バー）
+- ✅ 新ブロックタイプ: `blockquote`（引用）/ `pre`（コードブロック）/ `hr`（区切り線）
+- ✅ `"/"` スラッシュコマンドメニュー（空行で `/` 入力 → ブロック種類選択・インクリメンタル絞り込み・キーボード操作）
+- ✅ ブロックハンドル `⠿`（ブロックホバー時に左端へ表示・クリックでタイプ変換ポップアップ）
+- ✅ ドラッグ並べ替え（ハンドルドラッグでブロック順序変更・シアン色ドロップラインインジケータ）
+- ✅ Undo/Redo（`execCommand`）
+- ✅ 30秒定期自動保存・Ctrl+Enter / blur で即時保存
+- ✅ HTML サニタイザー（ホワイトリスト方式・保存前に不正タグを除去）
+- ✅ `_cleanup()` によるメモリリーク防止（全オーバーレイ・イベントリスナーを確実に解除）
+
 #### データ層
 - ✅ `data/settings/` 分割（settings.json / auth.json / update_cache.json / version.json）
 - ✅ `data/content/` 分割（pages.json）
 - ✅ `migrate_from_files()` 旧パス自動移行
 
-### 将来計画（Phase 2以降）
+### 将来計画
 
-- 🔜 WYSIWYGエディタ（外部ライブラリ採用）
 - 🔜 静的サイト生成（`engines/StaticEngine.php`）
 - 🔜 ヘッドレスCMS（`engines/ApiEngine.php`）
 
@@ -377,4 +407,4 @@ Adlaire License Ver.2.0（ソース公開型・非オープンソース）
 
 ---
 
-*このドキュメントは実装完了後の確定状態を反映しています。最終更新: 2026-03-07*
+*このドキュメントは実装完了後の確定状態を反映しています。最終更新: 2026-03-08*
