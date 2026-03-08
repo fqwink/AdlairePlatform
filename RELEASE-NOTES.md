@@ -2,6 +2,29 @@
 
 ---
 
+## AdlairePlatform Ver.1.2-26（2026-03-08）
+
+テーマシステムのアーキテクチャを刷新。自前の軽量テンプレートエンジンを導入し、テーマファイルから PHP コードを排除。
+
+### 新機能
+
+- **TemplateEngine** — `{{var}}` / `{{{raw}}}` / `{{#if}}` / `{{#each}}` の4構文による軽量テンプレートエンジン（外部依存なし）
+- **PHP フリーテーマ** — テーマを `theme.html`（HTML/CSS のみ）で作成可能に。PHP 知識不要
+- **StaticEngine 対応設計** — `buildStaticContext()` で `admin=false` を渡すだけで管理者 UI が自動除外。`stripAdminUI()` の正規表現操作が不要に
+
+### アーキテクチャ改善
+
+- `ThemeEngine` に `buildContext()` / `buildStaticContext()` / `parseMenu()` メソッドを追加
+- テーマロード時に `theme.html` を優先、なければ `theme.php` にフォールバック（後方互換維持）
+- テーマ内での任意 PHP コード実行リスクを排除（`theme.html` 方式使用時）
+
+### 後方互換性
+
+- 既存の `theme.php` テーマは引き続き動作します
+- `theme.html` が存在しない場合、自動的に `theme.php` にフォールバックします
+
+---
+
 ## AdlairePlatform Ver.1.2-25（2026-03-08）
 
 WYSIWYG エディタの編集履歴機能を改良。セキュリティ修正・堅牢性強化・UX 改善・機能拡張の全 16 項目。

@@ -2,6 +2,22 @@
 
 ---
 
+## 2026-03-08（Ver.1.2-26 — TemplateEngine 導入・テーマ PHP フリー化）
+
+- **[Architecture]** `engines/TemplateEngine.php` 新規作成 — 軽量テンプレートエンジン（変数展開・条件分岐・ループの3構文）
+- **[Architecture]** `engines/ThemeEngine.php` 改修 — `theme.html` 優先ロード・`buildContext()` / `buildStaticContext()` / `parseMenu()` メソッド追加
+- **[Architecture]** テーマ形式に `theme.html`（テンプレートエンジン方式・PHP フリー）を追加、`theme.php` はレガシーフォールバックとして維持
+- **[Security]** テーマファイル内での任意 PHP コード実行を排除（`theme.html` 方式使用時）
+- **[Enhancement]** テーマ作成に PHP 知識が不要に — HTML/CSS のみでテーマ作成可能
+- **[Enhancement]** StaticEngine 向け設計改善 — `ob_start()` + `stripAdminUI()` 方式を廃止、`TemplateEngine::render()` + `ThemeEngine::buildStaticContext()` 方式に変更
+- **[Theme]** `themes/AP-Default/theme.html` 新規追加
+- **[Theme]** `themes/AP-Adlaire/theme.html` 新規追加
+- **[Docs]** STATIC_GENERATOR.md Ver.0.3-1 — レンダリング戦略を TemplateEngine ベースに更新
+- **[Docs]** ARCHITECTURE.md — TemplateEngine 追加・ThemeEngine 改修を反映
+- **[Docs]** SPEC.md Ver.0.2-5 — テンプレート構文・コンテキスト変数・テーマ構造を追加
+
+---
+
 ## 2026-03-08（Ver.1.2-25 — WYSIWYG エディタ 編集履歴機能改良）
 
 - **[Security]** CSRF トークンの GET パラメータ露出修正 — `list_revisions` API を POST に統一、トークンはヘッダーで送信

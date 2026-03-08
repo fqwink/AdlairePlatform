@@ -284,9 +284,12 @@ PHP 5.3+ 対応（廃止済み）  →    PHP 8.2 以降専用（完了）
 ```
 themes/
 └── <テーマ名>/
-    ├── theme.php    （必須: HTML レイアウト）
+    ├── theme.html   （推奨: テンプレートエンジン方式・PHP フリー）
+    ├── theme.php    （レガシー: PHP 混在方式・フォールバック用）
     └── style.css    （必須: スタイルシート）
 ```
+
+`theme.html` と `theme.php` の両方が存在する場合、`theme.html` が優先されます。
 
 #### 5.2.2 テーマ仕様
 
@@ -294,7 +297,38 @@ themes/
 - テーマの自動検出: `themes/` ディレクトリを走査し、有効なテーマを一覧表示
 - テーマ切替: 管理パネルからリアルタイムに切替可能
 - デフォルトテーマ: `AP-Default`（存在しないテーマが指定された場合のフォールバック）
-- エンジン: `engines/ThemeEngine.php`（`ThemeEngine::load()` / `ThemeEngine::listThemes()`）
+- エンジン: `engines/ThemeEngine.php`（`ThemeEngine::load()` / `ThemeEngine::listThemes()` / `ThemeEngine::buildContext()` / `ThemeEngine::buildStaticContext()`）
+- テンプレートエンジン: `engines/TemplateEngine.php`（`{{var}}` / `{{{raw}}}` / `{{#if}}` / `{{#each}}`）
+
+#### 5.2.2a テンプレート構文（theme.html 方式）
+
+| 構文 | 説明 | 例 |
+|------|------|----|
+| `{{variable}}` | エスケープ出力（`htmlspecialchars`） | `{{title}}` |
+| `{{{variable}}}` | 生 HTML 出力 | `{{{content}}}` |
+| `{{#if var}}...{{else}}...{{/if}}` | 条件分岐（`!var` で否定可） | `{{#if admin}}...{{/if}}` |
+| `{{#each items}}...{{/each}}` | ループ（配列要素のキーが変数として使用可能） | `{{#each menu_items}}...{{/each}}` |
+
+#### 5.2.2b テンプレートコンテキスト変数
+
+| 変数名 | 型 | 説明 |
+|--------|-----|------|
+| `title` | string | サイトタイトル |
+| `page` | string | 現在のページスラッグ |
+| `host` | string | サイトベース URL |
+| `themeSelect` | string | 現在のテーマ名 |
+| `description` | string | サイト説明文 |
+| `keywords` | string | メタキーワード |
+| `admin` | bool | ログイン状態（管理者 UI の表示制御） |
+| `csrf_token` | string | CSRF トークン |
+| `admin_scripts` | string | 管理スクリプトタグ（HTML） |
+| `settings_panel` | string | 設定パネル HTML |
+| `content` | string | ページコンテンツ HTML |
+| `subside` | string | サイドバーコンテンツ HTML |
+| `copyright` | string | 著作権表記 |
+| `login_status` | string | ログイン/ログアウトリンク HTML |
+| `credit` | string | Adlaire クレジット HTML |
+| `menu_items` | array | メニュー項目（各要素: `slug`, `label`, `active`） |
 
 #### 5.2.3 同梱テーマ
 
@@ -303,7 +337,7 @@ themes/
 | `AP-Default` | 標準・汎用テーマ |
 | `AP-Adlaire` | Adlaire デザインテーマ |
 
-#### 5.2.4 テーマ内利用可能関数
+#### 5.2.4 テーマ内利用可能関数（theme.php レガシー方式のみ）
 
 | 関数 | 説明 |
 |------|------|
@@ -313,6 +347,8 @@ themes/
 | `editTags()` | 管理用スクリプト・スタイルの出力 |
 | `settings()` | 管理パネル出力（ログイン中のみ） |
 | `is_loggedin(): bool` | ログイン状態の確認 |
+
+> **注**: `theme.html` 方式ではこれらの関数は使用しません。代わりにテンプレート変数（`{{{content}}}`, `{{#each menu_items}}` 等）でデータにアクセスします。
 
 ---
 
@@ -706,7 +742,8 @@ AdlairePlatform/
 ├── nginx.conf.example            # Nginx 設定リファレンス
 │
 ├── engines/
-│   ├── ThemeEngine.php           # テーマ検証・読み込みロジック
+│   ├── TemplateEngine.php        # 軽量テンプレートエンジン（PHP フリーテーマ用）
+│   ├── ThemeEngine.php           # テーマ検証・読み込み・コンテキスト構築
 │   ├── UpdateEngine.php          # アップデート・バックアップ・ロールバック
 │   └── JsEngine/
 │       ├── autosize.js           # テキストエリア自動リサイズ
@@ -716,9 +753,11 @@ AdlairePlatform/
 │
 ├── themes/
 │   ├── AP-Default/
-│   │   ├── theme.php             # レイアウトテンプレート
+│   │   ├── theme.html            # テンプレートエンジン方式（推奨）
+│   │   ├── theme.php             # レガシー PHP 方式（フォールバック）
 │   │   └── style.css             # スタイルシート
 │   └── AP-Adlaire/
+│       ├── theme.html
 │       ├── theme.php
 │       └── style.css
 │
@@ -880,6 +919,7 @@ AdlairePlatform/
 
 | バージョン | 日付 | 変更内容 | 担当 |
 |------------|------|----------|------|
+| Ver.0.2-5 | 2026-03-08 | TemplateEngine 導入。セクション 5.2 にテンプレート構文（5.2.2a）・コンテキスト変数（5.2.2b）を追加。テーマ構造に theme.html（推奨）を追加。ディレクトリ構成を更新 | Adlaire Group |
 | Ver.0.2-4 | 2026-03-08 | セクション8・9 のステータスを「未検討段階」から「設計確定（実装未着手）」に更新。セクション9 に ApiEngine の概要・公開エンドポイント・セキュリティを追記。HEADLESS_CMS.md Ver.0.3-1 / STATIC_GENERATOR.md Ver.0.2-1 との整合性を確保 | Adlaire Group |
 | Ver.0.2-3 | 2026-03-08 | Ver.1.2-20 対応。プラグインシステム廃止・エンジン分離・データ層分割・WYSIWYG・画像アップロード・レート制限・CSP を追加。旧 js/ / plugins/ / rte.php 参照を削除。セキュリティ課題を実装済みに更新 | Adlaire Group |
 | Ver.0.1-2 | 2026-03-06 | ヘッドレス CMS 機能（計画）セクションを新規追加（セクション 9）。pitcms を参考として記録。目次・セクション番号を更新 | Adlaire Group |

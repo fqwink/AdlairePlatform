@@ -31,7 +31,8 @@ AdlairePlatform/
 │  └─ Licenses/
 │     └─ LICENSE_Ver.2.0.md
 ├─ engines/
-│  ├─ ThemeEngine.php           # テーマ検証・読み込み
+│  ├─ TemplateEngine.php        # 軽量テンプレートエンジン（{{var}}, {{{raw}}}, #if, #each）
+│  ├─ ThemeEngine.php           # テーマ検証・読み込み・コンテキスト構築
 │  ├─ UpdateEngine.php          # アップデート・バックアップ・ロールバック
 │  ├─ StaticEngine.php          # 静的書き出し・差分ビルド・アセット管理（計画）
 │  ├─ ApiEngine.php             # 公開 REST API（ヘッドレス CMS）（計画）
@@ -41,9 +42,11 @@ AdlairePlatform/
 
 ├─ themes/
 │  ├─ AP-Default/
-│  │  ├─ theme.php
+│  │  ├─ theme.html             # テンプレートエンジン方式（推奨）
+│  │  ├─ theme.php              # レガシー PHP 方式（フォールバック）
 │  │  └─ style.css
 │  └─ AP-Adlaire/
+│     ├─ theme.html
 │     ├─ theme.php
 │     └─ style.css
 ├─ data/
@@ -75,7 +78,7 @@ AdlairePlatform/
 
 | 機能グループ | 関数 | 説明 |
 |------------|------|------|
-| 起動制御 | ─ | PHP バージョン確認・定数定義・エンジン require |
+| 起動制御 | ─ | PHP バージョン確認・定数定義・エンジン require（TemplateEngine, ThemeEngine, UpdateEngine） |
 | ルーティング | `host()`, `getSlug()` | URL 解析・スラッグ生成 |
 | 認証 | `login()`, `savePassword()`, `is_loggedin()` | セッション・bcrypt 認証 |
 | レート制限 | `check_login_rate()`, `record_login_failure()`, `clear_login_rate()` | IP ベースのログイン試行制限 |
@@ -87,14 +90,33 @@ AdlairePlatform/
 | マイグレーション | `migrate_from_files()` | 旧データ構造からの自動移行 |
 | UI | `settings()`, `h()` | 管理パネル出力・HTMLエスケープ |
 
+### engines/TemplateEngine.php
+
+```
+TemplateEngine::render(string $template, array $context): string
+  ├─ processEach()    — {{#each items}}...{{/each}} ループ処理
+  ├─ processIf()      — {{#if var}}...{{else}}...{{/if}} 条件分岐（ネスト対応）
+  ├─ processRawVars() — {{{var}}} 生 HTML 出力
+  └─ processVars()    — {{var}} エスケープ出力（htmlspecialchars）
+```
+
 ### engines/ThemeEngine.php
 
 ```
 ThemeEngine::load(string $themeSelect): void
   ├─ テーマ名バリデーション（英数字・-・_のみ）
-  ├─ themes/{name}/theme.php の存在確認
-  ├─ 存在しない場合は AP-Default にフォールバック
-  └─ require でテーマをロード
+  ├─ theme.html があれば TemplateEngine::render() でレンダリング（推奨）
+  ├─ なければ theme.php を require（レガシーフォールバック）
+  └─ どちらもなければ AP-Default にフォールバック
+
+ThemeEngine::buildContext(): array
+  └─ 動的 CMS 用テンプレートコンテキストを構築（$c, $host 等からマッピング）
+
+ThemeEngine::buildStaticContext(string $slug, string $content, array $settings): array
+  └─ StaticEngine 用コンテキスト（admin=false、管理者 UI 除外）
+
+ThemeEngine::parseMenu(string $menuStr, string $currentPage): array
+  └─ メニュー文字列を [{slug, label, active}] 配列にパース
 
 ThemeEngine::listThemes(): array
   └─ themes/ ディレクトリ内のサブディレクトリ一覧を返す
@@ -127,16 +149,10 @@ StaticEngine::buildDiff(): void
 StaticEngine::buildAll(): void
   └─ 全ページを renderPage() → deleteOrphanedFiles() → copyAssets()
 
-StaticEngine::renderPage(string $slug, array $pages, array $settings): string
-  ├─ ob_start() → ThemeEngine::load() → ob_get_clean()
-  └─ stripAdminUI() → static/{slug}/index.html に書き出し
-
-StaticEngine::stripAdminUI(string $html): string
-  ├─ editText / editRich 属性を regex で除去
-  ├─ <div id="ap-admin"> ブロックを除去
-  ├─ CSRF meta タグを除去
-  ├─ JsEngine スクリプト（管理系）を除去
-  └─ src/href の相対パスを static/ 向けに補正
+StaticEngine::renderPage(string $slug, string $content): string
+  ├─ ThemeEngine::buildStaticContext() でコンテキスト構築（admin=false）
+  ├─ TemplateEngine::render() で HTML 生成（{{#if admin}} ブロックは自動除外）
+  └─ rewriteAssetPaths() でアセットパスを静的配信向けに補正
 
 StaticEngine::copyAssets(): void
   └─ uploads/ → static/uploads/ を filemtime 差分コピー
@@ -213,6 +229,7 @@ HTTP Request
     ▼
 index.php
     ├─ PHP 8.2 バージョンチェック
+    ├─ require engines/TemplateEngine.php
     ├─ require engines/ThemeEngine.php
     ├─ require engines/UpdateEngine.php
     ├─ require engines/ApiEngine.php    ─ （計画）
@@ -234,7 +251,8 @@ index.php
     │
     ▼
 ThemeEngine::load()
-    └─ themes/{themeSelect}/theme.php
+    ├─ theme.html あり → buildContext() → TemplateEngine::render()
+    └─ theme.html なし → theme.php を require（レガシーフォールバック）
             ├─ HTML head 出力（editTags() → JsEngine スクリプト）
             ├─ content() ─ ページコンテンツ出力（ログイン時は editRich span → WYSIWYG）
             ├─ menu() ─ ナビゲーション出力
