@@ -2,12 +2,13 @@
 
 ---
 
+## 2026-03-07（Ver.1.2-16 — defense-in-depth・バグ修正）
 
 - **[Security]** `delete_backup()` に内部バリデーションを追加（`basename()` + `/^[0-9_]+$/` 正規表現検証）— handle_update_action() 側の検証に依存せず defense-in-depth として各関数内でも入力を検証
 - **[Security]** `rollback_to_backup()` に同様の内部バリデーションを追加
 - **[Fix]** `content()` 関数の引数を型安全に修正（`string` 型宣言 + `(string)($content ?? '')` null強制変換）— PHP 8.2 で null 連結が Deprecation になる問題を防止
 - **[Fix]** `editInplace.js` — CSRF メタタグが未検出の場合に `console.error('[AdlairePlatform] CSRF token meta tag not found')` を出力（サイレントフェイルから明示的なデバッグログへ）
-- **[Docs]** `AP_VERSION` を `1.2.0` から `1.2.16` へ更新
+- **[Docs]** `AP_VERSION` を `'1.2.0'` から `'1.2.16'` へ更新
 - **[Docs]** `docs/AdlairePlatform_Design.md` を現在の実装状態（Ver.1.2-16）に完全同期（設計書ヘッダー・ディレクトリ構成・バージョン計画・タスクリスト・機能リストを更新）
 
 ## 2026-03-07（Ver.1.2-15 — P4: ドキュメント整備）
@@ -58,10 +59,13 @@
 - **[Feature]** `backup_current()` にメタデータ生成を追加（`backup/<name>/meta.json` へ `version_before` / `created_at` / `file_count` / `size_bytes` を記録）
 - **[Feature]** `delete_backup(string $name)` 追加（バックアップディレクトリを再帰削除）
 - **[Feature]** `ap_action=delete_backup` エンドポイントを追加
-- **[Feature]** `js/updater.js` のバックアップ一覧をテーブル形式に変更（作成日時・更新前バージョン・サイズを表示）
-- **[Feature]** `js/updater.js` に「削除」ボタンを追加（確認ダイアログ後にフェードアウト削除）
+- **[Feature]** `engines/JsEngine/updater.js` のバックアップ一覧をテーブル形式に変更（作成日時・更新前バージョン・サイズを表示）
+- **[Feature]** `engines/JsEngine/updater.js` に「削除」ボタンを追加（確認ダイアログ後にフェードアウト削除）
 - **[Fix]** `rollback_to_backup()` に `realpath()` の `false` チェックを追加
 - **[Fix]** `rollback_to_backup()` が `meta.json` をサイトルートへコピーしないよう除外
+
+---
+
 ## 2026-03-06（ライセンス変更 Ver.1.0 → Ver.2.0）
 
 - **[License]** ライセンスを **Adlaire License Ver.1.0** から **Adlaire License Ver.2.0** へ改訂
@@ -104,13 +108,13 @@
 - **[Feature]** `apply_update()` — ZIP 取得・ZipArchive 展開・ファイル上書き・`data/version.json` 更新
 - **[Feature]** `rollback_to_backup()` — バックアップから復元（`data/` 除外・バックアップ名を `[0-9_]+` でバリデーション）
 - **[Feature]** `settings()` に「↕ アップデート ↕」折りたたみパネルを追加
-- **[Feature]** `js/updater.js` を新規作成（更新確認・適用・ロールバック AJAX UI、`esc()` で XSS エスケープ）
+- **[Feature]** `engines/JsEngine/updater.js` を新規作成（更新確認・適用・ロールバック AJAX UI、`esc()` で XSS エスケープ）
 - **[Feature]** `loadPlugins()` に `updater.js` を `admin-head` フックとして登録
 - **[Security]** `.htaccess` に `RedirectMatch 403 ^.*/backup/` を追加
 - **[Fix]** `apply_update()` — `ZipArchive::extractTo()` の戻り値未検査バグを修正（展開失敗時に処理続行していた）
 - **[Fix]** `apply_update()` — `realpath($src)` がループ内で毎回評価され `false` 返却時に `$rel` が壊れるバグを修正（`$real_src` を事前計算）
 - **[Fix]** `apply_update()` — 除外リストに `'backup'` を追加（ZIP 内の `backup/` ディレクトリが既存バックアップを上書きする問題を防止）
-- **[Fix]** `js/updater.js` — HTTP 4xx/5xx エラー時の `.fail()` ハンドラで `xhr.responseJSON.error` を読んでサーバーエラー詳細を表示
+- **[Fix]** `engines/JsEngine/updater.js` — HTTP 4xx/5xx エラー時の `.fail()` ハンドラで `xhr.responseJSON.error` を読んでサーバーエラー詳細を表示
 
 ---
 

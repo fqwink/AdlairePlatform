@@ -1,6 +1,6 @@
 # 実装機能一覧
 
-AdlairePlatform Ver.1.2-21 の実装済み機能をソースコード解析に基づいて整理したドキュメントです。
+AdlairePlatform Ver.1.2-20 の実装済み機能をソースコード解析に基づいて整理したドキュメントです。
 
 > 最終更新: 2026-03-08
 
@@ -334,12 +334,17 @@ themes/<テーマ名>/
 
 ---
 
-## 未実装（将来予定）
+## 未実装（設計確定・実装予定）
+
+| モジュール | 設計書 | ステータス | 説明 |
+|----------|--------|-----------|------|
+| StaticEngine | `docs/STATIC_GENERATOR.md` Ver.0.2-1 | ✅ 設計確定 | 静的サイト生成エンジン（`engines/StaticEngine.php`） |
+| ApiEngine | `docs/HEADLESS_CMS.md` Ver.0.3-1 | ✅ 設計確定 | ヘッドレス CMS REST API エンジン（`engines/ApiEngine.php`） |
+
+## 未実装（未検討）
 
 | モジュール | 略称 | 説明 |
 |----------|------|------|
-| StaticEngine | — | 静的サイト生成エンジン（`engines/StaticEngine.php`）詳細は `docs/STATIC_GENERATOR.md` |
-| ApiEngine | — | ヘッドレス CMS API エンジン（`engines/ApiEngine.php`）詳細は `docs/HEADLESS_CMS.md` |
 | Core modules | CM | コアモジュール |
 | SubCore modules | SCM | サブコアモジュール |
 | Adlaire account authentication system | A3S | アドレイルアカウント認証システム |

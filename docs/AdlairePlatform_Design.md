@@ -43,6 +43,7 @@ AdlairePlatform/
 │  │  ├─ settings.json      # サイト設定
 │  │  ├─ auth.json          # 認証情報（bcrypt）
 │  │  ├─ update_cache.json  # アップデートキャッシュ
+│  │  ├─ login_attempts.json # ログイン試行記録（レート制限）
 │  │  └─ version.json       # バージョン情報
 │  └─ content/
 │     └─ pages.json         # ページコンテンツ
@@ -291,11 +292,14 @@ Header always set Content-Security-Policy "default-src 'self'; script-src 'self'
 
 ### Phase 2 – 将来タスク（時期未定）
 
-| # | タスク |
-|---|-------|
-| Ph2-1 | WYSIWYGライブラリ選定（Quill / TipTap / Editor.js 等） |
-| Ph2-2 | WYSIWYGエディタ実装（`editInplace.js` 拡張 または 専用アダプタ） |
-| Ph2-3 | `admin-richText` フック復活・WYSIWYG差し込み |
+> ⚠️ **Ph2-1〜3 はステータス変更**: WYSIWYG は外部ライブラリを採用せず、`engines/JsEngine/wysiwyg.js` として
+> 依存なしの独自実装で完了済み（Ver.1.2-20）。以下は参考として残す。
+
+| # | タスク | ステータス |
+|---|-------|-----------|
+| Ph2-1 | ~~WYSIWYGライブラリ選定（Quill / TipTap / Editor.js 等）~~ | ✅ 完了（独自実装を採用） |
+| Ph2-2 | ~~WYSIWYGエディタ実装~~ | ✅ 完了（`engines/JsEngine/wysiwyg.js`） |
+| Ph2-3 | ~~`admin-richText` フック復活~~ | ✅ 完了（`editRich` クラスとして統合） |
 
 ---
 
@@ -354,11 +358,10 @@ Header always set Content-Security-Policy "default-src 'self'; script-src 'self'
 - ✅ `data/content/` 分割（pages.json）
 - ✅ `migrate_from_files()` 旧パス自動移行
 
-### 将来計画（Phase 2以降）
+### 将来計画
 
-- 🔜 WYSIWYGエディタ（外部ライブラリ採用）
-- 🔜 静的サイト生成（`engines/StaticEngine.php`）
-- 🔜 ヘッドレスCMS（`engines/ApiEngine.php`）
+- 🔜 静的サイト生成（`engines/StaticEngine.php`）— 設計確定（`docs/STATIC_GENERATOR.md` Ver.0.2-1）
+- 🔜 ヘッドレスCMS（`engines/ApiEngine.php`）— 設計確定（`docs/HEADLESS_CMS.md` Ver.0.3-1）
 
 ---
 

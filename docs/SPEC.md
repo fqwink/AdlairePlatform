@@ -3,7 +3,7 @@
 > **ドキュメントバージョン**: Ver.0.2-4
 > **ステータス**: ✅ 確定
 > **作成日**: 2026-03-06
-> **最終更新**: 2026-03-08（Ver.1.2-21 対応）
+> **最終更新**: 2026-03-08（Ver.1.2-20 対応）
 > **所有者**: Adlaire Group
 > **バージョニング規則**: [AFE/VERSIONING.md](https://github.com/fqwink/AdlaireGroup-Documents-Repository/blob/main/AFE/VERSIONING.md)
 
@@ -769,11 +769,11 @@ AdlairePlatform/
 
 ```json
 {
-  "version": "1.2.21",
+  "version": "1.2.20",
   "updated_at": "2026-03-08",
   "history": [
     {
-      "version": "1.2.21",
+      "version": "1.2.20",
       "applied_at": "2026-03-08 12:00:00",
       "backup": "20260308_120000"
     }
@@ -839,7 +839,7 @@ AdlairePlatform/
 | バージョン | 日付 | 変更内容 | 担当 |
 |------------|------|----------|------|
 | Ver.0.2-4 | 2026-03-08 | セクション8・9 のステータスを「未検討段階」から「設計確定（実装未着手）」に更新。セクション9 に ApiEngine の概要・公開エンドポイント・セキュリティを追記。HEADLESS_CMS.md Ver.0.3-1 / STATIC_GENERATOR.md Ver.0.2-1 との整合性を確保 | Adlaire Group |
-| Ver.0.2-3 | 2026-03-08 | Ver.1.2-21 対応。プラグインシステム廃止・エンジン分離・データ層分割・WYSIWYG・画像アップロード・レート制限・CSP を追加。旧 js/ / plugins/ / rte.php 参照を削除。セキュリティ課題を実装済みに更新 | Adlaire Group |
+| Ver.0.2-3 | 2026-03-08 | Ver.1.2-20 対応。プラグインシステム廃止・エンジン分離・データ層分割・WYSIWYG・画像アップロード・レート制限・CSP を追加。旧 js/ / plugins/ / rte.php 参照を削除。セキュリティ課題を実装済みに更新 | Adlaire Group |
 | Ver.0.1-2 | 2026-03-06 | ヘッドレス CMS 機能（計画）セクションを新規追加（セクション 9）。pitcms を参考として記録。目次・セクション番号を更新 | Adlaire Group |
 | Ver.0.1-1 | 2026-03-06 | 初版確定。技術スタック策定（PHP 8.2 必須化・jQuery 廃止・バニラ JS 採用）、Apache / Nginx 両対応、アーキテクチャ変更・静的生成ジェネレーター計画の記録 | Adlaire Group |
 

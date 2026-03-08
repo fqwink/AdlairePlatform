@@ -2,7 +2,7 @@
 
 ---
 
-## AdlairePlatform Ver.1.2.21（2026-03-08）
+## AdlairePlatform Ver.1.2-21（2026-03-08）
 
 Ph3 完了後のバグ修正・著作権更新版。
 
@@ -19,7 +19,7 @@ Ph3 完了後のバグ修正・著作権更新版。
 **index.php**
 - `upload_image()` を `handle_update_action()` より前に呼び出すよう順序修正（致命的バグ修正）
 - `verify_csrf()` に `empty()` ガード追加（CSRF バイパス防止）
-- `AP_VERSION` を `1.2.21` に更新
+- `AP_VERSION` を `'1.2.21'` に更新
 
 **updater.js**
 - CSRF メタタグ未検出時の null 参照エラー防止ガードを追加
@@ -35,7 +35,7 @@ Ph3 完了後のバグ修正・著作権更新版。
 
 ---
 
-## AdlairePlatform Ver.1.2.20（2026-03-08）
+## AdlairePlatform Ver.1.2-20（2026-03-08）
 
 Ph3: Editor.js スタイル ブロック体験 完成版。
 
@@ -72,12 +72,12 @@ Ph3: Editor.js スタイル ブロック体験 完成版。
 
 ---
 
-## AdlairePlatform Ver.1.2.16（2026-03-07）
+## AdlairePlatform Ver.1.2-16（2026-03-07）
 
 現在の安定バージョン。Ver.1.0 以降に P1〜P4 フェーズで実施したアーキテクチャ刷新・
 セキュリティ強化・ドキュメント整備に加え、バグ修正・defense-in-depth 強化を施した版。
 
-### 主な変更点（Ver.1.0 → Ver.1.2.16）
+### 主な変更点（Ver.1.0 → Ver.1.2-16）
 
 **アーキテクチャ刷新（P1〜P2）**
 - PHP 8.2+ 必須化（起動時バージョンチェック）
@@ -149,7 +149,7 @@ Ph3: Editor.js スタイル ブロック体験 完成版。
 
 ---
 
-## AdlairePlatform Ver.1.0.0（2026-03-06）
+## AdlairePlatform Ver.1.0-11（2026-03-06）
 
 初回リリース（Ver.β）以降に積み重ねられたセキュリティ強化・
 ストレージ移行・PHP 8.2 対応・バグ修正の総まとめ版。
