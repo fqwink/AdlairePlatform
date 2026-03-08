@@ -2,12 +2,70 @@
 
 ---
 
+## 2026-03-08（Ver.1.2-24 — WYSIWYG エディタ 編集履歴機能）
+
+- **[Feature]** リビジョン管理 — コンテンツ保存ごとにサーバーサイドでリビジョンを `data/content/revisions/` に保存（最大30世代）
+- **[Feature]** リビジョン復元 — 管理画面から過去リビジョンの内容を選択して復元可能
+- **[Feature]** リビジョン API — `ap_action=list_revisions` / `restore_revision` エンドポイント追加（認証・CSRF・入力バリデーション付き）
+- **[Feature]** 変更差分表示 — LCS ベースの簡易 diff アルゴリズムによるテキスト差分表示（追加=緑、削除=赤）
+- **[Feature]** セッション内履歴 UI — Undo/Redo スタックを可視化するパネル（操作番号・タイムスタンプ・ブロック数表示）
+- **[Feature]** 編集履歴パネル — 「セッション」「リビジョン」2タブのモーダル UI（ツールバーの📋ボタンから表示）
+- **[Feature]** スナップショットジャンプ — セッション履歴の任意のスナップショットにクリックで移動
+- **[Enhancement]** スナップショットメタデータ — Undo/Redo スタックにタイムスタンプ・ブロック数を記録
+
+---
+
+## 2026-03-08（Ver.1.2-23 — WYSIWYG エディタ改良）
+
+- **[Security]** SVG data URI XSS 防止 — `data:image/svg+xml` を img src で拒否（png/jpeg/gif/webp のみ許可）
+- **[Security]** リンク URL バリデーション — `_isSafeUrl()` ヘルパー追加、`javascript:` / `data:` スキームを拒否
+- **[Security]** リッチテキスト貼り付けサニタイズ — HTML ペースト時に `_cleanHtml()` でサニタイズ後に挿入
+- **[Fix]** ブロック結合時のカーソル復元 — `savedRange` ベースから HTML オフセットベースに変更（`_setCursorAtOffset` 新設）
+- **[Fix]** スラッシュメニューインデックス範囲外防止 — `_slashIdx` をフィルタ結果長で制限
+- **[Fix]** 画像アップロードフォールバック — `_getFocusedBlock()` null 時に最後のブロック後に `_addBlockAfter` を使用
+- **[Fix]** テーブル Tab 端のエッジケース — 最後のセルで Tab → 行追加、最初のセルで Shift+Tab → 前ブロックへ
+- **[Fix]** チェックリスト最初の項目削除 — idx=0 で空 + Backspace → 段落に変換
+- **[Feature]** Undo/Redo スタック — Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y（上限50操作、ブロック追加/削除/タイプ変更/ドラッグ完了時にスナップショット保存）
+- **[Feature]** 空ブロックプレースホルダ — CSS `::before` で「/ を入力してコマンド...」を表示
+- **[Feature]** インラインツールバーアクティブ状態 — `queryCommandState` で B/I/U/S のアクティブ表示
+- **[Feature]** タイプ変換ポップアップのキーボード操作 — ArrowDown/Up/Enter/Escape 対応
+- **[Feature]** タッチデバイスドラッグ対応 — touchstart/touchmove/touchend リスナー追加
+- **[UX]** `alert()` をステータスバー通知に置換（画像アップロード失敗等）
+- **[UX]** インラインツールバーのビューポートクランプ（画面端での位置補正）
+- **[Quality]** サイレント `catch (_)` を `catch (e) { console.warn() }` に改善
+- **[Quality]** RAF 重複設定を削除（スラッシュメニュー・タイプ変換ポップアップ）
+
+---
+
+## 2026-03-08（Ver.1.2-22 — Ph3: Editor.js スタイル ブロックベースエディタ）
+
+- **[Feature]** `engines/JsEngine/wysiwyg.js` — Editor.js スタイルのブロックベースアーキテクチャに全面改修（393行 → 1905行）
+- **[Feature]** ブロックベース contenteditable — 各ブロックが独立した contenteditable 要素を持つ設計
+- **[Feature]** 新ブロックタイプ追加 — blockquote / code(pre) / delimiter(hr) / table / image(figure+figcaption) / checklist
+- **[Feature]** インラインツール拡張 — S（取消線）/ Code（インラインコード）/ Marker / Link をツールバー・ショートカットに追加
+- **[Feature]** フローティングインラインツールバー — テキスト選択時に B/I/U/S/Code/Marker/Link ボタンを自動表示
+- **[Feature]** "/" スラッシュコマンドメニュー — 空ブロックで / 入力時にブロックタイプ選択（インクリメンタル絞り込み・ビューポートクランプ）
+- **[Feature]** ブロックハンドル ⠿ — ホバー時表示、クリックでタイプ変換ポップアップ（Block Tunes: テキスト配置含む）
+- **[Feature]** ドラッグ並べ替え — ⠿ ハンドルでブロック順序変更、シアン色ドロップラインインジケータ
+- **[Feature]** テーブルブロック — セル個別 contenteditable、Tab 移動、行列追加削除
+- **[Feature]** 画像ブロック強化 — サイズプリセット(25%/50%/75%/100%)、Alt テキスト入力、キャプション(figcaption)
+- **[Feature]** チェックリスト — チェックボックス + テキスト、Enter で項目追加、Backspace で削除
+- **[Feature]** Block Tunes — テキスト配置（左/中央/右）をブロックハンドルポップアップから選択
+- **[A11y]** ARIA 対応 — toolbar/textbox/listbox ロール、aria-label、aria-live="polite"
+- **[Fix]** Chromium ネイティブリサイズハンドル無効化（enableObjectResizing/enableInlineTableEditing）
+- **[Docs]** `docs/SPEC.md` Ver.0.2-5 — WYSIWYG セクション（§5.5）をブロックベースアーキテクチャに更新
+- **[Docs]** `docs/features.md` — WYSIWYG セクション全面更新
+- **[Docs]** `docs/AdlairePlatform_Design.md` — エディタ設計セクション更新（Phase 3 追加）
+
+---
+
+## 2026-03-07（Ver.1.2-16 — defense-in-depth・バグ修正）
 
 - **[Security]** `delete_backup()` に内部バリデーションを追加（`basename()` + `/^[0-9_]+$/` 正規表現検証）— handle_update_action() 側の検証に依存せず defense-in-depth として各関数内でも入力を検証
 - **[Security]** `rollback_to_backup()` に同様の内部バリデーションを追加
 - **[Fix]** `content()` 関数の引数を型安全に修正（`string` 型宣言 + `(string)($content ?? '')` null強制変換）— PHP 8.2 で null 連結が Deprecation になる問題を防止
 - **[Fix]** `editInplace.js` — CSRF メタタグが未検出の場合に `console.error('[AdlairePlatform] CSRF token meta tag not found')` を出力（サイレントフェイルから明示的なデバッグログへ）
-- **[Docs]** `AP_VERSION` を `1.2.0` から `1.2.16` へ更新
+- **[Docs]** `AP_VERSION` を `'1.2.0'` から `'1.2.16'` へ更新
 - **[Docs]** `docs/AdlairePlatform_Design.md` を現在の実装状態（Ver.1.2-16）に完全同期（設計書ヘッダー・ディレクトリ構成・バージョン計画・タスクリスト・機能リストを更新）
 
 ## 2026-03-07（Ver.1.2-15 — P4: ドキュメント整備）
@@ -58,10 +116,13 @@
 - **[Feature]** `backup_current()` にメタデータ生成を追加（`backup/<name>/meta.json` へ `version_before` / `created_at` / `file_count` / `size_bytes` を記録）
 - **[Feature]** `delete_backup(string $name)` 追加（バックアップディレクトリを再帰削除）
 - **[Feature]** `ap_action=delete_backup` エンドポイントを追加
-- **[Feature]** `js/updater.js` のバックアップ一覧をテーブル形式に変更（作成日時・更新前バージョン・サイズを表示）
-- **[Feature]** `js/updater.js` に「削除」ボタンを追加（確認ダイアログ後にフェードアウト削除）
+- **[Feature]** `engines/JsEngine/updater.js` のバックアップ一覧をテーブル形式に変更（作成日時・更新前バージョン・サイズを表示）
+- **[Feature]** `engines/JsEngine/updater.js` に「削除」ボタンを追加（確認ダイアログ後にフェードアウト削除）
 - **[Fix]** `rollback_to_backup()` に `realpath()` の `false` チェックを追加
 - **[Fix]** `rollback_to_backup()` が `meta.json` をサイトルートへコピーしないよう除外
+
+---
+
 ## 2026-03-06（ライセンス変更 Ver.1.0 → Ver.2.0）
 
 - **[License]** ライセンスを **Adlaire License Ver.1.0** から **Adlaire License Ver.2.0** へ改訂
@@ -104,13 +165,13 @@
 - **[Feature]** `apply_update()` — ZIP 取得・ZipArchive 展開・ファイル上書き・`data/version.json` 更新
 - **[Feature]** `rollback_to_backup()` — バックアップから復元（`data/` 除外・バックアップ名を `[0-9_]+` でバリデーション）
 - **[Feature]** `settings()` に「↕ アップデート ↕」折りたたみパネルを追加
-- **[Feature]** `js/updater.js` を新規作成（更新確認・適用・ロールバック AJAX UI、`esc()` で XSS エスケープ）
+- **[Feature]** `engines/JsEngine/updater.js` を新規作成（更新確認・適用・ロールバック AJAX UI、`esc()` で XSS エスケープ）
 - **[Feature]** `loadPlugins()` に `updater.js` を `admin-head` フックとして登録
 - **[Security]** `.htaccess` に `RedirectMatch 403 ^.*/backup/` を追加
 - **[Fix]** `apply_update()` — `ZipArchive::extractTo()` の戻り値未検査バグを修正（展開失敗時に処理続行していた）
 - **[Fix]** `apply_update()` — `realpath($src)` がループ内で毎回評価され `false` 返却時に `$rel` が壊れるバグを修正（`$real_src` を事前計算）
 - **[Fix]** `apply_update()` — 除外リストに `'backup'` を追加（ZIP 内の `backup/` ディレクトリが既存バックアップを上書きする問題を防止）
-- **[Fix]** `js/updater.js` — HTTP 4xx/5xx エラー時の `.fail()` ハンドラで `xhr.responseJSON.error` を読んでサーバーエラー詳細を表示
+- **[Fix]** `engines/JsEngine/updater.js` — HTTP 4xx/5xx エラー時の `.fail()` ハンドラで `xhr.responseJSON.error` を読んでサーバーエラー詳細を表示
 
 ---
 

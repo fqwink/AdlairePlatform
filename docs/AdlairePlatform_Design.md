@@ -43,6 +43,7 @@ AdlairePlatform/
 │  │  ├─ settings.json      # サイト設定
 │  │  ├─ auth.json          # 認証情報（bcrypt）
 │  │  ├─ update_cache.json  # アップデートキャッシュ
+│  │  ├─ login_attempts.json # ログイン試行記録（レート制限）
 │  │  └─ version.json       # バージョン情報
 │  └─ content/
 │     └─ pages.json         # ページコンテンツ
@@ -116,7 +117,7 @@ AdlairePlatform/
 
 ---
 
-## 4. エディタ設計（2段階移行）
+## 4. エディタ設計（3段階実装）
 
 ### Phase 1（Ver.1.1-12 で実装済み）
 
@@ -124,11 +125,24 @@ AdlairePlatform/
 - **統合**: `class="editText"` に一本化し、HTMLタグ直接入力モードとして再定義
 - **削除対象**: `admin-richText` フック、`rte.js`（JsEngineに含まない）
 
-### Phase 2（将来・WYSIWYG選定後）
+### Phase 2（Ver.1.2-20 で実装済み）
 
-- 外部WYSIWYGライブラリを採用（候補: Quill, TipTap, Editor.js）
-- `editInplace.js` を拡張またはWYSIWYGアダプタを追加
-- `admin-richText` フックを復活させてWYSIWYGを差し込む設計
+- 外部WYSIWYGライブラリは採用せず、`engines/JsEngine/wysiwyg.js` として独自実装
+- `class="editRich"` 要素クリックで WYSIWYG エディタを起動
+- 基本インラインツール（B/I/U）、ブロックタイプ（H2/H3/P/UL/OL）、画像挿入（D&D/クリップボード/ボタン）、自動保存（30秒）
+
+### Phase 3（Ver.1.2-22 で実装済み）
+
+- Editor.js スタイルのブロックベースアーキテクチャに全面改修
+- 各ブロックが独立した contenteditable を持つ設計
+- 新ブロックタイプ: blockquote / code / delimiter(hr) / table / image(figure) / checklist
+- インラインツール拡張: S（取消線）/ Code（インラインコード）/ Marker / Link
+- フローティングインラインツールバー（テキスト選択時に自動表示）
+- "/" スラッシュコマンドメニュー（空ブロックで / 入力時にブロックタイプ選択）
+- ブロックハンドル ⠿（ホバー時表示、タイプ変換ポップアップ）
+- ドラッグ並べ替え（⠿ ハンドルでブロック順序変更、シアン色ドロップライン）
+- Block Tunes（テキスト配置: 左/中央/右）
+- ARIA アクセシビリティ対応（role/aria-label/aria-live）
 
 ---
 
@@ -291,11 +305,15 @@ Header always set Content-Security-Policy "default-src 'self'; script-src 'self'
 
 ### Phase 2 – 将来タスク（時期未定）
 
-| # | タスク |
-|---|-------|
-| Ph2-1 | WYSIWYGライブラリ選定（Quill / TipTap / Editor.js 等） |
-| Ph2-2 | WYSIWYGエディタ実装（`editInplace.js` 拡張 または 専用アダプタ） |
-| Ph2-3 | `admin-richText` フック復活・WYSIWYG差し込み |
+> ⚠️ **Ph2-1〜3 はステータス変更**: WYSIWYG は外部ライブラリを採用せず、`engines/JsEngine/wysiwyg.js` として
+> 依存なしの独自実装で完了済み（Ver.1.2-20）。以下は参考として残す。
+
+| # | タスク | ステータス |
+|---|-------|-----------|
+| Ph2-1 | ~~WYSIWYGライブラリ選定（Quill / TipTap / Editor.js 等）~~ | ✅ 完了（独自実装を採用） |
+| Ph2-2 | ~~WYSIWYGエディタ実装~~ | ✅ 完了（`engines/JsEngine/wysiwyg.js`） |
+| Ph2-3 | ~~`admin-richText` フック復活~~ | ✅ 完了（`editRich` クラスとして統合） |
+| Ph3 | ~~Editor.js スタイル ブロックベースエディタ~~ | ✅ 完了（Ver.1.2-22） |
 
 ---
 
@@ -354,11 +372,10 @@ Header always set Content-Security-Policy "default-src 'self'; script-src 'self'
 - ✅ `data/content/` 分割（pages.json）
 - ✅ `migrate_from_files()` 旧パス自動移行
 
-### 将来計画（Phase 2以降）
+### 将来計画
 
-- 🔜 WYSIWYGエディタ（外部ライブラリ採用）
-- 🔜 静的サイト生成（`engines/StaticEngine.php`）
-- 🔜 ヘッドレスCMS（`engines/ApiEngine.php`）
+- 🔜 静的サイト生成（`engines/StaticEngine.php`）— 設計確定（`docs/STATIC_GENERATOR.md` Ver.0.2-1）
+- 🔜 ヘッドレスCMS（`engines/ApiEngine.php`）— 設計確定（`docs/HEADLESS_CMS.md` Ver.0.3-1）
 
 ---
 

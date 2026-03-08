@@ -12,9 +12,10 @@ if (PHP_VERSION_ID < 80200) {
 	exit('AdlairePlatform requires PHP 8.2 or later. Current version: ' . PHP_VERSION);
 }
 
-define('AP_VERSION', '1.2.20');
+define('AP_VERSION', '1.2.24');
 define('AP_UPDATE_URL', 'https://api.github.com/repos/win-k/AdlairePlatform/releases/latest');
 define('AP_BACKUP_GENERATIONS', 5);
+define('AP_REVISION_LIMIT', 30);
 
 require 'engines/ThemeEngine.php';
 require 'engines/UpdateEngine.php';
@@ -27,6 +28,7 @@ migrate_from_files();
 host();
 upload_image();          /* upload_image を先に処理（handle_update_action の default:exit に遮断されないよう） */
 handle_update_action();
+handle_revision_action();
 edit();
 
 $c['password'] = 'admin';
@@ -228,6 +230,7 @@ function edit(){
 			$settings[$fieldname] = $content;
 			json_write('settings.json', $settings, settings_dir());
 		} else {
+			save_revision($fieldname, $content);
 			$pages = json_read('pages.json', content_dir());
 			$pages[$fieldname] = $content;
 			json_write('pages.json', $pages, content_dir());
@@ -343,6 +346,105 @@ function json_write(string $file, array $data, string $dir = ''): void {
 	if($result === false){
 		error_log('json_write failed: '.$file);
 		header('HTTP/1.1 500 Internal Server Error');
+		exit;
+	}
+}
+
+/* ══════════════════════════════════════════════
+   リビジョン管理
+   ══════════════════════════════════════════════ */
+
+function save_revision(string $fieldname, string $content): void {
+	if(!preg_match('/^[a-zA-Z0-9_\-]+$/', $fieldname)) return;
+	$dir = content_dir() . '/revisions/' . $fieldname . '/';
+	if(!is_dir($dir)) mkdir($dir, 0755, true);
+	$ts = date('Ymd_His');
+	$rev = [
+		'timestamp' => date('c'),
+		'content'   => $content,
+		'size'      => strlen($content),
+	];
+	file_put_contents(
+		$dir . 'rev_' . $ts . '.json',
+		json_encode($rev, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE),
+		LOCK_EX
+	);
+	prune_revisions($dir);
+}
+
+function prune_revisions(string $dir): void {
+	$files = glob($dir . 'rev_*.json') ?: [];
+	sort($files);
+	while(count($files) > AP_REVISION_LIMIT){
+		unlink(array_shift($files));
+	}
+}
+
+function handle_revision_action(): void {
+	$action = $_POST['ap_action'] ?? $_GET['ap_action'] ?? '';
+	if($action !== 'list_revisions' && $action !== 'restore_revision') return;
+	if(!isset($_SESSION['l'])){
+		http_response_code(401);
+		echo json_encode(['error' => 'Unauthorized']);
+		exit;
+	}
+	verify_csrf();
+	header('Content-Type: application/json; charset=UTF-8');
+
+	if($action === 'list_revisions'){
+		$fieldname = $_GET['fieldname'] ?? '';
+		if(!preg_match('/^[a-zA-Z0-9_\-]+$/', $fieldname)){
+			http_response_code(400);
+			echo json_encode(['error' => 'Invalid fieldname']);
+			exit;
+		}
+		$dir = content_dir() . '/revisions/' . $fieldname . '/';
+		$files = glob($dir . 'rev_*.json') ?: [];
+		rsort($files);
+		$revisions = [];
+		foreach($files as $f){
+			$data = json_decode(file_get_contents($f), true);
+			if(!is_array($data)) continue;
+			$revisions[] = [
+				'file'      => basename($f, '.json'),
+				'timestamp' => $data['timestamp'] ?? '',
+				'size'      => $data['size'] ?? 0,
+			];
+		}
+		echo json_encode(['revisions' => $revisions]);
+		exit;
+	}
+
+	if($action === 'restore_revision'){
+		$fieldname = $_POST['fieldname'] ?? '';
+		$revFile   = $_POST['revision'] ?? '';
+		if(!preg_match('/^[a-zA-Z0-9_\-]+$/', $fieldname) ||
+		   !preg_match('/^rev_[0-9_]+$/', $revFile)){
+			http_response_code(400);
+			echo json_encode(['error' => 'Invalid parameters']);
+			exit;
+		}
+		$path = content_dir() . '/revisions/' . $fieldname . '/' . $revFile . '.json';
+		if(!file_exists($path)){
+			http_response_code(404);
+			echo json_encode(['error' => 'Revision not found']);
+			exit;
+		}
+		$rev = json_decode(file_get_contents($path), true);
+		if(!is_array($rev) || !isset($rev['content'])){
+			http_response_code(500);
+			echo json_encode(['error' => 'Invalid revision data']);
+			exit;
+		}
+		$content = $rev['content'];
+		$preview = ($_POST['preview'] ?? '') === '1';
+		if(!$preview){
+			save_revision($fieldname, $content);
+			$pages = json_read('pages.json', content_dir());
+			$pages[$fieldname] = $content;
+			json_write('pages.json', $pages, content_dir());
+		}
+		echo json_encode(['ok' => true, 'content' => $content]);
 		exit;
 	}
 }
