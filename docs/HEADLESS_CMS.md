@@ -7,9 +7,8 @@
 > **所有者**: Adlaire Group
 > **分類**: 社内限り
 >
-> **⚠️ Ver.1.2系終了通知**: Ver.1.2系は Ver.1.2-26 をもって終了しました。
-> **Ver.1.3系にて ApiEngine の実装を予定しています。**
-> 本設計書（Ver.0.3-1）を基に実装を開始します。
+> **✅ Ver.1.3-28 にて ApiEngine 実装完了**
+> 本設計書（Ver.0.3-1）に基づき、公開エンドポイント5種を実装済みです。
 
 ---
 
@@ -585,6 +584,7 @@ document.querySelector('form.ap-contact').addEventListener('ap:done', function(e
 
 | バージョン | 日付 | 変更内容 |
 |------------|------|---------|
+| Ver.1.0-1 | 2026-03-08 | **実装完了**: `engines/ApiEngine.php` 公開エンドポイント5種（pages, page, settings, search, contact）。`engines/JsEngine/ap-api-client.js` クライアントSDK。StaticEngine が静的ビルド時に ap-api-client.js を assets/ にコピー。ダッシュボードに contact_email 設定欄と API エンドポイント一覧を追加 |
 | Ver.0.3-1 | 2026-03-08 | レート制限パラメータ具体化（セクション6新設）。パラメータバリデーション規則を追加（セクション3.4）。HTTP ステータスコード体系を整理（セクション4.1）。preview 生成ロジック明記（セクション4.3）。search() / sendContact() の実装方針をコード付きで追加（セクション7.2-7.3）。ap-api-client.js 仕様をセクション9に統合。settings.json への contact_email 追加を明記（セクション8）。メールヘッダインジェクション対策を追加（セクション11）。ページネーション検討事項を追加（セクション12） |
 | Ver.0.2-1 | 2026-03-08 | 設計承認。StaticEngine との連携を主用途として明確化。`?ap_api=` 名前空間確定。`contact`・`search` エンドポイント追加。認証方式・CORS・セキュリティを具体化 |
 | Ver.0.1-1 | 2026-03-06 | 初版草稿（ヘッドレス CMS 単体の草稿。`?api=` パラメータ、クラス骨格のみ） |

@@ -220,6 +220,12 @@ class StaticEngine {
 			copy($js, $assetsDir . '/' . basename($js));
 		}
 
+		/* 公開 API クライアント JS */
+		$apiClient = 'engines/JsEngine/ap-api-client.js';
+		if (file_exists($apiClient)) {
+			copy($apiClient, $assetsDir . '/ap-api-client.js');
+		}
+
 		/* uploads/ 差分コピー */
 		$this->syncUploads();
 

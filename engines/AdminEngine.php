@@ -163,7 +163,7 @@ class AdminEngine {
 			echo json_encode(['error' => '不正なフィールド名']);
 			exit;
 		}
-		$settings_keys = ['title', 'description', 'keywords', 'copyright', 'themeSelect', 'menu', 'subside'];
+		$settings_keys = ['title', 'description', 'keywords', 'copyright', 'themeSelect', 'menu', 'subside', 'contact_email'];
 		if (in_array($fieldname, $settings_keys, true)) {
 			$settings = json_read('settings.json', settings_dir());
 			$settings[$fieldname] = $content;
@@ -594,6 +594,10 @@ class AdminEngine {
 			];
 		}
 
+		/* contact_email（settings.json から直接読み込み） */
+		$_s = json_read('settings.json', settings_dir());
+		$contactEmail = $_s['contact_email'] ?? '';
+
 		/* ページ一覧 */
 		$pages = json_read('pages.json', content_dir());
 		$pageList = [];
@@ -624,6 +628,7 @@ class AdminEngine {
 			'php_version'       => PHP_VERSION,
 			'disk_free'         => $diskFreeStr,
 			'migrate_warning'   => !empty($c['migrate_warning']),
+			'contact_email'     => $contactEmail,
 			'activity_log'      => self::getRecentActivity(20),
 			'has_activity'      => !empty(self::getRecentActivity(1)),
 		];

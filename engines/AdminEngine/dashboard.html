@@ -82,6 +82,24 @@
 		{{/if}}
 
 		<section class="ap-dash-card">
+			<h2>API 設定</h2>
+			<div class="ap-dash-field">
+				<label>お問い合わせ送信先メール <small>(?ap_api=contact の宛先)</small></label>
+				<span title="" id="contact_email" class="editText">{{contact_email}}</span>
+			</div>
+			<div class="ap-dash-field">
+				<label>エンドポイント</label>
+				<div style="font-size:13px;color:#4a5568;line-height:2;">
+					<code>?ap_api=pages</code> 全ページ一覧<br>
+					<code>?ap_api=page&amp;slug=…</code> 単一ページ取得<br>
+					<code>?ap_api=settings</code> 公開設定<br>
+					<code>?ap_api=search&amp;q=…</code> 全文検索<br>
+					<code>?ap_api=contact</code> お問い合わせ送信 (POST)
+				</div>
+			</div>
+		</section>
+
+		<section class="ap-dash-card">
 			<h2>静的書き出し</h2>
 			<div class="ap-dash-field">
 				<label>モード</label>
