@@ -23,7 +23,6 @@ require 'engines/UpdateEngine.php';
 require 'engines/AdminEngine.php';
 require 'engines/StaticEngine.php';
 
-ob_start();
 ini_set('session.cookie_httponly', 1);
 ini_set('session.cookie_samesite', 'Lax');
 session_start();
@@ -134,7 +133,6 @@ if (isset($_GET['admin'])) {
 		exit;
 	}
 	echo AdminEngine::renderDashboard();
-	ob_end_flush();
 	exit;
 }
 
@@ -145,14 +143,17 @@ ThemeEngine::load($c['themeSelect']);
    ラッパー関数（エンジン・ユーティリティ）
    ══════════════════════════════════════════════ */
 
+/** @deprecated Ver.1.4 で削除予定。AdminEngine::isLoggedIn() を直接使用してください */
 function is_loggedin(): bool {
 	return AdminEngine::isLoggedIn();
 }
 
+/** @deprecated Ver.1.4 で削除予定。AdminEngine::csrfToken() を直接使用してください */
 function csrf_token(): string {
 	return AdminEngine::csrfToken();
 }
 
+/** @deprecated Ver.1.4 で削除予定。AdminEngine::verifyCsrf() を直接使用してください */
 function verify_csrf(): void {
 	AdminEngine::verifyCsrf();
 }
@@ -259,5 +260,4 @@ function migrate_from_files(): void {
 		rename($old_pages, $new_pages);
 	}
 }
-ob_end_flush();
 ?>

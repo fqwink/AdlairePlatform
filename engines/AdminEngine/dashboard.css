@@ -250,6 +250,17 @@ button:hover, .ap-dash-btn:hover {
 	color: #2d3748;
 }
 
+.ap-static-summary {
+	font-size: 13px;
+	font-weight: 600;
+	color: #4a5568;
+}
+
+button:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
+
 /* ── アップデートセクション ── */
 
 #ap-update-status {

@@ -15,6 +15,7 @@ class StaticEngine {
 	private array  $pages      = [];
 	private string $themeDir   = '';
 	private array  $buildState = [];
+	private array  $warnings   = [];
 
 	/* ══════════════════════════════════════════════
 	   ap_action ディスパッチャ
@@ -59,6 +60,9 @@ class StaticEngine {
 		$theme          = $this->settings['themeSelect'] ?? 'AP-Default';
 		if (!preg_match('/^[a-zA-Z0-9_-]+$/', $theme)) $theme = 'AP-Default';
 		$this->themeDir = 'themes/' . $theme;
+		if (!is_dir($this->themeDir)) {
+			$this->themeDir = 'themes/AP-Default';
+		}
 		$this->loadBuildState();
 	}
 
@@ -106,7 +110,9 @@ class StaticEngine {
 		$this->saveBuildState();
 
 		$elapsed = (int)((hrtime(true) - $start) / 1_000_000);
-		return ['ok' => true, 'built' => $built, 'skipped' => $skipped, 'deleted' => $deleted, 'elapsed_ms' => $elapsed];
+		$result = ['ok' => true, 'built' => $built, 'skipped' => $skipped, 'deleted' => $deleted, 'elapsed_ms' => $elapsed];
+		if ($this->warnings) $result['warnings'] = $this->warnings;
+		return $result;
 	}
 
 	/* ══════════════════════════════════════════════
@@ -139,7 +145,9 @@ class StaticEngine {
 		$this->saveBuildState();
 
 		$elapsed = (int)((hrtime(true) - $start) / 1_000_000);
-		return ['ok' => true, 'built' => $built, 'skipped' => 0, 'deleted' => $deleted, 'elapsed_ms' => $elapsed];
+		$result = ['ok' => true, 'built' => $built, 'skipped' => 0, 'deleted' => $deleted, 'elapsed_ms' => $elapsed];
+		if ($this->warnings) $result['warnings'] = $this->warnings;
+		return $result;
 	}
 
 	/* ══════════════════════════════════════════════
@@ -189,7 +197,7 @@ class StaticEngine {
 			'last_diff_build' => $this->buildState['last_diff_build'] ?? null,
 			'theme'           => $this->buildState['theme'] ?? null,
 			'pages'           => $pageStatuses,
-			'static_mode'     => $this->settings['static_mode'] ?? 'disabled',
+			'static_exists'   => is_dir(self::OUTPUT_DIR) && glob(self::OUTPUT_DIR . '/*/index.html'),
 		];
 	}
 
@@ -246,11 +254,14 @@ class StaticEngine {
 		$this->addDirToZip($zip, self::OUTPUT_DIR, self::OUTPUT_DIR);
 		$zip->close();
 
-		header('Content-Type: application/zip');
-		header('Content-Disposition: attachment; filename="static-' . date('Ymd') . '.zip"');
-		header('Content-Length: ' . filesize($tmpFile));
-		readfile($tmpFile);
-		@unlink($tmpFile);
+		try {
+			header('Content-Type: application/zip');
+			header('Content-Disposition: attachment; filename="static-' . date('Ymd') . '.zip"');
+			header('Content-Length: ' . filesize($tmpFile));
+			readfile($tmpFile);
+		} finally {
+			@unlink($tmpFile);
+		}
 		exit;
 	}
 
@@ -277,7 +288,10 @@ class StaticEngine {
 		}
 		$tpl = file_get_contents($tplPath);
 		if ($tpl === false) {
-			return '<!-- StaticEngine: テンプレート読み込みエラー -->';
+			$msg = "テンプレート読み込みエラー: {$tplPath}";
+			error_log("StaticEngine: {$msg}");
+			$this->warnings[] = $msg;
+			return '<!-- StaticEngine: ' . htmlspecialchars($msg, ENT_QUOTES, 'UTF-8') . ' -->';
 		}
 
 		$context = ThemeEngine::buildStaticContext($slug, $content, $this->settings);
@@ -390,13 +404,14 @@ class StaticEngine {
 
 	private function writeStaticHtaccess(): void {
 		$htaccess = self::OUTPUT_DIR . '/.htaccess';
+		$basePath = rtrim(dirname($_SERVER['SCRIPT_NAME'] ?? '/index.php'), '/') . '/';
 		$content = "Options -Indexes -ExecCGI\n\n"
 			. "# PHP 実行禁止\n"
 			. "<FilesMatch \"\\.php$\">\n"
 			. "    Require all denied\n"
 			. "</FilesMatch>\n\n"
 			. "# 未ビルドページは index.php にフォールバック\n"
-			. "ErrorDocument 404 /index.php\n";
+			. "ErrorDocument 404 " . $basePath . "index.php\n";
 		file_put_contents($htaccess, $content, LOCK_EX);
 	}
 

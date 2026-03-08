@@ -69,7 +69,7 @@ function handle_update_action(): void {
 		echo json_encode(['error' => '認証が必要です']);
 		exit;
 	}
-	verify_csrf();
+	AdminEngine::verifyCsrf();
 	header('Content-Type: application/json');
 	switch($_POST['ap_action']){
 		case 'check':
