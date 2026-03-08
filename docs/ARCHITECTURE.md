@@ -148,38 +148,48 @@ StaticEngine::clean(): void
   └─ static/ ディレクトリを空にする
 ```
 
-### engines/ApiEngine.php（計画）
+### engines/ApiEngine.php（計画・設計確定 Ver.0.3-1）
 
 ```
 ApiEngine::handle(): void
   └─ ?ap_api= があれば JSON を返して exit
+     ├─ 'pages'    → getPages()
+     ├─ 'page'     → slug バリデーション → getPage($slug)
+     ├─ 'settings' → getSettings()
+     ├─ 'search'   → q バリデーション（1〜100文字） → search($q)
+     ├─ 'contact'  → POST 検証 → checkContactRate() → sendContact()
+     └─ default    → jsonError('不明な API エンドポイントです', 400)
 
 ApiEngine::getPages(): array
-  └─ 全ページの slug + 先頭テキストプレビューを返す
+  └─ 全ページの slug + makePreview() によるプレビュー（120文字）を返す
 
 ApiEngine::getPage(string $slug): array
-  └─ 単一ページの slug + content + updated_at を返す
+  └─ 単一ページの slug + content を返す（404: ページ不在）
 
 ApiEngine::getSettings(): array
-  └─ title / description / keywords のみ返す（auth.json は含めない）
+  └─ title / description / keywords のみ返す（auth.json・contact_email は含めない）
 
 ApiEngine::search(string $query): array
-  └─ mb_strpos による全文検索（slug + preview の配列）
+  └─ mb_stripos による全文検索（マッチ箇所前後のプレビュー付き）
 
 ApiEngine::sendContact(): array
-  ├─ checkContactRate() — IP レート制限
-  ├─ ハニーポット検出
-  ├─ email 形式・message 文字数バリデーション
-  └─ PHP mail() で送信
+  ├─ ハニーポット検出（website フィールド・ボットには 200 を装う）
+  ├─ name（1〜100文字）・email（FILTER_VALIDATE_EMAIL）・message（1〜5000文字）バリデーション
+  ├─ checkContactRate() — IP レート制限（5回/15分・識別キー: contact_<IP>）
+  ├─ settings.json の contact_email を宛先として取得
+  └─ PHP mail() で送信（メールヘッダインジェクション対策: 改行除去）
 
 ApiEngine::jsonResponse(bool $ok, mixed $data): void
   └─ JSON_HEX_TAG | JSON_HEX_AMP で encode して exit
 
 ApiEngine::jsonError(string $message, int $status = 400): void
-  └─ HTTP ステータスコード付きでエラーレスポンスを出力して exit
+  └─ HTTP ステータスコード（400/404/405/429/500）付きでエラーレスポンスを出力して exit
 
 ApiEngine::checkContactRate(): void
-  └─ login_attempts.json の仕組みを流用した IP ベースレート制限
+  └─ login_attempts.json を流用した IP ベースレート制限（contact_<IP> キー）
+
+ApiEngine::makePreview(string $html, int $length = 120): string
+  └─ strip_tags → mb_substr で先頭 $length 文字を切り出し
 ```
 
 ### engines/JsEngine/
@@ -191,7 +201,7 @@ ApiEngine::checkContactRate(): void
 | `wysiwyg.js` | `.editRich` スパンのクリックで contenteditable + ツールバーを起動。画像 D&D/貼り付け/ボタン挿入、30秒定期自動保存、Ctrl+Enter/blur で手動保存 |
 | `updater.js` | アップデート確認・適用・バックアップ一覧・ロールバック・削除 UI |
 | `static_builder.js` | 静的書き出し管理 UI（差分ビルド・全件ビルド・クリア・ZIP ダウンロード）（計画） |
-| `ap-api-client.js` | 静的サイト向け軽量 API クライアント。`window.AP.api()` 提供・`<form class="ap-contact">` 自動バインド（計画） |
+| `ap-api-client.js` | 静的サイト向け軽量 API クライアント（計画・設計確定）。`window.AP.api(action, params)` で公開 API を呼び出し、`<form class="ap-contact">` を自動バインド。API オリジンは `currentScript.src` から自動解決（Static-Only モード対応）。依存なし・ES5 互換 |
 
 ---
 
@@ -301,7 +311,7 @@ function editTags() {
 
 | 定数 | 値 | 説明 |
 |-----|---|------|
-| `AP_VERSION` | `'1.2.21'` | 現在のバージョン（SemVer） |
+| `AP_VERSION` | `'1.2.20'` | 現在のバージョン（SemVer） |
 | `AP_UPDATE_URL` | GitHub API URL | 最新リリース確認先 |
 | `AP_BACKUP_GENERATIONS` | `5` | 保持するバックアップ世代数 |
 
