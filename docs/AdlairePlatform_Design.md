@@ -2,7 +2,8 @@
 
 > 確定日: 2026-03-07
 > バージョン規則: `Ver.{メジャー}.{マイナー}-{リビジョン}` (AFE VERSIONING.md準拠)
-> **⚠️ Ver.1.2系終了**: Ver.1.2-26 をもって Ver.1.2系は終了しました。以降の変更は次期メジャーバージョン（Ver.2.x）にて実施予定です。
+> **⚠️ Ver.1.2系終了**: Ver.1.2-26 をもって Ver.1.2系は終了しました。
+> **Ver.1.3系計画**: StaticEngine・ApiEngine 実装、管理ツールのダッシュボード化・エンジン駆動モデル化
 ---
 
 ## 1. アーキテクチャ方針
@@ -267,6 +268,15 @@ Header always set Content-Security-Policy "default-src 'self'; script-src 'self'
 | テンプレート | `Ver.1.2-26` | ✅ 完了 | TemplateEngine 導入・テーマ PHP フリー化・最終バグ修正 |
 | **Ver.1.2系終了** | `Ver.1.2-26` | **🔒 終了** | **Ver.1.2系最終リビジョン** |
 
+### Ver.1.3系 計画
+
+| フェーズ | 主な内容 | ステータス |
+|---------|---------|-----------|
+| StaticEngine | 静的サイト生成エンジン実装（`docs/STATIC_GENERATOR.md` Ver.0.3-1 設計確定済み） | 🔜 計画 |
+| ApiEngine | ヘッドレス CMS REST API 実装（`docs/HEADLESS_CMS.md` Ver.0.3-1 設計確定済み） | 🔜 計画 |
+| ダッシュボード化 | 管理ツールをダッシュボード形式に刷新 | 🔜 計画 |
+| エンジン駆動モデル化 | 管理ツールをエンジン駆動モデルに再設計 | 🔜 計画 |
+
 > **バージョン規則**: リビジョンはリセット禁止、常に累積加算
 > **Ver.1.2系実績**: `Ver.1.0-11 → Ver.1.1-12 → Ver.1.2-13 → ... → Ver.1.2-26（終了）`
 
@@ -388,12 +398,12 @@ Header always set Content-Security-Policy "default-src 'self'; script-src 'self'
 - ✅ `data/content/` 分割（pages.json）
 - ✅ `migrate_from_files()` 旧パス自動移行
 
-### 次期バージョン以降で実装予定（Ver.1.2系では未実装）
+### Ver.1.3系で実装予定
 
 - 🔜 静的サイト生成（`engines/StaticEngine.php`）— 設計確定（`docs/STATIC_GENERATOR.md` Ver.0.3-1）
 - 🔜 ヘッドレスCMS（`engines/ApiEngine.php`）— 設計確定（`docs/HEADLESS_CMS.md` Ver.0.3-1）
-
-> Ver.1.2系終了に伴い、上記の実装は次期メジャーバージョン（Ver.2.x）以降に持ち越します。
+- 🔜 管理ツールのダッシュボード化
+- 🔜 管理ツールのエンジン駆動モデル化
 
 ---
 

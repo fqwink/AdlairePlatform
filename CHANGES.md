@@ -15,12 +15,15 @@
     - WYSIWYGエディタ独自実装（ブロックベース・依存なし）
     - セキュリティ多層強化（CSP / CSRF / XSS / レート制限）
     - TemplateEngine 導入によるテーマ PHP フリー化
-  - 設計確定済み・次期バージョン以降で実装予定:
+  - Ver.1.3系で実装予定:
     - StaticEngine（静的サイト生成）— `docs/STATIC_GENERATOR.md` Ver.0.3-1
     - ApiEngine（ヘッドレス CMS REST API）— `docs/HEADLESS_CMS.md` Ver.0.3-1
+    - 管理ツールのダッシュボード化
+    - 管理ツールのエンジン駆動モデル化
 - **[Docs]** 全ドキュメントを Ver.1.2系終了に伴い更新
   - 各設計書にシリーズ終了通知を追記
-  - 未実装エンジン（StaticEngine / ApiEngine）のステータスを「次期バージョン以降で実装」に変更
+  - StaticEngine / ApiEngine のステータスを「Ver.1.3系で実装予定」に変更
+  - Ver.1.3系ロードマップ（StaticEngine・ApiEngine・ダッシュボード化・エンジン駆動モデル化）を追記
   - バージョン計画・ロードマップを更新
 
 ---
