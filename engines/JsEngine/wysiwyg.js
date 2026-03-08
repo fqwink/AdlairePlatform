@@ -276,6 +276,27 @@
 
 		/* ── キーボードショートカット ── */
 		editor.addEventListener('keydown', function (e) {
+			/* F: スラッシュメニューが開いているときのキー制御 */
+			if (_slashMenu) {
+				var slashItems = _slashMenu.querySelectorAll('.ap-wy-slash-item');
+				if (e.key === 'ArrowDown') {
+					e.preventDefault();
+					_slashIndex = (_slashIndex + 1) % slashItems.length;
+					_updateSlashSelection(); return;
+				}
+				if (e.key === 'ArrowUp') {
+					e.preventDefault();
+					_slashIndex = (_slashIndex - 1 + slashItems.length) % slashItems.length;
+					_updateSlashSelection(); return;
+				}
+				if (e.key === 'Enter') {
+					e.preventDefault();
+					var selItem = slashItems[_slashIndex];
+					if (selItem) _applySlashCmd(selItem.dataset.cmd, editor);
+					return;
+				}
+				if (e.key === 'Escape') { _hideSlashMenu(); return; }
+			}
 			var mod = e.ctrlKey || e.metaKey;
 			if (mod && e.key === 'Enter') {
 				e.preventDefault();
@@ -283,6 +304,29 @@
 			} else if (e.key === 'Escape') {
 				e.preventDefault();
 				_cancel(span, originalHtml);
+			}
+		});
+
+		/* F: "/" スラッシュコマンド検出 */
+		editor.addEventListener('input', function () {
+			var sel = window.getSelection();
+			if (!sel || !sel.rangeCount) { _hideSlashMenu(); return; }
+			var node  = sel.focusNode;
+			var block = _findBlockParent(
+				node.nodeType === 3 ? node.parentNode : node, editor);
+			if (!block) { _hideSlashMenu(); return; }
+			var text = block.textContent;
+			if (text === '/') {
+				_slashBlock  = block;
+				_slashFilter = '';
+				_showSlashMenu(sel.getRangeAt(0), editor);
+			} else if (text.charAt(0) === '/' && _slashMenu) {
+				_slashFilter = text.slice(1).toLowerCase();
+				_renderSlashItems(_slashMenu, editor);
+				_slashIndex = 0;
+				_updateSlashSelection();
+			} else {
+				_hideSlashMenu();
 			}
 		});
 
@@ -330,10 +374,13 @@
 		/* ── エリア外クリックで保存 ── */
 		function _docHandler(e) {
 			/* フローティングバー・オーバーレイ・ピッカー はエリア外判定から除外 */
-			if (_floatBar && _floatBar.contains(e.target)) return;
-			if (_imgPanel && _imgPanel.contains(e.target)) return;
-			if (_tblBar && _tblBar.contains(e.target)) return;
-			if (_tblPicker && _tblPicker.contains(e.target)) return;
+			if (_floatBar    && _floatBar.contains(e.target))    return;
+			if (_imgPanel    && _imgPanel.contains(e.target))    return;
+			if (_tblBar      && _tblBar.contains(e.target))      return;
+			if (_tblPicker   && _tblPicker.contains(e.target))   return;
+			if (_slashMenu   && _slashMenu.contains(e.target))   return;
+			if (_typePopup   && _typePopup.contains(e.target))   return;
+			if (_blockHandle && _blockHandle.contains(e.target)) return;
 			if (!wrap.contains(e.target)) {
 				document.removeEventListener('mousedown', _docHandler);
 				_manualSave(editor, span);
@@ -442,12 +489,131 @@
 			document.removeEventListener('selectionchange', _selHandler);
 			_selHandler = null;
 		}
+		/* Ph3 クリーンアップ */
+		_hideSlashMenu();
+		_hideTypePopup();
+		if (_blockHandle && _blockHandle.parentNode) _blockHandle.parentNode.removeChild(_blockHandle);
+		if (_dropLine    && _dropLine.parentNode)    _dropLine.parentNode.removeChild(_dropLine);
+		if (_currentEditor) {
+			if (_blockHandleMoveFn) _currentEditor.removeEventListener('mousemove', _blockHandleMoveFn);
+			if (_editorLeaveFn)     _currentEditor.removeEventListener('mouseleave', _editorLeaveFn);
+		}
+		if (_hideHandleTimer) { clearTimeout(_hideHandleTimer); _hideHandleTimer = null; }
+		_blockHandle = _handleTarget = _typePopup = null;
+		_slashMenu = _slashBlock = _dragBlock = _dropLine = null;
+		_blockHandleMoveFn = _editorLeaveFn = _typePopupOutFn = _slashOutFn = null;
 		/* 状態リセット */
 		_floatBar = _tblBar = null;
 		_selectedImg = _currentTd = _currentTable = null;
 		_statusEl = null;
 		_active = false;
 		_currentSpan = _currentEditor = null;
+	}
+
+	/* ══════════════════════════ F: "/" スラッシュコマンドメニュー ══════════════════════════ */
+
+	function _findBlockParent(node, editor) {
+		var n = node;
+		while (n && n.parentNode) {
+			if (n.parentNode === editor) return (n.nodeType === 1) ? n : null;
+			n = n.parentNode;
+		}
+		return null;
+	}
+
+	function _showSlashMenu(range, editor) {
+		_hideSlashMenu();
+		var rect = range.getBoundingClientRect();
+		var menu = document.createElement('div');
+		menu.className = 'ap-wy-slash-menu';
+		menu.style.left = rect.left + 'px';
+		menu.style.top  = (rect.bottom + 4) + 'px';
+		_slashMenu   = menu;
+		_slashIndex  = 0;
+		_slashFilter = '';
+		_renderSlashItems(menu, editor);
+		document.body.appendChild(menu);
+		_updateSlashSelection();
+		_slashOutFn = function (e) {
+			if (_slashMenu && !_slashMenu.contains(e.target)) _hideSlashMenu();
+		};
+		setTimeout(function () { document.addEventListener('click', _slashOutFn); }, 0);
+	}
+
+	function _renderSlashItems(menu, editor) {
+		menu.innerHTML = '';
+		var filtered = BLOCK_CMDS.filter(function (t) {
+			if (!_slashFilter) return true;
+			return t.name.toLowerCase().indexOf(_slashFilter) !== -1 ||
+			       t.cmd.indexOf(_slashFilter) === 0;
+		});
+		if (filtered.length === 0) { _hideSlashMenu(); return; }
+		filtered.forEach(function (t) {
+			var item = document.createElement('div');
+			item.className = 'ap-wy-slash-item';
+			item.dataset.cmd = t.cmd;
+			item.innerHTML = '<span class="ap-wy-slash-icon">' + t.icon + '</span>' +
+			                 '<span>' + t.name + '</span>';
+			item.addEventListener('mousedown', function (e) {
+				e.preventDefault();
+				_applySlashCmd(t.cmd, editor);
+			});
+			menu.appendChild(item);
+		});
+	}
+
+	function _updateSlashSelection() {
+		if (!_slashMenu) return;
+		var items = _slashMenu.querySelectorAll('.ap-wy-slash-item');
+		items.forEach(function (it, i) {
+			it.classList.toggle('sel', i === _slashIndex);
+		});
+	}
+
+	function _hideSlashMenu() {
+		if (_slashMenu && _slashMenu.parentNode) _slashMenu.parentNode.removeChild(_slashMenu);
+		if (_slashOutFn) { document.removeEventListener('click', _slashOutFn); _slashOutFn = null; }
+		_slashMenu = _slashBlock = null;
+		_slashFilter = '';
+		_slashIndex  = 0;
+	}
+
+	function _applySlashCmd(cmd, editor) {
+		var block = _slashBlock;
+		_hideSlashMenu();
+		if (!block) return;
+		/* "/" テキストを消去してカーソルをブロック内に置く */
+		block.innerHTML = '';
+		var range = document.createRange();
+		range.setStart(block, 0);
+		range.collapse(true);
+		var sel = window.getSelection();
+		sel.removeAllRanges();
+		sel.addRange(range);
+		editor.focus();
+
+		if (cmd === 'hr') {
+			var hr = document.createElement('hr');
+			block.parentNode.insertBefore(hr, block);
+			block.innerHTML = '<br>';
+		} else if (cmd === 'img') {
+			var inp = document.createElement('input');
+			inp.type = 'file';
+			inp.accept = 'image/jpeg,image/png,image/gif,image/webp';
+			inp.onchange = function () {
+				if (inp.files && inp.files[0]) _uploadAndInsert(inp.files[0], editor);
+			};
+			inp.click();
+		} else if (cmd === 'table') {
+			_showTablePicker(editor, null);
+		} else if (cmd === 'ul') {
+			document.execCommand('insertUnorderedList', false, null);
+		} else if (cmd === 'ol') {
+			document.execCommand('insertOrderedList', false, null);
+		} else {
+			/* p, h2, h3, blockquote, pre */
+			document.execCommand('formatBlock', false, cmd);
+		}
 	}
 
 	/* ══════════════════════════ A: Undo/Redo（execCommand 利用） ══════════════════════════ */
