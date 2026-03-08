@@ -2,6 +2,43 @@
 
 ---
 
+## 2026-03-08（Ver.1.2-20 — Ph3: Editor.js スタイル ブロック体験）
+
+**Ph2-2 設計レビュー修正**
+- **[Fix]** `wysiwyg.js` — `enableObjectResizing` / `enableInlineTableEditing` を `false` に設定（Chromium のネイティブリサイズハンドルを無効化し、独自ハンドルと競合しないよう修正）
+- **[Fix]** `wysiwyg.js` — alt 入力欄の `keydown` で `stopPropagation()` を追加（Enter/Escape がエディタに伝播してフォームが誤送信・中止される問題を修正）
+- **[Fix]** `wysiwyg.js` — テーブル挿入 HTML に末尾 `<p><br></p>` を追加（テーブル直後にカーソルが移動できない問題を修正）
+
+**新ブロックタイプ (Ph3-E)**
+- **[Feature]** `wysiwyg.js` — `blockquote` / `pre` / `hr` を新ブロックタイプとして追加（ツールバーに `❝`・`{}`・`—` ボタンを追加）
+- **[Feature]** `wysiwyg.js` — `_allowedTags` に `BLOCKQUOTE / PRE / CODE / HR` を追加（サニタイザー対応・保存後も維持）
+- **[Feature]** `wysiwyg.js` — CSS: blockquote（左ボーダー・斜体・淡色）、pre（暗背景・等幅フォント・折り返し対応）、hr（灰色横線）スタイルを追加
+- **[Feature]** `wysiwyg.js` — モジュールレベル変数として `BLOCK_CMDS` 定数を追加（スラッシュメニュー・ハンドルポップアップ共用のブロックタイプ定義）
+
+**"/" スラッシュコマンドメニュー (Ph3-F)**
+- **[Feature]** `wysiwyg.js` — 空行で `/` 入力時にブロックタイプ選択メニューを表示（`_showSlashMenu` / `_renderSlashItems`）
+- **[Feature]** `wysiwyg.js` — スラッシュメニューのキーボード操作: ArrowDown/Up で選択移動、Enter で確定、Escape で閉じる
+- **[Feature]** `wysiwyg.js` — `/コ` のようなインクリメンタル絞り込みフィルタ対応（名前・コマンド名の前方一致）
+- **[Feature]** `wysiwyg.js` — `_findBlockParent()` ユーティリティ追加（contenteditable 直接子ブロック要素を取得）
+- **[Fix]** `wysiwyg.js` — `defaultParagraphSeparator 'p'` を設定（Chrome の Enter キーで `<div>` が生成される問題を防止）
+- **[Fix]** `wysiwyg.js` — スラッシュ検出を `textContent.trim() === '/'` に変更（ゼロ幅スペース等の不可視文字混入対策）
+
+**ブロックハンドル・タイプ変換 (Ph3-G)**
+- **[Feature]** `wysiwyg.js` — ブロックホバー時に左端へ `⠿` ハンドルを表示（`_initBlockHandle`・`position:fixed` によるオーバーレイ）
+- **[Feature]** `wysiwyg.js` — ハンドルクリックでブロックタイプ変換ポップアップを表示（`_showTypePopup` / `_changeBlockType`）
+- **[Feature]** `wysiwyg.js` — ハンドル表示/非表示に 300ms 遅延タイマー（ブロック端からハンドルへのマウス移動中にちらつかないよう対応）
+- **[Feature]** `wysiwyg.js` — エディタ内クリック時に `_hideTypePopup()` / `_hideSlashMenu()` を呼び出し（メニューの確実なクローズ）
+
+**ドラッグ並べ替え (Ph3-H)**
+- **[Feature]** `wysiwyg.js` — `⠿` ハンドルをドラッグしてブロック順序を変更（`_startDrag`・シアン色のドロップラインインジケータ）
+- **[Feature]** `wysiwyg.js` — ドラッグ中はフローティングバーの更新を抑制（`_updateFloatBar` 先頭ガードで点滅を防止）
+
+**クリーンアップ・安全性**
+- **[Feature]** `wysiwyg.js` — `_cleanup()` に Ph3 全 UI（スラッシュメニュー・ブロックハンドル・タイプポップアップ・ドロップライン）の DOM 削除とイベントリスナー解除を追加
+- **[Security]** `wysiwyg.js` — `_docHandler`（外クリック自動保存）に Ph3 UI クリック除外ガードを追加（スラッシュメニュー・ポップアップ・ハンドルのクリックで誤保存しないよう対応）
+
+---
+
 ## 2026-03-08（Ver.1.2-19 — Ph2-2: WYSIWYG 深化）
 
 - **[Feature]** `wysiwyg.js` — Undo/Redo ボタン（↩/↪）をツールバーに追加（`execCommand('undo'/'redo')`）
