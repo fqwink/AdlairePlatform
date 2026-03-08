@@ -24,7 +24,7 @@ class AdminEngine {
 		}
 
 		$valid = [
-			'edit_field', 'upload_image',
+			'edit_field', 'upload_image', 'delete_page',
 			'list_revisions', 'get_revision', 'restore_revision',
 			'pin_revision', 'search_revisions',
 		];
@@ -42,6 +42,7 @@ class AdminEngine {
 		match ($action) {
 			'edit_field'        => self::handleEditField(),
 			'upload_image'      => self::handleUploadImage(),
+			'delete_page'       => self::handleDeletePage(),
 			default             => self::handleRevisionAction($action),
 		};
 	}
@@ -61,10 +62,15 @@ class AdminEngine {
 		self::verifyCsrf();
 		$ip = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
 		if (!self::checkLoginRate($ip)) {
-			return '試行回数が多すぎます。しばらくしてから再試行してください。';
+			$remaining = self::getLockoutRemaining($ip);
+			return '試行回数が多すぎます。' . $remaining . '分後に再試行してください。';
 		}
 		if (!password_verify($_POST['password'] ?? '', $passwordHash)) {
 			self::recordLoginFailure($ip);
+			$attemptsLeft = self::getRemainingAttempts($ip);
+			if ($attemptsLeft > 0) {
+				return 'パスワードが違います（残り' . $attemptsLeft . '回）';
+			}
 			return 'wrong password';
 		}
 		self::clearLoginRate($ip);
@@ -112,6 +118,19 @@ class AdminEngine {
 		json_write('login_attempts.json', $data, settings_dir());
 	}
 
+	private static function getLockoutRemaining(string $ip): int {
+		$data     = json_read('login_attempts.json', settings_dir());
+		$attempts = $data[$ip] ?? ['count' => 0, 'locked_until' => 0];
+		$remaining = (int)$attempts['locked_until'] - time();
+		return max(1, (int)ceil($remaining / 60));
+	}
+
+	private static function getRemainingAttempts(string $ip): int {
+		$data     = json_read('login_attempts.json', settings_dir());
+		$attempts = $data[$ip] ?? ['count' => 0, 'locked_until' => 0];
+		return max(0, 5 - (int)$attempts['count']);
+	}
+
 	/* ══════════════════════════════════════════════
 	   CSRF
 	   ══════════════════════════════════════════════ */
@@ -140,6 +159,8 @@ class AdminEngine {
 		$content   = trim($_POST['content'] ?? '');
 		if (!preg_match('/^[a-zA-Z0-9_\-]+$/', $fieldname)) {
 			http_response_code(400);
+			header('Content-Type: application/json; charset=UTF-8');
+			echo json_encode(['error' => '不正なフィールド名']);
 			exit;
 		}
 		$settings_keys = ['title', 'description', 'keywords', 'copyright', 'themeSelect', 'menu', 'subside'];
@@ -147,11 +168,13 @@ class AdminEngine {
 			$settings = json_read('settings.json', settings_dir());
 			$settings[$fieldname] = $content;
 			json_write('settings.json', $settings, settings_dir());
+			self::logActivity('設定変更: ' . $fieldname);
 		} else {
 			self::saveRevision($fieldname, $content);
 			$pages = json_read('pages.json', content_dir());
 			$pages[$fieldname] = $content;
 			json_write('pages.json', $pages, content_dir());
+			self::logActivity('ページ編集: ' . $fieldname);
 		}
 		echo $content;
 		exit;
@@ -194,8 +217,56 @@ class AdminEngine {
 			echo json_encode(['error' => 'ファイル保存に失敗しました']);
 			exit;
 		}
+		self::logActivity('画像アップロード: ' . $filename);
 		echo json_encode(['url' => $dir . $filename]);
 		exit;
+	}
+
+	/* ══════════════════════════════════════════════
+	   ページ削除
+	   ══════════════════════════════════════════════ */
+
+	private static function handleDeletePage(): void {
+		header('Content-Type: application/json; charset=UTF-8');
+		$slug = $_POST['slug'] ?? '';
+		if (!preg_match('/^[a-zA-Z0-9_\-]+$/', $slug)) {
+			http_response_code(400);
+			echo json_encode(['error' => '不正なページ名']);
+			exit;
+		}
+		$pages = json_read('pages.json', content_dir());
+		if (!isset($pages[$slug])) {
+			http_response_code(404);
+			echo json_encode(['error' => 'ページが見つかりません']);
+			exit;
+		}
+		/* 削除前にリビジョンとして保存 */
+		self::saveRevision($slug, $pages[$slug]);
+		unset($pages[$slug]);
+		json_write('pages.json', $pages, content_dir());
+		self::logActivity('ページ削除: ' . $slug);
+		echo json_encode(['ok' => true]);
+		exit;
+	}
+
+	/* ══════════════════════════════════════════════
+	   アクティビティログ
+	   ══════════════════════════════════════════════ */
+
+	public static function logActivity(string $message): void {
+		$log = json_read('activity.json', settings_dir());
+		array_unshift($log, [
+			'time'    => date('c'),
+			'message' => $message,
+		]);
+		/* 最新100件のみ保持 */
+		$log = array_slice($log, 0, 100);
+		json_write('activity.json', $log, settings_dir());
+	}
+
+	public static function getRecentActivity(int $limit = 20): array {
+		$log = json_read('activity.json', settings_dir());
+		return array_slice($log, 0, $limit);
 	}
 
 	/* ══════════════════════════════════════════════
@@ -276,9 +347,14 @@ class AdminEngine {
 			echo json_encode(['error' => 'Invalid fieldname']);
 			exit;
 		}
+		$offset = max(0, (int)($_POST['offset'] ?? 0));
+		$limit  = min(50, max(1, (int)($_POST['limit'] ?? 20)));
+
 		$dir = content_dir() . '/revisions/' . $fieldname . '/';
 		$files = glob($dir . 'rev_*.json') ?: [];
 		rsort($files);
+		$total = count($files);
+		$files = array_slice($files, $offset, $limit);
 		$revisions = [];
 		foreach ($files as $f) {
 			$data = json_decode(file_get_contents($f), true);
@@ -292,7 +368,7 @@ class AdminEngine {
 				'pinned'    => !empty($data['pinned']),
 			];
 		}
-		echo json_encode(['revisions' => $revisions]);
+		echo json_encode(['revisions' => $revisions, 'total' => $total, 'offset' => $offset, 'limit' => $limit]);
 		exit;
 	}
 
@@ -347,6 +423,7 @@ class AdminEngine {
 		$pages = json_read('pages.json', content_dir());
 		$pages[$fieldname] = $content;
 		json_write('pages.json', $pages, content_dir());
+		self::logActivity('リビジョン復元: ' . $fieldname);
 		echo json_encode(['ok' => true, 'content' => $content]);
 		exit;
 	}
@@ -407,6 +484,28 @@ class AdminEngine {
 		}
 		echo json_encode(['revisions' => $results]);
 		exit;
+	}
+
+	/* ══════════════════════════════════════════════
+	   ログインページ
+	   ══════════════════════════════════════════════ */
+
+	public static function renderLogin(string $message = ''): string {
+		global $c;
+		$tplPath = __DIR__ . '/AdminEngine/login.html';
+		if (!file_exists($tplPath)) {
+			return '<h1>Login template not found</h1>';
+		}
+		$tpl = file_get_contents($tplPath);
+		if ($tpl === false) {
+			return '<h1>Login template read error</h1>';
+		}
+		$ctx = [
+			'title'         => $c['title'] ?? 'Login',
+			'csrf_token'    => self::csrfToken(),
+			'login_message' => $message,
+		];
+		return TemplateEngine::render($tpl, $ctx, __DIR__ . '/AdminEngine');
 	}
 
 	/* ══════════════════════════════════════════════
@@ -525,6 +624,8 @@ class AdminEngine {
 			'php_version'       => PHP_VERSION,
 			'disk_free'         => $diskFreeStr,
 			'migrate_warning'   => !empty($c['migrate_warning']),
+			'activity_log'      => self::getRecentActivity(20),
+			'has_activity'      => !empty(self::getRecentActivity(1)),
 		];
 	}
 }

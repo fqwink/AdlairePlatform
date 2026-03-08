@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="ja">
+<head>
+	<meta charset="utf-8">
+	<title>{{title}} - Login</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<link rel="stylesheet" href="engines/AdminEngine/dashboard.css">
+	<style>
+		.ap-login-wrap {
+			max-width: 380px;
+			margin: 80px auto;
+			padding: 0 16px;
+		}
+		.ap-login-card {
+			background: #fff;
+			border-radius: 8px;
+			padding: 32px 28px;
+			box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+		}
+		.ap-login-card h2 {
+			font-size: 18px;
+			font-weight: 600;
+			margin-bottom: 20px;
+			text-align: center;
+		}
+		.ap-login-card input[type="password"] {
+			display: block;
+			width: 100%;
+			padding: 10px 12px;
+			border: 1px solid #e2e8f0;
+			border-radius: 4px;
+			font-size: 14px;
+			margin-bottom: 12px;
+			background: #f7fafc;
+		}
+		.ap-login-card input[type="password"]:focus {
+			outline: none;
+			border-color: #3182ce;
+			box-shadow: 0 0 0 2px rgba(49, 130, 206, 0.2);
+		}
+		.ap-login-card button {
+			width: 100%;
+			padding: 10px;
+			font-size: 14px;
+		}
+		.ap-login-msg {
+			text-align: center;
+			font-size: 13px;
+			margin-top: 12px;
+			color: #c0392b;
+		}
+		.ap-login-toggle {
+			text-align: center;
+			margin-top: 16px;
+			font-size: 13px;
+			color: #3182ce;
+			cursor: pointer;
+		}
+		.ap-login-change {
+			display: none;
+			margin-top: 12px;
+			padding-top: 12px;
+			border-top: 1px solid #e2e8f0;
+		}
+		.ap-login-change p {
+			font-size: 13px;
+			color: #4a5568;
+			margin-bottom: 8px;
+		}
+	</style>
+</head>
+<body>
+	<div class="ap-login-wrap">
+		<div class="ap-login-card">
+			<h2>{{title}}</h2>
+			<form action="" method="POST">
+				<input type="hidden" name="csrf" value="{{csrf_token}}">
+				<input type="password" name="password" placeholder="パスワード" autofocus>
+				<button type="submit" name="login" value="Login">ログイン</button>
+				<input type="hidden" name="sub" value="sub">
+				{{#if login_message}}
+				<div class="ap-login-msg">{{login_message}}</div>
+				{{/if}}
+			</form>
+			<div class="ap-login-toggle" onclick="var el=this.nextElementSibling;el.style.display=el.style.display==='block'?'none':'block';">パスワード変更</div>
+			<div class="ap-login-change">
+				<form action="" method="POST">
+					<input type="hidden" name="csrf" value="{{csrf_token}}">
+					<p>現在のパスワードを上に、新しいパスワードを下に入力してください。</p>
+					<input type="password" name="password" placeholder="現在のパスワード">
+					<input type="password" name="new" placeholder="新しいパスワード">
+					<button type="submit" name="login" value="Change">変更</button>
+					<input type="hidden" name="sub" value="sub">
+				</form>
+			</div>
+		</div>
+	</div>
+</body>
+</html>

@@ -87,17 +87,8 @@ foreach($c as $key => $val){
 				$msg = '';
 				if(isset($_POST['sub']))
 					$msg = AdminEngine::login($c['password']);
-				$c['content'] = "<form action='' method='POST'>
-				<input type='hidden' name='csrf' value='".AdminEngine::csrfToken()."'>
-				<input type='password' name='password'>
-				<input type='submit' name='login' value='Login'> $msg
-				<p class='toggle'>Change password</p>
-				<div class='hide'>Type your old password above and your new one below.<br />
-				<input type='password' name='new'>
-				<input type='submit' name='login' value='Change'>
-				<input type='hidden' name='sub' value='sub'>
-				</div>
-				</form>";
+				echo AdminEngine::renderLogin($msg);
+				exit;
 			}
 			$logout_form = "<form method='POST' style='display:inline'>"
 				."<input type='hidden' name='csrf' value='".AdminEngine::csrfToken()."'>"

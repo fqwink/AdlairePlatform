@@ -53,16 +53,33 @@
 			{{#if has_pages}}
 			<div class="ap-dash-pages">
 				{{#each pages}}
-				<a href="{{slug}}" class="ap-dash-page-item">
-					<strong>{{slug}}</strong>
-					<span>{{preview}}</span>
-				</a>
+				<div class="ap-dash-page-item">
+					<a href="{{slug}}" style="text-decoration:none;color:inherit;display:block;">
+						<strong>{{slug}}</strong>
+						<span>{{preview}}</span>
+					</a>
+					<button class="ap-page-delete" data-slug="{{slug}}" title="ページを削除">&times;</button>
+				</div>
 				{{/each}}
 			</div>
 			{{else}}
 			<p>ページがありません。メニューにページ名を追加し、サイト表示からコンテンツを編集してください。</p>
 			{{/if}}
 		</section>
+
+		{{#if has_activity}}
+		<section class="ap-dash-card">
+			<h2>アクティビティ</h2>
+			<div class="ap-dash-activity">
+				{{#each activity_log}}
+				<div class="ap-dash-activity-item">
+					<span class="ap-dash-activity-time">{{time}}</span>
+					<span class="ap-dash-activity-msg">{{message}}</span>
+				</div>
+				{{/each}}
+			</div>
+		</section>
+		{{/if}}
 
 		<section class="ap-dash-card">
 			<h2>静的書き出し</h2>

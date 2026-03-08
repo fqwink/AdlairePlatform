@@ -1,44 +1,15 @@
 /**
  * dashboard.js - ダッシュボード固有のインタラクション
  *
- * テーマ選択の変更保存を担当。
- * editInplace.js（editText フィールド保存）と updater.js（アップデート管理）は
- * dashboard.html で別途読み込み済み。
+ * テーマ選択の保存は editInplace.js で統一して処理。
+ * ページ削除機能を担当。
  */
 (function() {
 	'use strict';
 
 	document.addEventListener('DOMContentLoaded', function() {
-		initThemeSelect();
+		initPageDelete();
 	});
-
-	/* ── テーマ選択 ── */
-
-	function initThemeSelect() {
-		var select = document.getElementById('ap-theme-select');
-		if (!select) return;
-
-		select.addEventListener('change', function() {
-			var csrf = getCsrf();
-			if (!csrf) return;
-
-			var body = new FormData();
-			body.append('ap_action', 'edit_field');
-			body.append('fieldname', 'themeSelect');
-			body.append('content', select.value);
-			body.append('csrf', csrf);
-
-			fetch('./', { method: 'POST', body: body })
-				.then(function(res) {
-					if (!res.ok) throw new Error('HTTP ' + res.status);
-					/* テーマ変更後はリロードして反映 */
-					window.location.reload();
-				})
-				.catch(function(err) {
-					console.error('テーマ保存エラー:', err);
-				});
-		});
-	}
 
 	/* ── CSRF トークン取得 ── */
 
@@ -49,5 +20,46 @@
 			return null;
 		}
 		return meta.getAttribute('content');
+	}
+
+	/* ── ページ削除 ── */
+
+	function initPageDelete() {
+		document.addEventListener('click', function(e) {
+			var btn = e.target.closest('.ap-page-delete');
+			if (!btn) return;
+			e.preventDefault();
+			e.stopPropagation();
+			var slug = btn.dataset.slug;
+			if (!slug) return;
+			if (!confirm('ページ「' + slug + '」を削除しますか？\n削除前にリビジョンとして保存されます。')) return;
+
+			var csrf = getCsrf();
+			if (!csrf) return;
+
+			btn.disabled = true;
+			btn.textContent = '削除中...';
+
+			fetch('index.php', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/x-www-form-urlencoded',
+					'X-CSRF-TOKEN': csrf
+				},
+				body: new URLSearchParams({ ap_action: 'delete_page', slug: slug, csrf: csrf })
+			}).then(function(res) {
+				if (!res.ok) return res.json().then(function(d) { throw new Error(d.error || 'HTTP ' + res.status); });
+				return res.json();
+			}).then(function(data) {
+				if (data.ok) {
+					var item = btn.closest('.ap-dash-page-item');
+					if (item) item.remove();
+				}
+			}).catch(function(err) {
+				console.error('削除エラー:', err);
+				btn.disabled = false;
+				btn.textContent = '×';
+			});
+		});
 	}
 })();

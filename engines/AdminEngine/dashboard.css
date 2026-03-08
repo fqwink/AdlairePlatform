@@ -160,6 +160,7 @@ body {
 
 .ap-dash-page-item {
 	display: block;
+	position: relative;
 	padding: 12px 16px;
 	border: 1px solid #e2e8f0;
 	border-radius: 6px;
@@ -186,6 +187,33 @@ body {
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
+}
+
+.ap-page-delete {
+	position: absolute;
+	top: 6px;
+	right: 6px;
+	width: 22px;
+	height: 22px;
+	padding: 0;
+	font-size: 16px;
+	line-height: 1;
+	background: transparent;
+	color: #a0aec0;
+	border: none;
+	border-radius: 3px;
+	cursor: pointer;
+	opacity: 0;
+	transition: opacity 0.15s, color 0.15s;
+}
+
+.ap-dash-page-item:hover .ap-page-delete {
+	opacity: 1;
+}
+
+.ap-page-delete:hover {
+	color: #c0392b;
+	background: rgba(192, 57, 43, 0.08);
 }
 
 /* ── ボタン ── */
@@ -261,6 +289,26 @@ button:disabled {
 	cursor: not-allowed;
 }
 
+/* ── フィールド保存フィードバック ── */
+
+@keyframes ap-flash-green {
+	0%   { box-shadow: 0 0 0 2px #38a169; }
+	100% { box-shadow: none; }
+}
+
+@keyframes ap-flash-red {
+	0%   { box-shadow: 0 0 0 2px #c0392b; }
+	100% { box-shadow: none; }
+}
+
+.ap-field-saved {
+	animation: ap-flash-green 1.5s ease-out;
+}
+
+.ap-field-error {
+	animation: ap-flash-red 1.5s ease-out;
+}
+
 /* ── アップデートセクション ── */
 
 #ap-update-status {
@@ -289,6 +337,36 @@ button:disabled {
 #ap-update-result th {
 	background: #f7fafc;
 	font-weight: 600;
+}
+
+/* ── アクティビティログ ── */
+
+.ap-dash-activity {
+	max-height: 300px;
+	overflow-y: auto;
+}
+
+.ap-dash-activity-item {
+	display: flex;
+	gap: 12px;
+	padding: 6px 0;
+	border-bottom: 1px solid #f0f2f5;
+	font-size: 13px;
+}
+
+.ap-dash-activity-item:last-child {
+	border-bottom: none;
+}
+
+.ap-dash-activity-time {
+	color: #718096;
+	white-space: nowrap;
+	flex-shrink: 0;
+	font-size: 12px;
+}
+
+.ap-dash-activity-msg {
+	color: #2d3748;
 }
 
 /* ── レスポンシブ ── */

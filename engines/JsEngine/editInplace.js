@@ -2,6 +2,32 @@
 
 var _apChanging = false;
 
+/* HTML フィールド（BR を含むフィールド）のサニタイズ */
+function _apSanitizeHtml(html) {
+	var tmp = document.createElement('div');
+	tmp.innerHTML = html;
+	/* script/style/iframe 等の危険要素を除去 */
+	var dangerous = tmp.querySelectorAll('script,style,iframe,object,embed,form,input,textarea,select,button');
+	for (var i = 0; i < dangerous.length; i++) dangerous[i].remove();
+	/* on* イベント属性を除去 */
+	var all = tmp.getElementsByTagName('*');
+	for (var j = 0; j < all.length; j++) {
+		var attrs = Array.prototype.slice.call(all[j].attributes);
+		for (var k = 0; k < attrs.length; k++) {
+			if (/^on/i.test(attrs[k].name)) all[j].removeAttribute(attrs[k].name);
+		}
+	}
+	return tmp.innerHTML;
+}
+
+/* 保存フィードバックアニメーション */
+function _apFlash(el, success) {
+	if (!el) return;
+	var cls = success ? 'ap-field-saved' : 'ap-field-error';
+	el.classList.add(cls);
+	setTimeout(function () { el.classList.remove(cls); }, 1500);
+}
+
 document.addEventListener('DOMContentLoaded', function () {
 	/* ── インライン編集 ── */
 	document.querySelectorAll('span.editText').forEach(function (el) {
@@ -58,6 +84,9 @@ function _apNl2br(s) {
 	return (s + '').replace(/\r\n|\r/g, '\n').replace(/([^>\n]?)(\n)/g, '$1<br />\n');
 }
 
+/* BR を含む HTML フィールドかどうか判定 */
+var _apHtmlFields = ['menu', 'subside', 'copyright'];
+
 /* フィールド保存（Fetch API） */
 function _apFieldSave(key, val) {
 	var csrfMeta = document.querySelector('meta[name="csrf-token"]');
@@ -81,14 +110,19 @@ function _apFieldSave(key, val) {
 			if (el) {
 				if (val === '') {
 					el.textContent = el.getAttribute('title') || '';
+				} else if (_apHtmlFields.indexOf(key) !== -1) {
+					el.innerHTML = _apSanitizeHtml(val);
 				} else {
-					el.innerHTML = val;
+					el.textContent = val;
 				}
+				_apFlash(el, true);
 			}
 		}
 		_apChanging = false;
-	}).catch(function () {
-		alert('保存に失敗しました。再試行してください。');
+	}).catch(function (e) {
+		console.error('[AdlairePlatform] 保存エラー:', e.message);
+		var el = document.getElementById(key);
+		_apFlash(el, false);
 		_apChanging = false;
 	});
 }
