@@ -1,6 +1,6 @@
 # AdlairePlatform アーキテクチャ設計書
 
-> バージョン: Ver.1.2-20
+> バージョン: Ver.1.2-21
 > 最終更新: 2026-03-08
 > 分類: 社内限り
 
@@ -219,7 +219,7 @@ function editTags() {
 
 | 定数 | 値 | 説明 |
 |-----|---|------|
-| `AP_VERSION` | `'1.2.0'` | 現在のバージョン（SemVer） |
+| `AP_VERSION` | `'1.2.21'` | 現在のバージョン（SemVer） |
 | `AP_UPDATE_URL` | GitHub API URL | 最新リリース確認先 |
 | `AP_BACKUP_GENERATIONS` | `5` | 保持するバックアップ世代数 |
 

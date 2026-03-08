@@ -2,6 +2,29 @@
 
 ---
 
+## 2026-03-08（Ver.1.2-21 — バグ修正・著作権更新）
+
+**wysiwyg.js バグ修正**
+- **[Fix]** `wysiwyg.js` — `_startDrag`: mousedown 直後の opacity フラッシュを防止（`_dragStarted` フラグ追加・初回 mousemove まで視覚効果を遅延。純粋なクリックはドラッグ処理をスキップ）
+- **[Fix]** `wysiwyg.js` — `_applySlashCmd`: `editor.focus()` を selection 設定前に移動（focus() でカーソルがリセットされる問題を修正）
+- **[Fix]** `wysiwyg.js` — `_applySlashCmd` hr ケース: `block.innerHTML = '<br>'` 変更後にカーソルを再設定（HR 挿入後のカーソル位置消失を修正）
+- **[Fix]** `wysiwyg.js` — `_showSlashMenu`: DOM に追加後に `getBoundingClientRect` で実寸を計測し、画面端クランプを適用（スラッシュメニューが画面外へはみ出す問題を修正）
+- **[Fix]** `wysiwyg.js` — `_showTypePopup`: 同様に DOM 追加後に位置クランプを適用（タイプ変換ポップアップが画面外へはみ出す問題を修正）
+- **[Fix]** `wysiwyg.js` — `_changeBlockType`: `editor.focus()` を selection 設定前に移動（タイプ変換時のカーソルリセット問題を修正）
+
+**index.php バグ修正**
+- **[Fix]** `index.php` — `upload_image()` を `handle_update_action()` より前に処理するよう呼び出し順を修正（`ap_action` ディスパッチャの `default: exit` に画像アップロードリクエストが遮断される致命的バグを修正）
+- **[Fix]** `index.php` — `verify_csrf()`: `empty()` ガードを追加（空文字列同士の `hash_equals` が `true` を返すことによる CSRF バイパス防止）
+- **[Fix]** `index.php` — `AP_VERSION` を `'1.2.20'` → `'1.2.21'` に更新
+
+**updater.js バグ修正**
+- **[Fix]** `updater.js` — CSRF メタタグ未検出時（非ログインページ等）に早期 `return` するガードを追加（null 参照エラー防止）
+
+**著作権・ライセンス更新**
+- **[Docs]** `index.php` — 著作権ヘッダーを更新（`IEAS Group / AIZM` → `Adlaire Group`、年 `2015` → `2026`、`@copyright` 2行を1行に統合、全角スペース修正、`Adlaire License Ver.2.0` 明記）
+
+---
+
 ## 2026-03-08（Ver.1.2-20 — Ph3: Editor.js スタイル ブロック体験）
 
 **Ph2-2 設計レビュー修正**

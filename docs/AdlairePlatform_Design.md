@@ -2,7 +2,7 @@
 
 > 確定日: 2026-03-08
 > バージョン規則: `Ver.{メジャー}.{マイナー}-{リビジョン}` (AFE VERSIONING.md準拠)
-> 現在バージョン: `Ver.1.2-20`
+> 現在バージョン: `Ver.1.2-21`
 
 ---
 
@@ -31,6 +31,7 @@ AdlairePlatform/
 │  └─ JsEngine/
 │     ├─ editInplace.js     # インプレイス編集（バニラJS）
 │     ├─ autosize.js        # テキストエリア自動リサイズ
+│     ├─ wysiwyg.js         # WYSIWYGエディタ（依存なし）
 │     └─ updater.js         # アップデートUI（AJAX）
 ├─ themes/
 │  ├─ AP-Default/
@@ -242,7 +243,8 @@ Header always set Content-Security-Policy "default-src 'self'; script-src 'self'
 | バグ修正 | `Ver.1.2-16` | ✅ 完了 | defense-in-depth強化・型安全・CSRFデバッグログ |
 | Ph2-1完了 | `Ver.1.2-18` | ✅ 完了 | WYSIWYG: 画像挿入・定期自動保存 |
 | Ph2-2完了 | `Ver.1.2-19` | ✅ 完了 | WYSIWYG: Undo/Redo・フロートバー・画像リサイズ・テーブル |
-| Ph3完了 | `Ver.1.2-20` | ✅ 完了（現在） | WYSIWYG: Editor.js スタイル ブロック体験（blockquote/pre/hr・スラッシュコマンド・ブロックハンドル・ドラッグ並べ替え） |
+| Ph3完了 | `Ver.1.2-20` | ✅ 完了 | WYSIWYG: Editor.js スタイル ブロック体験（blockquote/pre/hr・スラッシュコマンド・ブロックハンドル・ドラッグ並べ替え） |
+| バグ修正 | `Ver.1.2-21` | ✅ 完了（現在） | wysiwyg.js 6件・index.php 3件・updater.js 1件のバグ修正・著作権更新 |
 | 将来 | 未定 | 🔜 予定 | StaticEngine, ApiEngine |
 
 > **バージョン規則**: リビジョンはリセット禁止、常に累積加算
@@ -407,4 +409,4 @@ Adlaire License Ver.2.0（ソース公開型・非オープンソース）
 
 ---
 
-*このドキュメントは実装完了後の確定状態を反映しています。最終更新: 2026-03-08*
+*このドキュメントは実装完了後の確定状態を反映しています。最終更新: 2026-03-08（Ver.1.2-21）*

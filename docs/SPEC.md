@@ -1,8 +1,9 @@
 # AdlairePlatform — 仕様書 (SPEC)
 
-> **ドキュメントバージョン**: Ver.0.1-2
-> **ステータス**: ✅ 確定（初版）
+> **ドキュメントバージョン**: Ver.0.2-3
+> **ステータス**: ✅ 確定
 > **作成日**: 2026-03-06
+> **最終更新**: 2026-03-08（Ver.1.2-21 対応）
 > **所有者**: Adlaire Group
 > **バージョニング規則**: [AFE/VERSIONING.md](https://github.com/fqwink/AdlaireGroup-Documents-Repository/blob/main/AFE/VERSIONING.md)
 
@@ -17,9 +18,9 @@
 5. [機能仕様](#5-機能仕様)
    - 5.1 [コンテンツ管理](#51-コンテンツ管理)
    - 5.2 [テーマエンジン](#52-テーマエンジン)
-   - 5.3 [プラグインシステム](#53-プラグインシステム)
-   - 5.4 [認証・セキュリティ](#54-認証セキュリティ)
-   - 5.5 [フロントエンド](#55-フロントエンド)
+   - 5.3 [認証・セキュリティ](#53-認証セキュリティ)
+   - 5.4 [フロントエンド](#54-フロントエンド)
+   - 5.5 [WYSIWYGエディタ](#55-wysiwygエディタ)
    - 5.6 [アップデートエンジン](#56-アップデートエンジン)
 6. [jQuery 廃止 / バニラ JS 移行仕様](#6-jquery-廃止--バニラ-js-移行仕様)
 7. [PHP 8.2 対応仕様](#7-php-82-対応仕様)
@@ -35,35 +36,31 @@
 
 ## 1. 概要
 
-**AdlairePlatform（AP）** は、Adlaire Group が開発・保守・所有する、  
+**AdlairePlatform（AP）** は、Adlaire Group が開発・保守・所有する、
 **データベース不要のフラットファイルベース軽量 CMS フレームワーク**です。
 
-JSON ファイルをデータストレージとして使用し、テーマエンジン・インプレイス編集・  
-プラグインシステムを備えることで、小規模 Web サイトの迅速かつ安全な構築・管理を実現します。
+JSON ファイルをデータストレージとして使用し、テーマエンジン・インプレイス編集・
+WYSIWYGエディタ・アップデートエンジンを備えることで、小規模 Web サイトの迅速かつ安全な構築・管理を実現します。
 
 ### プロジェクト方針
 
 | 方針 | 内容 |
 |------|------|
 | **軽量性** | データベース不要。単一エントリーポイントを基本とする |
-| **安全性** | 多層セキュリティ（認証・CSRF・XSS・パストラバーサル対策）を標準装備 |
-| **拡張性** | テーマ・プラグインによる段階的な機能拡張を設計原則とする |
+| **安全性** | 多層セキュリティ（認証・CSRF・XSS・CSP・パストラバーサル対策）を標準装備 |
+| **拡張性** | テーマ・エンジンによる段階的な機能拡張を設計原則とする |
 | **依存最小化** | 外部ライブラリへの依存を最小限に抑え、バニラ技術を優先する |
 
 ### ロードマップ（概要）
 
 ```
-現行 (v1.x)                 計画 (v2.x 以降)
-────────────────────        ────────────────────────────────
-フラットファイル CMS    →    アーキテクチャ再設計（未検討）
-動的ページ配信         →    静的生成ジェネレーター機能追加（未検討）
-jQuery 依存           →    バニラ JS / autosize 移行（本仕様で策定）
-PHP 5.3+ 対応         →    PHP 8.2 以降専用（本仕様で策定）
+現行 (v1.x)                    計画 (v2.x 以降)
+──────────────────────────     ───────────────────────────────
+フラットファイル CMS       →    アーキテクチャ再設計（未検討）
+動的ページ配信             →    静的生成ジェネレーター機能追加（未検討）
+jQuery 依存（廃止済み）    →    バニラ JS に全面移行（完了）
+PHP 5.3+ 対応（廃止済み）  →    PHP 8.2 以降専用（完了）
 ```
-
-> ⚠️ **注記**: 「アーキテクチャ再設計」および「静的生成ジェネレーター」は  
-> **現時点では未検討段階**です。本仕様書では方向性の記録に留め、  
-> 詳細仕様は別途ドキュメントとして策定予定です。
 
 ---
 
@@ -75,10 +72,9 @@ PHP 5.3+ 対応         →    PHP 8.2 以降専用（本仕様で策定）
 |------|----------|----------------|------|
 | **サーバーサイド言語** | PHP | **8.2 以降必須** | 8.2 未満は非サポート・廃止 |
 | **Web サーバー** | Apache / Nginx | 任意（要件参照） | Apache: mod_rewrite / mod_headers 必須、Nginx: php-fpm 連携・server block 設定必須 |
-| **フロントエンドライブラリ** | autosize | 最新安定版 | テキストエリア自動拡張専用 |
-| **スクリプト言語** | JavaScript（バニラ） | ES2020 以上推奨 | jQuery は廃止 |
+| **フロントエンドライブラリ** | autosize | 最新安定版 | テキストエリア自動拡張専用（セルフホスト） |
+| **スクリプト言語** | JavaScript（バニラ） | ES5+ | jQuery は廃止済み |
 | **スタイルシート** | CSS | CSS3 | フレームワーク非依存 |
-| **その他言語** | Hack | — | 必要箇所に限定使用 |
 | **データストレージ** | JSON ファイル | — | DB 不要（フラットファイル） |
 | **認証ハッシュ** | bcrypt | PASSWORD_BCRYPT | PHP 標準実装 |
 
@@ -86,25 +82,28 @@ PHP 5.3+ 対応         →    PHP 8.2 以降専用（本仕様で策定）
 
 | 廃止項目 | 理由 | 代替 |
 |----------|------|------|
-| **jQuery** | 外部依存の削減、バニラ JS で代替可能 | バニラ JavaScript（ES2020+） |
+| **jQuery** | 外部依存の削減、バニラ JS で代替可能 | バニラ JavaScript（ES5+） |
 | **PHP 8.2 未満** | EOL/セキュリティリスク、新機能活用のため | PHP 8.2 以降 |
 | **MD5 パスワードハッシュ** | 既に廃止済み（自動移行実装済み） | bcrypt |
+| **plugins/ システム** | 内部コアフックへの統合により廃止 | `registerCoreHooks()` |
+| **rte.php / rte.js** | 独自 WYSIWYG 実装により廃止 | `engines/JsEngine/wysiwyg.js` |
+| **js/ ディレクトリ** | `engines/JsEngine/` へ移行 | `engines/JsEngine/` |
 
 ### 2.3 外部依存ライブラリ方針
 
 ```
 【原則】外部 CDN への依存を最小化し、自己ホスト（セルフホスト）を優先する
 
-現行（廃止予定）:
-  - jQuery 3.7.1（CDN 経由）→ 削除
+廃止済み:
+  - jQuery 3.7.1（CDN 経由）→ 削除済み
 
 維持:
-  - autosize（テキストエリア自動拡張）
+  - autosize（テキストエリア自動拡張・セルフホスト）
 
 方針:
   - 新規ライブラリの追加は原則禁止
   - 追加が必要な場合は Adlaire Group の承認を要する
-  - CDN 利用は禁止。ローカルまたはプラグイン経由での提供を必須とする
+  - CDN 利用は禁止。ローカルまたは engines/JsEngine/ での提供を必須とする
 ```
 
 ---
@@ -119,10 +118,12 @@ PHP 5.3+ 対応         →    PHP 8.2 以降専用（本仕様で策定）
 | PHP 拡張 | `json` | JSON 読み書き（標準バンドル） |
 | PHP 拡張 | `mbstring` | マルチバイト文字列処理 |
 | PHP 拡張 | `ZipArchive` | アップデートエンジン（推奨） |
+| PHP 拡張 | `finfo` | 画像 MIME 型検証 |
 | PHP 設定 | `allow_url_fopen = On` | アップデートチェック（推奨） |
 | Web サーバー | **Apache** または **Nginx** | Apache: `mod_rewrite`・`mod_headers` 有効必須 / Nginx: `php-fpm` 連携・server block 設定必須 |
 | ファイル権限 | `data/` ディレクトリ | Web サーバーユーザーによる書き込み可 |
 | ファイル権限 | `backup/` ディレクトリ | Web サーバーユーザーによる書き込み可 |
+| ファイル権限 | `uploads/` ディレクトリ | Web サーバーユーザーによる書き込み可 |
 | ディスク容量 | 最低 50MB 以上 | バックアップ世代管理を考慮 |
 
 #### Apache 固有要件
@@ -163,8 +164,8 @@ PHP 5.3+ 対応         →    PHP 8.2 以降専用（本仕様で策定）
 
 ### 4.1 現行アーキテクチャ（v1.x）
 
-現行は**シングルエントリーポイント方式**を採用しています。  
-`index.php` にルーティング・認証・API・レンダリングが集約されています。
+現行は**シングルエントリーポイント + エンジン分離方式**を採用しています。
+`index.php` にルーティング・認証・コンテンツが集約され、専用エンジンを `require` します。
 
 **Apache 環境:**
 ```
@@ -176,17 +177,24 @@ PHP 5.3+ 対応         →    PHP 8.2 以降専用（本仕様で策定）
     ▼
 [index.php]  ←── 認証・セッション管理
     │
+    ├── PHP バージョンチェック
+    ├── require engines/ThemeEngine.php
+    ├── require engines/UpdateEngine.php
     ├── ルーティング（$_GET['page'] によるスラッグ解決）
-    ├── API 処理（POST: ap_action / edit）
-    ├── テーマ読み込み（themes/<name>/theme.php）
-    └── プラグインロード（plugins/<name>/index.php）
+    ├── upload_image() ─ 画像アップロード処理
+    ├── handle_update_action() ─ ap_action POST 処理
+    ├── edit() ─ フィールド保存処理
+    ├── テーマ読み込み（ThemeEngine::load()）
+    └── registerCoreHooks() ─ JsEngine スクリプト登録
          │
          ▼
     [JSON データ層]
-    ├── data/settings.json  （サイト設定）
-    ├── data/pages.json     （ページコンテンツ）
-    ├── data/auth.json      （認証情報）
-    └── data/update_cache.json （アップデートキャッシュ）
+    ├── data/settings/settings.json   （サイト設定）
+    ├── data/settings/auth.json       （認証情報）
+    ├── data/settings/version.json    （バージョン履歴）
+    ├── data/settings/update_cache.json （APIキャッシュ）
+    ├── data/settings/login_attempts.json （ログイン試行）
+    └── data/content/pages.json       （ページコンテンツ）
 ```
 
 **Nginx 環境:**
@@ -200,43 +208,17 @@ PHP 5.3+ 対応         →    PHP 8.2 以降専用（本仕様で策定）
 [php-fpm]
     │ FastCGI → index.php
     ▼
-[index.php]  ←── 認証・セッション管理
-    │
-    ├── ルーティング（$_GET['page'] によるスラッグ解決）
-    ├── API 処理（POST: ap_action / edit）
-    ├── テーマ読み込み（themes/<name>/theme.php）
-    └── プラグインロード（plugins/<name>/index.php）
-         │
-         ▼
-    [JSON データ層]
-    ├── data/settings.json  （サイト設定）
-    ├── data/pages.json     （ページコンテンツ）
-    ├── data/auth.json      （認証情報）
-    └── data/update_cache.json （アップデートキャッシュ）
+[index.php] ← 同上
 ```
 
 > ⚠️ **Nginx 利用時の注意**: `.htaccess` は Apache 専用のため Nginx では機能しない。
-> URL リライト・セキュリティヘッダー・ディレクトリ保護はすべて server block に記述する必要がある。
-> 詳細はセクション 5.4.5・5.4.6・5.5.4 を参照。
+> `nginx.conf.example` を参照して server block に同等の設定を記述すること。
 
 ### 4.2 アーキテクチャ変更計画（未検討）
 
 > 🔴 **ステータス: 未検討段階**
 >
-> アーキテクチャの再設計は計画中ですが、具体的な方式・構成は現時点で未決定です。  
-> 以下は変更の**方向性（候補）**のみを記録したものであり、  
-> 確定仕様ではありません。
-
-**検討が想定される方向性（未確定）:**
-
-- 単一 `index.php` からの機能分離・モジュール化
-- ルーター・コントローラーの分離
-- 静的生成ジェネレーター機能との統合を考慮した設計
-- `data/` ディレクトリ構造の見直し（ページ数増加への対応）
-
-**本仕様書の扱い:**
-アーキテクチャ変更仕様は、検討開始後に **`docs/ARCHITECTURE.md`** として  
-別途策定・管理するものとします。
+> アーキテクチャの再設計は計画中ですが、具体的な方式・構成は現時点で未決定です。
 
 ---
 
@@ -248,10 +230,12 @@ PHP 5.3+ 対応         →    PHP 8.2 以降専用（本仕様で策定）
 
 | ファイル | 用途 | 自動生成 |
 |----------|------|----------|
-| `data/settings.json` | サイト設定（タイトル・説明・テーマ等） | ✅ |
-| `data/pages.json` | 全ページコンテンツ（スラッグをキーとする） | ✅ |
-| `data/auth.json` | 認証情報（bcrypt ハッシュ） | ✅ |
-| `data/update_cache.json` | アップデート確認キャッシュ（TTL: 1時間） | ✅ |
+| `data/settings/settings.json` | サイト設定（タイトル・説明・テーマ等） | ✅ |
+| `data/content/pages.json` | 全ページコンテンツ（スラッグをキーとする） | ✅ |
+| `data/settings/auth.json` | 認証情報（bcrypt ハッシュ） | ✅ |
+| `data/settings/update_cache.json` | アップデート確認キャッシュ（TTL: 1時間） | ✅ |
+| `data/settings/version.json` | アップデート履歴 | ✅ |
+| `data/settings/login_attempts.json` | ログイン試行記録（レート制限） | ✅ |
 
 #### 5.1.2 ページ管理
 
@@ -265,10 +249,10 @@ PHP 5.3+ 対応         →    PHP 8.2 以降専用（本仕様で策定）
 #### 5.1.3 インプレイス編集
 
 - ログイン中にのみ編集可能な `<span>` タグをコンテンツに付与する
-- `class="editText"` によってバニラ JS がバインドする（jQuery 依存を廃止）
-- リッチテキスト対象要素には `class="richText"` を追加する
-- 編集内容は AJAX（`fetch` API）により非同期保存する
-- 保存 API エンドポイント: `POST /` （`ap_action=edit`）
+- `class="editText"` によってバニラ JS がバインドする（jQuery 依存なし）
+- リッチテキスト対象要素には `class="editRich"` を追加する（WYSIWYGエディタ起動）
+- 編集内容は `fetch` API により非同期保存する
+- 保存 API エンドポイント: `POST /`（フィールド名を POST パラメータとして送信）
 
 #### 5.1.4 設定管理
 
@@ -282,6 +266,14 @@ PHP 5.3+ 対応         →    PHP 8.2 以降専用（本仕様で策定）
 | `copyright` | 著作権表記 | string |
 | `menu` | メニュー項目（改行区切り） | string |
 | `themeSelect` | 使用テーマ名 | string |
+
+#### 5.1.5 画像アップロード
+
+- エンドポイント: `POST /`（`ap_action=upload_image`）
+- 認証必須・CSRF 検証必須
+- 許可形式: JPEG / PNG / GIF / WebP（`finfo` による MIME 検証）
+- 最大サイズ: 2MB
+- 保存先: `uploads/` ディレクトリ（PHP 実行不可・ランダムファイル名）
 
 ---
 
@@ -301,7 +293,8 @@ themes/
 - テーマ名の許可文字: `[a-zA-Z0-9_-]`（パストラバーサル防止）
 - テーマの自動検出: `themes/` ディレクトリを走査し、有効なテーマを一覧表示
 - テーマ切替: 管理パネルからリアルタイムに切替可能
-- デフォルトテーマ: `AP-Default`
+- デフォルトテーマ: `AP-Default`（存在しないテーマが指定された場合のフォールバック）
+- エンジン: `engines/ThemeEngine.php`（`ThemeEngine::load()` / `ThemeEngine::listThemes()`）
 
 #### 5.2.3 同梱テーマ
 
@@ -318,69 +311,49 @@ themes/
 | `menu()` | ナビゲーションメニュー出力 |
 | `h(string $s): string` | XSS エスケープ出力 |
 | `editTags()` | 管理用スクリプト・スタイルの出力 |
+| `settings()` | 管理パネル出力（ログイン中のみ） |
+| `is_loggedin(): bool` | ログイン状態の確認 |
 
 ---
 
-### 5.3 プラグインシステム
+### 5.3 認証・セキュリティ
 
-#### 5.3.1 プラグイン構造
-
-```
-plugins/
-└── <プラグイン名>/
-    └── index.php    （必須: プラグイン本体）
-```
-
-#### 5.3.2 フック一覧
-
-| フックキー | 発火タイミング | 用途 |
-|------------|---------------|------|
-| `admin-head` | 管理画面 `<head>` 内 | CSS / JS の追加 |
-| `admin-richText` | リッチテキストエディタ生成時 | エディタの差し込み |
-
-#### 5.3.3 プラグイン開発ガイドライン
-
-- `index.php` 内でグローバル変数 `$hook` に文字列を追加することでフックに登録する
-- プラグインは jQuery に依存してはならない（バニラ JS または独自ライブラリを使用）
-- プラグイン名の許可文字: `[a-zA-Z0-9_-]`
-
----
-
-### 5.4 認証・セキュリティ
-
-#### 5.4.1 認証仕様
+#### 5.3.1 認証仕様
 
 | 項目 | 仕様 |
 |------|------|
 | 認証方式 | シングルパスワード認証 |
 | ハッシュアルゴリズム | `PASSWORD_BCRYPT`（`password_hash` / `password_verify`） |
-| 認証情報格納 | `data/auth.json`（`password_hash` キー） |
+| 認証情報格納 | `data/settings/auth.json`（`password_hash` キー） |
 | セッション管理 | `$_SESSION['l'] = true` |
 | セッション固定対策 | ログイン成功時に `session_regenerate_id(true)` を実行 |
 | クッキー設定 | `HttpOnly: 1`、`SameSite: Lax` |
+| レート制限 | 5回失敗で15分ロックアウト（IP ベース・`login_attempts.json`） |
 | レガシー対応 | MD5 ハッシュ（32文字 hex）検出時に自動警告・移行を促す |
 
-#### 5.4.2 CSRF 対策
+#### 5.3.2 CSRF 対策
 
 - 32 バイトのランダムトークンをセッションに保持する（`random_bytes(32)`）
 - 全 POST リクエストで `verify_csrf()` による検証を行う
-- 検証方法: `hash_equals()` による定数時間比較
+- 検証方法: `empty()` ガード + `hash_equals()` による定数時間比較
 - トークン送信: フォーム hidden フィールド（`csrf`）または HTTP ヘッダー（`X-CSRF-TOKEN`）
 
-#### 5.4.3 XSS 対策
+#### 5.3.3 XSS 対策
 
 - 全出力箇所で `h()` 関数（`htmlspecialchars(ENT_QUOTES, 'UTF-8')`）を使用する
 - コンテンツの生出力は原則禁止とし、信頼されたコンテンツにのみ例外を設ける
 
-#### 5.4.4 パストラバーサル対策
+#### 5.3.4 パストラバーサル対策
 
 - テーマ名、フィールド名、バックアップ名は正規表現 `^[a-zA-Z0-9_\-]+$` で検証する
+- バックアップ名は `^[0-9_]+$`（数字とアンダースコアのみ）でさらに厳格に検証する
 - 検証失敗時: HTTP 400 Bad Request を返す
 
-#### 5.4.5 HTTP セキュリティヘッダー（.htaccess / Nginx）
+#### 5.3.5 HTTP セキュリティヘッダー（.htaccess / Nginx）
 
 | ヘッダー | 値 | 目的 |
 |----------|----|------|
+| `Content-Security-Policy` | `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'` | XSS・コンテンツインジェクション防止 |
 | `X-Content-Type-Options` | `nosniff` | MIME スニッフィング防止 |
 | `X-Frame-Options` | `SAMEORIGIN` | クリックジャッキング対策 |
 | `Referrer-Policy` | `same-origin` | リファラー情報の漏洩防止 |
@@ -388,6 +361,7 @@ plugins/
 **Apache（.htaccess）:**
 ```apache
 <IfModule mod_headers.c>
+    Header always set Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline';"
     Header always set X-Content-Type-Options "nosniff"
     Header always set X-Frame-Options "SAMEORIGIN"
     Header always set Referrer-Policy "same-origin"
@@ -396,77 +370,59 @@ plugins/
 
 **Nginx（server block）:**
 ```nginx
+add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline';" always;
 add_header X-Content-Type-Options "nosniff" always;
 add_header X-Frame-Options "SAMEORIGIN" always;
 add_header Referrer-Policy "same-origin" always;
 ```
 
-#### 5.4.6 ディレクトリ保護（.htaccess / Nginx）
+#### 5.3.6 ディレクトリ保護（.htaccess / Nginx）
 
 | 対象ディレクトリ | 保護内容 |
 |------------------|----------|
 | `data/` | 外部アクセス完全遮断 |
 | `backup/` | 外部アクセス完全遮断 |
-| `files/` | 外部アクセス完全遮断 |
+| `files/` | 外部アクセス完全遮断（レガシー互換） |
+| `engines/*.php` | 直接アクセス禁止（`RedirectMatch 403`） |
+| `uploads/` | PHP 実行禁止（`Options -ExecCGI`） |
 | すべてのディレクトリ | ディレクトリ一覧表示無効 |
-
-**Apache（.htaccess）:**
-```apache
-RedirectMatch 403 ^.*/data/
-RedirectMatch 403 ^.*/backup/
-RedirectMatch 403 ^.*/files/
-Options -Indexes
-```
-
-**Nginx（server block）:**
-```nginx
-# ディレクトリ一覧無効 + 保護ディレクトリへのアクセス拒否
-autoindex off;
-
-location ~* ^/(data|backup|files)/ {
-    deny all;
-    return 403;
-}
-```
 
 ---
 
-### 5.5 フロントエンド
+### 5.4 フロントエンド
 
-#### 5.5.1 基本方針
+#### 5.4.1 基本方針
 
-- **jQuery は使用しない（廃止）**
-- DOM 操作・イベント処理はすべてバニラ JavaScript（ES2020+）で実装する
+- **jQuery は使用しない（廃止済み）**
+- DOM 操作・イベント処理はすべてバニラ JavaScript（ES5+）で実装する
 - HTTP 通信は `fetch` API を使用する
-- テキストエリアの自動拡張は `autosize` ライブラリを使用する
+- テキストエリアの自動拡張は `autosize` ライブラリを使用する（セルフホスト）
 
-#### 5.5.2 インプレイス編集（バニラ JS 仕様）
+#### 5.4.2 インプレイス編集（バニラ JS 仕様）
 
 ```
 【イベントバインド】
   document.querySelectorAll('.editText') でバインド
-  → click イベントで編集モードへ移行
+  → click イベントで編集モードへ移行（textarea 変換）
 
 【保存処理】
   fetch('/index.php', {
     method: 'POST',
-    headers: { 'X-CSRF-TOKEN': '<token>' },
-    body: new FormData()  // フィールド名・コンテンツを含む
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ fieldname: value, csrf: token })
   })
 
 【autosize 適用】
-  autosize(document.querySelectorAll('textarea'))
+  apAutosize(textarea)  // engines/JsEngine/autosize.js
 ```
 
-#### 5.5.3 AJAX 保存仕様
+#### 5.4.3 AJAX 保存仕様
 
 - 保存成功時: 画面遷移なし、UIフィードバック（視覚的インジケーター）
 - 保存失敗時: エラーメッセージをインライン表示
-- CSRF トークンは `X-CSRF-TOKEN` ヘッダーで送信する
+- CSRF トークンは POST ボディまたは `X-CSRF-TOKEN` ヘッダーで送信する
 
-#### 5.5.4 URL 設計（クリーン URL）
-
-拡張子なし URL（`/about`・`/contact` 等）を実現する設定は Web サーバーによって異なる。
+#### 5.4.4 URL 設計（クリーン URL）
 
 **Apache（mod_rewrite / .htaccess）:**
 ```apache
@@ -474,7 +430,7 @@ RewriteEngine on
 Options -Indexes
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteCond $1#%{REQUEST_URI} ([^#]*)#(.*)$
+RewriteCond $1#%{REQUEST_URI} ([^#]*)#(.*)$
 RewriteRule ^([^\.]+)$ %2?page=$1 [QSA,L]
 ```
 
@@ -496,22 +452,81 @@ location ~ \.php$ {
 }
 ```
 
-```
-共通動作:
-  /about         → index.php?page=about
-  /contact       → index.php?page=contact
-  /              → index.php（トップページ）
-```
+---
+
+### 5.5 WYSIWYGエディタ
+
+`engines/JsEngine/wysiwyg.js` による依存ライブラリなしの独自実装。
+
+#### 5.5.1 起動条件
+
+- `class="editRich"` を持つ `<span>` 要素をクリックすると WYSIWYG モードで起動する
+- `editInplace.js` とは独立したモジュールとして動作する
+
+#### 5.5.2 ツールバー機能
+
+| ボタン | 機能 |
+|--------|------|
+| B / I / U | 太字・斜体・下線 |
+| 🔗 | リンク挿入 |
+| H2 / H3 | 見出し変換 |
+| • / 1. | 箇条書き・番号リスト |
+| ❝ | 引用ブロック（blockquote） |
+| {} | コードブロック（pre） |
+| — | 区切り線（hr） |
+| ⊞ | テーブル挿入（8×8 グリッドピッカー） |
+| ↩ / ↪ | Undo / Redo |
+| 🖼 | 画像挿入 |
+
+#### 5.5.3 画像機能
+
+- ドラッグ＆ドロップ・クリップボード貼付・ボタン選択の3通りで挿入
+- 許可形式: JPEG / PNG / GIF / WebP
+- 挿入後に4コーナーハンドルでアスペクト比を維持したリサイズが可能
+- リサイズ枠の下部に alt 属性入力欄を表示・即時反映
+
+#### 5.5.4 テーブル機能
+
+- 8×8 グリッドピッカーで挿入
+- テーブル内カーソル時に上部へ行/列操作バーを表示（追加・削除）
+
+#### 5.5.5 フローティングツールバー
+
+- テキスト選択時に選択範囲上部へ B/I/U/🔗/✕ ボタンを浮かせる
+
+#### 5.5.6 スラッシュコマンドメニュー（Ph3-F）
+
+- 空行で `/` を入力するとブロックタイプ選択メニューが表示される
+- `/コ` のようにタイプすることでインクリメンタル絞り込みが可能
+- ArrowDown/Up で選択移動・Enter で確定・Escape で閉じる
+
+#### 5.5.7 ブロックハンドル（Ph3-G）
+
+- ブロック要素にホバーすると左端へ `⠿` ハンドルを表示する
+- ハンドルをクリックするとブロックタイプ変換ポップアップを表示する
+
+#### 5.5.8 ドラッグ並べ替え（Ph3-H）
+
+- `⠿` ハンドルをドラッグしてブロックの順序を変更できる
+- ドロップ位置にシアン色のインジケータラインが表示される
+
+#### 5.5.9 自動保存
+
+- 30秒間隔での定期自動保存
+- Ctrl+Enter または blur（フォーカス外れ）で即時保存
+
+#### 5.5.10 HTML サニタイザー
+
+- 保存前にホワイトリスト方式で不正タグを除去する
+- 許可タグ: `P / H1 / H2 / H3 / H4 / H5 / H6 / BR / STRONG / B / EM / I / U / STRIKE / S / A / UL / OL / LI / BLOCKQUOTE / PRE / CODE / HR / TABLE / TBODY / THEAD / TFOOT / TR / TD / TH / IMG`
 
 ---
 
 ### 5.6 アップデートエンジン
 
-#### 5.6.1 概要
+`engines/UpdateEngine.php` による実装。
 
-GitHub Releases API と連携し、管理画面からワンクリックでアップデートを適用できる。
-
-#### 5.6.2 API エンドポイント一覧
+#### 5.6.1 API エンドポイント一覧
 
 | `ap_action` 値 | 処理内容 | 認証必須 |
 |----------------|----------|----------|
@@ -522,11 +537,12 @@ GitHub Releases API と連携し、管理画面からワンクリックでアッ
 | `rollback` | 指定バックアップへのロールバック | ✅ |
 | `delete_backup` | バックアップの削除 | ✅ |
 
-#### 5.6.3 バックアップ仕様
+#### 5.6.2 バックアップ仕様
 
 - 保存先: `backup/YYYYMMDD_His/`
-- 世代管理: 最大 **5 世代**（超過した場合は古い世代から自動削除）
-- 保護対象: `data/`・`backup/` ディレクトリはアップデート時に上書きしない
+- 世代管理: 最大 **5 世代**（`AP_BACKUP_GENERATIONS` 定数で変更可能）
+- 保護対象: `data/`・`backup/`・`.git/` ディレクトリはバックアップ・アップデート時に除外
+- メタデータ: 各バックアップに `meta.json`（更新前バージョン・作成日時・ファイル数・サイズ）を記録
 
 ---
 
@@ -537,21 +553,19 @@ GitHub Releases API と連携し、管理画面からワンクリックでアッ
 | 理由 | 詳細 |
 |------|------|
 | 外部依存の削減 | CDN 依存によるパフォーマンス・セキュリティリスクの排除 |
-| バニラ JS の成熟 | ES2020+ により jQuery 相当の機能がネイティブ実装可能 |
+| バニラ JS の成熟 | ES5+ により jQuery 相当の機能がネイティブ実装可能 |
 | 軽量化 | jQuery（約 90KB minified）の除去によるロード時間短縮 |
 | ライセンス整合性 | 外部ライブラリへの依存をプロジェクト方針に沿って最小化 |
 
-### 6.2 移行対象ファイル
+### 6.2 移行完了ファイル
 
 | ファイル | 移行内容 |
 |----------|----------|
-| `js/editInplace.php` | jQuery セレクタ → `querySelector/querySelectorAll` |
-| | `$.ajax()` → `fetch` API |
-| | `$(document).ready()` → `DOMContentLoaded` イベント |
-| | jQuery イベント → `addEventListener` |
-| | jQuery DOM 操作 → 標準 DOM API |
-| `js/rte.php` | jQuery 依存コードをバニラ JS に置換 |
-| `themes/*/theme.php` | jQuery CDN 読み込みタグを削除 |
+| `engines/JsEngine/editInplace.js` | jQuery を全廃・バニラJS (ES2020+) で完全リライト |
+| `engines/JsEngine/wysiwyg.js` | 依存ライブラリなしの独自 WYSIWYG 実装 |
+| `engines/JsEngine/updater.js` | 依存ライブラリなしの Fetch API 実装 |
+| `themes/AP-Default/theme.php` | jQuery CDN 読み込みタグを削除済み |
+| `themes/AP-Adlaire/theme.php` | jQuery CDN 読み込みタグを削除済み |
 
 ### 6.3 置換対応表
 
@@ -568,21 +582,6 @@ GitHub Releases API と連携し、管理画面からワンクリックでアッ
 | `$.ajax({ ... })` | `fetch(url, { method, headers, body })` |
 | `$(document).ready(fn)` | `document.addEventListener('DOMContentLoaded', fn)` |
 
-### 6.4 autosize 統合仕様
-
-```javascript
-// 初期化（DOMContentLoaded 後）
-document.addEventListener('DOMContentLoaded', function() {
-  autosize(document.querySelectorAll('textarea'));
-});
-
-// 動的追加要素への適用
-autosize(newTextarea);
-
-// リサイズ更新
-autosize.update(textarea);
-```
-
 ---
 
 ## 7. PHP 8.2 対応仕様
@@ -598,42 +597,7 @@ autosize.update(textarea);
 | PHP 8.3 | 2027-12-31 | 推奨バージョン |
 | PHP 8.4 | 2028-12-31 | 最新安定版 |
 
-### 7.2 PHP 8.2+ 対応コーディング規約
-
-#### 7.2.1 型宣言
-
-```php
-// ✅ 推奨: 引数・戻り値に型宣言を必須とする
-function h(string $s): string {
-    return htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
-}
-
-function getSlug(string $p): string {
-    return mb_convert_case(str_replace(' ', '-', $p), MB_CASE_LOWER, 'UTF-8');
-}
-
-// ✅ PHP 8.2: readonly プロパティの活用
-// ✅ PHP 8.2: DNF 型（交差型・ユニオン型の複合）の使用可
-```
-
-#### 7.2.2 廃止機能の排除
-
-| 廃止項目 | 代替 |
-|----------|------|
-| 動的プロパティ（PHP 8.2 で廃止） | `#[AllowDynamicProperties]` または明示的宣言 |
-| `${var}` 文字列内変数展開 | `{$var}` または文字列結合 |
-| `utf8_encode()` / `utf8_decode()` | `mb_convert_encoding()` |
-| `create_function()` | 無名関数（クロージャ） |
-
-#### 7.2.3 エラーハンドリング
-
-```php
-// ✅ PHP 8.0+ の match 式を活用
-// ✅ Nullsafe 演算子（?->）を活用
-// ✅ str_contains(), str_starts_with(), str_ends_with() を使用
-```
-
-### 7.3 バージョンチェック
+### 7.2 バージョンチェック
 
 アプリケーション起動時に PHP バージョンを検証する:
 
@@ -650,48 +614,9 @@ if (PHP_VERSION_ID < 80200) {
 
 > 🔴 **ステータス: 未検討段階**
 >
-> 静的生成ジェネレーター機能は **計画中** ですが、  
-> 現時点では具体的な仕様・設計は未決定です。  
-> 本セクションは**方向性の記録**のみを目的としています。
-
-### 8.1 機能概要（想定）
-
-現在の動的 PHP 配信に加えて、コンテンツを静的 HTML ファイルとして  
-事前生成・出力する機能。
-
-```
-【現行】
-  リクエスト → PHP 処理 → 動的 HTML 生成 → レスポンス
-
-【計画（静的生成）】
-  生成コマンド実行 → 全ページを静的 HTML として出力
-  静的ファイルへのリクエスト → HTML を直接配信（PHP 不要）
-```
-
-### 8.2 想定されるユースケース
-
-- 高トラフィック対応（PHP 処理なしで配信）
-- CDN / 静的ホスティングへのデプロイ
-- セキュリティ向上（サーバーサイドコードの公開面を排除）
-- バックアップとしての静的スナップショット生成
-
-### 8.3 アーキテクチャとの関係
-
-静的生成機能の追加は、現行の単一 `index.php` 集約型アーキテクチャの  
-**再設計を前提とする可能性が高い**。  
-そのため、アーキテクチャ変更の検討と並行して仕様策定を行う。
-
-### 8.4 今後のアクション
-
-| アクション | 担当 | ステータス |
-|------------|------|------------|
-| アーキテクチャ変更方針の検討 | Adlaire Group | 未着手 |
-| 静的生成方式の選定（PHPネイティブ / 別プロセス等） | Adlaire Group | 未着手 |
-| 動的・静的ハイブリッド方式の検討 | Adlaire Group | 未着手 |
-| `docs/STATIC_GENERATOR.md` 仕様書の策定 | Adlaire Group | 未着手 |
-
----
-
+> 静的生成ジェネレーター機能は **計画中** ですが、
+> 現時点では具体的な仕様・設計は未決定です。
+> 詳細は `docs/STATIC_GENERATOR.md` を参照してください。
 
 ---
 
@@ -700,147 +625,9 @@ if (PHP_VERSION_ID < 80200) {
 > 🔴 **ステータス: 未検討段階**
 >
 > ヘッドレス CMS 機能は**計画中**ですが、現時点では具体的な仕様・設計は未決定です。
-> 本セクションは**方向性と参考情報の記録**のみを目的としています。
+> 詳細は `docs/HEADLESS_CMS.md` を参照してください。
 
-### 9.1 ヘッドレス CMS とは
-
-**ヘッドレス CMS** とは、コンテンツ管理（バックエンド）とフロントエンド表示を
-完全に分離した CMS アーキテクチャです。
-
-```
-【従来型 CMS（現行の AdlairePlatform）】
-  管理画面 → コンテンツ管理 → PHP テンプレート → HTML 配信
-  ※フロントエンド（Head）と一体化している
-
-【ヘッドレス CMS（計画）】
-  管理画面 → コンテンツ管理 → API（JSON 配信）→ 任意のフロントエンド
-  ※フロントエンド（Head）を持たない = "Headless"
-```
-
-| 比較項目 | 従来型（現行） | ヘッドレス（計画） |
-|---------|--------------|-----------------|
-| フロントエンド | PHP テーマ固定 | 任意（Next.js / Astro / バニラ HTML 等） |
-| コンテンツ配信 | PHP によるサーバーレンダリング | JSON API 経由 |
-| マルチチャネル対応 | ❌（Web のみ） | ✅（Web / アプリ / 外部サービス） |
-| フロント柔軟性 | 低（テーマ依存） | 高（完全分離） |
-| データ所有権 | ✅ JSON ファイルに保存 | ✅ 同左（維持） |
-
-### 9.2 参考：pitcms の設計思想
-
-参考 URL: [https://pitcms.net](https://pitcms.net)
-
-pitcms は「はがしやすい日本製ヘッドレス CMS」として、以下の設計思想を持ちます。
-AdlairePlatform のヘッドレス CMS 機能を検討する際の参考とします。
-
-| pitcms の特徴 | AdlairePlatform との関係 |
-|-------------|------------------------|
-| **コンテンツを GitHub に保存**（Markdown / JSON） | AP は既に JSON フラットファイルベース → **思想的に親和性が高い** |
-| **ベンダーロックインなし**（データはユーザーのもの） | AP のフラットファイル設計は既にこの思想を体現している |
-| **Git ベース**（API ではなくファイル管理） | AP は DB 不要の設計 → Git 管理との統合も自然 |
-| **コレクション定義**（設定ファイルでスキーマ管理） | AP のコンテンツ構造拡張の参考となる |
-| **プレビュー機能** | 静的生成ジェネレーターと連携したプレビューの参考 |
-| **レビュー機能**（承認フロー） | 将来の多人数編集機能として参考 |
-| **複数環境管理**（開発 / ステージング / 本番） | AP の将来機能として参考 |
-| **フォーム機能**（HTML 標準フォーム） | AP の問い合わせ機能との統合の参考 |
-
-> 📌 **pitcms と AP の差別化方針（未検討）**:
-> pitcms は Git / GitHub への依存が前提だが、
-> AP はセルフホスト・DB 不要を原則とし、GitHub 非依存での実現を検討する方向性が考えられる。
-
-### 9.3 機能概要（想定）
-
-> ⚠️ 以下はすべて**未確定の方向性**です。
-
-#### 9.3.1 コンテンツ API
-
-AdlairePlatform が保持する JSON データを外部フロントエンドに提供する
-REST API エンドポイントの実装。
-
-```
-【想定 API エンドポイント（未確定）】
-
-GET  /api/pages              → 全ページ一覧（JSON）
-GET  /api/pages/{slug}       → 個別ページコンテンツ（JSON）
-GET  /api/settings           → サイト設定情報（JSON）
-GET  /api/collections        → コレクション一覧（JSON）
-GET  /api/collections/{name} → コレクションコンテンツ一覧（JSON）
-
-※ 認証方法（API キー / Bearer トークン等）は未検討
-※ レスポンス形式（フィールド構造）は未検討
-```
-
-#### 9.3.2 コンテンツスキーマ定義
-
-pitcms の `pitcms.jsonc` を参考に、AdlairePlatform 独自の
-コンテンツスキーマ定義ファイルの実装を検討。
-
-```
-【想定フィールドタイプ（未確定）】
-text       テキスト
-textarea   複数行テキスト
-richtext   リッチテキスト（HTML）
-number     数値
-boolean    真偽値
-date       日付・日時
-image      画像
-select     選択肢（単一）
-checkbox   選択肢（複数）
-```
-
-#### 9.3.3 コレクション管理
-
-複数のコンテンツタイプ（ブログ記事・お知らせ・メニュー等）を
-JSON ファイルのコレクションとして管理する機能。
-
-```
-data/
-└── collections/
-    ├── posts/
-    │   ├── 20260101_article.json
-    │   └── 20260201_article.json
-    ├── news/
-    │   └── 20260301_news.json
-    └── ...
-```
-
-#### 9.3.4 静的生成との統合
-
-ヘッドレス CMS として API 提供するデータを、
-静的生成ジェネレーター（セクション 8）と組み合わせることで
-**静的 HTML として事前生成・配信**するフローの実現を検討。
-
-```
-【想定フロー（未確定）】
-  管理画面でコンテンツ編集
-       ↓
-  JSON データ更新（data/ ディレクトリ）
-       ↓
-  静的生成トリガー（手動 or 自動）
-       ↓
-  全ページを静的 HTML として出力
-       ↓
-  CDN / 静的ホスティングへデプロイ
-```
-
-### 9.4 設計上の制約・考慮事項（未検討）
-
-| 考慮事項 | 内容 |
-|---------|------|
-| **認証・認可** | API キー管理、レートリミット、CORS 設定 |
-| **GitHub 非依存** | pitcms と異なり、外部サービス依存なしで実現する方針 |
-| **フラットファイル継続** | DB を導入せず、JSON ファイルベースを維持する方針 |
-| **後方互換性** | 既存の動的 CMS 機能を壊さず、ヘッドレスモードを追加機能として提供 |
-| **アーキテクチャとの整合** | セクション 4.2 のアーキテクチャ変更と並行して検討 |
-
-### 9.5 今後のアクション
-
-| アクション | 担当 | ステータス |
-|-----------|------|----------|
-| ヘッドレス CMS 機能の要件定義 | Adlaire Group | 未着手 |
-| API 設計（エンドポイント・認証方式・レスポンス形式） | Adlaire Group | 未着手 |
-| コンテンツスキーマ定義仕様の策定 | Adlaire Group | 未着手 |
-| 静的生成ジェネレーターとの統合設計 | Adlaire Group | 未着手 |
-| `docs/HEADLESS_CMS.md` 仕様書の策定 | Adlaire Group | 未着手 |
+---
 
 ## 10. ディレクトリ・ファイル構成
 
@@ -848,63 +635,79 @@ data/
 
 ```
 AdlairePlatform/
-├── index.php               # アプリケーション本体（エントリーポイント）
-├── .htaccess               # Apache リライト・セキュリティ設定（Apache 専用）
+├── index.php                     # アプリケーション本体（エントリーポイント）
+├── .htaccess                     # Apache リライト・セキュリティ設定（Apache 専用）
+├── nginx.conf.example            # Nginx 設定リファレンス
 │
-├── js/
-│   ├── editInplace.php     # インプレイス編集用 JS（PHP フック対応）
-│   └── rte.php             # リッチテキストエディタ差し込みフック
+├── engines/
+│   ├── ThemeEngine.php           # テーマ検証・読み込みロジック
+│   ├── UpdateEngine.php          # アップデート・バックアップ・ロールバック
+│   └── JsEngine/
+│       ├── autosize.js           # テキストエリア自動リサイズ
+│       ├── editInplace.js        # インプレイス編集（バニラJS）
+│       ├── wysiwyg.js            # WYSIWYGエディタ（依存なし）
+│       └── updater.js            # アップデートUI（AJAX）
 │
 ├── themes/
 │   ├── AP-Default/
-│   │   ├── theme.php       # レイアウトテンプレート
-│   │   └── style.css       # スタイルシート
+│   │   ├── theme.php             # レイアウトテンプレート
+│   │   └── style.css             # スタイルシート
 │   └── AP-Adlaire/
 │       ├── theme.php
 │       └── style.css
 │
-├── plugins/                # プラグイン配置ディレクトリ（自動生成）
-│   └── <plugin-name>/
-│       └── index.php
+├── data/                         # JSON データストレージ（自動生成）
+│   ├── settings/
+│   │   ├── settings.json
+│   │   ├── auth.json
+│   │   ├── update_cache.json
+│   │   ├── login_attempts.json
+│   │   └── version.json
+│   └── content/
+│       └── pages.json
 │
-├── data/                   # JSON データストレージ（自動生成）
-│   ├── settings.json
-│   ├── pages.json
-│   ├── auth.json
-│   └── update_cache.json
+├── uploads/                      # 画像アップロード先（PHP実行不可）
+│   └── .htaccess                 # PHP禁止・Options -Indexes
 │
-├── backup/                 # バックアップ（自動生成）
-│   └── YYYYMMDD_His/
+├── backup/                       # バックアップ（自動生成）
+│   └── YYYYMMDD_HHmmss/
+│       └── meta.json
 │
-├── docs/                   # ドキュメント
-│   ├── SPEC.md             # 本仕様書
-│   ├── features.md         # 実装機能一覧
+├── docs/                         # ドキュメント
+│   ├── ARCHITECTURE.md
+│   ├── AdlairePlatform_Design.md
+│   ├── SPEC.md                   # 本仕様書
+│   ├── features.md               # 実装機能一覧
+│   ├── VERSIONING.md
+│   ├── STATIC_GENERATOR.md       # StaticEngine 草稿
+│   ├── HEADLESS_CMS.md           # ApiEngine 草稿
 │   └── Licenses/
+│       ├── LICENSE_Ver.1.0.md    # 旧ライセンス（アーカイブ）
+│       └── LICENSE_Ver.2.0.md    # 現行ライセンス
 │
-└── Licenses/
-    ├── Adlaire-License-v1.0
-    └── Adlaire-License-v2.0.md
+├── CHANGES.md
+├── RELEASE-NOTES.md
+└── README.md
 ```
 
 > 📝 **Nginx 利用時**: `.htaccess` は配置されているが Nginx では機能しない。
-> セクション 5.4.5・5.4.6・5.5.4 に記載の Nginx server block 設定を
-> `/etc/nginx/conf.d/adlaireplatform.conf` 等に別途記述すること。
+> `nginx.conf.example` に記載の Nginx server block 設定を別途記述すること。
 
 ### 10.2 保護対象ディレクトリ
-
-以下のディレクトリは `.htaccess` により外部からのアクセスを遮断する:
 
 | ディレクトリ | 保護方法 | 理由 |
 |-------------|----------|------|
 | `data/` | RedirectMatch 403 | 認証情報・コンテンツデータを保護 |
 | `backup/` | RedirectMatch 403 | バックアップファイルを保護 |
-| `files/` | RedirectMatch 403 | アップロードファイルを保護 |
+| `files/` | RedirectMatch 403 | レガシー互換 |
+| `engines/*.php` | RedirectMatch 403 | PHP ファイルへの直接アクセスを禁止 |
+| `uploads/` | PHP 実行禁止 | アップロード済みファイルから PHP 実行を防止 |
 
 ---
 
 ## 11. データ仕様
 
-### 11.1 settings.json
+### 11.1 data/settings/settings.json
 
 ```json
 {
@@ -917,7 +720,7 @@ AdlairePlatform/
 }
 ```
 
-### 11.2 pages.json
+### 11.2 data/content/pages.json
 
 ```json
 {
@@ -927,7 +730,7 @@ AdlairePlatform/
 }
 ```
 
-### 11.3 auth.json
+### 11.3 data/settings/auth.json
 
 ```json
 {
@@ -935,8 +738,24 @@ AdlairePlatform/
 }
 ```
 
-> ⚠️ `password_hash` の値は必ず bcrypt ハッシュ（`$2y$` で始まる文字列）でなければならない。  
+> ⚠️ `password_hash` の値は必ず bcrypt ハッシュ（`$2y$` で始まる文字列）でなければならない。
 > MD5 ハッシュ（32文字の16進数）が検出された場合は警告を表示し、パスワードリセットを促す。
+
+### 11.4 data/settings/version.json
+
+```json
+{
+  "version": "1.2.21",
+  "updated_at": "2026-03-08",
+  "history": [
+    {
+      "version": "1.2.21",
+      "applied_at": "2026-03-08 12:00:00",
+      "backup": "20260308_120000"
+    }
+  ]
+}
+```
 
 ---
 
@@ -952,27 +771,20 @@ AdlairePlatform/
 
 ### 12.2 脆弱性対策マトリクス
 
-| 脅威 | 対策 | Apache 実装場所 | Nginx 実装場所 |
-|------|------|----------------|----------------|
-| XSS | `h()` 関数による出力エスケープ | `index.php` 全出力箇所 | 同左 |
-| CSRF | 32バイトトークンによる検証 | `verify_csrf()` | 同左 |
-| セッションハイジャック | `session_regenerate_id(true)` | `login()` | 同左 |
-| パストラバーサル | 正規表現バリデーション | フィールド名・テーマ名・バックアップ名 | 同左 |
-| クリックジャッキング | `X-Frame-Options: SAMEORIGIN` | `.htaccess` | server block `add_header` |
-| MIME スニッフィング | `X-Content-Type-Options: nosniff` | `.htaccess` | server block `add_header` |
-| ディレクトリ列挙 | `autoindex off` / `Options -Indexes` | `.htaccess` | server block `autoindex off` |
-| データ漏洩 | 保護ディレクトリへのアクセス拒否 | `.htaccess` RedirectMatch 403 | server block `location deny all` |
-| ブルートフォース | — | 未実装（今後の課題） | 未実装（今後の課題） |
-| パスワード平文保存 | bcrypt ハッシュ化 | `savePassword()` | 同左 |
-
-### 12.3 今後のセキュリティ課題
-
-| 課題 | 優先度 | ステータス |
-|------|--------|------------|
-| ログイン試行回数制限（レートリミット） | 中 | 未実装 |
-| Content Security Policy (CSP) ヘッダー追加 | 高 | 未実装 |
-| `Permissions-Policy` ヘッダー追加 | 低 | 未実装 |
-| 2 要素認証（2FA） | 低 | 未検討 |
+| 脅威 | 対策 | 実装場所 |
+|------|------|---------|
+| XSS | `h()` 関数による出力エスケープ | `index.php` 全出力箇所 |
+| CSRF | 32バイトトークン + `empty()` + `hash_equals()` | `verify_csrf()` |
+| セッションハイジャック | `session_regenerate_id(true)` | `login()` |
+| パストラバーサル | 正規表現バリデーション | フィールド名・テーマ名・バックアップ名 |
+| クリックジャッキング | `X-Frame-Options: SAMEORIGIN` | `.htaccess` / server block |
+| MIME スニッフィング | `X-Content-Type-Options: nosniff` | `.htaccess` / server block |
+| ディレクトリ列挙 | `Options -Indexes` | `.htaccess` / `autoindex off` |
+| データ漏洩 | 保護ディレクトリへのアクセス拒否 | `.htaccess` / server block |
+| ブルートフォース | 5回失敗で15分ロックアウト（IP ベース） | `check_login_rate()` |
+| パスワード平文保存 | bcrypt ハッシュ化 | `savePassword()` |
+| コンテンツインジェクション | CSP ヘッダー（`default-src 'self'`） | `.htaccess` / server block |
+| 画像アップロード悪用 | MIME 検証・PHP 実行禁止・ランダムファイル名 | `upload_image()` |
 
 ---
 
@@ -994,7 +806,7 @@ AdlairePlatform/
 | 競合製品の開発 | ❌ 禁止 |
 | 商標の無断使用 | ❌ 禁止 |
 
-詳細は `Licenses/Adlaire-License-v2.0.md` を参照してください。
+詳細は `docs/Licenses/LICENSE_Ver.2.0.md` を参照してください。
 
 ---
 
@@ -1002,10 +814,11 @@ AdlairePlatform/
 
 | バージョン | 日付 | 変更内容 | 担当 |
 |------------|------|----------|------|
+| Ver.0.2-3 | 2026-03-08 | Ver.1.2-21 対応。プラグインシステム廃止・エンジン分離・データ層分割・WYSIWYG・画像アップロード・レート制限・CSP を追加。旧 js/ / plugins/ / rte.php 参照を削除。セキュリティ課題を実装済みに更新 | Adlaire Group |
 | Ver.0.1-2 | 2026-03-06 | ヘッドレス CMS 機能（計画）セクションを新規追加（セクション 9）。pitcms を参考として記録。目次・セクション番号を更新 | Adlaire Group |
 | Ver.0.1-1 | 2026-03-06 | 初版確定。技術スタック策定（PHP 8.2 必須化・jQuery 廃止・バニラ JS 採用）、Apache / Nginx 両対応、アーキテクチャ変更・静的生成ジェネレーター計画の記録 | Adlaire Group |
 
 ---
 
-*本ドキュメントは AdlairePlatform の公式仕様書です。*  
+*本ドキュメントは AdlairePlatform の公式仕様書です。*
 *内容は Adlaire Group の承認なく変更・転載することを禁じます。*

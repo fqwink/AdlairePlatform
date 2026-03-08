@@ -2,6 +2,76 @@
 
 ---
 
+## AdlairePlatform Ver.1.2.21（2026-03-08）
+
+Ph3 完了後のバグ修正・著作権更新版。
+
+### バグ修正
+
+**wysiwyg.js**
+- `_startDrag` — mousedown 直後の opacity フラッシュ防止（初回 mousemove まで視覚効果を遅延、純粋クリックはスキップ）
+- `_applySlashCmd` — `editor.focus()` を selection 設定前に移動（focus() によるカーソルリセット修正）
+- `_applySlashCmd` hr ケース — HR 挿入後のカーソル再設定（カーソル消失修正）
+- `_showSlashMenu` — DOM 追加後に実寸でビューポートクランプ（画面外はみ出し修正）
+- `_showTypePopup` — 同様にビューポートクランプ適用
+- `_changeBlockType` — `editor.focus()` を selection 設定前に移動
+
+**index.php**
+- `upload_image()` を `handle_update_action()` より前に呼び出すよう順序修正（致命的バグ修正）
+- `verify_csrf()` に `empty()` ガード追加（CSRF バイパス防止）
+- `AP_VERSION` を `1.2.21` に更新
+
+**updater.js**
+- CSRF メタタグ未検出時の null 参照エラー防止ガードを追加
+
+**著作権**
+- `index.php` ファイルヘッダーを最新情報に更新（`Adlaire Group`・2026・`Adlaire License Ver.2.0`）
+
+### 動作要件
+- PHP 8.2+ **必須**
+- Apache（mod_rewrite・mod_headers 有効）または Nginx（php-fpm）
+- ZipArchive 拡張（アップデート機能に必要）
+- データベース不要
+
+---
+
+## AdlairePlatform Ver.1.2.20（2026-03-08）
+
+Ph3: Editor.js スタイル ブロック体験 完成版。
+
+### 新機能
+
+**Ph2-2 設計レビュー修正**
+- `enableObjectResizing` / `enableInlineTableEditing` を `false` に設定（Chromium ネイティブリサイズハンドルを無効化）
+- alt 入力欄の `keydown` で `stopPropagation()` 追加（Enter/Escape 誤伝播修正）
+- テーブル挿入 HTML に末尾 `<p><br></p>` 追加（テーブル直後カーソル移動修正）
+
+**新ブロックタイプ（Ph3-E）**
+- `blockquote` / `pre` / `hr` を新ブロックタイプとして追加
+- ツールバーに `❝`・`{}`・`—` ボタンを追加
+- `_allowedTags` に `BLOCKQUOTE / PRE / CODE / HR` を追加
+
+**"/" スラッシュコマンドメニュー（Ph3-F）**
+- 空行で `/` 入力時にブロックタイプ選択メニューを表示
+- ArrowDown/Up で選択移動、Enter で確定、Escape で閉じる
+- インクリメンタル絞り込みフィルタ対応
+
+**ブロックハンドル・タイプ変換（Ph3-G）**
+- ブロックホバー時に左端へ `⠿` ハンドルを表示
+- ハンドルクリックでブロックタイプ変換ポップアップを表示
+
+**ドラッグ並べ替え（Ph3-H）**
+- `⠿` ハンドルをドラッグしてブロック順序を変更
+- シアン色のドロップラインインジケータ
+
+### 動作要件
+- PHP 8.2+ **必須**
+- Apache（mod_rewrite・mod_headers 有効）または Nginx（php-fpm）
+- ZipArchive 拡張（アップデート機能に必要）
+- データベース不要
+
+---
+
 ## AdlairePlatform Ver.1.2.16（2026-03-07）
 
 現在の安定バージョン。Ver.1.0 以降に P1〜P4 フェーズで実施したアーキテクチャ刷新・
@@ -108,10 +178,6 @@
 - `themes/` ディレクトリへの配置によるテーマ追加
 - ブラウザからのリアルタイムテーマ切替
 - 同梱テーマ：`AP-Default`、`AP-Adlaire`
-
-**プラグインシステム**
-- `plugins/` 自動ロード機構
-- `admin-head` / `admin-richText` フックポイント
 
 **セキュリティ**
 - bcrypt パスワードハッシュ化
