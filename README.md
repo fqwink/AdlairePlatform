@@ -7,6 +7,8 @@
 APは、デザインテンプレートエンジンを搭載したフラットファイルベースの軽量 CMS フレームワークです。
 データベース不要で動作し、各機能を小さなエンジン単位として設計することで、段階的なシステム拡張が可能です。
 
+> **現在のバージョン**: Ver.1.2-26（Ver.1.2系最終リビジョン）
+
 ---
 
 ## 実装済み機能
@@ -20,8 +22,9 @@ APは、デザインテンプレートエンジンを搭載したフラットフ
 ### テーマエンジン
 - **テーマ切替** — `themes/` ディレクトリに配置したテーマを管理画面からリアルタイムで切替
 - **同梱テーマ** — `AP-Default`（シンプル）、`AP-Adlaire`（Adlaire デザイン）の 2 種類
-- **テーマ構造** — `theme.php`（HTML テンプレート）＋ `style.css` の 2 ファイル構成
-- **エンジン分離** — `engines/ThemeEngine.php` によるテーマ検証・ロード
+- **テーマ構造** — `theme.html`（テンプレートエンジン方式・PHP フリー）＋ `style.css`（`theme.php` レガシーフォールバック対応）
+- **テンプレートエンジン** — `engines/TemplateEngine.php` による軽量テンプレートエンジン（`{{var}}` / `{{{raw}}}` / `{{#if}}` / `{{#each}}` / `{{> partial}}`）
+- **エンジン分離** — `engines/ThemeEngine.php` によるテーマ検証・ロード・コンテキスト構築
 
 ### WYSIWYGエディタ
 - **依存ライブラリなし** — `engines/JsEngine/wysiwyg.js` による独自実装（ES5 互換）
@@ -66,7 +69,8 @@ AdlairePlatform/
 ├── .htaccess                     # Apache リライト・セキュリティ設定
 ├── nginx.conf.example            # Nginx 設定リファレンス
 ├── engines/
-│   ├── ThemeEngine.php           # テーマ検証・読み込み
+│   ├── TemplateEngine.php        # 軽量テンプレートエンジン（PHP フリーテーマ用）
+│   ├── ThemeEngine.php           # テーマ検証・読み込み・コンテキスト構築
 │   ├── UpdateEngine.php          # アップデート・バックアップ・ロールバック
 │   └── JsEngine/
 │       ├── autosize.js           # テキストエリア自動リサイズ
@@ -75,9 +79,13 @@ AdlairePlatform/
 │       └── updater.js            # アップデートUI
 ├── themes/
 │   ├── AP-Default/
-│   │   ├── theme.php
+│   │   ├── theme.html            # テンプレートエンジン方式（推奨）
+│   │   ├── settings.html         # 管理者設定パネル（パーシャル）
+│   │   ├── theme.php             # レガシー PHP 方式（フォールバック）
 │   │   └── style.css
 │   └── AP-Adlaire/
+│       ├── theme.html
+│       ├── settings.html
 │       ├── theme.php
 │       └── style.css
 ├── data/

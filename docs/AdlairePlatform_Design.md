@@ -2,6 +2,7 @@
 
 > 確定日: 2026-03-07
 > バージョン規則: `Ver.{メジャー}.{マイナー}-{リビジョン}` (AFE VERSIONING.md準拠)
+> **⚠️ Ver.1.2系終了**: Ver.1.2-26 をもって Ver.1.2系は終了しました。以降の変更は次期メジャーバージョン（Ver.2.x）にて実施予定です。
 ---
 
 ## 1. アーキテクチャ方針
@@ -24,7 +25,8 @@ AdlairePlatform/
 ├─ .htaccess                # CSP・engines/ アクセス禁止・URL rewrite
 ├─ nginx.conf.example       # Nginx 用設定リファレンス
 ├─ engines/
-│  ├─ ThemeEngine.php       # テーマ検証・読み込みロジック
+│  ├─ TemplateEngine.php    # 軽量テンプレートエンジン（PHP フリーテーマ用）
+│  ├─ ThemeEngine.php       # テーマ検証・読み込み・コンテキスト構築
 │  ├─ UpdateEngine.php      # アップデート・バックアップ・ロールバック
 │  └─ JsEngine/
 │     ├─ editInplace.js     # インプレイス編集（バニラJS）
@@ -33,9 +35,13 @@ AdlairePlatform/
 │     └─ updater.js         # アップデートUI（AJAX）
 ├─ themes/
 │  ├─ AP-Default/
-│  │  ├─ theme.php
+│  │  ├─ theme.html         # テンプレートエンジン方式（推奨）
+│  │  ├─ settings.html      # 管理者設定パネル（パーシャル）
+│  │  ├─ theme.php          # レガシー PHP 方式（フォールバック）
 │  │  └─ style.css
 │  └─ AP-Adlaire/
+│     ├─ theme.html
+│     ├─ settings.html
 │     ├─ theme.php
 │     └─ style.css
 ├─ data/
@@ -82,10 +88,17 @@ AdlairePlatform/
 | フック | `editTags()`, `registerCoreHooks()`, `$hook[]` |
 | ユーティリティ | `h()`, `data_dir()`, `settings_dir()`, `content_dir()`, `migrate_from_files()` |
 
+### engines/TemplateEngine.php
+
+- 軽量テンプレートエンジン（`{{var}}` / `{{{raw}}}` / `{{#if}}` / `{{#each}}` / `{{> partial}}`）
+- パーシャル（部分テンプレート）・ループメタ変数（`@index` / `@first` / `@last`）
+- 未処理タグ検出（`error_log()` で警告）
+
 ### engines/ThemeEngine.php
 
-- テーマ自動検出・存在確認
-- `themes/{name}/theme.php` のロード
+- テーマ自動検出・存在確認・バリデーション
+- `theme.html` 優先ロード → なければ `theme.php` にフォールバック
+- `buildContext()` / `buildStaticContext()` / `parseMenu()` / `buildSettingsContext()`
 - テーマ切替ロジック（設定値に基づく）
 
 ### engines/UpdateEngine.php
@@ -249,10 +262,13 @@ Header always set Content-Security-Policy "default-src 'self'; script-src 'self'
 | P2完了 | `Ver.1.2-13` | ✅ 完了 | エンジン分離・データ層分割・サードパーティ排除 |
 | P3完了 | `Ver.1.2-14` | ✅ 完了 | セキュリティ強化（CSP・engines/保護・nginx設定） |
 | P4完了 | `Ver.1.2-15` | ✅ 完了 | ドキュメント整備 |
-
+| バグ修正 | `Ver.1.2-16` | ✅ 完了 | defense-in-depth・バグ修正 |
+| WYSIWYG | `Ver.1.2-20 〜 25` | ✅ 完了 | WYSIWYG エディタ独自実装（ブロックベース） |
+| テンプレート | `Ver.1.2-26` | ✅ 完了 | TemplateEngine 導入・テーマ PHP フリー化・最終バグ修正 |
+| **Ver.1.2系終了** | `Ver.1.2-26` | **🔒 終了** | **Ver.1.2系最終リビジョン** |
 
 > **バージョン規則**: リビジョンはリセット禁止、常に累積加算
-> **正しい例**: `Ver.1.0-11 → Ver.1.1-12 → Ver.1.2-13 → Ver.1.2-14 → Ver.1.2-15 → Ver.1.2-16`
+> **Ver.1.2系実績**: `Ver.1.0-11 → Ver.1.1-12 → Ver.1.2-13 → ... → Ver.1.2-26（終了）`
 
 ---
 
@@ -319,7 +335,7 @@ Header always set Content-Security-Policy "default-src 'self'; script-src 'self'
 
 ## 11. 機能リスト
 
-### 実装済み（Ver.1.2-16 現在）
+### 実装済み（Ver.1.2-26 / Ver.1.2系最終）
 
 #### コンテンツ管理
 - ✅ ページ作成・編集・保存（JSON）
@@ -372,10 +388,12 @@ Header always set Content-Security-Policy "default-src 'self'; script-src 'self'
 - ✅ `data/content/` 分割（pages.json）
 - ✅ `migrate_from_files()` 旧パス自動移行
 
-### 将来計画
+### 次期バージョン以降で実装予定（Ver.1.2系では未実装）
 
-- 🔜 静的サイト生成（`engines/StaticEngine.php`）— 設計確定（`docs/STATIC_GENERATOR.md` Ver.0.2-1）
+- 🔜 静的サイト生成（`engines/StaticEngine.php`）— 設計確定（`docs/STATIC_GENERATOR.md` Ver.0.3-1）
 - 🔜 ヘッドレスCMS（`engines/ApiEngine.php`）— 設計確定（`docs/HEADLESS_CMS.md` Ver.0.3-1）
+
+> Ver.1.2系終了に伴い、上記の実装は次期メジャーバージョン（Ver.2.x）以降に持ち越します。
 
 ---
 

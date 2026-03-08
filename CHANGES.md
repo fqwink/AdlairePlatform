@@ -2,6 +2,29 @@
 
 ---
 
+## 2026-03-08（Ver.1.2-26 — Ver.1.2系終了）
+
+> **Ver.1.2系は本リビジョンをもって終了とします。**
+> 以降の機能追加・アーキテクチャ変更は次期メジャーバージョン（Ver.2.x）にて実施予定です。
+
+- **[End of Series]** Ver.1.2系の開発を終了
+  - Ver.1.2系で実施した主要な成果:
+    - PHP 8.2+ 必須化・jQuery 全廃・バニラ JS 全面移行
+    - エンジン分離アーキテクチャ（ThemeEngine / UpdateEngine / TemplateEngine）
+    - データ層分割（`data/settings/` / `data/content/`）
+    - WYSIWYGエディタ独自実装（ブロックベース・依存なし）
+    - セキュリティ多層強化（CSP / CSRF / XSS / レート制限）
+    - TemplateEngine 導入によるテーマ PHP フリー化
+  - 設計確定済み・次期バージョン以降で実装予定:
+    - StaticEngine（静的サイト生成）— `docs/STATIC_GENERATOR.md` Ver.0.3-1
+    - ApiEngine（ヘッドレス CMS REST API）— `docs/HEADLESS_CMS.md` Ver.0.3-1
+- **[Docs]** 全ドキュメントを Ver.1.2系終了に伴い更新
+  - 各設計書にシリーズ終了通知を追記
+  - 未実装エンジン（StaticEngine / ApiEngine）のステータスを「次期バージョン以降で実装」に変更
+  - バージョン計画・ロードマップを更新
+
+---
+
 ## 2026-03-08（Ver.1.2-26 — Ver.1.2系 最終バグ修正）
 
 - **[Fix/Critical]** `UpdateEngine::handle_update_action()` — 全 `ap_action` 値を捕捉して `default: exit` で処理終了していた問題を修正。リビジョン API（`list_revisions`, `restore_revision` 等）が完全に動作不能だった。明示的な有効アクションリスト `in_array()` チェックに変更
