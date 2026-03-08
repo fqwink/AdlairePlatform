@@ -13,7 +13,7 @@ if (PHP_VERSION_ID < 80200) {
 	exit('AdlairePlatform requires PHP 8.2 or later. Current version: ' . PHP_VERSION);
 }
 
-define('AP_VERSION', '1.2.0');
+define('AP_VERSION', '1.2.16');
 define('AP_UPDATE_URL', 'https://api.github.com/repos/win-k/AdlairePlatform/releases/latest');
 define('AP_BACKUP_GENERATIONS', 5);
 
@@ -27,6 +27,7 @@ session_start();
 migrate_from_files();
 host();
 handle_update_action();
+upload_image();
 edit();
 
 $c['password'] = 'admin';
@@ -129,6 +130,7 @@ function registerCoreHooks(): void {
 	global $hook;
 	$hook['admin-head'][] = "\n\t<script src='engines/JsEngine/autosize.js'></script>";
 	$hook['admin-head'][] = "\n\t<script src='engines/JsEngine/editInplace.js'></script>";
+	$hook['admin-head'][] = "\n\t<script src='engines/JsEngine/wysiwyg.js'></script>";
 	$hook['admin-head'][] = "\n\t<script src='engines/JsEngine/updater.js'></script>";
 }
 
@@ -158,10 +160,54 @@ function content(string $id, $content = ''): void {
 	global $d;
 	$content = (string)($content ?? '');
 	if(is_loggedin()){
-		echo "<span title='".h($d['default']['content'])."' id='".h($id)."' class='editText'>".$content."</span>";
+		echo "<span title='".h($d['default']['content'])."' id='".h($id)."' class='editRich'>".$content."</span>";
 	} else {
 		echo $content;
 	}
+}
+
+function upload_image(): void {
+	if (!isset($_POST['ap_action']) || $_POST['ap_action'] !== 'upload_image') return;
+	header('Content-Type: application/json; charset=UTF-8');
+	if (!isset($_SESSION['l'])) {
+		http_response_code(401);
+		echo json_encode(['error' => '未ログイン']);
+		exit;
+	}
+	verify_csrf();
+	if (!isset($_FILES['image']) || $_FILES['image']['error'] !== UPLOAD_ERR_OK) {
+		http_response_code(400);
+		echo json_encode(['error' => 'ファイルエラー: ' . ($_FILES['image']['error'] ?? 'なし')]);
+		exit;
+	}
+	$file = $_FILES['image'];
+	if ($file['size'] > 2 * 1024 * 1024) {
+		http_response_code(400);
+		echo json_encode(['error' => 'ファイルサイズが上限（2MB）を超えています']);
+		exit;
+	}
+	$finfo = new finfo(FILEINFO_MIME_TYPE);
+	$mime  = $finfo->file($file['tmp_name']);
+	$ext_map = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/gif' => 'gif', 'image/webp' => 'webp'];
+	if (!isset($ext_map[$mime])) {
+		http_response_code(400);
+		echo json_encode(['error' => '許可されていないファイル形式です（JPEG/PNG/GIF/WebP のみ）']);
+		exit;
+	}
+	$dir = 'uploads/';
+	if (!is_dir($dir) && !mkdir($dir, 0755, true)) {
+		http_response_code(500);
+		echo json_encode(['error' => 'アップロードディレクトリを作成できません']);
+		exit;
+	}
+	$filename = bin2hex(random_bytes(12)) . '.' . $ext_map[$mime];
+	if (!move_uploaded_file($file['tmp_name'], $dir . $filename)) {
+		http_response_code(500);
+		echo json_encode(['error' => 'ファイル保存に失敗しました']);
+		exit;
+	}
+	echo json_encode(['url' => $dir . $filename]);
+	exit;
 }
 
 function edit(){

@@ -88,6 +88,11 @@ span.editText{
 	cursor: pointer;
 }
 
+span.editRich{
+	display: block;
+	cursor: pointer;
+}
+
 span.editText textarea{
 	border: 0;
 	padding: 0;
