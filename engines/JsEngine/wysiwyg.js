@@ -2789,7 +2789,7 @@ function _fetchSave(key, val, callback) {
 			'Content-Type': 'application/x-www-form-urlencoded',
 			'X-CSRF-TOKEN': csrf,
 		},
-		body: new URLSearchParams({ fieldname: key, content: val, csrf }),
+		body: new URLSearchParams({ ap_action: 'edit_field', fieldname: key, content: val, csrf }),
 	}).then(r => { if (callback) callback(r.ok); })
 	  .catch(() => { if (callback) callback(false); });
 }

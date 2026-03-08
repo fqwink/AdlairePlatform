@@ -20,7 +20,6 @@
 		<?php menu(); ?>
 		<div class="clear"></div>
 	</nav>
-	<?php if(is_loggedin()) settings();?>
 
 	<div id="wrapper" class="border">
 		<div class="pad">

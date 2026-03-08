@@ -2,6 +2,53 @@
 
 ---
 
+## AdlairePlatform Ver.1.3-27（2026-03-08）
+
+管理ツールをエンジン駆動モデルに再設計し、専用ダッシュボード（`?admin`）を導入。
+index.php に集約されていた管理ロジック（認証・CSRF・フィールド保存・画像アップロード・リビジョン管理）を `engines/AdminEngine.php` に分離。
+フロントエンド上の settings.html パーシャル（クイック設定パネル）を廃止し、ダッシュボードに統合。
+
+### 新機能
+
+- **AdminEngine** — 管理機能を集約する新エンジン（`engines/AdminEngine.php`）。認証・CSRF・フィールド保存・画像アップロード・リビジョン管理・ダッシュボードレンダリングを担当
+- **管理ダッシュボード** — `?admin` でアクセスする専用管理画面。テーマ非依存の独自テンプレート・スタイルシートを使用
+  - サイト設定（タイトル・説明・キーワード・著作権・テーマ・メニュー）の一括編集
+  - ページ一覧（クリックで編集ページへ移動）
+  - アップデート確認・適用
+  - システム情報（PHP バージョン・ディスク空き・プラットフォーム）
+- **`ap_action` 統一** — 全管理 POST アクションを `ap_action` パラメータで統一（`edit_field` / `upload_image` / リビジョン系）。後方互換: `fieldname` のみの POST も `edit_field` として処理
+
+### アーキテクチャ改善
+
+- `index.php` を約 670 行から約 250 行に簡素化（管理ロジックを AdminEngine に移動）
+- `ThemeEngine.php` から `buildSettingsContext()` / `renderContent()` を削除し、AdminEngine に委譲
+- フロントエンドの settings.html パーシャルを廃止 → ダッシュボードに統合
+- ログイン時にフロントエンドのフッターにダッシュボードリンクを表示
+
+### 新規ファイル
+
+| ファイル | 説明 |
+|---------|------|
+| `engines/AdminEngine.php` | 管理エンジン本体 |
+| `engines/AdminEngine/dashboard.html` | ダッシュボードテンプレート（TemplateEngine 方式） |
+| `engines/AdminEngine/dashboard.css` | ダッシュボード専用スタイルシート |
+| `engines/JsEngine/dashboard.js` | ダッシュボード固有のインタラクション |
+
+### 削除ファイル
+
+| ファイル | 理由 |
+|---------|------|
+| `themes/AP-Default/settings.html` | ダッシュボードに統合 |
+| `themes/AP-Adlaire/settings.html` | ダッシュボードに統合 |
+
+### 後方互換性
+
+- 既存の `theme.php` テーマ用レガシーラッパー関数（`is_loggedin()`, `csrf_token()`, `verify_csrf()`, `content()`, `editTags()`, `menu()`）は index.php に維持。AdminEngine に委譲
+- `fieldname` のみの POST リクエスト（`ap_action` なし）も引き続き動作
+- フロントエンドのインプレイス編集（editRich / editText）は従来通り動作
+
+---
+
 ## AdlairePlatform Ver.1.2-26 — Ver.1.2系終了（2026-03-08）
 
 > **Ver.1.2系は本リビジョン（Ver.1.2-26）をもって開発終了とします。**

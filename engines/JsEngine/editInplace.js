@@ -69,7 +69,7 @@ function _apFieldSave(key, val) {
 			'Content-Type': 'application/x-www-form-urlencoded',
 			'X-CSRF-TOKEN': csrf
 		},
-		body: new URLSearchParams({ fieldname: key, content: val, csrf: csrf })
+		body: new URLSearchParams({ ap_action: 'edit_field', fieldname: key, content: val, csrf: csrf })
 	}).then(function (r) {
 		if (!r.ok) throw new Error('HTTP ' + r.status);
 		return r.text();

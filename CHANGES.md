@@ -2,6 +2,28 @@
 
 ---
 
+## 2026-03-08（Ver.1.3-27 — AdminEngine・ダッシュボード）
+
+- **[Architecture]** `engines/AdminEngine.php` 新規作成 — 認証・CSRF・フィールド保存・画像アップロード・リビジョン管理・ダッシュボードを集約
+- **[Architecture]** `index.php` を大幅簡素化 — 管理機能を AdminEngine に移動（670行 → ~250行）、ルーティング・初期化・共有ユーティリティのみ残留
+- **[Feature]** 管理ダッシュボード（`?admin`）— テーマ非依存の専用管理画面を新規実装
+  - サイト設定（タイトル・説明・キーワード・著作権・テーマ・メニュー）
+  - ページ一覧（プレビュー付き、クリックで編集ページへ移動）
+  - アップデート管理（バージョン確認・適用・バックアップ・ロールバック）
+  - システム情報（PHP バージョン・ディスク空き容量）
+- **[Architecture]** `engines/AdminEngine/dashboard.html` — TemplateEngine ベースのダッシュボードテンプレート
+- **[Architecture]** `engines/AdminEngine/dashboard.css` — ダッシュボード専用スタイルシート（テーマ非依存）
+- **[Architecture]** `engines/JsEngine/dashboard.js` — ダッシュボード固有のインタラクション（テーマ選択保存）
+- **[Refactor]** `engines/ThemeEngine.php` — `AdminEngine::isLoggedIn()` / `AdminEngine::csrfToken()` / `AdminEngine::getAdminScripts()` / `AdminEngine::renderEditableContent()` への委譲に変更。`buildSettingsContext()` / `renderContent()` を削除
+- **[Refactor]** JsEngine 保存リクエストに `ap_action=edit_field` パラメータを追加（`editInplace.js` / `wysiwyg.js`）
+- **[Refactor]** テーマから設定パネルを削除 — `settings.html` パーシャルを廃止、`{{#if admin}}{{> settings}}{{/if}}` を削除
+- **[Refactor]** `theme.php` レガシーテーマから `settings()` 呼び出しを削除
+- **[Refactor]** ログイン時のフッターに Dashboard リンク（`?admin`）を追加
+- **[Refactor]** レガシー互換ラッパー維持: `is_loggedin()`, `csrf_token()`, `verify_csrf()`, `content()`, `editTags()`, `menu()` は AdminEngine への委譲として存続
+- **[Version]** `AP_VERSION` を `'1.3.27'` に更新
+
+---
+
 ## 2026-03-08（Ver.1.2-26 — Ver.1.2系終了）
 
 > **Ver.1.2系は本リビジョンをもって終了とします。**

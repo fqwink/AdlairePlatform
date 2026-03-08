@@ -2,8 +2,8 @@
 
 > 確定日: 2026-03-07
 > バージョン規則: `Ver.{メジャー}.{マイナー}-{リビジョン}` (AFE VERSIONING.md準拠)
-> **⚠️ Ver.1.2系終了**: Ver.1.2-26 をもって Ver.1.2系は終了しました。
-> **Ver.1.3系計画**: StaticEngine・ApiEngine 実装、管理ツールのダッシュボード化・エンジン駆動モデル化
+> **Ver.1.3系開発中**: Ver.1.3-27 で AdminEngine 導入・ダッシュボード化を完了。
+> StaticEngine・ApiEngine は引き続き実装予定。
 ---
 
 ## 1. アーキテクチャ方針
@@ -22,10 +22,14 @@
 
 ```
 AdlairePlatform/
-├─ index.php                # Router・Auth・Content・Hook 集約
+├─ index.php                # Router・ユーティリティ・レガシーラッパー
 ├─ .htaccess                # CSP・engines/ アクセス禁止・URL rewrite
 ├─ nginx.conf.example       # Nginx 用設定リファレンス
 ├─ engines/
+│  ├─ AdminEngine.php       # 認証・CSRF・管理アクション・ダッシュボード
+│  ├─ AdminEngine/
+│  │  ├─ dashboard.html     # ダッシュボードテンプレート（テーマ非依存）
+│  │  └─ dashboard.css      # ダッシュボード専用スタイル
 │  ├─ TemplateEngine.php    # 軽量テンプレートエンジン（PHP フリーテーマ用）
 │  ├─ ThemeEngine.php       # テーマ検証・読み込み・コンテキスト構築
 │  ├─ UpdateEngine.php      # アップデート・バックアップ・ロールバック
@@ -33,16 +37,15 @@ AdlairePlatform/
 │     ├─ editInplace.js     # インプレイス編集（バニラJS）
 │     ├─ autosize.js        # テキストエリア自動リサイズ
 │     ├─ wysiwyg.js         # WYSIWYGエディタ（依存なし）
-│     └─ updater.js         # アップデートUI（AJAX）
+│     ├─ updater.js         # アップデートUI（AJAX）
+│     └─ dashboard.js       # ダッシュボード固有インタラクション
 ├─ themes/
 │  ├─ AP-Default/
 │  │  ├─ theme.html         # テンプレートエンジン方式（推奨）
-│  │  ├─ settings.html      # 管理者設定パネル（パーシャル）
 │  │  ├─ theme.php          # レガシー PHP 方式（フォールバック）
 │  │  └─ style.css
 │  └─ AP-Adlaire/
 │     ├─ theme.html
-│     ├─ settings.html
 │     ├─ theme.php
 │     └─ style.css
 ├─ data/
@@ -78,16 +81,26 @@ AdlairePlatform/
 
 ## 3. 各コンポーネントの責務
 
-### index.php（集約エントリーポイント）
+### index.php（エントリーポイント）
 
 | 機能グループ | 主な関数 |
 |------------|---------|
-| ルーティング | `getSlug()`, `host()`, 404ハンドリング |
-| 認証 | `login()`, `logout()`, `savePassword()`, `is_loggedin()` |
-| CSRF | `csrf_token()`, `verify_csrf()` |
-| コンテンツ | `content()`, `menu()`, `settings()`, `json_read()`, `json_write()` |
-| フック | `editTags()`, `registerCoreHooks()`, `$hook[]` |
-| ユーティリティ | `h()`, `data_dir()`, `settings_dir()`, `content_dir()`, `migrate_from_files()` |
+| ルーティング | `getSlug()`, `host()`, 404ハンドリング, `?admin` ダッシュボード |
+| データ層 | `json_read()`, `json_write()`, `data_dir()`, `settings_dir()`, `content_dir()` |
+| ユーティリティ | `h()`, `migrate_from_files()` |
+| レガシーラッパー | `is_loggedin()`, `csrf_token()`, `verify_csrf()`, `content()`, `editTags()`, `menu()` → AdminEngine に委譲 |
+
+### engines/AdminEngine.php（管理エンジン）
+
+| 機能グループ | 主なメソッド |
+|------------|------------|
+| POSTディスパッチ | `handle()` — `ap_action` パラメータでルーティング |
+| 認証 | `isLoggedIn()`, `login()`, `savePassword()` |
+| CSRF | `csrfToken()`, `verifyCsrf()` |
+| 管理アクション | `handleEditField()`, `handleUploadImage()`, リビジョン系 |
+| コンテンツ出力 | `renderEditableContent()` |
+| フック | `registerHooks()`, `getAdminScripts()` |
+| ダッシュボード | `renderDashboard()`, `buildDashboardContext()` |
 
 ### engines/TemplateEngine.php
 
@@ -99,7 +112,7 @@ AdlairePlatform/
 
 - テーマ自動検出・存在確認・バリデーション
 - `theme.html` 優先ロード → なければ `theme.php` にフォールバック
-- `buildContext()` / `buildStaticContext()` / `parseMenu()` / `buildSettingsContext()`
+- `buildContext()` / `buildStaticContext()` / `parseMenu()`（AdminEngine に認証・コンテンツ出力を委譲）
 - テーマ切替ロジック（設定値に基づく）
 
 ### engines/UpdateEngine.php
@@ -178,13 +191,11 @@ AdlairePlatform/
 ### 現行実装
 
 ```php
-// 旧: loadPlugins() → 新: registerCoreHooks()
-function registerCoreHooks(): void {
-    global $hook;
-    $hook['admin-head'][] = "\n\t<script src='engines/JsEngine/autosize.js'></script>";
-    $hook['admin-head'][] = "\n\t<script src='engines/JsEngine/editInplace.js'></script>";
-    $hook['admin-head'][] = "\n\t<script src='engines/JsEngine/updater.js'></script>";
-}
+// AdminEngine::registerHooks() が admin-head フックに JsEngine スクリプトを登録
+AdminEngine::registerHooks();
+
+// AdminEngine::getAdminScripts() がフック内容を文字列で返却（theme.html 方式用）
+// editTags() はレガシー theme.php フォールバック用ラッパーとして維持
 ```
 
 ---
@@ -267,15 +278,15 @@ Header always set Content-Security-Policy "default-src 'self'; script-src 'self'
 | WYSIWYG | `Ver.1.2-20 〜 25` | ✅ 完了 | WYSIWYG エディタ独自実装（ブロックベース） |
 | テンプレート | `Ver.1.2-26` | ✅ 完了 | TemplateEngine 導入・テーマ PHP フリー化・最終バグ修正 |
 | **Ver.1.2系終了** | `Ver.1.2-26` | **🔒 終了** | **Ver.1.2系最終リビジョン** |
+| AdminEngine | `Ver.1.3-27` | ✅ 完了 | 管理エンジン導入・ダッシュボード化 |
 
-### Ver.1.3系 計画
+### Ver.1.3系
 
 | フェーズ | 主な内容 | ステータス |
 |---------|---------|-----------|
+| AdminEngine・ダッシュボード | 管理ツールのエンジン駆動モデル化・ダッシュボード UI 導入 | ✅ 完了（Ver.1.3-27） |
 | StaticEngine | 静的サイト生成エンジン実装（`docs/STATIC_GENERATOR.md` Ver.0.3-1 設計確定済み） | 🔜 計画 |
 | ApiEngine | ヘッドレス CMS REST API 実装（`docs/HEADLESS_CMS.md` Ver.0.3-1 設計確定済み） | 🔜 計画 |
-| ダッシュボード化 | 管理ツールをダッシュボード形式に刷新 | 🔜 計画 |
-| エンジン駆動モデル化 | 管理ツールをエンジン駆動モデルに再設計 | 🔜 計画 |
 
 > **バージョン規則**: リビジョンはリセット禁止、常に累積加算
 > **Ver.1.2系実績**: `Ver.1.0-11 → Ver.1.1-12 → Ver.1.2-13 → ... → Ver.1.2-26（終了）`
@@ -398,12 +409,11 @@ Header always set Content-Security-Policy "default-src 'self'; script-src 'self'
 - ✅ `data/content/` 分割（pages.json）
 - ✅ `migrate_from_files()` 旧パス自動移行
 
-### Ver.1.3系で実装予定
+### Ver.1.3系
 
+- ✅ AdminEngine 導入・管理ダッシュボード化（`engines/AdminEngine.php` / `?admin`）— Ver.1.3-27
 - 🔜 静的サイト生成（`engines/StaticEngine.php`）— 設計確定（`docs/STATIC_GENERATOR.md` Ver.0.3-1）
 - 🔜 ヘッドレスCMS（`engines/ApiEngine.php`）— 設計確定（`docs/HEADLESS_CMS.md` Ver.0.3-1）
-- 🔜 管理ツールのダッシュボード化
-- 🔜 管理ツールのエンジン駆動モデル化
 
 ---
 

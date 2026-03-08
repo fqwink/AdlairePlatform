@@ -54,22 +54,28 @@ class ThemeEngine {
 	 * 動的 CMS 用のテンプレートコンテキストを構築
 	 */
 	public static function buildContext(): array {
-		global $c, $d, $host, $lstatus, $apcredit, $hook;
+		global $c, $d, $host, $lstatus, $apcredit;
 
 		$menuItems = self::parseMenu($c['menu'] ?? '', $c['page'] ?? '');
-		$admin     = is_loggedin();
+		$admin     = AdminEngine::isLoggedIn();
 
 		$adminScripts = '';
 		if ($admin) {
-			foreach (($hook['admin-head'] ?? []) as $o) {
-				$adminScripts .= "\t" . $o . "\n";
-			}
+			$adminScripts = AdminEngine::getAdminScripts();
 		}
 
-		$contentHtml = self::renderContent($c['page'] ?? '', $c['content'] ?? '', $admin);
-		$subsideHtml = self::renderContent('subside', $c['subside'] ?? '', $admin);
+		$contentHtml = AdminEngine::renderEditableContent(
+			$c['page'] ?? '',
+			$c['content'] ?? '',
+			$d['default']['content'] ?? 'Click to edit!'
+		);
+		$subsideHtml = AdminEngine::renderEditableContent(
+			'subside',
+			$c['subside'] ?? '',
+			$d['default']['content'] ?? 'Click to edit!'
+		);
 
-		$ctx = [
+		return [
 			'title'          => $c['title'] ?? '',
 			'page'           => $c['page'] ?? '',
 			'host'           => $host ?? '',
@@ -77,7 +83,7 @@ class ThemeEngine {
 			'description'    => $c['description'] ?? '',
 			'keywords'       => $c['keywords'] ?? '',
 			'admin'          => $admin,
-			'csrf_token'     => csrf_token(),
+			'csrf_token'     => AdminEngine::csrfToken(),
 			'admin_scripts'  => $adminScripts,
 			'content'        => $contentHtml,
 			'subside'        => $subsideHtml,
@@ -86,12 +92,6 @@ class ThemeEngine {
 			'credit'         => $apcredit ?? '',
 			'menu_items'     => $menuItems,
 		];
-
-		if ($admin) {
-			$ctx = array_merge($ctx, self::buildSettingsContext());
-		}
-
-		return $ctx;
 	}
 
 	/**
@@ -138,49 +138,5 @@ class ThemeEngine {
 			];
 		}
 		return $items;
-	}
-
-	/**
-	 * content() の文字列返却版
-	 */
-	private static function renderContent(string $id, string $content, bool $admin): string {
-		global $d;
-		$content = (string)($content ?? '');
-		if ($admin) {
-			return "<span title='" . h($d['default']['content'] ?? 'Click to edit!')
-				. "' id='" . h($id) . "' class='editRich'>" . $content . "</span>";
-		}
-		return $content;
-	}
-
-	/**
-	 * settings.html パーシャル用のコンテキスト変数を構築
-	 */
-	private static function buildSettingsContext(): array {
-		global $c, $d;
-
-		$selectHtml = "<select name='themeSelect' id='ap-theme-select'>";
-		foreach (self::listThemes() as $val) {
-			$selected = ($val == $c['themeSelect']) ? ' selected' : '';
-			$selectHtml .= '<option value="' . h($val) . '"' . $selected . '>' . h($val) . "</option>\n";
-		}
-		$selectHtml .= '</select>';
-
-		$fields = [];
-		foreach (['title', 'description', 'keywords', 'copyright'] as $key) {
-			$fields[] = [
-				'key'           => $key,
-				'default_value' => $d['default'][$key] ?? '',
-				'value'         => $c[$key] ?? '',
-			];
-		}
-
-		return [
-			'migrate_warning'  => !empty($c['migrate_warning']),
-			'theme_select_html' => $selectHtml,
-			'menu_raw'         => $c['menu'] ?? '',
-			'settings_fields'  => $fields,
-			'ap_version'       => AP_VERSION,
-		];
 	}
 }

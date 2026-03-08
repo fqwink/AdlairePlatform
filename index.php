@@ -12,7 +12,7 @@ if (PHP_VERSION_ID < 80200) {
 	exit('AdlairePlatform requires PHP 8.2 or later. Current version: ' . PHP_VERSION);
 }
 
-define('AP_VERSION', '1.2.26');
+define('AP_VERSION', '1.3.27');
 define('AP_UPDATE_URL', 'https://api.github.com/repos/win-k/AdlairePlatform/releases/latest');
 define('AP_BACKUP_GENERATIONS', 5);
 define('AP_REVISION_LIMIT', 30);
@@ -20,6 +20,7 @@ define('AP_REVISION_LIMIT', 30);
 require 'engines/TemplateEngine.php';
 require 'engines/ThemeEngine.php';
 require 'engines/UpdateEngine.php';
+require 'engines/AdminEngine.php';
 
 ob_start();
 ini_set('session.cookie_httponly', 1);
@@ -27,10 +28,8 @@ ini_set('session.cookie_samesite', 'Lax');
 session_start();
 migrate_from_files();
 host();
-upload_image();          /* upload_image を先に処理（handle_update_action の default:exit に遮断されないよう） */
-handle_update_action();
-handle_revision_action();
-edit();
+AdminEngine::handle();       /* edit_field, upload_image, revision 等 */
+handle_update_action();      /* update, backup, rollback 等 */
 
 $c['password'] = 'admin';
 $c['loggedin'] = false;
@@ -61,19 +60,19 @@ foreach($c as $key => $val){
 	switch($key){
 		case 'password':
 			if(empty($_auth['password_hash'])){
-				$c[$key] = savePassword($val);
+				$c[$key] = AdminEngine::savePassword($val);
 			} elseif(strlen($_auth['password_hash']) === 32 && ctype_xdigit($_auth['password_hash'])){
-				$c[$key] = savePassword('admin');
+				$c[$key] = AdminEngine::savePassword('admin');
 				$c['migrate_warning'] = true;
 			} else {
 				$c[$key] = $_auth['password_hash'];
 			}
 			break;
 		case 'loggedin':
-			if(isset($_SESSION['l']) && $_SESSION['l'] === true)
+			if(AdminEngine::isLoggedIn())
 				$c[$key] = true;
 			if(isset($_POST['logout'])){
-				verify_csrf();
+				AdminEngine::verifyCsrf();
 				$_SESSION = [];
 				session_destroy();
 				header('Location: ./');
@@ -86,9 +85,9 @@ foreach($c as $key => $val){
 				}
 				$msg = '';
 				if(isset($_POST['sub']))
-					login();
+					$msg = AdminEngine::login($c['password']);
 				$c['content'] = "<form action='' method='POST'>
-				<input type='hidden' name='csrf' value='".csrf_token()."'>
+				<input type='hidden' name='csrf' value='".AdminEngine::csrfToken()."'>
 				<input type='password' name='password'>
 				<input type='submit' name='login' value='Login'> $msg
 				<p class='toggle'>Change password</p>
@@ -100,10 +99,11 @@ foreach($c as $key => $val){
 				</form>";
 			}
 			$logout_form = "<form method='POST' style='display:inline'>"
-				."<input type='hidden' name='csrf' value='".csrf_token()."'>"
+				."<input type='hidden' name='csrf' value='".AdminEngine::csrfToken()."'>"
 				."<button type='submit' name='logout' value='1' style='background:none;border:none;cursor:pointer;padding:0;color:inherit;text-decoration:underline;font:inherit'>Logout</button>"
 				."</form>";
-			$lstatus = (is_loggedin()) ? $logout_form : "<a href='".h($host)."?login'>Login</a>";
+			$admin_link = (is_loggedin()) ? " | <a href='?admin'>Dashboard</a>" : '';
+			$lstatus = (is_loggedin()) ? $logout_form . $admin_link : "<a href='".h($host)."?login'>Login</a>";
 			break;
 		case 'page':
 			if($rp)
@@ -124,25 +124,48 @@ foreach($c as $key => $val){
 			break;
 	}
 }
-registerCoreHooks();
 
+/* ダッシュボードルーティング: ?admin */
+if (isset($_GET['admin'])) {
+	if (!AdminEngine::isLoggedIn()) {
+		header('Location: ./?login');
+		exit;
+	}
+	echo AdminEngine::renderDashboard();
+	ob_end_flush();
+	exit;
+}
+
+AdminEngine::registerHooks();
 ThemeEngine::load($c['themeSelect']);
 
-function registerCoreHooks(): void {
-	global $hook;
-	$hook['admin-head'][] = "\n\t<script src='engines/JsEngine/autosize.js'></script>";
-	$hook['admin-head'][] = "\n\t<script src='engines/JsEngine/editInplace.js'></script>";
-	$hook['admin-head'][] = "\n\t<script src='engines/JsEngine/wysiwyg.js'></script>";
-	$hook['admin-head'][] = "\n\t<script src='engines/JsEngine/updater.js'></script>";
+/* ══════════════════════════════════════════════
+   レガシー互換ラッパー（theme.php フォールバック用）
+   ══════════════════════════════════════════════ */
+
+function is_loggedin(): bool {
+	return AdminEngine::isLoggedIn();
+}
+
+function csrf_token(): string {
+	return AdminEngine::csrfToken();
+}
+
+function verify_csrf(): void {
+	AdminEngine::verifyCsrf();
 }
 
 function getSlug(string $p): string {
 	return mb_convert_case(str_replace(' ', '-', $p), MB_CASE_LOWER, "UTF-8");
 }
 
-function is_loggedin(): bool {
-	global $c;
-	return $c['loggedin'];
+function h(string $s): string {
+	return htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
+}
+
+function content(string $id, $content = ''): void {
+	$content = (string)($content ?? '');
+	echo AdminEngine::renderEditableContent($id, $content);
 }
 
 function editTags(){
@@ -151,93 +174,6 @@ function editTags(){
 		return;
 	foreach($hook['admin-head'] as $o){
 		echo "\t".$o."\n";
-	}
-}
-
-function h(string $s): string {
-	return htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
-}
-
-function content(string $id, $content = ''): void {
-	global $d;
-	$content = (string)($content ?? '');
-	if(is_loggedin()){
-		echo "<span title='".h($d['default']['content'])."' id='".h($id)."' class='editRich'>".$content."</span>";
-	} else {
-		echo $content;
-	}
-}
-
-function upload_image(): void {
-	if (!isset($_POST['ap_action']) || $_POST['ap_action'] !== 'upload_image') return;
-	header('Content-Type: application/json; charset=UTF-8');
-	if (!isset($_SESSION['l']) || $_SESSION['l'] !== true) {
-		http_response_code(401);
-		echo json_encode(['error' => '未ログイン']);
-		exit;
-	}
-	verify_csrf();
-	if (!isset($_FILES['image']) || $_FILES['image']['error'] !== UPLOAD_ERR_OK) {
-		http_response_code(400);
-		echo json_encode(['error' => 'ファイルエラー: ' . ($_FILES['image']['error'] ?? 'なし')]);
-		exit;
-	}
-	$file = $_FILES['image'];
-	if ($file['size'] > 2 * 1024 * 1024) {
-		http_response_code(400);
-		echo json_encode(['error' => 'ファイルサイズが上限（2MB）を超えています']);
-		exit;
-	}
-	$finfo = new finfo(FILEINFO_MIME_TYPE);
-	$mime  = $finfo->file($file['tmp_name']);
-	$ext_map = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/gif' => 'gif', 'image/webp' => 'webp'];
-	if (!isset($ext_map[$mime])) {
-		http_response_code(400);
-		echo json_encode(['error' => '許可されていないファイル形式です（JPEG/PNG/GIF/WebP のみ）']);
-		exit;
-	}
-	$dir = 'uploads/';
-	if (!is_dir($dir) && !mkdir($dir, 0755, true)) {
-		http_response_code(500);
-		echo json_encode(['error' => 'アップロードディレクトリを作成できません']);
-		exit;
-	}
-	$filename = bin2hex(random_bytes(12)) . '.' . $ext_map[$mime];
-	if (!move_uploaded_file($file['tmp_name'], $dir . $filename)) {
-		http_response_code(500);
-		echo json_encode(['error' => 'ファイル保存に失敗しました']);
-		exit;
-	}
-	echo json_encode(['url' => $dir . $filename]);
-	exit;
-}
-
-function edit(){
-	if(isset($_POST['fieldname'], $_POST['content'])){
-		$fieldname = $_POST['fieldname'];
-		if(!preg_match('/^[a-zA-Z0-9_\-]+$/', $fieldname)){
-			header('HTTP/1.1 400 Bad Request');
-			exit;
-		}
-		$content = trim($_POST['content']);
-		if(!isset($_SESSION['l']) || $_SESSION['l'] !== true){
-			header('HTTP/1.1 401 Unauthorized');
-			exit;
-		}
-		verify_csrf();
-		$settings_keys = ['title','description','keywords','copyright','themeSelect','menu','subside'];
-		if(in_array($fieldname, $settings_keys, true)){
-			$settings = json_read('settings.json', settings_dir());
-			$settings[$fieldname] = $content;
-			json_write('settings.json', $settings, settings_dir());
-		} else {
-			save_revision($fieldname, $content);
-			$pages = json_read('pages.json', content_dir());
-			$pages[$fieldname] = $content;
-			json_write('pages.json', $pages, content_dir());
-		}
-		echo $content;
-		exit;
 	}
 }
 
@@ -256,62 +192,9 @@ function menu(){
 <?php
 }
 
-function login(){
-	global $c, $msg;
-	verify_csrf();
-	$ip = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
-	if(!check_login_rate($ip)){
-		$msg = '試行回数が多すぎます。しばらくしてから再試行してください。';
-		return;
-	}
-	if(!password_verify($_POST['password'] ?? '', $c['password'])){
-		record_login_failure($ip);
-		$msg = 'wrong password';
-		return;
-	}
-	clear_login_rate($ip);
-	if(!empty($_POST['new'])){
-		savePassword($_POST['new']);
-		$msg = 'password changed';
-		return;
-	}
-	session_regenerate_id(true);
-	$_SESSION['l'] = true;
-	header('Location: ./');
-	exit;
-}
-
-function check_login_rate(string $ip): bool {
-	$data     = json_read('login_attempts.json', settings_dir());
-	$attempts = $data[$ip] ?? ['count' => 0, 'locked_until' => 0];
-	return time() >= (int)$attempts['locked_until'];
-}
-
-function record_login_failure(string $ip): void {
-	$data     = json_read('login_attempts.json', settings_dir());
-	$attempts = $data[$ip] ?? ['count' => 0, 'locked_until' => 0];
-	if(time() >= (int)$attempts['locked_until']){
-		$attempts['count']++;
-	}
-	if($attempts['count'] >= 5){
-		$attempts['locked_until'] = time() + 900; /* 15分ロックアウト */
-		$attempts['count']        = 0;
-	}
-	$data[$ip] = $attempts;
-	json_write('login_attempts.json', $data, settings_dir());
-}
-
-function clear_login_rate(string $ip): void {
-	$data = json_read('login_attempts.json', settings_dir());
-	unset($data[$ip]);
-	json_write('login_attempts.json', $data, settings_dir());
-}
-
-function savePassword(string $p): string {
-	$hash = password_hash($p, PASSWORD_BCRYPT);
-	json_write('auth.json', ['password_hash' => $hash], settings_dir());
-	return $hash;
-}
+/* ══════════════════════════════════════════════
+   共有ユーティリティ（全エンジンで使用）
+   ══════════════════════════════════════════════ */
 
 function data_dir(): string {
 	$dir = 'data';
@@ -351,221 +234,17 @@ function json_write(string $file, array $data, string $dir = ''): void {
 	}
 }
 
-/* ══════════════════════════════════════════════
-   リビジョン管理
-   ══════════════════════════════════════════════ */
-
-function save_revision(string $fieldname, string $content, bool $restored = false): void {
-	if(!preg_match('/^[a-zA-Z0-9_\-]+$/', $fieldname)) return;
-	$dir = content_dir() . '/revisions/' . $fieldname . '/';
-	if(!is_dir($dir)) mkdir($dir, 0755, true);
-
-	/* B1: ディレクトリ単位ロックで競合状態防止 */
-	$lockFile = $dir . '.lock';
-	$lf = fopen($lockFile, 'c');
-	if($lf === false) return;
-	if(!flock($lf, LOCK_EX)){ fclose($lf); return; }
-
-	$ts = date('Ymd_His');
-	$rev = [
-		'timestamp' => date('c'),
-		'content'   => $content,
-		'size'      => strlen($content),
-		'user'      => $_SESSION['l'] ?? '',       /* D2: ユーザー帰属 */
-		'restored'  => $restored,                   /* C4: 復元マーキング */
-	];
-	file_put_contents(
-		$dir . 'rev_' . $ts . '.json',
-		json_encode($rev, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE),
-		LOCK_EX
-	);
-	prune_revisions($dir);
-
-	flock($lf, LOCK_UN);
-	fclose($lf);
-}
-
-function prune_revisions(string $dir): void {
-	$files = glob($dir . 'rev_*.json') ?: [];
-	sort($files);
-	/* D4: ピン留めリビジョンは削除対象から除外 */
-	$unpinned = [];
-	foreach($files as $f){
-		$data = json_decode(file_get_contents($f), true);
-		if(is_array($data) && !empty($data['pinned'])) continue;
-		$unpinned[] = $f;
-	}
-	while(count($unpinned) > AP_REVISION_LIMIT){
-		unlink(array_shift($unpinned));
-	}
-}
-
-function handle_revision_action(): void {
-	$action = $_POST['ap_action'] ?? '';
-	$valid = ['list_revisions','restore_revision','get_revision','pin_revision','search_revisions'];
-	if(!in_array($action, $valid, true)) return;
-	if(!isset($_SESSION['l']) || $_SESSION['l'] !== true){
-		http_response_code(401);
-		echo json_encode(['error' => 'Unauthorized']);
-		exit;
-	}
-	verify_csrf();
-	header('Content-Type: application/json; charset=UTF-8');
-
-	/* A2: レート制限（セッション単位、60秒あたり30リクエスト） */
-	$now = time();
-	$_SESSION['_rev_requests'] = $_SESSION['_rev_requests'] ?? [];
-	$_SESSION['_rev_requests'] = array_filter($_SESSION['_rev_requests'], fn($t) => $t > $now - 60);
-	if(count($_SESSION['_rev_requests']) >= 30){
-		http_response_code(429);
-		echo json_encode(['error' => 'Too many requests']);
-		exit;
-	}
-	$_SESSION['_rev_requests'][] = $now;
-
-	/* A1: list_revisions も POST に統一（CSRF を GET から除去） */
-	if($action === 'list_revisions'){
-		$fieldname = $_POST['fieldname'] ?? '';
-		if(!preg_match('/^[a-zA-Z0-9_\-]+$/', $fieldname)){
-			http_response_code(400);
-			echo json_encode(['error' => 'Invalid fieldname']);
-			exit;
-		}
-		$dir = content_dir() . '/revisions/' . $fieldname . '/';
-		$files = glob($dir . 'rev_*.json') ?: [];
-		rsort($files);
-		$revisions = [];
-		foreach($files as $f){
-			$data = json_decode(file_get_contents($f), true);
-			if(!is_array($data)) continue;
-			$revisions[] = [
-				'file'      => basename($f, '.json'),
-				'timestamp' => $data['timestamp'] ?? '',
-				'size'      => $data['size'] ?? 0,
-				'user'      => $data['user'] ?? '',
-				'restored'  => !empty($data['restored']),
-				'pinned'    => !empty($data['pinned']),
-			];
-		}
-		echo json_encode(['revisions' => $revisions]);
-		exit;
-	}
-
-	/* D5: リビジョンコンテンツ取得専用 API */
-	if($action === 'get_revision'){
-		$fieldname = $_POST['fieldname'] ?? '';
-		$revFile   = $_POST['revision'] ?? '';
-		if(!preg_match('/^[a-zA-Z0-9_\-]+$/', $fieldname) ||
-		   !preg_match('/^rev_[0-9_]+$/', $revFile)){
-			http_response_code(400);
-			echo json_encode(['error' => 'Invalid parameters']);
-			exit;
-		}
-		$path = content_dir() . '/revisions/' . $fieldname . '/' . $revFile . '.json';
-		if(!file_exists($path)){
-			http_response_code(404);
-			echo json_encode(['error' => 'Revision not found']);
-			exit;
-		}
-		$rev = json_decode(file_get_contents($path), true);
-		if(!is_array($rev) || !isset($rev['content'])){
-			http_response_code(500);
-			echo json_encode(['error' => 'Invalid revision data']);
-			exit;
-		}
-		echo json_encode(['ok' => true, 'content' => $rev['content']]);
-		exit;
-	}
-
-	if($action === 'restore_revision'){
-		$fieldname = $_POST['fieldname'] ?? '';
-		$revFile   = $_POST['revision'] ?? '';
-		if(!preg_match('/^[a-zA-Z0-9_\-]+$/', $fieldname) ||
-		   !preg_match('/^rev_[0-9_]+$/', $revFile)){
-			http_response_code(400);
-			echo json_encode(['error' => 'Invalid parameters']);
-			exit;
-		}
-		$path = content_dir() . '/revisions/' . $fieldname . '/' . $revFile . '.json';
-		if(!file_exists($path)){
-			http_response_code(404);
-			echo json_encode(['error' => 'Revision not found']);
-			exit;
-		}
-		$rev = json_decode(file_get_contents($path), true);
-		if(!is_array($rev) || !isset($rev['content'])){
-			http_response_code(500);
-			echo json_encode(['error' => 'Invalid revision data']);
-			exit;
-		}
-		$content = $rev['content'];
-		save_revision($fieldname, $content, true);
-		$pages = json_read('pages.json', content_dir());
-		$pages[$fieldname] = $content;
-		json_write('pages.json', $pages, content_dir());
-		echo json_encode(['ok' => true, 'content' => $content]);
-		exit;
-	}
-
-	/* D4: ピン留め切り替え */
-	if($action === 'pin_revision'){
-		$fieldname = $_POST['fieldname'] ?? '';
-		$revFile   = $_POST['revision'] ?? '';
-		if(!preg_match('/^[a-zA-Z0-9_\-]+$/', $fieldname) ||
-		   !preg_match('/^rev_[0-9_]+$/', $revFile)){
-			http_response_code(400);
-			echo json_encode(['error' => 'Invalid parameters']);
-			exit;
-		}
-		$path = content_dir() . '/revisions/' . $fieldname . '/' . $revFile . '.json';
-		if(!file_exists($path)){
-			http_response_code(404);
-			echo json_encode(['error' => 'Revision not found']);
-			exit;
-		}
-		$rev = json_decode(file_get_contents($path), true);
-		if(!is_array($rev)){
-			http_response_code(500);
-			echo json_encode(['error' => 'Invalid revision data']);
-			exit;
-		}
-		$rev['pinned'] = empty($rev['pinned']);
-		file_put_contents($path,
-			json_encode($rev, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE),
-			LOCK_EX);
-		echo json_encode(['ok' => true, 'pinned' => $rev['pinned']]);
-		exit;
-	}
-
-	/* D3: リビジョン検索 */
-	if($action === 'search_revisions'){
-		$fieldname = $_POST['fieldname'] ?? '';
-		$query     = $_POST['query'] ?? '';
-		if(!preg_match('/^[a-zA-Z0-9_\-]+$/', $fieldname)){
-			http_response_code(400);
-			echo json_encode(['error' => 'Invalid fieldname']);
-			exit;
-		}
-		$dir = content_dir() . '/revisions/' . $fieldname . '/';
-		$files = glob($dir . 'rev_*.json') ?: [];
-		rsort($files);
-		$results = [];
-		foreach($files as $f){
-			$data = json_decode(file_get_contents($f), true);
-			if(!is_array($data)) continue;
-			if($query !== '' && stripos($data['content'] ?? '', $query) === false) continue;
-			$results[] = [
-				'file'      => basename($f, '.json'),
-				'timestamp' => $data['timestamp'] ?? '',
-				'size'      => $data['size'] ?? 0,
-				'user'      => $data['user'] ?? '',
-				'restored'  => !empty($data['restored']),
-				'pinned'    => !empty($data['pinned']),
-			];
-		}
-		echo json_encode(['revisions' => $results]);
-		exit;
-	}
+function host(){
+	global $host, $rp;
+	$rp = preg_replace('#/+#', '/', (isset($_GET['page'])) ? urldecode($_GET['page']) : '');
+	$host = $_SERVER['HTTP_HOST'];
+	$uri = preg_replace('#/+#', '/', urldecode($_SERVER['REQUEST_URI']));
+	$host = (strrpos($uri, $rp) !== false) ? $host.'/'.substr($uri, 0, strlen($uri) - strlen($rp)) : $host.'/'.$uri;
+	$host = explode('?', $host);
+	$host = '//'.str_replace('//', '/', $host[0]);
+	$strip = array('index.php','?','"','\'','>','<','=','(',')','\\');
+	$rp = strip_tags(str_replace($strip, '', $rp));
+	$host = strip_tags(str_replace($strip, '', $host));
 }
 
 function migrate_from_files(): void {
@@ -606,66 +285,6 @@ function migrate_from_files(): void {
 	if(file_exists($old_pages) && !file_exists($new_pages)){
 		rename($old_pages, $new_pages);
 	}
-}
-
-function csrf_token(): string {
-	if(empty($_SESSION['csrf'])){
-		$_SESSION['csrf'] = bin2hex(random_bytes(32));
-	}
-	return $_SESSION['csrf'];
-}
-
-function verify_csrf(): void {
-	$token = $_POST['csrf'] ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? '');
-	/* $_SESSION['csrf'] が未設定の場合も Forbidden とする（空文字同士で hash_equals が true になる CSRF バイパスを防止） */
-	if(empty($_SESSION['csrf']) || !hash_equals($_SESSION['csrf'], $token)){
-		header('HTTP/1.1 403 Forbidden');
-		exit;
-	}
-}
-
-function host(){
-	global $host, $rp;
-	$rp = preg_replace('#/+#', '/', (isset($_GET['page'])) ? urldecode($_GET['page']) : '');
-	$host = $_SERVER['HTTP_HOST'];
-	$uri = preg_replace('#/+#', '/', urldecode($_SERVER['REQUEST_URI']));
-	$host = (strrpos($uri, $rp) !== false) ? $host.'/'.substr($uri, 0, strlen($uri) - strlen($rp)) : $host.'/'.$uri;
-	$host = explode('?', $host);
-	$host = '//'.str_replace('//', '/', $host[0]);
-	$strip = array('index.php','?','"','\'','>','<','=','(',')','\\');
-	$rp = strip_tags(str_replace($strip, '', $rp));
-	$host = strip_tags(str_replace($strip, '', $host));
-}
-
-function settings(){
-	global $c, $d;
-	if(!empty($c['migrate_warning']))
-		echo "<div style='background:#c0392b;color:#fff;padding:10px;margin:5px 0;font-weight:bold;'>警告: パスワードが MD5 から bcrypt に移行されました。パスワードが \"admin\" にリセットされています。すぐに変更してください。</div>";
-	echo "<div class='settings'>
-	<h3 class='toggle'>↕ Settings ↕</h3>
-	<div class='hide'>
-	<div class='change border'><b>Theme</b>&nbsp;<span id='themeSelect'><select name='themeSelect' id='ap-theme-select'>";
-	foreach(ThemeEngine::listThemes() as $val){
-		$select = ($val == $c['themeSelect']) ? ' selected' : '';
-		echo '<option value="'.h($val).'"'.$select.'>'.h($val)."</option>\n";
-	}
-	echo "</select></span></div>
-	<div class='change border'><b>Menu <small>(add a page below and <a href='./' id='ap-refresh-link'>refresh</a>)</small></b><span id='menu' title='Home' class='editText'>".$c['menu']."</span></div>";
-	foreach(array('title','description','keywords','copyright') as $key){
-		echo "<div class='change border'><span title='".h($d['default'][$key])."' id='".h($key)."' class='editText'>".$c[$key]."</span></div>";
-	}
-	echo "</div></div>";
-	echo "<div class='settings'>
-	<h3 class='toggle'>↕ アップデート ↕</h3>
-	<div class='hide'>
-	<div class='change border'>
-		<b>現在のバージョン:</b> ".h(AP_VERSION)."
-		<br><br>
-		<button id='ap-check-update' style='cursor:pointer;'>更新を確認</button>
-		<span id='ap-update-status' style='margin-left:10px;'></span>
-		<div id='ap-update-result' style='margin-top:10px;'></div>
-	</div>
-	</div></div>";
 }
 ob_end_flush();
 ?>
