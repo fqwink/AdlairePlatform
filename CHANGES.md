@@ -2,6 +2,28 @@
 
 ---
 
+## 2026-03-08（Ver.1.2-22 — Ph3: Editor.js スタイル ブロックベースエディタ）
+
+- **[Feature]** `engines/JsEngine/wysiwyg.js` — Editor.js スタイルのブロックベースアーキテクチャに全面改修（393行 → 1905行）
+- **[Feature]** ブロックベース contenteditable — 各ブロックが独立した contenteditable 要素を持つ設計
+- **[Feature]** 新ブロックタイプ追加 — blockquote / code(pre) / delimiter(hr) / table / image(figure+figcaption) / checklist
+- **[Feature]** インラインツール拡張 — S（取消線）/ Code（インラインコード）/ Marker / Link をツールバー・ショートカットに追加
+- **[Feature]** フローティングインラインツールバー — テキスト選択時に B/I/U/S/Code/Marker/Link ボタンを自動表示
+- **[Feature]** "/" スラッシュコマンドメニュー — 空ブロックで / 入力時にブロックタイプ選択（インクリメンタル絞り込み・ビューポートクランプ）
+- **[Feature]** ブロックハンドル ⠿ — ホバー時表示、クリックでタイプ変換ポップアップ（Block Tunes: テキスト配置含む）
+- **[Feature]** ドラッグ並べ替え — ⠿ ハンドルでブロック順序変更、シアン色ドロップラインインジケータ
+- **[Feature]** テーブルブロック — セル個別 contenteditable、Tab 移動、行列追加削除
+- **[Feature]** 画像ブロック強化 — サイズプリセット(25%/50%/75%/100%)、Alt テキスト入力、キャプション(figcaption)
+- **[Feature]** チェックリスト — チェックボックス + テキスト、Enter で項目追加、Backspace で削除
+- **[Feature]** Block Tunes — テキスト配置（左/中央/右）をブロックハンドルポップアップから選択
+- **[A11y]** ARIA 対応 — toolbar/textbox/listbox ロール、aria-label、aria-live="polite"
+- **[Fix]** Chromium ネイティブリサイズハンドル無効化（enableObjectResizing/enableInlineTableEditing）
+- **[Docs]** `docs/SPEC.md` Ver.0.2-5 — WYSIWYG セクション（§5.5）をブロックベースアーキテクチャに更新
+- **[Docs]** `docs/features.md` — WYSIWYG セクション全面更新
+- **[Docs]** `docs/AdlairePlatform_Design.md` — エディタ設計セクション更新（Phase 3 追加）
+
+---
+
 ## 2026-03-07（Ver.1.2-16 — defense-in-depth・バグ修正）
 
 - **[Security]** `delete_backup()` に内部バリデーションを追加（`basename()` + `/^[0-9_]+$/` 正規表現検証）— handle_update_action() 側の検証に依存せず defense-in-depth として各関数内でも入力を検証
