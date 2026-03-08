@@ -78,7 +78,13 @@ function _apFieldSave(key, val) {
 			location.reload(true);
 		} else {
 			var el = document.getElementById(key);
-			if (el) el.innerHTML = (val === '') ? (el.getAttribute('title') || '') : data;
+			if (el) {
+				if (val === '') {
+					el.textContent = el.getAttribute('title') || '';
+				} else {
+					el.innerHTML = val;
+				}
+			}
 		}
 		_apChanging = false;
 	}).catch(function () {

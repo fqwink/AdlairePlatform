@@ -3,23 +3,27 @@ document.addEventListener('DOMContentLoaded', function () {
     if (!csrfMeta) return; /* CSRF メタタグが存在しない（非ログインページ等）場合は何もしない */
     var csrf = csrfMeta.getAttribute('content');
 
+    /* ── DOM 要素キャッシュ ── */
+    var statusEl = document.getElementById('ap-update-status');
+    var resultEl = document.getElementById('ap-update-result');
+
     /* ── 更新確認ボタン ── */
     var checkBtn = document.getElementById('ap-check-update');
     if (checkBtn) {
         checkBtn.addEventListener('click', function () {
             var btn = this;
             btn.disabled = true;
-            document.getElementById('ap-update-status').textContent = '確認中...';
-            document.getElementById('ap-update-result').innerHTML = '';
+            if (statusEl) statusEl.textContent = '確認中...';
+            if (resultEl) resultEl.innerHTML = '';
 
             _apPost({ ap_action: 'check', csrf: csrf })
                 .then(function (data) {
-                    document.getElementById('ap-update-status').textContent = '';
+                    if (statusEl) statusEl.textContent = '';
                     if (data.error) {
-                        document.getElementById('ap-update-result').innerHTML =
+                        if (resultEl) resultEl.innerHTML =
                             '<span style="color:#c0392b;">エラー: ' + _apEsc(data.error) + '</span>';
                     } else if (data.update_available) {
-                        document.getElementById('ap-update-result').innerHTML =
+                        if (resultEl) resultEl.innerHTML =
                             '<b style="color:#27ae60;">バージョン ' + _apEsc(data.latest) + ' が利用可能です</b>' +
                             '（現在: ' + _apEsc(data.current) + '）<br>' +
                             '<button id="ap-apply-update"' +
@@ -28,13 +32,13 @@ document.addEventListener('DOMContentLoaded', function () {
                             ' style="margin-top:8px;cursor:pointer;">今すぐ更新する</button>' +
                             ' <button id="ap-list-backups" style="margin-top:8px;cursor:pointer;">ロールバック</button>';
                     } else {
-                        document.getElementById('ap-update-result').innerHTML =
+                        if (resultEl) resultEl.innerHTML =
                             '<span style="color:#555;">最新バージョン ' + _apEsc(data.current) + ' を使用中です。</span><br>' +
                             '<button id="ap-list-backups" style="margin-top:8px;cursor:pointer;">ロールバック</button>';
                     }
                 })
                 .catch(function () {
-                    document.getElementById('ap-update-status').textContent = '通信エラーが発生しました。';
+                    if (statusEl) statusEl.textContent = '通信エラーが発生しました。';
                 })
                 .finally(function () { btn.disabled = false; });
         });
@@ -129,8 +133,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     } else {
                         html = '<span style="color:#555;">バックアップはありません。</span>';
                     }
-                    document.getElementById('ap-update-result')
-                        .insertAdjacentHTML('beforeend', '<div id="ap-backup-list" style="margin-top:10px;">' + html + '</div>');
+                    if (resultEl) resultEl.insertAdjacentHTML('beforeend', '<div id="ap-backup-list" style="margin-top:10px;">' + html + '</div>');
                 })
                 .catch(function () { alert('通信エラーが発生しました。'); })
                 .finally(function () { btn.disabled = false; });
@@ -195,7 +198,10 @@ document.addEventListener('DOMContentLoaded', function () {
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: new URLSearchParams(params)
         }).then(function (r) {
-            if (!r.ok) return r.json().then(function (d) { throw new Error(d.error || 'HTTP ' + r.status); });
+            if (!r.ok) return r.text().then(function (t) {
+                try { var d = JSON.parse(t); throw new Error(d.error || 'HTTP ' + r.status); }
+                catch (e) { if (e.message && !e.message.startsWith('HTTP ')) throw e; throw new Error('HTTP ' + r.status); }
+            });
             return r.json();
         });
     }

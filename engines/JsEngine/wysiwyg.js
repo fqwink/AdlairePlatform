@@ -274,6 +274,9 @@ let _undoStack    = [];
 let _redoStack    = [];
 const _UNDO_LIMIT = 50;
 let _historyPanel = null;
+let _docHandler   = null;
+let _typePopupKeyHandler   = null;
+let _typePopupCloseHandler = null;
 
 /* ── ユーティリティ ── */
 function _uid() { return 'b' + (++_idCounter) + '-' + Math.random().toString(36).slice(2, 7); }
@@ -448,13 +451,13 @@ function _activate(span) {
 	});
 
 	/* ─ エリア外クリックで保存 ─ */
-	function _docHandler(e) {
+	_docHandler = function (e) {
 		if (!wrap.contains(e.target)) {
 			document.removeEventListener('mousedown', _docHandler);
 			document.removeEventListener('selectionchange', _onSelectionChange);
 			_manualSave(span);
 		}
-	}
+	};
 	document.addEventListener('mousedown', _docHandler);
 }
 
@@ -790,7 +793,7 @@ function _renderTableBlock(el, block) {
 							}
 						}
 					}
-					e.stopPropagation(); /* ブロック間キー処理を防止 */
+					if (e.key === 'Tab') e.stopPropagation(); /* Tab のみブロック間キー処理を防止 */
 				});
 				tr.appendChild(td);
 			});
@@ -859,7 +862,11 @@ function _renderImageBlock(el, block) {
 		altInput.placeholder = '代替テキスト';
 		altInput.style.cssText = 'width:200px;padding:1px 4px;font-size:11px;background:#333;color:#eee;border:1px solid #555;border-radius:3px;';
 		altInput.addEventListener('input', () => { block.data.alt = altInput.value; img.alt = altInput.value; });
-		altInput.addEventListener('keydown', e => { e.stopPropagation(); }); /* Ph2-2 */
+		altInput.addEventListener('keydown', e => {
+		const mod = e.ctrlKey || e.metaKey;
+		if ((mod && e.key === 'Enter') || e.key === 'Escape') return; /* save/cancel をバブルアップ */
+		e.stopPropagation();
+	}); /* Ph2-2 */
 		altLabel.appendChild(altInput);
 		content.appendChild(altLabel);
 
@@ -873,6 +880,8 @@ function _renderImageBlock(el, block) {
 		caption.addEventListener('input', () => { block.data.caption = caption.innerHTML.trim(); });
 		caption.addEventListener('keydown', e => {
 			if (e.key === 'Enter') { e.preventDefault(); }
+			const mod = e.ctrlKey || e.metaKey;
+			if ((mod && e.key === 'Enter') || e.key === 'Escape') return; /* save/cancel をバブルアップ */
 			e.stopPropagation();
 		});
 		content.appendChild(caption);
@@ -938,6 +947,8 @@ function _renderChecklistBlock(el, block) {
 						if (prev) { prev.focus(); _setCursorToEnd(prev); }
 					}
 				}
+				const mod = e.ctrlKey || e.metaKey;
+				if ((mod && e.key === 'Enter') || e.key === 'Escape') return; /* save/cancel をバブルアップ */
 				e.stopPropagation();
 			});
 
@@ -1613,7 +1624,7 @@ function _showSlashMenu(target) {
 }
 
 function _hideSlashMenu() {
-	if (_slashMenu) { _slashMenu.style.display = 'none'; }
+	if (_slashMenu) { _slashMenu.remove(); _slashMenu = null; }
 	_slashFilter = '';
 	_slashBlock = null;
 }
@@ -1792,7 +1803,9 @@ function _showTypePopup(block, blockEl) {
 	document.body.appendChild(_typePopup);
 
 	/* 位置計算 */
-	const handleRect = blockEl.querySelector('.ap-wy-block-handle').getBoundingClientRect();
+	const handleEl = blockEl.querySelector('.ap-wy-block-handle');
+	if (!handleEl) return;
+	const handleRect = handleEl.getBoundingClientRect();
 	let top = window.scrollY + handleRect.bottom + 2;
 	let left = window.scrollX + handleRect.left;
 
@@ -1811,7 +1824,7 @@ function _showTypePopup(block, blockEl) {
 	/* キーボード操作 */
 	let _popIdx = -1;
 	const allItems = _typePopup.querySelectorAll('.ap-wy-type-popup-item');
-	const _keyHandler = e => {
+	_typePopupKeyHandler = e => {
 		if (e.key === 'ArrowDown') {
 			e.preventDefault();
 			if (_popIdx >= 0) allItems[_popIdx].style.background = '';
@@ -1828,28 +1841,26 @@ function _showTypePopup(block, blockEl) {
 			allItems[_popIdx].scrollIntoView({ block: 'nearest' });
 		} else if (e.key === 'Enter' && _popIdx >= 0) {
 			e.preventDefault();
-			document.removeEventListener('keydown', _keyHandler);
 			allItems[_popIdx].dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
 		} else if (e.key === 'Escape') {
 			e.preventDefault();
-			document.removeEventListener('keydown', _keyHandler);
 			_hideTypePopup();
 		}
 	};
-	setTimeout(() => document.addEventListener('keydown', _keyHandler), 0);
+	setTimeout(() => document.addEventListener('keydown', _typePopupKeyHandler), 0);
 
 	/* 外部クリックで閉じる */
-	const _closeHandler = e => {
+	_typePopupCloseHandler = e => {
 		if (!_typePopup?.contains(e.target)) {
 			_hideTypePopup();
-			document.removeEventListener('mousedown', _closeHandler);
-			document.removeEventListener('keydown', _keyHandler);
 		}
 	};
-	setTimeout(() => document.addEventListener('mousedown', _closeHandler), 0);
+	setTimeout(() => document.addEventListener('mousedown', _typePopupCloseHandler), 0);
 }
 
 function _hideTypePopup() {
+	if (_typePopupKeyHandler) { document.removeEventListener('keydown', _typePopupKeyHandler); _typePopupKeyHandler = null; }
+	if (_typePopupCloseHandler) { document.removeEventListener('mousedown', _typePopupCloseHandler); _typePopupCloseHandler = null; }
 	if (_typePopup) { _typePopup.remove(); _typePopup = null; }
 }
 
@@ -2684,6 +2695,7 @@ function _manualSave(span) {
 	_hideTypePopup();
 	_hideInlineToolbar();
 	document.removeEventListener('selectionchange', _onSelectionChange);
+	if (_docHandler) { document.removeEventListener('mousedown', _docHandler); _docHandler = null; }
 	if (_inlineToolbar) { _inlineToolbar.remove(); _inlineToolbar = null; }
 	if (typeof _apChanging !== 'undefined') _apChanging = false;
 
@@ -2693,9 +2705,11 @@ function _manualSave(span) {
 
 	_currentSpan = null;
 	_blocksEl = null;
+	_dropLine = null;
 	_blocks = [];
 	span.innerHTML = html || (span.getAttribute('title') || '');
-	_apFieldSave(span.id, html);
+	if (typeof _apFieldSave === 'function') _apFieldSave(span.id, html);
+	else console.error('[AP WYSIWYG] _apFieldSave not available');
 }
 
 function _cancel(span, originalHtml) {
@@ -2706,11 +2720,13 @@ function _cancel(span, originalHtml) {
 	_hideTypePopup();
 	_hideInlineToolbar();
 	document.removeEventListener('selectionchange', _onSelectionChange);
+	if (_docHandler) { document.removeEventListener('mousedown', _docHandler); _docHandler = null; }
 	if (_inlineToolbar) { _inlineToolbar.remove(); _inlineToolbar = null; }
 	if (typeof _apChanging !== 'undefined') _apChanging = false;
 
 	_currentSpan = null;
 	_blocksEl = null;
+	_dropLine = null;
 	_blocks = [];
 	span.innerHTML = originalHtml;
 }

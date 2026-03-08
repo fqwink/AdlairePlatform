@@ -9,6 +9,14 @@
 - **[Fix/High]** `save_revision()` — `fopen()` が `false` を返した場合に `flock()` が TypeError を発生させるバグを修正。`fopen()` 戻り値の `false` チェックを追加
 - **[Fix/Security]** `upload_image()` / `edit()` / `handle_revision_action()` — 認証チェックを `!isset($_SESSION['l'])` から `!isset($_SESSION['l']) || $_SESSION['l'] !== true` に統一。`handle_update_action()` と同レベルの厳密な認証チェックに統一
 - **[Fix]** `docs/nginx.conf.example` — `deny all; return 403;` の冗長な記述を修正（`return` ディレクティブが優先されるため `deny all` は到達不能コード）
+- **[Fix/High]** `wysiwyg.js` — テーブルセル・画像キャプション・Alt入力・チェックリスト内で `e.stopPropagation()` が全キーイベントを遮断し、Ctrl+Enter（保存）・Escape（キャンセル）が動作不能だった問題を修正。save/cancel キーのみバブルアップを許可
+- **[Fix/Security]** `editInplace.js` — サーバーレスポンスを innerHTML に直接代入する XSS 脆弱性を修正。送信済み値 `val` を使用し、空値フォールバックの title 属性は `textContent` で安全に代入
+- **[Fix/High]** `updater.js` — `getElementById()` の null 未チェックによる例外を修正。DOM 要素をキャッシュして null ガードを追加
+- **[Fix]** `updater.js` — エラーレスポンスが JSON でない場合に `r.json()` が例外を投げる問題を修正。`r.text()` + 手動 JSON パースにフォールバック
+- **[Fix]** `wysiwyg.js` — `_apFieldSave()` が未定義の場合に ReferenceError になる問題を修正。`typeof` ガードを追加
+- **[Fix]** `wysiwyg.js` — エディタ終了時に `mousedown`（docHandler）/ `keydown`（typePopup）/ `mousedown`（typePopupClose）イベントリスナーが document に残留するメモリリークを修正
+- **[Fix]** `wysiwyg.js` — スラッシュメニューがエディタ終了後も DOM に残留する問題を修正。`display:none` から `remove()` に変更
+- **[Fix]** `wysiwyg.js` — タイプ変換ポップアップで `getBoundingClientRect()` の null 参照エラーを修正
 
 ---
 
