@@ -23,6 +23,8 @@ require 'engines/UpdateEngine.php';
 require 'engines/AdminEngine.php';
 require 'engines/StaticEngine.php';
 require 'engines/ApiEngine.php';
+require 'engines/MarkdownEngine.php';
+require 'engines/CollectionEngine.php';
 
 ini_set('session.cookie_httponly', 1);
 ini_set('session.cookie_samesite', 'Lax');
@@ -31,6 +33,7 @@ migrate_from_files();
 host();
 AdminEngine::handle();       /* edit_field, upload_image, revision 等 */
 ApiEngine::handle();         /* ?ap_api= 公開REST API（認証不要） */
+CollectionEngine::handle();  /* collection_create, collection_item_save 等 */
 StaticEngine::handle();      /* generate_static_*, clean_static, build_zip 等 */
 handle_update_action();      /* update, backup, rollback 等 */
 

@@ -1,0 +1,403 @@
+<?php
+/**
+ * MarkdownEngine - Markdown → HTML 変換エンジン
+ *
+ * PHP のみで Markdown を HTML に変換するゼロ依存パーサー。
+ * GFM (GitHub Flavored Markdown) の主要機能に対応。
+ * フロントマター (YAML 形式) のパースにも対応。
+ */
+class MarkdownEngine {
+
+	/* ══════════════════════════════════════════════
+	   フロントマター解析
+	   ══════════════════════════════════════════════ */
+
+	/**
+	 * フロントマター付き Markdown を分離。
+	 * @return array{meta: array, body: string}
+	 */
+	public static function parseFrontmatter(string $content): array {
+		$content = ltrim($content);
+		if (!str_starts_with($content, '---')) {
+			return ['meta' => [], 'body' => $content];
+		}
+		$end = strpos($content, "\n---", 3);
+		if ($end === false) {
+			return ['meta' => [], 'body' => $content];
+		}
+		$yamlBlock = substr($content, 3, $end - 3);
+		$body = ltrim(substr($content, $end + 4));
+		$meta = self::parseSimpleYaml($yamlBlock);
+		return ['meta' => $meta, 'body' => $body];
+	}
+
+	/**
+	 * 簡易 YAML パーサー（フロントマター用）
+	 * ネスト構造は1階層まで。配列は [item1, item2] 形式。
+	 */
+	private static function parseSimpleYaml(string $yaml): array {
+		$result = [];
+		$lines = explode("\n", $yaml);
+		foreach ($lines as $line) {
+			$line = rtrim($line);
+			if ($line === '' || $line[0] === '#') continue;
+			$pos = strpos($line, ':');
+			if ($pos === false) continue;
+			$key = trim(substr($line, 0, $pos));
+			$val = trim(substr($line, $pos + 1));
+			if ($key === '') continue;
+			$result[$key] = self::parseYamlValue($val);
+		}
+		return $result;
+	}
+
+	private static function parseYamlValue(string $val): mixed {
+		if ($val === '' || $val === '~' || $val === 'null') return null;
+		if ($val === 'true') return true;
+		if ($val === 'false') return false;
+		if (is_numeric($val)) return str_contains($val, '.') ? (float)$val : (int)$val;
+
+		/* [item1, item2] 形式の配列 */
+		if (str_starts_with($val, '[') && str_ends_with($val, ']')) {
+			$inner = substr($val, 1, -1);
+			if (trim($inner) === '') return [];
+			return array_map(function(string $v): mixed {
+				$v = trim($v);
+				/* クォート除去 */
+				if ((str_starts_with($v, '"') && str_ends_with($v, '"'))
+					|| (str_starts_with($v, "'") && str_ends_with($v, "'"))) {
+					return substr($v, 1, -1);
+				}
+				return self::parseYamlValue($v);
+			}, explode(',', $inner));
+		}
+
+		/* クォート付き文字列 */
+		if ((str_starts_with($val, '"') && str_ends_with($val, '"'))
+			|| (str_starts_with($val, "'") && str_ends_with($val, "'"))) {
+			return substr($val, 1, -1);
+		}
+		return $val;
+	}
+
+	/* ══════════════════════════════════════════════
+	   Markdown → HTML 変換
+	   ══════════════════════════════════════════════ */
+
+	/**
+	 * Markdown テキストを HTML に変換
+	 */
+	public static function toHtml(string $markdown): string {
+		$markdown = str_replace("\r\n", "\n", $markdown);
+		$markdown = str_replace("\r", "\n", $markdown);
+
+		/* コードブロック（``` ）を先に退避 */
+		$codeBlocks = [];
+		$markdown = preg_replace_callback(
+			'/^```(\w*)\n(.*?)\n```$/ms',
+			function(array $m) use (&$codeBlocks): string {
+				$lang = $m[1] ? ' class="language-' . htmlspecialchars($m[1], ENT_QUOTES, 'UTF-8') . '"' : '';
+				$code = htmlspecialchars($m[2], ENT_QUOTES, 'UTF-8');
+				$placeholder = "\x00CODE" . count($codeBlocks) . "\x00";
+				$codeBlocks[$placeholder] = "<pre><code{$lang}>{$code}</code></pre>";
+				return $placeholder;
+			},
+			$markdown
+		) ?? $markdown;
+
+		/* インラインコード（` ）を退避 */
+		$inlineCodes = [];
+		$markdown = preg_replace_callback(
+			'/`([^`\n]+)`/',
+			function(array $m) use (&$inlineCodes): string {
+				$placeholder = "\x00INLINE" . count($inlineCodes) . "\x00";
+				$inlineCodes[$placeholder] = '<code>' . htmlspecialchars($m[1], ENT_QUOTES, 'UTF-8') . '</code>';
+				return $placeholder;
+			},
+			$markdown
+		) ?? $markdown;
+
+		$lines = explode("\n", $markdown);
+		$html = [];
+		$inList = false;
+		$listType = '';
+		$inBlockquote = false;
+		$inTable = false;
+		$tableAlign = [];
+		$paragraph = [];
+
+		$flushParagraph = function() use (&$paragraph, &$html): void {
+			if ($paragraph) {
+				$text = implode("\n", $paragraph);
+				$html[] = '<p>' . self::inlineFormat($text) . '</p>';
+				$paragraph = [];
+			}
+		};
+		$closeList = function() use (&$inList, &$listType, &$html): void {
+			if ($inList) {
+				$html[] = $listType === 'ol' ? '</ol>' : '</ul>';
+				$inList = false;
+			}
+		};
+		$closeBlockquote = function() use (&$inBlockquote, &$html): void {
+			if ($inBlockquote) {
+				$html[] = '</blockquote>';
+				$inBlockquote = false;
+			}
+		};
+		$closeTable = function() use (&$inTable, &$html): void {
+			if ($inTable) {
+				$html[] = '</tbody></table>';
+				$inTable = false;
+			}
+		};
+
+		for ($i = 0; $i < count($lines); $i++) {
+			$line = $lines[$i];
+			$trimmed = rtrim($line);
+
+			/* コードブロックプレースホルダー */
+			if (str_starts_with($trimmed, "\x00CODE")) {
+				$flushParagraph();
+				$closeList();
+				$closeBlockquote();
+				$closeTable();
+				$html[] = $trimmed;
+				continue;
+			}
+
+			/* 空行 */
+			if ($trimmed === '') {
+				$flushParagraph();
+				$closeList();
+				$closeBlockquote();
+				$closeTable();
+				continue;
+			}
+
+			/* 水平線 */
+			if (preg_match('/^(-{3,}|\*{3,}|_{3,})$/', $trimmed)) {
+				$flushParagraph();
+				$closeList();
+				$closeBlockquote();
+				$closeTable();
+				$html[] = '<hr>';
+				continue;
+			}
+
+			/* 見出し */
+			if (preg_match('/^(#{1,6})\s+(.+)$/', $trimmed, $m)) {
+				$flushParagraph();
+				$closeList();
+				$closeBlockquote();
+				$closeTable();
+				$level = strlen($m[1]);
+				$text = self::inlineFormat(rtrim($m[2], ' #'));
+				$html[] = "<h{$level}>{$text}</h{$level}>";
+				continue;
+			}
+
+			/* ブロック引用 */
+			if (str_starts_with($trimmed, '> ') || $trimmed === '>') {
+				$flushParagraph();
+				$closeList();
+				$closeTable();
+				if (!$inBlockquote) {
+					$html[] = '<blockquote>';
+					$inBlockquote = true;
+				}
+				$content = ltrim(substr($trimmed, 1));
+				$html[] = '<p>' . self::inlineFormat($content) . '</p>';
+				continue;
+			}
+			if ($inBlockquote && $trimmed !== '') {
+				$html[] = '<p>' . self::inlineFormat($trimmed) . '</p>';
+				continue;
+			}
+
+			/* テーブル */
+			if (str_contains($trimmed, '|')) {
+				$cells = self::parseTableRow($trimmed);
+				if ($cells !== null) {
+					/* セパレータ行チェック */
+					if (!$inTable && isset($lines[$i + 1])) {
+						$nextCells = self::parseTableRow(rtrim($lines[$i + 1]));
+						if ($nextCells !== null && self::isTableSeparator($nextCells)) {
+							$flushParagraph();
+							$closeList();
+							$closeBlockquote();
+							$tableAlign = self::parseTableAlign($nextCells);
+							$html[] = '<table><thead><tr>';
+							foreach ($cells as $j => $cell) {
+								$align = $tableAlign[$j] ?? '';
+								$style = $align ? " style=\"text-align:{$align}\"" : '';
+								$html[] = "<th{$style}>" . self::inlineFormat(trim($cell)) . '</th>';
+							}
+							$html[] = '</tr></thead><tbody>';
+							$inTable = true;
+							$i++; /* セパレータ行をスキップ */
+							continue;
+						}
+					}
+					if ($inTable) {
+						$html[] = '<tr>';
+						foreach ($cells as $j => $cell) {
+							$align = $tableAlign[$j] ?? '';
+							$style = $align ? " style=\"text-align:{$align}\"" : '';
+							$html[] = "<td{$style}>" . self::inlineFormat(trim($cell)) . '</td>';
+						}
+						$html[] = '</tr>';
+						continue;
+					}
+				}
+			}
+
+			/* 順序なしリスト */
+			if (preg_match('/^[\-\*\+]\s+(.+)$/', $trimmed, $m)) {
+				$flushParagraph();
+				$closeBlockquote();
+				$closeTable();
+				if (!$inList || $listType !== 'ul') {
+					$closeList();
+					$html[] = '<ul>';
+					$inList = true;
+					$listType = 'ul';
+				}
+				$html[] = '<li>' . self::inlineFormat($m[1]) . '</li>';
+				continue;
+			}
+
+			/* 順序付きリスト */
+			if (preg_match('/^\d+\.\s+(.+)$/', $trimmed, $m)) {
+				$flushParagraph();
+				$closeBlockquote();
+				$closeTable();
+				if (!$inList || $listType !== 'ol') {
+					$closeList();
+					$html[] = '<ol>';
+					$inList = true;
+					$listType = 'ol';
+				}
+				$html[] = '<li>' . self::inlineFormat($m[1]) . '</li>';
+				continue;
+			}
+
+			/* 通常テキスト（段落蓄積） */
+			$closeList();
+			$closeBlockquote();
+			$closeTable();
+			$paragraph[] = $trimmed;
+		}
+
+		$flushParagraph();
+		$closeList();
+		$closeBlockquote();
+		$closeTable();
+
+		$result = implode("\n", $html);
+
+		/* コードブロック・インラインコードを復元 */
+		$result = strtr($result, $codeBlocks);
+		$result = strtr($result, $inlineCodes);
+
+		return $result;
+	}
+
+	/* ══════════════════════════════════════════════
+	   インライン書式
+	   ══════════════════════════════════════════════ */
+
+	private static function inlineFormat(string $text): string {
+		/* 画像 */
+		$text = preg_replace(
+			'/!\[([^\]]*)\]\(([^)\s]+)(?:\s+"([^"]*)")?\)/',
+			'<img src="$2" alt="$1" title="$3">',
+			$text
+		) ?? $text;
+
+		/* リンク */
+		$text = preg_replace(
+			'/\[([^\]]+)\]\(([^)\s]+)(?:\s+"([^"]*)")?\)/',
+			'<a href="$2" title="$3">$1</a>',
+			$text
+		) ?? $text;
+
+		/* 太字 + 斜体 */
+		$text = preg_replace('/\*\*\*(.+?)\*\*\*/', '<strong><em>$1</em></strong>', $text) ?? $text;
+		$text = preg_replace('/___(.+?)___/', '<strong><em>$1</em></strong>', $text) ?? $text;
+
+		/* 太字 */
+		$text = preg_replace('/\*\*(.+?)\*\*/', '<strong>$1</strong>', $text) ?? $text;
+		$text = preg_replace('/__(.+?)__/', '<strong>$1</strong>', $text) ?? $text;
+
+		/* 斜体 */
+		$text = preg_replace('/\*(.+?)\*/', '<em>$1</em>', $text) ?? $text;
+		$text = preg_replace('/_(.+?)_/', '<em>$1</em>', $text) ?? $text;
+
+		/* 打ち消し線 (GFM) */
+		$text = preg_replace('/~~(.+?)~~/', '<del>$1</del>', $text) ?? $text;
+
+		/* 改行（行末スペース2つ） */
+		$text = preg_replace('/  $/', '<br>', $text) ?? $text;
+
+		return $text;
+	}
+
+	/* ══════════════════════════════════════════════
+	   テーブルヘルパー
+	   ══════════════════════════════════════════════ */
+
+	private static function parseTableRow(string $line): ?array {
+		$line = trim($line);
+		if (!str_contains($line, '|')) return null;
+		if (str_starts_with($line, '|')) $line = substr($line, 1);
+		if (str_ends_with($line, '|')) $line = substr($line, 0, -1);
+		return explode('|', $line);
+	}
+
+	private static function isTableSeparator(array $cells): bool {
+		foreach ($cells as $cell) {
+			if (!preg_match('/^\s*:?-+:?\s*$/', trim($cell))) return false;
+		}
+		return true;
+	}
+
+	private static function parseTableAlign(array $cells): array {
+		$align = [];
+		foreach ($cells as $cell) {
+			$cell = trim($cell);
+			$left = str_starts_with($cell, ':');
+			$right = str_ends_with($cell, ':');
+			if ($left && $right) $align[] = 'center';
+			elseif ($right) $align[] = 'right';
+			elseif ($left) $align[] = 'left';
+			else $align[] = '';
+		}
+		return $align;
+	}
+
+	/* ══════════════════════════════════════════════
+	   コレクション読み込みヘルパー
+	   ══════════════════════════════════════════════ */
+
+	/**
+	 * ディレクトリ内の全 .md ファイルを読み込み。
+	 * @return array<string, array{meta: array, body: string, html: string}>
+	 */
+	public static function loadDirectory(string $dir): array {
+		$items = [];
+		$files = glob($dir . '/*.md') ?: [];
+		foreach ($files as $file) {
+			$slug = basename($file, '.md');
+			$raw = file_get_contents($file);
+			if ($raw === false) continue;
+			$parsed = self::parseFrontmatter($raw);
+			$items[$slug] = [
+				'meta' => $parsed['meta'],
+				'body' => $parsed['body'],
+				'html' => self::toHtml($parsed['body']),
+			];
+		}
+		return $items;
+	}
+}

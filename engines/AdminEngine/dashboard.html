@@ -11,6 +11,7 @@
 	<script src="engines/JsEngine/editInplace.js"></script>
 	<script src="engines/JsEngine/updater.js"></script>
 	<script src="engines/JsEngine/static_builder.js"></script>
+	<script src="engines/JsEngine/collection_manager.js"></script>
 	<script src="engines/JsEngine/dashboard.js" defer></script>
 </head>
 <body>
@@ -82,6 +83,81 @@
 		{{/if}}
 
 		<section class="ap-dash-card">
+			<h2>コレクション管理</h2>
+			{{#if collections_enabled}}
+			<div class="ap-dash-field">
+				<span style="color:#38a169;font-weight:bold;">✓ コレクションモード有効</span>
+			</div>
+			{{#if has_collections}}
+			<div class="ap-dash-collections">
+				{{#each collections}}
+				<div class="ap-dash-collection-item">
+					<strong>{{name}}</strong>
+					<span class="ap-collection-label">{{label}}</span>
+					<span class="ap-collection-count">{{count}}件</span>
+					<button class="ap-collection-edit" data-collection="{{name}}">編集</button>
+					<button class="ap-collection-delete" data-collection="{{name}}" title="コレクション定義を削除">&times;</button>
+				</div>
+				{{/each}}
+			</div>
+			{{else}}
+			<p style="color:#718096;font-size:13px;">コレクションが定義されていません。下のフォームから作成してください。</p>
+			{{/if}}
+			{{else}}
+			<div class="ap-dash-field">
+				<span style="color:#718096;font-size:13px;">コレクションモードは無効です。</span>
+			</div>
+			{{/if}}
+			<div class="ap-dash-field" style="margin-top:12px;">
+				<label>新規コレクション作成</label>
+				<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+					<input type="text" id="ap-collection-name" placeholder="コレクション名（英数字）" style="flex:1;min-width:120px;padding:6px 10px;border:1px solid #cbd5e0;border-radius:4px;font-size:14px;">
+					<input type="text" id="ap-collection-label" placeholder="表示名" style="flex:1;min-width:120px;padding:6px 10px;border:1px solid #cbd5e0;border-radius:4px;font-size:14px;">
+					<button id="ap-collection-create" style="white-space:nowrap;">作成</button>
+				</div>
+			</div>
+			{{#if has_pages}}
+			<div class="ap-dash-field" style="margin-top:8px;">
+				<button id="ap-collection-migrate">pages.json → コレクション移行</button>
+				<span id="ap-collection-migrate-result" style="margin-left:8px;font-size:13px;"></span>
+			</div>
+			{{/if}}
+		</section>
+
+		<section class="ap-dash-card ap-dash-card-editor" id="ap-collection-editor" style="display:none;">
+			<h2>コレクションエディタ: <span id="ap-editor-collection-name"></span></h2>
+			<div id="ap-editor-items"></div>
+			<div class="ap-dash-field" style="margin-top:12px;border-top:1px solid #e2e8f0;padding-top:12px;">
+				<label>新規アイテム</label>
+				<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+					<input type="text" id="ap-editor-new-slug" placeholder="スラッグ（英数字）" style="flex:1;min-width:120px;padding:6px 10px;border:1px solid #cbd5e0;border-radius:4px;font-size:14px;">
+					<input type="text" id="ap-editor-new-title" placeholder="タイトル" style="flex:1;min-width:120px;padding:6px 10px;border:1px solid #cbd5e0;border-radius:4px;font-size:14px;">
+					<button id="ap-editor-new-create">追加</button>
+				</div>
+			</div>
+			<div id="ap-editor-edit-area" style="display:none;margin-top:16px;border-top:1px solid #e2e8f0;padding-top:12px;">
+				<h3>編集: <span id="ap-editor-edit-slug"></span></h3>
+				<div class="ap-dash-field">
+					<label>タイトル</label>
+					<input type="text" id="ap-editor-edit-title" style="width:100%;padding:6px 10px;border:1px solid #cbd5e0;border-radius:4px;font-size:14px;">
+				</div>
+				<div class="ap-dash-field">
+					<label>本文 (Markdown)</label>
+					<textarea id="ap-editor-edit-body" rows="12" style="width:100%;padding:8px 10px;border:1px solid #cbd5e0;border-radius:4px;font-family:monospace;font-size:13px;resize:vertical;"></textarea>
+				</div>
+				<div class="ap-dash-buttons">
+					<button id="ap-editor-edit-save">保存</button>
+					<button id="ap-editor-edit-cancel" style="background:#718096;">キャンセル</button>
+				</div>
+				<div id="ap-editor-edit-result" style="margin-top:8px;font-size:13px;"></div>
+				<div id="ap-editor-preview" style="margin-top:12px;border-top:1px solid #e2e8f0;padding-top:12px;">
+					<label style="font-weight:bold;">プレビュー</label>
+					<div id="ap-editor-preview-html" style="padding:8px;background:#f7fafc;border:1px solid #e2e8f0;border-radius:4px;min-height:40px;"></div>
+				</div>
+			</div>
+		</section>
+
+		<section class="ap-dash-card">
 			<h2>API 設定</h2>
 			<div class="ap-dash-field">
 				<label>お問い合わせ送信先メール <small>(?ap_api=contact の宛先)</small></label>
@@ -94,7 +170,10 @@
 					<code>?ap_api=page&amp;slug=…</code> 単一ページ取得<br>
 					<code>?ap_api=settings</code> 公開設定<br>
 					<code>?ap_api=search&amp;q=…</code> 全文検索<br>
-					<code>?ap_api=contact</code> お問い合わせ送信 (POST)
+					<code>?ap_api=contact</code> お問い合わせ送信 (POST)<br>
+					<code>?ap_api=collections</code> コレクション定義一覧<br>
+					<code>?ap_api=collection&amp;name=…</code> コレクションアイテム一覧<br>
+					<code>?ap_api=item&amp;collection=…&amp;slug=…</code> 単一アイテム取得
 				</div>
 			</div>
 		</section>

@@ -369,6 +369,109 @@ button:disabled {
 	color: #2d3748;
 }
 
+/* ── コレクション管理 ── */
+
+.ap-dash-collections {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+	gap: 10px;
+	margin-bottom: 12px;
+}
+
+.ap-dash-collection-item {
+	position: relative;
+	padding: 10px 14px;
+	border: 1px solid #e2e8f0;
+	border-radius: 6px;
+	transition: border-color 0.15s;
+}
+
+.ap-dash-collection-item:hover {
+	border-color: #3182ce;
+}
+
+.ap-dash-collection-item strong {
+	display: block;
+	font-size: 14px;
+}
+
+.ap-collection-label {
+	font-size: 12px;
+	color: #718096;
+}
+
+.ap-collection-count {
+	font-size: 12px;
+	color: #3182ce;
+	margin-left: 4px;
+	font-weight: 600;
+}
+
+.ap-collection-edit {
+	font-size: 12px !important;
+	padding: 2px 10px !important;
+	background: #38a169 !important;
+	margin-top: 6px;
+}
+
+.ap-collection-edit:hover {
+	background: #2f855a !important;
+}
+
+.ap-collection-delete {
+	position: absolute;
+	top: 6px;
+	right: 6px;
+	width: 22px;
+	height: 22px;
+	padding: 0 !important;
+	font-size: 16px;
+	line-height: 1;
+	background: transparent !important;
+	color: #a0aec0;
+	border: none;
+	border-radius: 3px;
+	cursor: pointer;
+	opacity: 0;
+	transition: opacity 0.15s, color 0.15s;
+}
+
+.ap-dash-collection-item:hover .ap-collection-delete {
+	opacity: 1;
+}
+
+.ap-collection-delete:hover {
+	color: #c0392b !important;
+	background: rgba(192, 57, 43, 0.08) !important;
+}
+
+.ap-editor-item-delete {
+	position: absolute;
+	top: 6px;
+	right: 6px;
+	width: 22px;
+	height: 22px;
+	padding: 0 !important;
+	font-size: 16px;
+	line-height: 1;
+	background: transparent !important;
+	color: #a0aec0;
+	border: none;
+	border-radius: 3px;
+	cursor: pointer;
+	opacity: 0;
+	transition: opacity 0.15s, color 0.15s;
+}
+
+.ap-dash-page-item:hover .ap-editor-item-delete {
+	opacity: 1;
+}
+
+.ap-editor-item-delete:hover {
+	color: #c0392b !important;
+	background: rgba(192, 57, 43, 0.08) !important;
+}
+
 /* ── レスポンシブ ── */
 
 @media (max-width: 640px) {

@@ -615,22 +615,29 @@ class AdminEngine {
 			? number_format($diskFree / 1024 / 1024, 0) . ' MB'
 			: '取得不可';
 
+		/* コレクション情報 */
+		$collectionsEnabled = class_exists('CollectionEngine') && CollectionEngine::isEnabled();
+		$collectionList = $collectionsEnabled ? CollectionEngine::listCollections() : [];
+
 		return [
-			'title'             => $c['title'] ?? '',
-			'host'              => $host ?? '',
-			'ap_version'        => AP_VERSION,
-			'csrf_token'        => self::csrfToken(),
-			'theme_select_html' => $selectHtml,
-			'menu_raw'          => $c['menu'] ?? '',
-			'settings_fields'   => $fields,
-			'pages'             => $pageList,
-			'has_pages'         => !empty($pageList),
-			'php_version'       => PHP_VERSION,
-			'disk_free'         => $diskFreeStr,
-			'migrate_warning'   => !empty($c['migrate_warning']),
-			'contact_email'     => $contactEmail,
-			'activity_log'      => self::getRecentActivity(20),
-			'has_activity'      => !empty(self::getRecentActivity(1)),
+			'title'                => $c['title'] ?? '',
+			'host'                 => $host ?? '',
+			'ap_version'           => AP_VERSION,
+			'csrf_token'           => self::csrfToken(),
+			'theme_select_html'    => $selectHtml,
+			'menu_raw'             => $c['menu'] ?? '',
+			'settings_fields'      => $fields,
+			'pages'                => $pageList,
+			'has_pages'            => !empty($pageList),
+			'php_version'          => PHP_VERSION,
+			'disk_free'            => $diskFreeStr,
+			'migrate_warning'      => !empty($c['migrate_warning']),
+			'contact_email'        => $contactEmail,
+			'activity_log'         => self::getRecentActivity(20),
+			'has_activity'         => !empty(self::getRecentActivity(1)),
+			'collections_enabled'  => $collectionsEnabled,
+			'collections'          => $collectionList,
+			'has_collections'      => !empty($collectionList),
 		];
 	}
 }

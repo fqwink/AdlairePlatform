@@ -56,8 +56,22 @@ class StaticEngine {
 
 	private function init(): void {
 		$this->settings = json_read('settings.json', settings_dir());
-		$this->pages    = json_read('pages.json', content_dir());
-		$theme          = $this->settings['themeSelect'] ?? 'AP-Default';
+
+		/* コレクションモードか従来モードかを判定 */
+		if (class_exists('CollectionEngine') && CollectionEngine::isEnabled()) {
+			$this->pages = CollectionEngine::loadAllAsPages();
+			/* レガシーページを追加（コレクション未移行分） */
+			$legacy = json_read('pages.json', content_dir());
+			foreach ($legacy as $slug => $content) {
+				if (!isset($this->pages[$slug])) {
+					$this->pages[$slug] = $content;
+				}
+			}
+		} else {
+			$this->pages = json_read('pages.json', content_dir());
+		}
+
+		$theme = $this->settings['themeSelect'] ?? 'AP-Default';
 		if (!preg_match('/^[a-zA-Z0-9_-]+$/', $theme)) $theme = 'AP-Default';
 		$this->themeDir = 'themes/' . $theme;
 		if (!is_dir($this->themeDir)) {

@@ -3,11 +3,14 @@
  * ApiEngine - ヘッドレスCMS / 公開 REST API エンジン
  *
  * 公開エンドポイント（認証不要）:
- *   ?ap_api=pages     — 全ページ一覧
- *   ?ap_api=page      — 単一ページ取得
- *   ?ap_api=settings  — 公開設定取得
- *   ?ap_api=search    — 全文検索
- *   ?ap_api=contact   — お問い合わせフォーム送信
+ *   ?ap_api=pages        — 全ページ一覧
+ *   ?ap_api=page         — 単一ページ取得
+ *   ?ap_api=settings     — 公開設定取得
+ *   ?ap_api=search       — 全文検索
+ *   ?ap_api=contact      — お問い合わせフォーム送信
+ *   ?ap_api=collections  — コレクション定義一覧
+ *   ?ap_api=collection   — 特定コレクションの全アイテム
+ *   ?ap_api=item         — コレクション内の単一アイテム取得
  */
 class ApiEngine {
 
@@ -36,12 +39,15 @@ class ApiEngine {
 		header('Content-Type: application/json; charset=UTF-8');
 
 		match ($action) {
-			'pages'    => self::jsonResponse(true, self::getPages()),
-			'page'     => self::handleGetPage(),
-			'settings' => self::jsonResponse(true, self::getSettings()),
-			'search'   => self::handleSearch(),
-			'contact'  => self::handleContact(),
-			default    => self::jsonError('不明な API エンドポイントです', 400),
+			'pages'       => self::jsonResponse(true, self::getPages()),
+			'page'        => self::handleGetPage(),
+			'settings'    => self::jsonResponse(true, self::getSettings()),
+			'search'      => self::handleSearch(),
+			'contact'     => self::handleContact(),
+			'collections' => self::handleCollections(),
+			'collection'  => self::handleCollection(),
+			'item'        => self::handleItem(),
+			default       => self::jsonError('不明な API エンドポイントです', 400),
 		};
 	}
 
@@ -215,6 +221,67 @@ class ApiEngine {
 
 		$data[$key] = $attempts;
 		json_write('login_attempts.json', $data, settings_dir());
+	}
+
+	/* ══════════════════════════════════════════════
+	   公開エンドポイント: collections
+	   ══════════════════════════════════════════════ */
+
+	private static function handleCollections(): void {
+		if (!class_exists('CollectionEngine') || !CollectionEngine::isEnabled()) {
+			self::jsonResponse(true, []);
+		}
+		self::jsonResponse(true, CollectionEngine::listCollections());
+	}
+
+	/* ══════════════════════════════════════════════
+	   公開エンドポイント: collection
+	   ══════════════════════════════════════════════ */
+
+	private static function handleCollection(): void {
+		$name = $_GET['name'] ?? '';
+		if (!preg_match(self::SLUG_PATTERN, $name)) {
+			self::jsonError('不正なコレクション名です', 400);
+		}
+		if (!class_exists('CollectionEngine')) {
+			self::jsonError('コレクション機能が無効です', 400);
+		}
+		$items = CollectionEngine::getItems($name);
+		$list = [];
+		foreach ($items as $slug => $item) {
+			$list[] = [
+				'slug'    => $slug,
+				'meta'    => $item['meta'],
+				'preview' => self::makePreview($item['html']),
+			];
+		}
+		self::jsonResponse(true, ['collection' => $name, 'items' => $list]);
+	}
+
+	/* ══════════════════════════════════════════════
+	   公開エンドポイント: item
+	   ══════════════════════════════════════════════ */
+
+	private static function handleItem(): void {
+		$collection = $_GET['collection'] ?? '';
+		$slug = $_GET['slug'] ?? '';
+		if (!preg_match(self::SLUG_PATTERN, $collection) || !preg_match(self::SLUG_PATTERN, $slug)) {
+			self::jsonError('不正なパラメータです', 400);
+		}
+		if (!class_exists('CollectionEngine')) {
+			self::jsonError('コレクション機能が無効です', 400);
+		}
+		$item = CollectionEngine::getItem($collection, $slug);
+		if ($item === null) {
+			self::jsonError('アイテムが見つかりません', 404);
+		}
+		self::jsonResponse(true, [
+			'collection' => $collection,
+			'slug'       => $slug,
+			'meta'       => $item['meta'],
+			'content'    => $item['html'],
+			'markdown'   => $item['body'],
+		]);
 	}
 
 	/* ══════════════════════════════════════════════
