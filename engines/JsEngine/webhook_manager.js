@@ -14,18 +14,24 @@
 			if (params.hasOwnProperty(k)) fd.append(k, params[k]);
 		}
 		fetch('./', { method: 'POST', body: fd })
-			.then(function(r) { return r.json(); })
+			.then(function(r) {
+				if (!r.ok) throw new Error('HTTP ' + r.status);
+				return r.json();
+			})
 			.then(callback)
 			.catch(function(e) { callback({ ok: false, error: e.message }); });
 	}
 
 	function apiPost(endpoint, data, callback) {
-		fetch('./?ap_api=' + endpoint, {
+		fetch('./?ap_api=' + encodeURIComponent(endpoint), {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify(data)
 		})
-		.then(function(r) { return r.json(); })
+		.then(function(r) {
+			if (!r.ok) throw new Error('HTTP ' + r.status);
+			return r.json();
+		})
 		.then(callback)
 		.catch(function(e) { callback({ ok: false, error: e.message }); });
 	}
@@ -179,9 +185,11 @@
 						if (r.headers.get('content-type') && r.headers.get('content-type').indexOf('application/zip') !== -1) {
 							return r.blob().then(function(blob) {
 								var a = document.createElement('a');
-								a.href = URL.createObjectURL(blob);
+								var url = URL.createObjectURL(blob);
+								a.href = url;
 								a.download = 'deploy-diff.zip';
 								a.click();
+								setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
 							});
 						} else {
 							return r.json().then(function(data) {

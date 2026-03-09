@@ -101,9 +101,9 @@ class ThemeEngine {
 		$pageDesc  = $meta['description'] ?? '';
 		if ($pageDesc === '' && $content !== '') {
 			$pageDesc = mb_substr(strip_tags($content), 0, 160, 'UTF-8');
-			$pageDesc = preg_replace('/\s+/', ' ', trim($pageDesc));
+			$pageDesc = preg_replace('/\s+/', ' ', trim($pageDesc)) ?? '';
 		}
-		if ($pageDesc === '') $pageDesc = $description;
+		if ($pageDesc === '' || $pageDesc === null) $pageDesc = $description;
 		$pageImage = $meta['thumbnail'] ?? $meta['image'] ?? $meta['og_image'] ?? '';
 		$pageDate  = $meta['date'] ?? $meta['publishDate'] ?? '';
 		$pageTags  = $meta['tags'] ?? [];
@@ -166,9 +166,12 @@ class ThemeEngine {
 			$parts = explode('/', $slug);
 			$path = '';
 			$pos = 2;
-			foreach ($parts as $part) {
+			$lastIndex = count($parts) - 1;
+			foreach ($parts as $i => $part) {
 				$path .= $part . '/';
-				$crumbs[] = ['@type' => 'ListItem', 'position' => $pos++, 'name' => $meta['title'] ?? $part, 'item' => $baseUrl . '/' . $path];
+				/* M3 fix: meta title は最後のセグメントのみに使用 */
+				$name = ($i === $lastIndex) ? ($meta['title'] ?? $part) : $part;
+				$crumbs[] = ['@type' => 'ListItem', 'position' => $pos++, 'name' => $name, 'item' => $baseUrl . '/' . $path];
 			}
 			$breadcrumbLd = '<script type="application/ld+json">' . json_encode([
 				'@context'        => 'https://schema.org',

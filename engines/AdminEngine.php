@@ -28,6 +28,7 @@ class AdminEngine {
 			'list_revisions', 'get_revision', 'restore_revision',
 			'pin_revision', 'search_revisions',
 			'user_add', 'user_delete',
+			'redirect_add', 'redirect_delete',
 		];
 		if (!in_array($action, $valid, true)) return;
 
@@ -424,7 +425,7 @@ class AdminEngine {
 			'timestamp' => date('c'),
 			'content'   => $content,
 			'size'      => strlen($content),
-			'user'      => $_SESSION['l'] ?? '',
+			'user'      => $_SESSION['ap_username'] ?? '',
 			'restored'  => $restored,
 		];
 		file_put_contents(
@@ -680,6 +681,12 @@ class AdminEngine {
 
 	private static function handleRedirectAdd(): void {
 		header('Content-Type: application/json; charset=UTF-8');
+		/* M5 fix: 管理者権限チェック */
+		if (!self::hasRole('admin')) {
+			http_response_code(403);
+			echo json_encode(['ok' => false, 'error' => '管理者権限が必要です']);
+			exit;
+		}
 		$from = trim($_POST['from'] ?? '');
 		$to   = trim($_POST['to'] ?? '');
 		$code = (int)($_POST['code'] ?? 301);
@@ -688,8 +695,24 @@ class AdminEngine {
 			echo json_encode(['ok' => false, 'error' => '旧URLと新URLは必須です']);
 			exit;
 		}
+		/* C7 fix: URL バリデーション — from はパス、制御文字除去 */
+		$from = preg_replace('/[\r\n\x00-\x1f]/', '', $from);
+		$to   = preg_replace('/[\r\n\x00-\x1f]/', '', $to);
+		if (!str_starts_with($from, '/')) {
+			http_response_code(400);
+			echo json_encode(['ok' => false, 'error' => '旧URLは / で始まる必要があります']);
+			exit;
+		}
 		if (!in_array($code, [301, 302], true)) $code = 301;
 		$redirects = json_read('redirects.json', settings_dir());
+		/* M6 fix: 重複チェック */
+		foreach ($redirects as $r) {
+			if (($r['from'] ?? '') === $from) {
+				http_response_code(400);
+				echo json_encode(['ok' => false, 'error' => 'この旧URLのリダイレクトは既に存在します']);
+				exit;
+			}
+		}
 		$redirects[] = ['from' => $from, 'to' => $to, 'code' => $code];
 		json_write('redirects.json', $redirects, settings_dir());
 		self::logActivity("リダイレクト追加: {$from} → {$to}");
@@ -699,6 +722,12 @@ class AdminEngine {
 
 	private static function handleRedirectDelete(): void {
 		header('Content-Type: application/json; charset=UTF-8');
+		/* M5 fix: 管理者権限チェック */
+		if (!self::hasRole('admin')) {
+			http_response_code(403);
+			echo json_encode(['ok' => false, 'error' => '管理者権限が必要です']);
+			exit;
+		}
 		$index = (int)($_POST['index'] ?? -1);
 		$redirects = json_read('redirects.json', settings_dir());
 		if ($index < 0 || $index >= count($redirects)) {
@@ -881,8 +910,8 @@ class AdminEngine {
 			'disk_free'            => $diskFreeStr,
 			'migrate_warning'      => !empty($c['migrate_warning']),
 			'contact_email'        => $contactEmail,
-			'activity_log'         => self::getRecentActivity(20),
-			'has_activity'         => !empty(self::getRecentActivity(1)),
+			'activity_log'         => ($activityLog = self::getRecentActivity(20)),
+			'has_activity'         => !empty($activityLog),
 			'collections_enabled'  => $collectionsEnabled,
 			'collections'          => $collectionList,
 			'has_collections'      => !empty($collectionList),

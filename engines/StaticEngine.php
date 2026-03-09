@@ -100,6 +100,9 @@ class StaticEngine {
 		$this->buildState['settings_hash'] = $newSettingsHash;
 		$this->buildState['theme'] = $this->settings['themeSelect'] ?? 'AP-Default';
 
+		/* ビルドフック: before_build（C3 fix: ページ生成前に移動） */
+		$this->runHook('before_build', ['type' => 'diff']);
+
 		foreach ($this->pages as $slug => $content) {
 			if (!preg_match(self::SLUG_PATTERN, $slug)) continue;
 			$contentHash = $this->computeContentHash($slug, (string)$content, $newSettingsHash);
@@ -120,9 +123,6 @@ class StaticEngine {
 			];
 			$built++;
 		}
-
-		/* ビルドフック: before_build */
-		$this->runHook('before_build', ['type' => 'diff']);
 
 		/* コレクション一覧ページを生成（ページネーション対応） */
 		$built += $this->buildCollectionIndexes();
@@ -169,6 +169,9 @@ class StaticEngine {
 		$this->buildState['theme'] = $this->settings['themeSelect'] ?? 'AP-Default';
 		$this->buildState['pages'] = [];
 
+		/* ビルドフック: before_build（C3 fix: ページ生成前に移動） */
+		$this->runHook('before_build', ['type' => 'full']);
+
 		foreach ($this->pages as $slug => $content) {
 			if (!preg_match(self::SLUG_PATTERN, $slug)) continue;
 			$this->buildPage($slug, (string)$content);
@@ -178,9 +181,6 @@ class StaticEngine {
 			];
 			$built++;
 		}
-
-		/* ビルドフック: before_build */
-		$this->runHook('before_build', ['type' => 'full']);
 
 		/* コレクション一覧ページを生成（ページネーション対応） */
 		$built += $this->buildCollectionIndexes();
@@ -261,7 +261,7 @@ class StaticEngine {
 			'last_diff_build' => $this->buildState['last_diff_build'] ?? null,
 			'theme'           => $this->buildState['theme'] ?? null,
 			'pages'           => $pageStatuses,
-			'static_exists'   => is_dir(self::OUTPUT_DIR) && glob(self::OUTPUT_DIR . '/*/index.html'),
+			'static_exists'   => is_dir(self::OUTPUT_DIR) && !empty(glob(self::OUTPUT_DIR . '/*/index.html')),
 		];
 	}
 
@@ -474,22 +474,25 @@ class StaticEngine {
 					'next_url'     => '/' . $name . '/page/' . ($page + 1) . '/',
 				];
 
-				$html = $this->renderCollectionIndex($col, $pageItems, $pagination, $allItems);
+				$indexContent = $this->renderCollectionIndex($col, $pageItems, $pagination, $allItems);
 
+				/* C5 fix: page 1 も page 2+ と同じパスでレンダリング（二重レンダリング防止） */
 				if ($page === 1) {
-					$this->buildPage($name, $html);
+					$slug = $name;
+					$dir = self::OUTPUT_DIR . '/' . $slug;
 				} else {
 					$slug = $name . '/page/' . $page;
 					$dir = self::OUTPUT_DIR . '/' . $slug;
-					$this->ensureDir($dir);
-					$path = $dir . '/index.html';
-					$rendered = $this->renderPage($slug, $html, ['title' => ($col['label'] ?? $name) . ' - ' . $page . 'ページ']);
-					if (!empty($this->settings['minify'] ?? true)) {
-						$rendered = self::minifyHtml($rendered);
-					}
-					file_put_contents($path, $rendered, LOCK_EX);
-					$this->changedFiles[] = $path;
 				}
+				$this->ensureDir($dir);
+				$path = $dir . '/index.html';
+				$meta = ['title' => ($col['label'] ?? $name) . ($page > 1 ? ' - ' . $page . 'ページ' : '')];
+				$rendered = $this->renderPage($slug, $indexContent, $meta);
+				if (!empty($this->settings['minify'] ?? true)) {
+					$rendered = self::minifyHtml($rendered);
+				}
+				file_put_contents($path, $rendered, LOCK_EX);
+				$this->changedFiles[] = $path;
 				$built++;
 			}
 		}
@@ -707,8 +710,8 @@ class StaticEngine {
 	private function generateRobotsTxt(): void {
 		$baseUrl = rtrim($this->settings['site_url'] ?? '', '/');
 		$content = "User-agent: *\nAllow: /\n";
-		if ($baseUrl !== '' || is_dir(self::OUTPUT_DIR)) {
-			$sitemapUrl = ($baseUrl ?: '') . '/sitemap.xml';
+		if ($baseUrl !== '') {
+			$sitemapUrl = $baseUrl . '/sitemap.xml';
 			$content .= "Sitemap: {$sitemapUrl}\n";
 		}
 		$this->ensureDir(self::OUTPUT_DIR);
@@ -940,7 +943,8 @@ class StaticEngine {
 		$html = preg_replace_callback(
 			'#(<(?:pre|code|script|style|textarea)\b[^>]*>)(.*?)(</(?:pre|code|script|style|textarea)>)#si',
 			function($m) use (&$protected) {
-				$key = '<!--AP_PROTECT_' . count($protected) . '-->';
+				/* C1 fix: HTML コメント形式ではなく固有トークンを使用（コメント除去で消されない） */
+				$key = "\x00AP_PROTECT_" . count($protected) . "\x00";
 				$protected[$key] = $m[0];
 				return $key;
 			},
@@ -988,6 +992,10 @@ class StaticEngine {
 			$to   = $r['to'] ?? '';
 			$code = (int)($r['code'] ?? 301);
 			if ($from === '' || $to === '') continue;
+			if (!in_array($code, [301, 302], true)) $code = 301;
+			$from = preg_replace('/[\r\n\x00-\x1f]/', '', $from);
+			$to   = preg_replace('/[\r\n\x00-\x1f]/', '', $to);
+			if (!str_starts_with($from, '/')) continue;
 			$lines[] = "{$from}  {$to}  {$code}";
 		}
 
@@ -1019,12 +1027,12 @@ class StaticEngine {
 			if (!str_ends_with($real, '.php')) continue;
 
 			try {
-				$apHookContext = array_merge($context, [
-					'settings'   => $this->settings,
-					'pages'      => array_keys($this->pages),
-					'output_dir' => self::OUTPUT_DIR,
-					'theme_dir'  => $this->themeDir,
-				]);
+				/* C4 fix: array_merge は参照を破壊するため直接代入 */
+				$apHookContext = $context;
+				$apHookContext['settings']   = $this->settings;
+				$apHookContext['pages']      = array_keys($this->pages);
+				$apHookContext['output_dir'] = self::OUTPUT_DIR;
+				$apHookContext['theme_dir']  = $this->themeDir;
 				include $real;
 			} catch (\Throwable $e) {
 				$this->warnings[] = "フックエラー ({$hookFile}): " . $e->getMessage();
@@ -1057,9 +1065,10 @@ class StaticEngine {
 			exit;
 		}
 
+		$prefix = self::OUTPUT_DIR . '/';
 		foreach ($changedFiles as $file) {
-			if (file_exists($file)) {
-				$rel = substr($file, strlen(self::OUTPUT_DIR) + 1);
+			if (file_exists($file) && str_starts_with($file, $prefix)) {
+				$rel = substr($file, strlen($prefix));
 				$zip->addFile($file, $rel);
 			}
 		}
@@ -1124,10 +1133,18 @@ class StaticEngine {
 		}
 
 		/* static/{slug}/ ディレクトリ */
+		/* M2 fix: コレクションディレクトリは孤立扱いしない */
+		$collectionNames = [];
+		if (class_exists('CollectionEngine') && CollectionEngine::isEnabled()) {
+			foreach (CollectionEngine::listCollections() as $col) {
+				$collectionNames[$col['name']] = true;
+			}
+		}
 		$dirs = glob(self::OUTPUT_DIR . '/*', GLOB_ONLYDIR) ?: [];
 		foreach ($dirs as $dir) {
 			$slug = basename($dir);
 			if ($slug === 'assets') continue;
+			if (isset($collectionNames[$slug])) continue;
 			if (!isset($this->pages[$slug])) {
 				$this->removeDir($dir);
 				$deleted++;
@@ -1156,14 +1173,13 @@ class StaticEngine {
 
 	private function writeStaticHtaccess(): void {
 		$htaccess = self::OUTPUT_DIR . '/.htaccess';
-		$basePath = rtrim(dirname($_SERVER['SCRIPT_NAME'] ?? '/index.php'), '/') . '/';
 		$content = "Options -Indexes -ExecCGI\n\n"
 			. "# PHP 実行禁止\n"
 			. "<FilesMatch \"\\.php$\">\n"
 			. "    Require all denied\n"
 			. "</FilesMatch>\n\n";
 
-		/* リダイレクトルール */
+		/* リダイレクトルール（C2 fix: 改行・制御文字を除去してインジェクション防止） */
 		$redirects = json_read('redirects.json', settings_dir());
 		if (!empty($redirects)) {
 			$content .= "# リダイレクト\n";
@@ -1172,6 +1188,12 @@ class StaticEngine {
 				$to   = $r['to'] ?? '';
 				$code = (int)($r['code'] ?? 301);
 				if ($from === '' || $to === '') continue;
+				if (!in_array($code, [301, 302], true)) $code = 301;
+				/* 改行・制御文字を除去（.htaccess インジェクション防止） */
+				$from = preg_replace('/[\r\n\x00-\x1f]/', '', $from);
+				$to   = preg_replace('/[\r\n\x00-\x1f]/', '', $to);
+				/* パスとして妥当か検証 */
+				if (!str_starts_with($from, '/')) continue;
 				$content .= "Redirect {$code} {$from} {$to}\n";
 			}
 			$content .= "\n";
