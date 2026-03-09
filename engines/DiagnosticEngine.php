@@ -53,10 +53,27 @@ class DiagnosticEngine {
 		'integration',  /* 統合: 外部 API 障害・Webhook 失敗 */
 	];
 
+	/* ── 計測対象エンジン一覧 ── */
+	private const ENGINE_CLASSES = [
+		'AdminEngine', 'TemplateEngine', 'ThemeEngine', 'UpdateEngine',
+		'StaticEngine', 'ApiEngine', 'CollectionEngine', 'MarkdownEngine',
+		'GitEngine', 'WebhookEngine', 'CacheEngine', 'ImageOptimizer',
+		'DiagnosticEngine',
+	];
+
 	/* ── パフォーマンスプロファイラ（リクエスト内メモリ） ── */
 	private static array $timers = [];
 	private static array $timings = [];
 	private static int $memoryStart = 0;
+
+	/* ── エンジン別実行時間トラッカー ── */
+	private static array $engineTimers = [];       /* 実行中タイマー */
+	private static array $engineTimings = [];      /* 計測結果（ms） */
+	private static array $engineMemoryBefore = []; /* エンジン起動前メモリ */
+	private static array $engineCallCounts = [];   /* 呼び出し回数 */
+
+	/* ── スタックトレース蓄積（リクエスト内） ── */
+	private static array $capturedTraces = [];
 
 	/* 除外すべきセンシティブキー */
 	private const SENSITIVE_KEYS = [
@@ -169,6 +186,139 @@ class DiagnosticEngine {
 	}
 
 	/* ══════════════════════════════════════════════
+	   エンジン別実行時間トラッカー
+	   ══════════════════════════════════════════════ */
+
+	/**
+	 * エンジン処理の計測を開始
+	 *
+	 * @param string $engine エンジン名（例: 'TemplateEngine'）
+	 * @param string $method メソッド名（例: 'render'）
+	 */
+	public static function startEngineTimer(string $engine, string $method = ''): void {
+		$key = $method !== '' ? "{$engine}::{$method}" : $engine;
+		self::$engineTimers[$key] = hrtime(true);
+		self::$engineMemoryBefore[$key] = memory_get_usage(true);
+	}
+
+	/**
+	 * エンジン処理の計測を停止・記録
+	 *
+	 * @return float|null 経過時間（ms）。タイマー未開始なら null
+	 */
+	public static function stopEngineTimer(string $engine, string $method = ''): ?float {
+		$key = $method !== '' ? "{$engine}::{$method}" : $engine;
+		if (!isset(self::$engineTimers[$key])) return null;
+
+		$elapsed = (hrtime(true) - self::$engineTimers[$key]) / 1_000_000; /* ms */
+		$elapsed = round($elapsed, 2);
+		$memoryDelta = memory_get_usage(true) - (self::$engineMemoryBefore[$key] ?? 0);
+
+		/* 累積記録 */
+		if (!isset(self::$engineTimings[$key])) {
+			self::$engineTimings[$key] = [
+				'total_ms'    => 0.0,
+				'calls'       => 0,
+				'max_ms'      => 0.0,
+				'min_ms'      => PHP_FLOAT_MAX,
+				'memory_delta_total' => 0,
+			];
+		}
+		self::$engineTimings[$key]['total_ms'] += $elapsed;
+		self::$engineTimings[$key]['calls']++;
+		self::$engineTimings[$key]['max_ms'] = max(self::$engineTimings[$key]['max_ms'], $elapsed);
+		self::$engineTimings[$key]['min_ms'] = min(self::$engineTimings[$key]['min_ms'], $elapsed);
+		self::$engineTimings[$key]['memory_delta_total'] += $memoryDelta;
+
+		/* 汎用タイマーにも記録 */
+		self::$timings[$key] = $elapsed;
+
+		/* 呼び出し回数 */
+		$engineName = explode('::', $key)[0];
+		self::$engineCallCounts[$engineName] = (self::$engineCallCounts[$engineName] ?? 0) + 1;
+
+		unset(self::$engineTimers[$key], self::$engineMemoryBefore[$key]);
+
+		return $elapsed;
+	}
+
+	/**
+	 * エンジン別実行時間の詳細を取得
+	 */
+	public static function getEngineTimings(): array {
+		$result = [];
+		foreach (self::$engineTimings as $key => $data) {
+			$result[$key] = [
+				'total_ms'     => round($data['total_ms'], 2),
+				'calls'        => $data['calls'],
+				'avg_ms'       => $data['calls'] > 0 ? round($data['total_ms'] / $data['calls'], 2) : 0,
+				'max_ms'       => round($data['max_ms'], 2),
+				'min_ms'       => $data['min_ms'] === PHP_FLOAT_MAX ? 0 : round($data['min_ms'], 2),
+				'memory_delta' => $data['memory_delta_total'],
+				'memory_delta_human' => self::humanSize(abs($data['memory_delta_total'])),
+			];
+		}
+
+		/* エンジン単位の合計 */
+		$engineTotals = [];
+		foreach ($result as $key => $data) {
+			$engineName = explode('::', $key)[0];
+			if (!isset($engineTotals[$engineName])) {
+				$engineTotals[$engineName] = ['total_ms' => 0.0, 'calls' => 0, 'methods' => []];
+			}
+			$engineTotals[$engineName]['total_ms'] += $data['total_ms'];
+			$engineTotals[$engineName]['calls'] += $data['calls'];
+			$engineTotals[$engineName]['methods'][$key] = $data;
+		}
+
+		return [
+			'detail'  => $result,
+			'engines' => $engineTotals,
+			'summary' => [
+				'total_engines_tracked' => count($engineTotals),
+				'total_calls'           => array_sum(self::$engineCallCounts),
+				'engine_call_counts'    => self::$engineCallCounts,
+			],
+		];
+	}
+
+	/* ══════════════════════════════════════════════
+	   スタックトレース収集
+	   ══════════════════════════════════════════════ */
+
+	/**
+	 * 現在のスタックトレースをキャプチャして蓄積
+	 *
+	 * @param string $label トレースの識別ラベル
+	 * @param int    $depth 最大フレーム数
+	 */
+	public static function captureTrace(string $label, int $depth = 15): void {
+		if (!self::isEnabled()) return;
+		$level = self::getLevel();
+		if ($level !== 'debug' && $level !== 'extended') return;
+
+		$trace = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, $depth);
+		self::$capturedTraces[] = [
+			'label'     => $label,
+			'trace'     => self::sanitizeStackTrace($trace),
+			'timestamp' => date('c'),
+			'memory'    => memory_get_usage(true),
+		];
+
+		/* メモリ保護: リクエスト内50件まで */
+		if (count(self::$capturedTraces) > 50) {
+			self::$capturedTraces = array_slice(self::$capturedTraces, -50);
+		}
+	}
+
+	/**
+	 * 蓄積されたスタックトレースを取得
+	 */
+	public static function getCapturedTraces(): array {
+		return self::$capturedTraces;
+	}
+
+	/* ══════════════════════════════════════════════
 	   エラー・ログ収集
 	   ══════════════════════════════════════════════ */
 
@@ -197,9 +347,10 @@ class DiagnosticEngine {
 				'timestamp'      => date('c'),
 			];
 
-			/* debug レベルではスタックトレースも収集 */
-			if ($level === 'debug') {
-				$entry['stack_trace'] = self::sanitizeStackTrace(debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 10));
+			/* extended 以上でスタックトレースを収集 */
+			if ($level === 'debug' || $level === 'extended') {
+				$depth = $level === 'debug' ? 20 : 10;
+				$entry['stack_trace'] = self::sanitizeStackTrace(debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, $depth));
 			}
 
 			self::logError($entry);
@@ -207,24 +358,58 @@ class DiagnosticEngine {
 			return false; /* PHP 標準のエラー処理も実行 */
 		});
 
+		/* 未キャッチ例外ハンドラ — 例外のスタックトレースを完全収集 */
+		$previousHandler = set_exception_handler(function (\Throwable $exception) use (&$previousHandler) {
+			$debugCategory = self::classifyException($exception);
+
+			$entry = [
+				'type'           => 'EXCEPTION: ' . get_class($exception),
+				'debug_category' => $debugCategory,
+				'message'        => self::sanitizeMessage($exception->getMessage()),
+				'file'           => self::sanitizePath($exception->getFile()),
+				'line'           => $exception->getLine(),
+				'code'           => $exception->getCode(),
+				'timestamp'      => date('c'),
+				'stack_trace'    => self::sanitizeExceptionTrace($exception),
+			];
+
+			/* チェーンされた例外がある場合も収集 */
+			$previous = $exception->getPrevious();
+			if ($previous !== null) {
+				$entry['previous_exception'] = [
+					'type'        => get_class($previous),
+					'message'     => self::sanitizeMessage($previous->getMessage()),
+					'file'        => self::sanitizePath($previous->getFile()),
+					'line'        => $previous->getLine(),
+					'stack_trace' => self::sanitizeExceptionTrace($previous),
+				];
+			}
+
+			self::logError($entry);
+
+			/* 元のハンドラがあれば委譲 */
+			if ($previousHandler !== null) {
+				($previousHandler)($exception);
+			}
+		});
+
 		/* シャットダウン時の Fatal Error キャプチャ */
 		register_shutdown_function(function () {
 			$error = error_get_last();
-			if ($error === null) return;
-			if (!in_array($error['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR], true)) return;
+			if ($error !== null && in_array($error['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR], true)) {
+				$debugCategory = self::classifyError($error['type'], $error['message']);
 
-			$debugCategory = self::classifyError($error['type'], $error['message']);
+				self::logError([
+					'type'           => 'FATAL: ' . self::errorTypeString($error['type']),
+					'debug_category' => $debugCategory,
+					'message'        => self::sanitizeMessage($error['message']),
+					'file'           => self::sanitizePath($error['file']),
+					'line'           => $error['line'],
+					'timestamp'      => date('c'),
+				]);
+			}
 
-			self::logError([
-				'type'           => 'FATAL: ' . self::errorTypeString($error['type']),
-				'debug_category' => $debugCategory,
-				'message'        => self::sanitizeMessage($error['message']),
-				'file'           => self::sanitizePath($error['file']),
-				'line'           => $error['line'],
-				'timestamp'      => date('c'),
-			]);
-
-			/* シャットダウン時にパフォーマンス・メモリ情報を記録 */
+			/* シャットダウン時にランタイムスナップショット（エンジン別実行時間含む）を記録 */
 			self::captureRuntimeSnapshot();
 		});
 	}
@@ -303,6 +488,83 @@ class DiagnosticEngine {
 
 		/* それ以外は実行時エラー */
 		return 'runtime';
+	}
+
+	/**
+	 * 例外を12カテゴリに分類
+	 */
+	private static function classifyException(\Throwable $e): string {
+		$class = strtolower(get_class($e));
+		$msg   = strtolower($e->getMessage());
+
+		/* TypeError → semantic */
+		if ($e instanceof \TypeError || str_contains($class, 'typeerror')) {
+			return 'semantic';
+		}
+		/* ParseError → syntax */
+		if ($e instanceof \ParseError) {
+			return 'syntax';
+		}
+		/* LogicException 系 → logic */
+		if ($e instanceof \LogicException || $e instanceof \DomainException
+			|| $e instanceof \InvalidArgumentException || $e instanceof \LengthException) {
+			return 'logic';
+		}
+		/* OutOfRangeException / OutOfBoundsException → off_by_one */
+		if ($e instanceof \OutOfRangeException || $e instanceof \OutOfBoundsException) {
+			return 'off_by_one';
+		}
+		/* OverflowException → memory */
+		if ($e instanceof \OverflowException || str_contains($msg, 'memory')) {
+			return 'memory';
+		}
+		/* RuntimeException のメッセージベース分類 */
+		if (str_contains($msg, 'timeout') || str_contains($msg, 'timed out')) {
+			return 'timing';
+		}
+		if (str_contains($msg, 'lock') || str_contains($msg, 'deadlock') || str_contains($msg, 'concurrent')) {
+			return 'race_condition';
+		}
+		if (str_contains($msg, 'curl') || str_contains($msg, 'connection') || str_contains($msg, 'webhook')
+			|| str_contains($msg, 'api') || str_contains($msg, 'http')) {
+			return 'integration';
+		}
+		if (str_contains($msg, 'permission') || str_contains($msg, 'unauthorized') || str_contains($msg, 'forbidden')) {
+			return 'security';
+		}
+		if (str_contains($msg, 'extension') || str_contains($msg, 'not supported') || str_contains($msg, 'class not found')) {
+			return 'environment';
+		}
+
+		return 'runtime';
+	}
+
+	/**
+	 * 例外のスタックトレースをサニタイズ
+	 */
+	private static function sanitizeExceptionTrace(\Throwable $e): array {
+		$result = [];
+		foreach ($e->getTrace() as $i => $frame) {
+			if ($i >= 20) break; /* 最大20フレーム */
+			$entry = [];
+			if (isset($frame['file'])) {
+				$entry['file'] = self::sanitizePath($frame['file']);
+			}
+			if (isset($frame['line'])) {
+				$entry['line'] = $frame['line'];
+			}
+			if (isset($frame['class'])) {
+				$entry['class'] = $frame['class'];
+			}
+			if (isset($frame['function'])) {
+				$entry['function'] = $frame['function'];
+			}
+			if (isset($frame['type'])) {
+				$entry['type'] = $frame['type']; /* -> or :: */
+			}
+			$result[] = $entry;
+		}
+		return $result;
 	}
 
 	/**
@@ -411,14 +673,20 @@ class DiagnosticEngine {
 
 	/**
 	 * シャットダウン時のランタイムスナップショット
+	 * エンジン別実行時間・メモリ・スタックトレース数を含む
 	 */
 	private static function captureRuntimeSnapshot(): void {
+		$engineTimings = self::getEngineTimings();
+
 		$snapshot = [
-			'memory_usage'      => memory_get_usage(true),
-			'memory_peak'       => memory_get_peak_usage(true),
+			'memory_usage'       => memory_get_usage(true),
+			'memory_peak'        => memory_get_peak_usage(true),
 			'memory_usage_human' => self::humanSize(memory_get_usage(true)),
-			'memory_peak_human' => self::humanSize(memory_get_peak_usage(true)),
-			'timings'           => self::$timings,
+			'memory_peak_human'  => self::humanSize(memory_get_peak_usage(true)),
+			'timings'            => self::$timings,
+			'engine_timings'     => $engineTimings['engines'] ?? [],
+			'engine_summary'     => $engineTimings['summary'] ?? [],
+			'traced_count'       => count(self::$capturedTraces),
 		];
 		self::log('runtime_snapshot', 'シャットダウン時スナップショット', $snapshot);
 	}
@@ -763,13 +1031,7 @@ class DiagnosticEngine {
 
 		/* 有効エンジン一覧 */
 		$engines = [];
-		$engineClasses = [
-			'AdminEngine', 'TemplateEngine', 'ThemeEngine', 'UpdateEngine',
-			'StaticEngine', 'ApiEngine', 'CollectionEngine', 'MarkdownEngine',
-			'GitEngine', 'WebhookEngine', 'CacheEngine', 'ImageOptimizer',
-			'DiagnosticEngine',
-		];
-		foreach ($engineClasses as $cls) {
+		foreach (self::ENGINE_CLASSES as $cls) {
 			if (class_exists($cls)) $engines[] = $cls;
 		}
 
@@ -836,18 +1098,22 @@ class DiagnosticEngine {
 		/* キャッシュ統計 */
 		$cacheStats = class_exists('CacheEngine') ? CacheEngine::getStats() : [];
 
+		/* エンジン別実行時間 */
+		$engineTimings = self::getEngineTimings();
+
 		return [
-			'recent_errors' => $recentErrors,
-			'recent_logs'   => $recentLogs,
-			'performance'   => $perf,
-			'cache_stats'   => $cacheStats,
-			'timings'       => self::getTimings(),
-			'security'      => self::getSecuritySummary(),
+			'recent_errors'  => $recentErrors,
+			'recent_logs'    => $recentLogs,
+			'performance'    => $perf,
+			'cache_stats'    => $cacheStats,
+			'timings'        => self::getTimings(),
+			'engine_timings' => $engineTimings['engines'] ?? [],
+			'security'       => self::getSecuritySummary(),
 		];
 	}
 
 	/**
-	 * Level 3: debug — 12カテゴリ別集計・スタックトレース・詳細設定
+	 * Level 3: debug — 12カテゴリ別集計・スタックトレース・エンジン別実行時間・詳細設定
 	 */
 	public static function collectDebug(): array {
 		$log = json_read(self::LOG_FILE, settings_dir());
@@ -927,10 +1193,28 @@ class DiagnosticEngine {
 			$memoryInfo['usage_ratio'] = round(memory_get_usage(true) / $limitBytes, 3);
 		}
 
+		/* エンジン別実行時間（全詳細） */
+		$engineTimings = self::getEngineTimings();
+
+		/* 蓄積されたスタックトレース */
+		$traces = self::getCapturedTraces();
+
+		/* スタックトレース付きエラーの抽出（直近20件） */
+		$tracedErrors = [];
+		foreach (array_reverse($log['errors'] ?? []) as $e) {
+			if (!empty($e['stack_trace'])) {
+				$tracedErrors[] = $e;
+				if (count($tracedErrors) >= 20) break;
+			}
+		}
+
 		return [
 			'full_errors'          => $fullErrors,
 			'category_breakdown'   => $categoryBreakdown,
 			'category_recent'      => $categoryRecent,
+			'traced_errors'        => $tracedErrors,
+			'captured_traces'      => $traces,
+			'engine_timings'       => $engineTimings,
 			'settings'             => $safeSettings,
 			'php_config'           => $phpConfig,
 			'environment'          => $envInfo,
