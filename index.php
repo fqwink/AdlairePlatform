@@ -32,7 +32,15 @@ require 'engines/ImageOptimizer.php';
 
 ini_set('session.cookie_httponly', 1);
 ini_set('session.cookie_samesite', 'Lax');
+if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') {
+	ini_set('session.cookie_secure', 1);
+}
 session_start();
+
+/* セキュリティヘッダー */
+header('X-Content-Type-Options: nosniff');
+header('X-Frame-Options: SAMEORIGIN');
+header('Referrer-Policy: strict-origin-when-cross-origin');
 migrate_from_files();
 host();
 AdminEngine::handle();       /* edit_field, upload_image, revision 等 */
@@ -85,8 +93,11 @@ foreach($c as $key => $val){
 			if(empty($_auth['password_hash'])){
 				$c[$key] = AdminEngine::savePassword($val);
 			} elseif(strlen($_auth['password_hash']) === 32 && ctype_xdigit($_auth['password_hash'])){
-				$c[$key] = AdminEngine::savePassword('admin');
+				/* MD5ハッシュ検出: ランダムパスワードで上書き（セキュリティ確保） */
+				$tempPw = bin2hex(random_bytes(16));
+				$c[$key] = AdminEngine::savePassword($tempPw);
 				$c['migrate_warning'] = true;
+				error_log('AdlairePlatform: MD5パスワードを検出。ランダムパスワードに移行しました。管理者はパスワードリセットが必要です。');
 			} else {
 				$c[$key] = $_auth['password_hash'];
 			}
@@ -172,7 +183,11 @@ function verify_csrf(): void {
 }
 
 function getSlug(string $p): string {
-	return mb_convert_case(str_replace(' ', '-', $p), MB_CASE_LOWER, "UTF-8");
+	$slug = mb_convert_case(str_replace(' ', '-', $p), MB_CASE_LOWER, "UTF-8");
+	/* M12 fix: パストラバーサル防止 */
+	$slug = str_replace(['../', '..\\', "\0"], '', $slug);
+	$slug = preg_replace('#/+#', '/', $slug);
+	return ltrim($slug, '/');
 }
 
 function h(string $s): string {
@@ -224,7 +239,10 @@ function json_write(string $file, array $data, string $dir = ''): void {
 function host(){
 	global $host, $rp;
 	$rp = preg_replace('#/+#', '/', (isset($_GET['page'])) ? urldecode($_GET['page']) : '');
-	$host = $_SERVER['HTTP_HOST'];
+	/* C8 fix: HTTP_HOST ヘッダーインジェクション防止 */
+	$rawHost = $_SERVER['HTTP_HOST'] ?? 'localhost';
+	$rawHost = preg_replace('/[^a-zA-Z0-9.\-:\[\]]/', '', $rawHost);
+	$host = $rawHost;
 	$uri = preg_replace('#/+#', '/', urldecode($_SERVER['REQUEST_URI']));
 	$host = (strrpos($uri, $rp) !== false) ? $host.'/'.substr($uri, 0, strlen($uri) - strlen($rp)) : $host.'/'.$uri;
 	$host = explode('?', $host);

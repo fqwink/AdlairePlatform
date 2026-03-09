@@ -93,7 +93,7 @@ class ImageOptimizer {
 		if ($src === null) return;
 
 		$webpPath = preg_replace('/\.\w+$/', '.webp', $path);
-		if ($webpPath === $path) return;
+		if ($webpPath === null || $webpPath === $path) return;
 
 		imagewebp($src, $webpPath, self::WEBP_QUALITY);
 		imagedestroy($src);

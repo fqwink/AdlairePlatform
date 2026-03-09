@@ -28,7 +28,10 @@ class CacheEngine {
 	public static function serve(string $endpoint, array $params = []): bool {
 		$key = self::cacheKey($endpoint, $params);
 		$path = self::cachePath($key);
-		if (!file_exists($path)) return false;
+
+		/* M14 fix: TOCTOU 回避 — file_exists + file_get_contents を一括で */
+		$content = @file_get_contents($path);
+		if ($content === false) return false;
 
 		$ttl = self::TTL[$endpoint] ?? 60;
 		$mtime = filemtime($path);
@@ -37,7 +40,8 @@ class CacheEngine {
 			return false;
 		}
 
-		$etag = '"' . md5($key . $mtime) . '"';
+		/* M15 fix: コンテンツベースの ETag（mtime ではなくハッシュ） */
+		$etag = '"' . hash('xxh128', $content) . '"';
 		$lastModified = gmdate('D, d M Y H:i:s', $mtime) . ' GMT';
 
 		/* 304 Not Modified チェック */
@@ -45,20 +49,24 @@ class CacheEngine {
 		$ifModifiedSince = $_SERVER['HTTP_IF_MODIFIED_SINCE'] ?? '';
 
 		if ($ifNoneMatch !== '' && $ifNoneMatch === $etag) {
+			/* M16 fix: 304 レスポンスにも ETag / Cache-Control ヘッダーを含める */
 			http_response_code(304);
+			header('ETag: ' . $etag);
+			header('Cache-Control: max-age=' . $ttl . ', must-revalidate');
 			exit;
 		}
 		if ($ifModifiedSince !== '' && strtotime($ifModifiedSince) >= $mtime) {
 			http_response_code(304);
+			header('ETag: ' . $etag);
+			header('Last-Modified: ' . $lastModified);
+			header('Cache-Control: max-age=' . $ttl . ', must-revalidate');
 			exit;
 		}
-
-		$content = file_get_contents($path);
-		if ($content === false) return false;
 
 		header('Content-Type: application/json; charset=UTF-8');
 		header('ETag: ' . $etag);
 		header('Last-Modified: ' . $lastModified);
+		header('Cache-Control: max-age=' . $ttl . ', must-revalidate');
 		header('X-Cache: HIT');
 		echo $content;
 		exit;
