@@ -2,7 +2,7 @@
 
 > 確定日: 2026-03-07
 > バージョン規則: `Ver.{メジャー}.{マイナー}-{リビジョン}` (AFE VERSIONING.md準拠)
-> **Ver.1.3-28**: 全エンジン実装完了。StaticEngine・ApiEngine・CollectionEngine・MarkdownEngine・GitEngine・WebhookEngine・CacheEngine・ImageOptimizer を実装済み。
+> **Ver.1.3-29**: Ver.1.3系終了。全 12 エンジン実装完了・セキュリティ監査完了。
 ---
 
 ## 1. アーキテクチャ方針
@@ -294,8 +294,9 @@ Header always set Content-Security-Policy "default-src 'self'; script-src 'self'
 | AdminEngine | `Ver.1.3-27` | ✅ 完了 | 管理エンジン導入・ダッシュボード化 |
 | StaticEngine | `Ver.1.3-28` | ✅ 完了 | 静的サイト生成・theme.php 廃止 |
 | ヘッドレス CMS | `Ver.1.3-28` | ✅ 完了 | ApiEngine・CollectionEngine・MarkdownEngine・GitEngine・WebhookEngine・CacheEngine・ImageOptimizer |
+| **Ver.1.3系終了** | `Ver.1.3-29` | **🔒 終了** | **Ver.1.3系最終リビジョン** |
 
-### Ver.1.3系
+### Ver.1.3系（🔒 終了）
 
 | フェーズ | 主な内容 | ステータス |
 |---------|---------|-----------|
@@ -311,6 +312,7 @@ Header always set Content-Security-Policy "default-src 'self'; script-src 'self'
 
 > **バージョン規則**: リビジョンはリセット禁止、常に累積加算
 > **Ver.1.2系実績**: `Ver.1.0-11 → Ver.1.1-12 → Ver.1.2-13 → ... → Ver.1.2-26（終了）`
+> **Ver.1.3系実績**: `Ver.1.3-27 → Ver.1.3-28 → Ver.1.3-29（終了）`
 
 ---
 
@@ -377,7 +379,7 @@ Header always set Content-Security-Policy "default-src 'self'; script-src 'self'
 
 ## 11. 機能リスト
 
-### 実装済み（Ver.1.3-28 現在）
+### 実装済み（Ver.1.3-29 現在（Ver.1.3系終了））
 
 #### コンテンツ管理
 - ✅ ページ作成・編集・保存（JSON）

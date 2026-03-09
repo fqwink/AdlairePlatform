@@ -2,6 +2,76 @@
 
 ---
 
+## AdlairePlatform Ver.1.3-29 — Ver.1.3系終了（2026-03-09）
+
+> **Ver.1.3系は本リビジョン（Ver.1.3-29）をもって開発終了とします。**
+> 次期バージョンでは WorkflowEngine（レビューワークフロー）、マルチ環境、GraphQL 対応、GitHub OAuth 等を検討予定です。
+
+### Ver.1.3系の総括
+
+Ver.1.3系（Ver.1.3-27 〜 Ver.1.3-29）は、AdlairePlatform を **エンジン駆動型 CMS** から **ヘッドレス CMS 機能搭載の静的サイトジェネレーター CMS** へ進化させたシリーズです。
+
+#### 主要な成果
+
+**管理エンジン・ダッシュボード化（Ver.1.3-27）**
+- AdminEngine 導入: 認証・CSRF・フィールド保存・画像アップロード・リビジョン管理を集約
+- 専用管理ダッシュボード（`?admin`）: テーマ非依存の管理画面
+- index.php を約 670 行から約 250 行に簡素化
+
+**静的サイト生成（Ver.1.3-28）**
+- StaticEngine: 差分ビルド・フルビルド・クリーン・ZIP ダウンロード
+- Static-First Hybrid アーキテクチャ: `.htaccess` で静的ファイル優先配信
+- コレクション一覧・個別・タグページ・ページネーションの静的生成
+- sitemap.xml / robots.txt / search-index.json / OGP / JSON-LD 自動生成
+- HTML / CSS ミニファイ・前後記事ナビゲーション・リダイレクト管理・ビルドフック
+
+**ヘッドレス CMS 機能一斉実装（Ver.1.3-28）**
+- ApiEngine: 公開 REST API（API キー認証・CORS 対応）
+- CollectionEngine: Markdown ベースのコレクション管理
+- MarkdownEngine: フロントマター付き Markdown パーサー
+- GitEngine: GitHub リポジトリ連携（Pull/Push）
+- WebhookEngine: HMAC-SHA256 署名付き通知（SSRF 防止）
+- CacheEngine: ファイルベース API レスポンスキャッシュ（ETag/Last-Modified）
+- ImageOptimizer: GD によるリサイズ・サムネイル・WebP 変換
+
+**theme.php 廃止（Ver.1.3-28）**
+- レガシー PHP テーマ方式を完全廃止
+- テーマは `theme.html`（TemplateEngine 方式）のみに統一
+
+**セキュリティ監査（Ver.1.3-28）**
+- Round 5/6 で計 21 件のセキュリティバグを修正（R8-R29）
+- パストラバーサル・XSS・CSRF・SSRF・CORS キャッシュポイズニング等を対策
+
+#### 全エンジン一覧（12 エンジン）
+
+| エンジン | ファイル | 導入バージョン |
+|---------|---------|-------------|
+| AdminEngine | `engines/AdminEngine.php` | Ver.1.3-27 |
+| TemplateEngine | `engines/TemplateEngine.php` | Ver.1.2-26 |
+| ThemeEngine | `engines/ThemeEngine.php` | Ver.1.2-13 |
+| UpdateEngine | `engines/UpdateEngine.php` | Ver.1.0-11 |
+| StaticEngine | `engines/StaticEngine.php` | Ver.1.3-28 |
+| ApiEngine | `engines/ApiEngine.php` | Ver.1.3-28 |
+| CollectionEngine | `engines/CollectionEngine.php` | Ver.1.3-28 |
+| MarkdownEngine | `engines/MarkdownEngine.php` | Ver.1.3-28 |
+| GitEngine | `engines/GitEngine.php` | Ver.1.3-28 |
+| WebhookEngine | `engines/WebhookEngine.php` | Ver.1.3-28 |
+| CacheEngine | `engines/CacheEngine.php` | Ver.1.3-28 |
+| ImageOptimizer | `engines/ImageOptimizer.php` | Ver.1.3-28 |
+
+#### 次期バージョンで検討予定
+
+| モジュール | 内容 |
+|----------|------|
+| WorkflowEngine | プレビュー + レビュー承認ワークフロー |
+| マルチ環境 | Git ブランチ = 環境（dev / staging / production） |
+| GraphQL 対応 | REST に加えて GraphQL エンドポイント |
+| GitHub OAuth | 外部認証連携 |
+| OpenAPI 自動生成 | Swagger 形式の API ドキュメント |
+| Astro / Next.js テンプレート | スターターテンプレートの提供 |
+
+---
+
 ## AdlairePlatform Ver.1.3-28（2026-03-08 〜 2026-03-09）
 
 StaticEngine（静的サイト生成エンジン）およびヘッドレス CMS 関連エンジン群を一斉実装。

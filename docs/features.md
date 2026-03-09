@@ -1,9 +1,9 @@
 # 実装機能一覧
 
-AdlairePlatform Ver.1.3-28 の実装済み機能をソースコード解析に基づいて整理したドキュメントです。
+AdlairePlatform Ver.1.3-29（Ver.1.3系最終リビジョン）の実装済み機能をソースコード解析に基づいて整理したドキュメントです。
 
 > 最終更新: 2026-03-09
-> **Ver.1.3-28**: 全エンジン実装完了。StaticEngine・ApiEngine・CollectionEngine・MarkdownEngine・GitEngine・WebhookEngine・CacheEngine・ImageOptimizer を実装済み。
+> **Ver.1.3-29**: Ver.1.3系終了。全 12 エンジン実装完了・セキュリティ監査完了。
 
 ---
 

@@ -1,13 +1,13 @@
 # AdlairePlatform — 仕様書 (SPEC)
 
-> **ドキュメントバージョン**: Ver.0.2-10
-> **ステータス**: ✅ 確定（Ver.1.3-28 / 全エンジン実装反映）
+> **ドキュメントバージョン**: Ver.0.2-11
+> **ステータス**: 🔒 確定（Ver.1.3-29 / Ver.1.3系終了）
 > **作成日**: 2026-03-06
-> **最終更新**: 2026-03-09（StaticEngine・ApiEngine・CollectionEngine・MarkdownEngine・GitEngine・WebhookEngine・CacheEngine・ImageOptimizer 実装を反映）
+> **最終更新**: 2026-03-09（Ver.1.3系終了を反映）
 > **所有者**: Adlaire Group
 > **バージョニング規則**: [AFE/VERSIONING.md](https://github.com/fqwink/AdlaireGroup-Documents-Repository/blob/main/AFE/VERSIONING.md)
 >
-> **Ver.1.3-28**: 全エンジン実装完了。StaticEngine・ApiEngine・CollectionEngine・MarkdownEngine・GitEngine・WebhookEngine・CacheEngine・ImageOptimizer を実装済み。
+> **Ver.1.3-29**: Ver.1.3系終了。全 12 エンジン実装完了・セキュリティ監査完了。
 
 ---
 
@@ -1088,6 +1088,7 @@ AdlairePlatform/
 
 | バージョン | 日付 | 変更内容 | 担当 |
 |------------|------|----------|------|
+| Ver.0.2-11 | 2026-03-09 | Ver.1.3系終了（Ver.1.3-29）を反映。バージョン参照を更新。次期バージョンへの引き継ぎ事項を整理 | Adlaire Group |
 | Ver.0.2-10 | 2026-03-09 | 全エンジン実装を反映（Ver.1.3-28）。セクション 8/9 を「計画」から「実装済み」に更新。StaticEngine・ApiEngine・CollectionEngine・MarkdownEngine・GitEngine・WebhookEngine・CacheEngine・ImageOptimizer を追記。ディレクトリ構成・テーマ構造を更新。theme.php 廃止を反映 | Adlaire Group |
 | Ver.0.2-9 | 2026-03-08 | AdminEngine・ダッシュボード化を反映（Ver.1.3-27）。セクション 4.2・5.7 追加。テーマ構造から settings.html 削除。ディレクトリ構成・関数リファレンス・セキュリティマトリクスを更新 | Adlaire Group |
 | Ver.0.2-8 | 2026-03-08 | Ver.1.3系ロードマップ追記。StaticEngine・ApiEngine の実装予定を「Ver.1.3系」に具体化。管理ツールのダッシュボード化・エンジン駆動モデル化を計画に追加 | Adlaire Group |

@@ -1,8 +1,7 @@
 # AdlairePlatform アーキテクチャ設計書
 
-> **Ver.1.3-28**: 本ドキュメントは Ver.1.3-28 時点のアーキテクチャを記録しています。
-> StaticEngine・ApiEngine・CollectionEngine・MarkdownEngine・GitEngine・WebhookEngine・CacheEngine・ImageOptimizer を実装済み。
-> theme.php レガシーフォールバックは廃止済み。
+> **Ver.1.3-29**: 本ドキュメントは Ver.1.3-29（Ver.1.3系最終リビジョン）時点のアーキテクチャを記録しています。
+> 全 12 エンジン実装完了・セキュリティ監査完了。theme.php レガシーフォールバックは廃止済み。
 
 > 分類: 社内限り
 
@@ -426,7 +425,7 @@ AdminEngine::registerHooks();
 
 | 定数 | 値 | 説明 |
 |-----|---|------|
-| `AP_VERSION` | `'1.3.28'` | 現在のバージョン |
+| `AP_VERSION` | `'1.3.29'` | 現在のバージョン |
 | `AP_UPDATE_URL` | GitHub API URL | 最新リリース確認先 |
 | `AP_BACKUP_GENERATIONS` | `5` | 保持するバックアップ世代数 |
 | `AP_REVISION_LIMIT` | `30` | リビジョン保持数上限 |

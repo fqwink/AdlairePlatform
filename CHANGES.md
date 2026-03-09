@@ -2,6 +2,29 @@
 
 ---
 
+## 2026-03-09（Ver.1.3-29 — Ver.1.3系終了）
+
+> **Ver.1.3系は本リビジョンをもって終了とします。**
+> 以降の機能追加・アーキテクチャ変更は次期バージョンにて実施予定です。
+
+- **[End of Series]** Ver.1.3系の開発を終了
+  - Ver.1.3系で実施した主要な成果:
+    - AdminEngine 導入・管理ダッシュボード化（Ver.1.3-27）
+    - StaticEngine 実装・Static-First Hybrid アーキテクチャ・theme.php 廃止（Ver.1.3-28）
+    - ヘッドレス CMS 機能一斉実装: ApiEngine・CollectionEngine・MarkdownEngine・GitEngine・WebhookEngine・CacheEngine・ImageOptimizer（Ver.1.3-28）
+    - セキュリティ監査 Round 1-6（計 29 件のバグ修正: R1-R29）
+    - 全 12 エンジン実装完了
+  - 次期バージョンで検討予定:
+    - WorkflowEngine（プレビュー + レビュー承認ワークフロー）
+    - マルチ環境（Git ブランチ = 環境）
+    - GraphQL 対応
+    - GitHub OAuth
+    - OpenAPI ドキュメント自動生成
+- **[Docs]** 全ドキュメントを Ver.1.3系終了に伴い更新
+- **[Version]** `AP_VERSION` を `'1.3.29'` に更新
+
+---
+
 ## 2026-03-09（Ver.1.3-28 — セキュリティ監査 Round 6: 全ソースコード監査）
 
 - **[Fix/Critical]** `engines/UpdateEngine.php` — R11: `rollback_to_backup()` にパストラバーサル防止を追加（`apply_update()` と同等の `realpath` チェック）
