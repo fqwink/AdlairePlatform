@@ -138,6 +138,18 @@
 			return el.innerHTML;
 		}
 
+		function generateSlug(title) {
+			var slug = title.toLowerCase()
+				.replace(/[^a-z0-9\s\-_]/g, '')
+				.replace(/\s+/g, '-')
+				.replace(/-+/g, '-')
+				.replace(/^-|-$/g, '');
+			if (!slug && title) {
+				slug = 'item-' + Date.now();
+			}
+			return slug;
+		}
+
 		function bindItemEvents() {
 			/* アイテム行クリック → 編集エリア表示 */
 			document.querySelectorAll('.ap-editor-item-row').forEach(function(row) {
@@ -224,6 +236,19 @@
 			});
 		}
 
+		/* ── タイトルからスラッグ自動生成 ── */
+		var titleInput = document.getElementById('ap-editor-new-title');
+		var slugInput = document.getElementById('ap-editor-new-slug');
+		if (titleInput && slugInput) {
+			titleInput.addEventListener('input', function() {
+				if (slugInput.dataset.manual) return;
+				slugInput.value = generateSlug(this.value);
+			});
+			slugInput.addEventListener('input', function() {
+				this.dataset.manual = this.value ? '1' : '';
+			});
+		}
+
 		/* ── 新規アイテム ── */
 		var newCreateBtn = document.getElementById('ap-editor-new-create');
 		if (newCreateBtn) {
@@ -236,7 +261,8 @@
 					collection: currentCollection,
 					slug: slug.trim(),
 					title: title.trim() || slug.trim(),
-					body: ''
+					body: '',
+					is_new: '1'
 				}, function(res) {
 					if (res.ok) {
 						document.getElementById('ap-editor-new-slug').value = '';

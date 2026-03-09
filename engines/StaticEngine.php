@@ -9,7 +9,7 @@
 class StaticEngine {
 	private const OUTPUT_DIR     = 'static';
 	private const BUILD_STATE    = 'static_build.json';
-	private const SLUG_PATTERN   = '/^[a-zA-Z0-9_-]+$/';
+	private const SLUG_PATTERN   = '/^[a-zA-Z0-9_\-]+(\/[a-zA-Z0-9_\-]+)*$/';
 
 	private array  $settings   = [];
 	private array  $pages      = [];
@@ -119,6 +119,13 @@ class StaticEngine {
 			$built++;
 		}
 
+		/* コレクション一覧ページを生成 */
+		$built += $this->buildCollectionIndexes();
+
+		/* SEO ファイル生成 */
+		$this->generateSitemap();
+		$this->generateRobotsTxt();
+
 		$deleted = $this->deleteOrphanedFiles();
 		$this->buildState['last_diff_build'] = date('c');
 		$this->saveBuildState();
@@ -152,6 +159,13 @@ class StaticEngine {
 			];
 			$built++;
 		}
+
+		/* コレクション一覧ページを生成 */
+		$built += $this->buildCollectionIndexes();
+
+		/* SEO ファイル生成 */
+		$this->generateSitemap();
+		$this->generateRobotsTxt();
 
 		$deleted = $this->deleteOrphanedFiles();
 		$this->buildState['last_full_build'] = date('c');
@@ -291,12 +305,12 @@ class StaticEngine {
 
 	private function buildPage(string $slug, string $content): void {
 		$html = $this->renderPage($slug, $content);
-		$dir  = self::OUTPUT_DIR . '/' . ($slug === 'index' ? '' : $slug);
-		if ($dir !== self::OUTPUT_DIR) {
-			$this->ensureDir($dir);
+		if ($slug === 'index') {
+			$dir = self::OUTPUT_DIR;
 		} else {
-			$this->ensureDir(self::OUTPUT_DIR);
+			$dir = self::OUTPUT_DIR . '/' . $slug;
 		}
+		$this->ensureDir($dir);
 		$path = $dir . '/index.html';
 		file_put_contents($path, $html, LOCK_EX);
 	}
@@ -342,6 +356,100 @@ class StaticEngine {
 		) ?? $html;
 
 		return $html;
+	}
+
+	/* ══════════════════════════════════════════════
+	   コレクション一覧ページ生成
+	   ══════════════════════════════════════════════ */
+
+	private function buildCollectionIndexes(): int {
+		if (!class_exists('CollectionEngine') || !CollectionEngine::isEnabled()) return 0;
+
+		$built = 0;
+		$collections = CollectionEngine::listCollections();
+
+		foreach ($collections as $col) {
+			$name = $col['name'];
+			if ($name === 'pages') continue; /* pages コレクションは個別ページとして既に生成 */
+
+			$items = CollectionEngine::getItems($name);
+			$html = $this->renderCollectionIndex($col, $items);
+			$this->buildPage($name, $html);
+			$built++;
+		}
+		return $built;
+	}
+
+	private function renderCollectionIndex(array $col, array $items): string {
+		$name  = htmlspecialchars($col['label'] ?? $col['name'], ENT_QUOTES, 'UTF-8');
+		$html  = "<h1>{$name}</h1>\n<div class=\"ap-collection-index\">\n";
+
+		foreach ($items as $slug => $item) {
+			$title   = htmlspecialchars($item['meta']['title'] ?? $slug, ENT_QUOTES, 'UTF-8');
+			$date    = htmlspecialchars($item['meta']['date'] ?? '', ENT_QUOTES, 'UTF-8');
+			$preview = strip_tags($item['html']);
+			if (mb_strlen($preview, 'UTF-8') > 200) {
+				$preview = mb_substr($preview, 0, 200, 'UTF-8') . '...';
+			}
+			$preview = htmlspecialchars($preview, ENT_QUOTES, 'UTF-8');
+			$link    = $col['name'] . '/' . $slug . '/';
+
+			$html .= "<article class=\"ap-collection-entry\">\n";
+			$html .= "  <h2><a href=\"/{$link}\">{$title}</a></h2>\n";
+			if ($date) $html .= "  <time>{$date}</time>\n";
+			$html .= "  <p>{$preview}</p>\n";
+			$html .= "</article>\n";
+		}
+
+		$html .= "</div>\n";
+		return $html;
+	}
+
+	/* ══════════════════════════════════════════════
+	   SEO: sitemap.xml / robots.txt
+	   ══════════════════════════════════════════════ */
+
+	private function generateSitemap(): void {
+		$baseUrl = rtrim($this->settings['site_url'] ?? '', '/');
+		if ($baseUrl === '') {
+			$proto = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+			$host  = $_SERVER['HTTP_HOST'] ?? 'localhost';
+			$baseUrl = $proto . '://' . $host;
+		}
+
+		$xml  = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n";
+		$xml .= "<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\n";
+
+		foreach ($this->pages as $slug => $content) {
+			if (!preg_match(self::SLUG_PATTERN, $slug)) continue;
+			$loc = $baseUrl . '/' . ($slug === 'index' ? '' : $slug . '/');
+			$xml .= "  <url><loc>" . htmlspecialchars($loc, ENT_XML1, 'UTF-8') . "</loc></url>\n";
+		}
+
+		/* コレクション一覧 + アイテム */
+		if (class_exists('CollectionEngine') && CollectionEngine::isEnabled()) {
+			$collections = CollectionEngine::listCollections();
+			foreach ($collections as $col) {
+				if ($col['name'] === 'pages') continue;
+				$xml .= "  <url><loc>" . htmlspecialchars($baseUrl . '/' . $col['name'] . '/', ENT_XML1, 'UTF-8') . "</loc></url>\n";
+			}
+		}
+
+		$xml .= "</urlset>\n";
+
+		$this->ensureDir(self::OUTPUT_DIR);
+		file_put_contents(self::OUTPUT_DIR . '/sitemap.xml', $xml, LOCK_EX);
+	}
+
+	private function generateRobotsTxt(): void {
+		$baseUrl = rtrim($this->settings['site_url'] ?? '', '/');
+		$content = "User-agent: *\nAllow: /\n";
+		if ($baseUrl !== '' || is_dir(self::OUTPUT_DIR)) {
+			$sitemapUrl = ($baseUrl ?: '') . '/sitemap.xml';
+			$content .= "Sitemap: {$sitemapUrl}\n";
+		}
+		$this->ensureDir(self::OUTPUT_DIR);
+		file_put_contents(self::OUTPUT_DIR . '/robots.txt', $content, LOCK_EX);
 	}
 
 	/* ══════════════════════════════════════════════

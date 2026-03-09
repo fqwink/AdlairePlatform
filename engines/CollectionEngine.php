@@ -190,8 +190,9 @@ class CollectionEngine {
 	 * @param string $slug       アイテムスラッグ
 	 * @param array  $meta       フロントマターデータ
 	 * @param string $body       Markdown 本文
+	 * @param bool   $isNew      新規作成モード（true: 既存ファイルがあればエラー）
 	 */
-	public static function saveItem(string $collection, string $slug, array $meta, string $body): bool {
+	public static function saveItem(string $collection, string $slug, array $meta, string $body, bool $isNew = false): bool {
 		if (!preg_match(self::SLUG_PATTERN, $slug)) return false;
 		$def = self::getCollectionDef($collection);
 		if ($def === null) return false;
@@ -199,9 +200,66 @@ class CollectionEngine {
 		$dir = content_dir() . '/' . ($def['directory'] ?? $collection);
 		if (!is_dir($dir)) mkdir($dir, 0755, true);
 
-		$content = self::buildMarkdown($meta, $body);
 		$path = $dir . '/' . $slug . '.md';
+
+		/* スラッグ一意性チェック: 新規作成時に既存ファイルがあれば拒否 */
+		if ($isNew && file_exists($path)) return false;
+
+		/* スキーマバリデーション */
+		$errors = self::validateFields($collection, $meta);
+		if (!empty($errors)) return false;
+
+		$content = self::buildMarkdown($meta, $body);
 		return file_put_contents($path, $content, LOCK_EX) !== false;
+	}
+
+	/**
+	 * スキーマ定義に基づきフィールド型をバリデーション。
+	 * @return string[] エラーメッセージ配列（空なら OK）
+	 */
+	public static function validateFields(string $collection, array $meta): array {
+		$def = self::getCollectionDef($collection);
+		if ($def === null) return [];
+		$fields = $def['fields'] ?? [];
+		if (empty($fields)) return [];
+
+		$errors = [];
+		foreach ($fields as $name => $fieldDef) {
+			$type = $fieldDef['type'] ?? 'string';
+			$required = !empty($fieldDef['required']);
+			$value = $meta[$name] ?? null;
+
+			if ($required && ($value === null || $value === '')) {
+				$errors[] = "フィールド '{$name}' は必須です";
+				continue;
+			}
+			if ($value === null || $value === '') continue;
+
+			switch ($type) {
+				case 'number':
+					if (!is_numeric($value)) {
+						$errors[] = "フィールド '{$name}' は数値である必要があります";
+					}
+					break;
+				case 'boolean':
+					if (!is_bool($value) && $value !== '0' && $value !== '1' && $value !== 'true' && $value !== 'false') {
+						$errors[] = "フィールド '{$name}' は真偽値である必要があります";
+					}
+					break;
+				case 'date':
+				case 'datetime':
+					if (is_string($value) && strtotime($value) === false) {
+						$errors[] = "フィールド '{$name}' は有効な日付である必要があります";
+					}
+					break;
+				case 'array':
+					if (!is_array($value)) {
+						$errors[] = "フィールド '{$name}' は配列である必要があります";
+					}
+					break;
+			}
+		}
+		return $errors;
 	}
 
 	/** アイテムを削除 */
@@ -391,6 +449,7 @@ class CollectionEngine {
 		$slug = trim($_POST['slug'] ?? '');
 		$title = trim($_POST['title'] ?? '');
 		$body = $_POST['body'] ?? '';
+		$isNew = !empty($_POST['is_new']);
 
 		if ($collection === '' || $slug === '') {
 			self::jsonError('コレクション名とスラッグは必須です');
@@ -405,8 +464,15 @@ class CollectionEngine {
 			}
 		}
 
-		if (!self::saveItem($collection, $slug, $meta, $body)) {
-			self::jsonError('アイテムの保存に失敗しました');
+		/* バリデーション（エラー詳細を返す） */
+		$validationErrors = self::validateFields($collection, $meta);
+		if (!empty($validationErrors)) {
+			self::jsonError('バリデーションエラー: ' . implode(', ', $validationErrors));
+		}
+
+		if (!self::saveItem($collection, $slug, $meta, $body, $isNew)) {
+			$msg = $isNew ? 'アイテムの保存に失敗しました（同名のスラッグが既に存在する可能性があります）' : 'アイテムの保存に失敗しました';
+			self::jsonError($msg);
 		}
 
 		if (class_exists('AdminEngine') && method_exists('AdminEngine', 'logActivity')) {

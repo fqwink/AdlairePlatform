@@ -595,7 +595,7 @@ document.querySelector('form.ap-contact').addEventListener('ap:done', function(e
 | API バージョニング | ❓ 未定 | `?ap_api_v=1&...` 等のバージョン管理は当面不要。必要になれば検討 |
 | メディアアップロード API | 🔜 将来予定 | 外部フロントエンドから画像をアップロードするエンドポイント |
 | `api_origin` の管理画面設定 | 🔜 将来予定 | Static-Only モード選択時に管理パネルで入力欄を表示 |
-| `pages` のページネーション | ❓ 未定 | ページ数が大量になった場合に `?limit=&offset=` 対応を検討 |
+| `pages` のページネーション | ✅ 確定 | `?limit=&offset=` パラメータ対応済み。pages, collection, search エンドポイントで利用可能 |
 
 ---
 
@@ -603,6 +603,7 @@ document.querySelector('form.ap-contact').addEventListener('ap:done', function(e
 
 | バージョン | 日付 | 変更内容 |
 |------------|------|---------|
+| Ver.2.1-1 | 2026-03-09 | **品質改善**: CORS ヘッダー対応（外部 SPA からの API 呼び出し対応）。全公開エンドポイントにレート制限追加。ページネーション対応（pages, collection, search）。検索 API でコレクション検索対応。Webhook シークレット必須化。CollectionEngine にスキーマバリデーション＋スラッグ一意性チェック追加。StaticEngine にコレクション一覧ページ・sitemap.xml・robots.txt 生成追加。MarkdownEngine にタスクリスト・TOC・画像パス解決追加。GitEngine に指数バックオフリトライ＋ファイルサイズ制限追加。コレクション管理 UI にスラッグ自動生成追加 |
 | Ver.2.0-1 | 2026-03-09 | **Phase 4 実装**: API キー認証（Bearer トークン + bcrypt ハッシュ）。管理エンドポイント4種（item_upsert, item_delete, page_upsert, page_delete）。API キー管理エンドポイント（api_keys）。GitHub Webhook 受信（push 時の自動 Pull + HMAC-SHA256 署名検証）。ダッシュボードに API キー管理 UI 追加 |
 | Ver.1.0-1 | 2026-03-08 | **実装完了**: `engines/ApiEngine.php` 公開エンドポイント5種（pages, page, settings, search, contact）。`engines/JsEngine/ap-api-client.js` クライアントSDK。StaticEngine が静的ビルド時に ap-api-client.js を assets/ にコピー。ダッシュボードに contact_email 設定欄と API エンドポイント一覧を追加 |
 | Ver.0.3-1 | 2026-03-08 | レート制限パラメータ具体化（セクション6新設）。パラメータバリデーション規則を追加（セクション3.4）。HTTP ステータスコード体系を整理（セクション4.1）。preview 生成ロジック明記（セクション4.3）。search() / sendContact() の実装方針をコード付きで追加（セクション7.2-7.3）。ap-api-client.js 仕様をセクション9に統合。settings.json への contact_email 追加を明記（セクション8）。メールヘッダインジェクション対策を追加（セクション11）。ページネーション検討事項を追加（セクション12） |

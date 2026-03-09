@@ -85,11 +85,26 @@ class MarkdownEngine {
 	   ══════════════════════════════════════════════ */
 
 	/**
-	 * Markdown テキストを HTML に変換
+	 * Markdown テキストを HTML に変換。
+	 * @param string      $markdown    Markdown テキスト
+	 * @param string|null $baseDir     画像相対パス解決用のベースディレクトリ
+	 * @param bool        $addHeadingIds 見出しに ID 属性を付与するか（TOC 用）
 	 */
-	public static function toHtml(string $markdown): string {
+	public static function toHtml(string $markdown, ?string $baseDir = null, bool $addHeadingIds = false): string {
 		$markdown = str_replace("\r\n", "\n", $markdown);
 		$markdown = str_replace("\r", "\n", $markdown);
+
+		/* 画像相対パス解決 */
+		if ($baseDir !== null) {
+			$markdown = preg_replace_callback(
+				'/!\[([^\]]*)\]\((?!https?:\/\/|\/|data:)([^)\s]+)((?:\s+"[^"]*")?)\)/',
+				function(array $m) use ($baseDir): string {
+					$resolved = rtrim($baseDir, '/') . '/' . $m[2];
+					return '![' . $m[1] . '](' . $resolved . $m[3] . ')';
+				},
+				$markdown
+			) ?? $markdown;
+		}
 
 		/* コードブロック（``` ）を先に退避 */
 		$codeBlocks = [];
@@ -192,8 +207,14 @@ class MarkdownEngine {
 				$closeBlockquote();
 				$closeTable();
 				$level = strlen($m[1]);
-				$text = self::inlineFormat(rtrim($m[2], ' #'));
-				$html[] = "<h{$level}>{$text}</h{$level}>";
+				$rawText = rtrim($m[2], ' #');
+				$text = self::inlineFormat($rawText);
+				if ($addHeadingIds) {
+					$id = self::slugify($rawText);
+					$html[] = "<h{$level} id=\"{$id}\">{$text}</h{$level}>";
+				} else {
+					$html[] = "<h{$level}>{$text}</h{$level}>";
+				}
 				continue;
 			}
 
@@ -252,7 +273,7 @@ class MarkdownEngine {
 				}
 			}
 
-			/* 順序なしリスト */
+			/* 順序なしリスト（タスクリスト対応） */
 			if (preg_match('/^[\-\*\+]\s+(.+)$/', $trimmed, $m)) {
 				$flushParagraph();
 				$closeBlockquote();
@@ -263,7 +284,14 @@ class MarkdownEngine {
 					$inList = true;
 					$listType = 'ul';
 				}
-				$html[] = '<li>' . self::inlineFormat($m[1]) . '</li>';
+				$itemText = $m[1];
+				/* GFM タスクリスト: - [ ] / - [x] */
+				if (preg_match('/^\[([ xX])\]\s*(.*)$/', $itemText, $tm)) {
+					$checked = (strtolower($tm[1]) === 'x') ? ' checked' : '';
+					$html[] = '<li class="task-list-item"><input type="checkbox" disabled' . $checked . '> ' . self::inlineFormat($tm[2]) . '</li>';
+				} else {
+					$html[] = '<li>' . self::inlineFormat($itemText) . '</li>';
+				}
 				continue;
 			}
 
@@ -374,6 +402,53 @@ class MarkdownEngine {
 			else $align[] = '';
 		}
 		return $align;
+	}
+
+	/* ══════════════════════════════════════════════
+	   目次（TOC）生成
+	   ══════════════════════════════════════════════ */
+
+	/**
+	 * Markdown から見出しを抽出して目次配列を返す。
+	 * @return array{level: int, text: string, id: string}[]
+	 */
+	public static function generateToc(string $markdown): array {
+		$headings = [];
+		if (preg_match_all('/^(#{1,6})\s+(.+)$/m', $markdown, $matches, PREG_SET_ORDER)) {
+			foreach ($matches as $match) {
+				$level = strlen($match[1]);
+				$text  = rtrim($match[2], ' #');
+				$id    = self::slugify($text);
+				$headings[] = ['level' => $level, 'text' => $text, 'id' => $id];
+			}
+		}
+		return $headings;
+	}
+
+	/**
+	 * 目次配列を HTML リストとして描画。
+	 */
+	public static function renderToc(array $toc): string {
+		if (empty($toc)) return '';
+		$html = '<nav class="ap-toc"><ul>';
+		foreach ($toc as $item) {
+			$indent = str_repeat('  ', $item['level'] - 1);
+			$html .= $indent . '<li><a href="#' . htmlspecialchars($item['id'], ENT_QUOTES, 'UTF-8') . '">'
+				. htmlspecialchars($item['text'], ENT_QUOTES, 'UTF-8') . '</a></li>';
+		}
+		$html .= '</ul></nav>';
+		return $html;
+	}
+
+	/**
+	 * テキストを URL セーフなスラッグに変換。
+	 */
+	private static function slugify(string $text): string {
+		$slug = mb_strtolower(strip_tags($text), 'UTF-8');
+		$slug = preg_replace('/[^a-z0-9\s\-_]/', '', $slug) ?? '';
+		$slug = preg_replace('/[\s]+/', '-', trim($slug)) ?? '';
+		$slug = preg_replace('/-+/', '-', $slug) ?? '';
+		return $slug ?: 'heading';
 	}
 
 	/* ══════════════════════════════════════════════

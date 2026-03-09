@@ -19,6 +19,8 @@ class GitEngine {
 	private const API_BASE       = 'https://api.github.com';
 	private const COMMIT_AUTHOR  = 'AdlairePlatform';
 	private const COMMIT_EMAIL   = 'ap@localhost';
+	private const MAX_FILE_SIZE  = 50 * 1024 * 1024; /* 50MB */
+	private const MAX_RETRIES    = 3;
 
 	/* ══════════════════════════════════════════════
 	   設定管理
@@ -53,7 +55,7 @@ class GitEngine {
 	   ══════════════════════════════════════════════ */
 
 	/**
-	 * GitHub REST API を呼び出し
+	 * GitHub REST API を呼び出し（指数バックオフ付きリトライ対応）
 	 */
 	private static function apiRequest(
 		string $method,
@@ -70,38 +72,55 @@ class GitEngine {
 			'User-Agent: AdlairePlatform/' . (defined('AP_VERSION') ? AP_VERSION : '1.0'),
 		];
 
-		$ch = curl_init();
-		curl_setopt_array($ch, [
-			CURLOPT_URL            => $url,
-			CURLOPT_RETURNTRANSFER => true,
-			CURLOPT_TIMEOUT        => 30,
-			CURLOPT_HTTPHEADER     => $headers,
-			CURLOPT_CUSTOMREQUEST  => $method,
-		]);
-
 		if ($body !== null) {
 			$headers[] = 'Content-Type: application/json';
-			curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-			curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($body));
 		}
 
-		$response = curl_exec($ch);
-		$httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-		$error = curl_error($ch);
-		curl_close($ch);
+		for ($attempt = 0; $attempt <= self::MAX_RETRIES; $attempt++) {
+			$ch = curl_init();
+			curl_setopt_array($ch, [
+				CURLOPT_URL            => $url,
+				CURLOPT_RETURNTRANSFER => true,
+				CURLOPT_TIMEOUT        => 30,
+				CURLOPT_HTTPHEADER     => $headers,
+				CURLOPT_CUSTOMREQUEST  => $method,
+			]);
 
-		if ($error) {
-			return ['ok' => false, 'error' => 'cURL エラー: ' . $error, 'status' => 0];
+			if ($body !== null) {
+				curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($body));
+			}
+
+			$response = curl_exec($ch);
+			$httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+			$error = curl_error($ch);
+			curl_close($ch);
+
+			/* cURL エラーまたはサーバーエラー/レート制限 → リトライ */
+			$shouldRetry = ($error !== '')
+				|| $httpCode === 429
+				|| $httpCode === 502
+				|| $httpCode === 503;
+
+			if ($shouldRetry && $attempt < self::MAX_RETRIES) {
+				usleep((int)(pow(2, $attempt) * 500000)); /* 0.5s, 1s, 2s */
+				continue;
+			}
+
+			if ($error) {
+				return ['ok' => false, 'error' => 'cURL エラー: ' . $error, 'status' => 0];
+			}
+
+			$data = json_decode($response, true);
+			if (!is_array($data)) $data = [];
+
+			return [
+				'ok'     => $httpCode >= 200 && $httpCode < 300,
+				'status' => $httpCode,
+				'data'   => $data,
+			];
 		}
 
-		$data = json_decode($response, true);
-		if (!is_array($data)) $data = [];
-
-		return [
-			'ok'     => $httpCode >= 200 && $httpCode < 300,
-			'status' => $httpCode,
-			'data'   => $data,
-		];
+		return ['ok' => false, 'error' => 'リトライ上限に達しました', 'status' => 0];
 	}
 
 	/* ══════════════════════════════════════════════
@@ -175,6 +194,13 @@ class GitEngine {
 			/* ディレクトリ作成 */
 			$localDir = dirname($localPath);
 			if (!is_dir($localDir)) mkdir($localDir, 0755, true);
+
+			/* ファイルサイズチェック */
+			$fileSize = $item['size'] ?? 0;
+			if ($fileSize > self::MAX_FILE_SIZE) {
+				$errors[] = "サイズ超過（{$fileSize} bytes）: {$path}";
+				continue;
+			}
 
 			/* ファイル内容を取得 */
 			$fileRes = self::apiRequest('GET', "/repos/{$repo}/contents/{$path}?ref={$branch}");

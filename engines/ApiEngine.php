@@ -30,9 +30,11 @@ class ApiEngine {
 	private const MSG_MAX_LEN    = 5000;
 	private const API_KEYS_FILE  = 'api_keys.json';
 
-	/* レート制限: contact エンドポイント */
+	/* レート制限 */
 	private const CONTACT_MAX_ATTEMPTS = 5;
 	private const CONTACT_LOCKOUT_SEC  = 900; /* 15分 */
+	private const API_RATE_MAX         = 60;  /* 公開API: 60リクエスト/分 */
+	private const API_RATE_WINDOW      = 60;  /* 秒 */
 
 	/* ══════════════════════════════════════════════
 	   エントリーポイント
@@ -46,11 +48,30 @@ class ApiEngine {
 		$action = $_GET['ap_api'] ?? null;
 		if ($action === null) return;
 
+		/* CORS ヘッダー（ヘッドレス CMS: 外部フロントエンドからの API 呼び出し対応） */
+		$allowedOrigin = self::getCorsOrigin();
+		header('Access-Control-Allow-Origin: ' . $allowedOrigin);
+		header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
+		header('Access-Control-Allow-Headers: Content-Type, Authorization');
+		header('Access-Control-Max-Age: 86400');
+
+		/* OPTIONS プリフライトリクエスト */
+		if (($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') {
+			http_response_code(204);
+			exit;
+		}
+
 		header('Content-Type: application/json; charset=UTF-8');
+
+		/* 公開エンドポイントにレート制限を適用 */
+		$publicActions = ['pages', 'page', 'settings', 'search', 'collections', 'collection', 'item'];
+		if (in_array($action, $publicActions, true)) {
+			self::checkApiRate();
+		}
 
 		/* 公開エンドポイント（認証不要） */
 		match ($action) {
-			'pages'       => self::jsonResponse(true, self::getPages()),
+			'pages'       => self::handlePages(),
 			'page'        => self::handleGetPage(),
 			'settings'    => self::jsonResponse(true, self::getSettings()),
 			'search'      => self::handleSearch(),
@@ -167,7 +188,7 @@ class ApiEngine {
 	   公開エンドポイント: pages
 	   ══════════════════════════════════════════════ */
 
-	private static function getPages(): array {
+	private static function handlePages(): void {
 		$pages = json_read('pages.json', content_dir());
 		$list  = [];
 		foreach ($pages as $slug => $content) {
@@ -176,7 +197,8 @@ class ApiEngine {
 				'preview' => self::makePreview((string)$content),
 			];
 		}
-		return $list;
+		$p = self::getPagination();
+		self::paginatedResponse($list, $p['limit'], $p['offset']);
 	}
 
 	/* ══════════════════════════════════════════════
@@ -222,28 +244,73 @@ class ApiEngine {
 			self::jsonError('検索クエリを入力してください（' . self::SEARCH_MAX_LEN . '文字以内）', 400);
 		}
 
-		$pages   = json_read('pages.json', content_dir());
 		$results = [];
 		$query   = mb_strtolower($q, 'UTF-8');
 
+		/* レガシーページ検索 */
+		$pages = json_read('pages.json', content_dir());
 		foreach ($pages as $slug => $content) {
 			$text = mb_strtolower(strip_tags((string)$content), 'UTF-8');
 			$pos  = mb_strpos($text, $query, 0, 'UTF-8');
 			if ($pos === false) continue;
 
-			/* マッチ箇所の前後を含むプレビューを生成 */
 			$start   = max(0, $pos - 30);
 			$preview = mb_substr($text, $start, 100, 'UTF-8');
 			if ($start > 0) $preview = '...' . $preview;
 			if ($start + 100 < mb_strlen($text, 'UTF-8')) $preview .= '...';
 
-			$results[] = ['slug' => $slug, 'preview' => $preview];
+			$results[] = ['slug' => $slug, 'type' => 'page', 'preview' => $preview];
 		}
 
-		self::jsonResponse(true, [
-			'query'   => $q,
-			'results' => $results,
-		]);
+		/* コレクション検索 */
+		if (class_exists('CollectionEngine') && CollectionEngine::isEnabled()) {
+			$collections = CollectionEngine::listCollections();
+			foreach ($collections as $col) {
+				$colName = $col['name'];
+				$items = CollectionEngine::getItems($colName);
+				foreach ($items as $itemSlug => $item) {
+					$title = mb_strtolower($item['meta']['title'] ?? '', 'UTF-8');
+					$text  = mb_strtolower(strip_tags($item['html']), 'UTF-8');
+
+					$pos = mb_strpos($title, $query, 0, 'UTF-8');
+					if ($pos === false) {
+						$pos = mb_strpos($text, $query, 0, 'UTF-8');
+					}
+					if ($pos === false) continue;
+
+					$start   = max(0, $pos - 30);
+					$preview = mb_substr($text, $start, 100, 'UTF-8');
+					if ($start > 0) $preview = '...' . $preview;
+					if ($start + 100 < mb_strlen($text, 'UTF-8')) $preview .= '...';
+
+					$results[] = [
+						'slug'       => $colName . '/' . $itemSlug,
+						'type'       => 'collection',
+						'collection' => $colName,
+						'title'      => $item['meta']['title'] ?? $itemSlug,
+						'preview'    => $preview,
+					];
+				}
+			}
+		}
+
+		$p = self::getPagination();
+		$total = count($results);
+		$paged = array_slice($results, $p['offset'], $p['limit']);
+
+		echo json_encode([
+			'ok'   => true,
+			'data' => [
+				'query'   => $q,
+				'results' => array_values($paged),
+			],
+			'meta' => [
+				'total'  => $total,
+				'limit'  => $p['limit'],
+				'offset' => $p['offset'],
+			],
+		], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP);
+		exit;
 	}
 
 	/* ══════════════════════════════════════════════
@@ -379,7 +446,8 @@ class ApiEngine {
 				'preview' => self::makePreview($item['html']),
 			];
 		}
-		self::jsonResponse(true, ['collection' => $name, 'items' => $list]);
+		$p = self::getPagination();
+		self::paginatedResponse($list, $p['limit'], $p['offset']);
 	}
 
 	/* ══════════════════════════════════════════════
@@ -590,19 +658,21 @@ class ApiEngine {
 			self::jsonError('ペイロードが空です', 400);
 		}
 
-		/* Webhook シークレット検証 */
+		/* Webhook シークレット検証（シークレット未設定時は拒否） */
 		$cfg = class_exists('GitEngine') ? GitEngine::loadConfig() : [];
 		$secret = $cfg['webhook_secret'] ?? '';
 
-		if ($secret !== '') {
-			$sigHeader = $_SERVER['HTTP_X_HUB_SIGNATURE_256'] ?? '';
-			if ($sigHeader === '') {
-				self::jsonError('署名がありません', 403);
-			}
-			$expected = 'sha256=' . hash_hmac('sha256', $payload, $secret);
-			if (!hash_equals($expected, $sigHeader)) {
-				self::jsonError('署名が不正です', 403);
-			}
+		if ($secret === '') {
+			self::jsonError('Webhook シークレットが設定されていません。ダッシュボードで設定してください。', 403);
+		}
+
+		$sigHeader = $_SERVER['HTTP_X_HUB_SIGNATURE_256'] ?? '';
+		if ($sigHeader === '') {
+			self::jsonError('署名がありません', 403);
+		}
+		$expected = 'sha256=' . hash_hmac('sha256', $payload, $secret);
+		if (!hash_equals($expected, $sigHeader)) {
+			self::jsonError('署名が不正です', 403);
 		}
 
 		$data = json_decode($payload, true);
@@ -674,6 +744,83 @@ class ApiEngine {
 			['ok' => false, 'error' => $message],
 			JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP
 		);
+		exit;
+	}
+
+	/**
+	 * CORS 許可オリジンを取得。
+	 * settings.json の cors_origins 設定があればホワイトリスト判定、
+	 * なければ '*'（全許可）。
+	 */
+	private static function getCorsOrigin(): string {
+		$settings = json_read('settings.json', settings_dir());
+		$allowed = $settings['cors_origins'] ?? [];
+		if (empty($allowed) || !is_array($allowed)) {
+			return '*';
+		}
+		$origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+		if ($origin !== '' && in_array($origin, $allowed, true)) {
+			return $origin;
+		}
+		return $allowed[0];
+	}
+
+	/**
+	 * 公開 API レート制限チェック。
+	 * IP あたり API_RATE_MAX リクエスト/API_RATE_WINDOW 秒。
+	 */
+	private static function checkApiRate(): void {
+		$ip   = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+		$key  = 'api_rate_' . $ip;
+		$data = json_read('login_attempts.json', settings_dir());
+
+		$entry = $data[$key] ?? ['count' => 0, 'window_start' => 0];
+		$now   = time();
+
+		/* ウィンドウリセット */
+		if ($now - (int)$entry['window_start'] > self::API_RATE_WINDOW) {
+			$entry = ['count' => 0, 'window_start' => $now];
+		}
+
+		$entry['count']++;
+		$data[$key] = $entry;
+		json_write('login_attempts.json', $data, settings_dir());
+
+		if ($entry['count'] > self::API_RATE_MAX) {
+			http_response_code(429);
+			echo json_encode([
+				'ok'    => false,
+				'error' => 'リクエスト制限を超えました。しばらくしてから再度お試しください。',
+			], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP);
+			exit;
+		}
+	}
+
+	/**
+	 * ページネーションパラメータを取得。
+	 * @return array{limit: int, offset: int}
+	 */
+	private static function getPagination(int $defaultLimit = 50, int $maxLimit = 100): array {
+		$limit  = min(max((int)($_GET['limit'] ?? $defaultLimit), 1), $maxLimit);
+		$offset = max((int)($_GET['offset'] ?? 0), 0);
+		return ['limit' => $limit, 'offset' => $offset];
+	}
+
+	/**
+	 * ページネーション付きレスポンス。
+	 */
+	private static function paginatedResponse(array $allItems, int $limit, int $offset): never {
+		$total = count($allItems);
+		$items = array_slice($allItems, $offset, $limit);
+		echo json_encode([
+			'ok'   => true,
+			'data' => array_values($items),
+			'meta' => [
+				'total'  => $total,
+				'limit'  => $limit,
+				'offset' => $offset,
+			],
+		], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP);
 		exit;
 	}
 }
