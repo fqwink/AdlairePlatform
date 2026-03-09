@@ -425,10 +425,22 @@
 			<h2>診断データ</h2>
 			<p style="font-size:13px;color:#718096;margin-bottom:8px;">システムエラー・ログデータを集約し、開発元へ匿名で送信します。デバッグ・品質改善に活用されます。</p>
 
-			<div class="ap-dash-field" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-				<label style="margin:0;">ステータス:</label>
-				<span id="ap-diag-status">読み込み中...</span>
-				<button id="ap-diag-toggle" style="font-size:13px;padding:4px 12px;">切替</button>
+			<div class="ap-dash-field" style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+				<div style="display:flex;align-items:center;gap:8px;">
+					<label style="margin:0;">ヘルス:</label>
+					<span id="ap-diag-health-status">確認中...</span>
+				</div>
+				<div style="display:flex;align-items:center;gap:8px;">
+					<label style="margin:0;">ステータス:</label>
+					<span id="ap-diag-status">読み込み中...</span>
+					<button id="ap-diag-toggle" style="font-size:13px;padding:4px 12px;">切替</button>
+				</div>
+			</div>
+
+			<div id="ap-diag-health-details" class="ap-dash-field" style="font-size:13px;"></div>
+
+			<div id="ap-diag-circuit-breaker" class="ap-dash-field" style="display:none;background:#fed7d7;color:#c53030;padding:8px 12px;border-radius:4px;font-size:13px;font-weight:600;">
+				サーキットブレーカー発動中 — テレメトリ送信が一時停止されています（24時間後に自動復旧）
 			</div>
 
 			<div class="ap-dash-field" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
@@ -444,6 +456,16 @@
 				<span>エラー件数: <strong id="ap-diag-error-count">-</strong></span>
 				<span>ログ件数: <strong id="ap-diag-log-count">-</strong></span>
 				<span>最終送信: <strong id="ap-diag-last-sent">-</strong></span>
+			</div>
+
+			<div class="ap-dash-field">
+				<label style="font-size:13px;color:#4a5568;">セキュリティイベント</label>
+				<div id="ap-diag-security" style="font-size:13px;">読み込み中...</div>
+			</div>
+
+			<div class="ap-dash-field">
+				<label style="font-size:13px;color:#4a5568;">エンジン別実行時間</label>
+				<div id="ap-diag-timings" style="font-size:13px;">読み込み中...</div>
 			</div>
 
 			<div class="ap-dash-field">
@@ -480,7 +502,8 @@
 			</div>
 
 			<div style="margin-top:12px;border-top:1px solid #e2e8f0;padding-top:8px;font-size:12px;color:#718096;">
-				インストールID: <code id="ap-diag-install-id">-</code><br>
+				インストールID: <code id="ap-diag-install-id">-</code> |
+				ヘルスチェック API: <code>?ap_api=health</code><br>
 				コンテンツ本文・パスワード・トークンは収集されません。
 			</div>
 		</section>

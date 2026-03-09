@@ -108,6 +108,7 @@ class ApiEngine {
 			'collection'   => self::handleCollection(),
 			'item'         => self::handleItem(),
 			'webhook'      => self::handleWebhook(),
+			'health'       => self::handleHealthCheck(),
 			/* 管理エンドポイント（要認証） */
 			'item_upsert'  => self::requireAuth('handleItemUpsert'),
 			'item_delete'  => self::requireAuth('handleItemDelete'),
@@ -125,6 +126,32 @@ class ApiEngine {
 			'webhooks'     => self::requireAuth('handleWebhooks'),
 			default        => self::jsonError('不明な API エンドポイントです', 400),
 		};
+	}
+
+	/* ══════════════════════════════════════════════
+	   ヘルスチェック
+	   ══════════════════════════════════════════════ */
+
+	/**
+	 * ?ap_api=health — 死活確認エンドポイント（認証不要: 最小限、APIキー付き: 詳細）
+	 */
+	private static function handleHealthCheck(): never {
+		$detailed = false;
+		/* APIキーがあれば詳細版を返す */
+		$authHeader = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
+		if (preg_match('/^Bearer\s+(.+)$/i', $authHeader, $m)) {
+			$keys = json_read('api_keys.json', settings_dir());
+			foreach ($keys as $k) {
+				if (password_verify($m[1], $k['hash'] ?? '')) {
+					$detailed = true;
+					break;
+				}
+			}
+		}
+		$health = class_exists('DiagnosticEngine')
+			? DiagnosticEngine::healthCheck($detailed)
+			: ['status' => 'ok', 'version' => defined('AP_VERSION') ? AP_VERSION : 'unknown'];
+		self::jsonResponse(true, $health);
 	}
 
 	/* ══════════════════════════════════════════════
@@ -1156,6 +1183,7 @@ class ApiEngine {
 		json_write('login_attempts.json', $data, settings_dir());
 
 		if ($entry['count'] > self::API_RATE_MAX) {
+			if (class_exists('DiagnosticEngine')) DiagnosticEngine::log('security', 'API レート制限発動', ['endpoint' => $_GET['ap_api'] ?? '']);
 			http_response_code(429);
 			echo json_encode([
 				'ok'    => false,

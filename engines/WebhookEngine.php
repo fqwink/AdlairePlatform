@@ -142,6 +142,7 @@ class WebhookEngine {
 		$host = parse_url($url, PHP_URL_HOST);
 		if ($host !== null && self::isPrivateHost($host)) {
 			error_log('AdlairePlatform: Webhook SSRF blocked (DNS rebinding): ' . $url);
+			if (class_exists('DiagnosticEngine')) DiagnosticEngine::log('security', 'SSRF ブロック (DNS rebinding)', ['url_host' => parse_url($url, PHP_URL_HOST) ?? '']);
 			return;
 		}
 
@@ -166,6 +167,7 @@ class WebhookEngine {
 		/* 配信ログ（デバッグ用） */
 		if ($httpCode < 200 || $httpCode >= 300) {
 			error_log("WebhookEngine: delivery failed to {$url} (HTTP {$httpCode})");
+			if (class_exists('DiagnosticEngine')) DiagnosticEngine::log('engine', 'Webhook 配信失敗', ['http_code' => $httpCode]);
 		}
 	}
 

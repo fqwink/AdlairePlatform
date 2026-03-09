@@ -37,6 +37,7 @@ class ImageOptimizer {
 		$memoryLimit = self::getMemoryLimitBytes();
 		if ($memoryLimit > 0 && (memory_get_usage() + $requiredMemory) > $memoryLimit) {
 			error_log("ImageOptimizer: メモリ不足のためスキップ: {$path} ({$origWidth}x{$origHeight})");
+			if (class_exists('DiagnosticEngine')) DiagnosticEngine::log('engine', 'ImageOptimizer メモリ不足スキップ', ['dimensions' => "{$origWidth}x{$origHeight}", 'required_mb' => round($requiredMemory / 1048576, 1)]);
 			return false;
 		}
 

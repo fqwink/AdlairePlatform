@@ -40,6 +40,7 @@ session_start();
 
 /* 診断エンジン: エラーハンドラ登録（セッション開始後） */
 DiagnosticEngine::registerErrorHandler();
+DiagnosticEngine::startTimer('request_total');
 
 /* セキュリティヘッダー */
 header('X-Content-Type-Options: nosniff');
@@ -47,13 +48,27 @@ header('X-Frame-Options: SAMEORIGIN');
 header('Referrer-Policy: strict-origin-when-cross-origin');
 migrate_from_files();
 host();
+DiagnosticEngine::startTimer('AdminEngine');
 AdminEngine::handle();       /* edit_field, upload_image, revision 等 */
+DiagnosticEngine::stopTimer('AdminEngine');
+DiagnosticEngine::startTimer('ApiEngine');
 ApiEngine::handle();         /* ?ap_api= 公開REST API（認証不要） */
+DiagnosticEngine::stopTimer('ApiEngine');
+DiagnosticEngine::startTimer('CollectionEngine');
 CollectionEngine::handle();  /* collection_create, collection_item_save 等 */
+DiagnosticEngine::stopTimer('CollectionEngine');
+DiagnosticEngine::startTimer('GitEngine');
 GitEngine::handle();         /* git_configure, git_pull, git_push 等 */
+DiagnosticEngine::stopTimer('GitEngine');
+DiagnosticEngine::startTimer('WebhookEngine');
 WebhookEngine::handle();     /* webhook_add, webhook_delete, webhook_toggle 等 */
+DiagnosticEngine::stopTimer('WebhookEngine');
+DiagnosticEngine::startTimer('StaticEngine');
 StaticEngine::handle();      /* generate_static_*, clean_static, build_zip 等 */
+DiagnosticEngine::stopTimer('StaticEngine');
+DiagnosticEngine::startTimer('UpdateEngine');
 handle_update_action();      /* update, backup, rollback 等 */
+DiagnosticEngine::stopTimer('UpdateEngine');
 DiagnosticEngine::handle();  /* diag_set_enabled, diag_preview, diag_send_now 等 */
 
 $c['password'] = 'admin';
@@ -102,6 +117,7 @@ foreach($c as $key => $val){
 				$c[$key] = AdminEngine::savePassword('admin');
 				$c['migrate_warning'] = true;
 				error_log('AdlairePlatform: MD5パスワードを検出。デフォルト "admin" で bcrypt 化しました。直ちにパスワードを変更してください。');
+				DiagnosticEngine::log('security', 'MD5パスワード検出・bcrypt移行実行');
 			} else {
 				$c[$key] = $_auth['password_hash'];
 			}
@@ -167,6 +183,7 @@ if (isset($_GET['admin'])) {
 AdminEngine::registerHooks();
 
 /* 診断エンジン: リクエスト終了時にデータ収集・定期送信 */
+DiagnosticEngine::stopTimer('request_total');
 DiagnosticEngine::maybeSend();
 
 ThemeEngine::load($c['themeSelect']);

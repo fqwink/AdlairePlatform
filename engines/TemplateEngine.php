@@ -52,11 +52,13 @@ class TemplateEngine {
 				$name = $m[1];
 				if (self::$partialDepth >= self::PARTIAL_MAX_DEPTH) {
 					error_log("TemplateEngine: パーシャルのネストが深すぎます（最大" . self::PARTIAL_MAX_DEPTH . "）: {$name}");
+					if (class_exists('DiagnosticEngine')) DiagnosticEngine::log('engine', "パーシャルネスト超過: {$name}", ['max_depth' => self::PARTIAL_MAX_DEPTH]);
 					return '';
 				}
 				$path = self::$partialsDir . '/' . $name . '.html';
 				if (!file_exists($path)) {
 					error_log("TemplateEngine: パーシャルが見つかりません: {$path}");
+					if (class_exists('DiagnosticEngine')) DiagnosticEngine::log('engine', "パーシャル未検出: {$name}");
 					return '';
 				}
 				self::$partialDepth++;
@@ -64,6 +66,7 @@ class TemplateEngine {
 				if ($content === false) {
 					self::$partialDepth--;
 					error_log("TemplateEngine: パーシャルの読み込みに失敗しました: {$path}");
+					if (class_exists('DiagnosticEngine')) DiagnosticEngine::log('engine', "パーシャル読み込み失敗: {$name}");
 					return '';
 				}
 				$rendered = self::processPartials($content, $ctx);
@@ -272,6 +275,7 @@ class TemplateEngine {
 		if (preg_match_all('/\{\{[#\/!>]?\s*[\w@]+[^}]*\}\}/', $html, $matches)) {
 			foreach ($matches[0] as $tag) {
 				error_log("TemplateEngine: 未処理のテンプレートタグ: {$tag}");
+				if (class_exists('DiagnosticEngine')) DiagnosticEngine::log('engine', "未処理テンプレートタグ: {$tag}");
 			}
 		}
 	}

@@ -188,6 +188,7 @@ class AdminEngine {
 		/* 従来の単一パスワード認証（後方互換） */
 		if (!password_verify($password, $passwordHash)) {
 			self::recordLoginFailure($ip);
+			if (class_exists('DiagnosticEngine')) DiagnosticEngine::log('security', 'ログイン失敗（パスワード不一致）');
 			$attemptsLeft = self::getRemainingAttempts($ip);
 			if ($attemptsLeft > 0) {
 				return 'パスワードが違います（残り' . $attemptsLeft . '回）';
@@ -230,6 +231,7 @@ class AdminEngine {
 		if ($attempts['count'] >= 5) {
 			$attempts['locked_until'] = time() + 900; /* 15分ロックアウト */
 			$attempts['count']        = 0;
+			if (class_exists('DiagnosticEngine')) DiagnosticEngine::log('security', 'ロックアウト発動（5回連続ログイン失敗）');
 		}
 		$data[$ip] = $attempts;
 		json_write('login_attempts.json', $data, settings_dir());

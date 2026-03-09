@@ -24,6 +24,16 @@ class DiagnosticEngine {
 	private const MAX_LOG_ENTRIES   = 500;
 	private const MAX_BUFFER_ITEMS  = 100;
 	private const VALID_LEVELS = ['basic', 'extended', 'debug'];
+	private const RETRY_MAX        = 3;
+	private const RETRY_BACKOFF    = [1, 2, 4]; /* 秒 */
+	private const RETRYABLE_CODES  = [429, 502, 503];
+	private const CIRCUIT_BREAKER_THRESHOLD = 5;
+	private const CIRCUIT_BREAKER_DURATION  = 86400; /* 24時間 */
+
+	/* ── パフォーマンスプロファイラ（リクエスト内メモリ） ── */
+	private static array $timers = [];
+	private static array $timings = [];
+	private static int $memoryStart = 0;
 
 	/* 除外すべきセンシティブキー */
 	private const SENSITIVE_KEYS = [
@@ -102,6 +112,36 @@ class DiagnosticEngine {
 	public static function getInstallId(): string {
 		$config = self::loadConfig();
 		return $config['install_id'];
+	}
+
+	/* ══════════════════════════════════════════════
+	   パフォーマンスプロファイラ
+	   ══════════════════════════════════════════════ */
+
+	/** タイマー開始 */
+	public static function startTimer(string $label): void {
+		self::$timers[$label] = hrtime(true);
+		if ($label === 'request_total') {
+			self::$memoryStart = memory_get_usage(true);
+		}
+	}
+
+	/** タイマー停止・記録 */
+	public static function stopTimer(string $label): void {
+		if (!isset(self::$timers[$label])) return;
+		$elapsed = (hrtime(true) - self::$timers[$label]) / 1_000_000; /* ms */
+		self::$timings[$label] = round($elapsed, 2);
+		unset(self::$timers[$label]);
+	}
+
+	/** 計測結果を取得 */
+	public static function getTimings(): array {
+		return [
+			'timings_ms'        => self::$timings,
+			'memory_start'      => self::$memoryStart,
+			'memory_peak'       => memory_get_peak_usage(true),
+			'memory_peak_human' => self::humanSize(memory_get_peak_usage(true)),
+		];
 	}
 
 	/* ══════════════════════════════════════════════
@@ -277,6 +317,7 @@ class DiagnosticEngine {
 			'error_count'         => $errorCount,
 			'error_summary'       => $errorSummary,
 			'custom_log_count'    => $customLogCount,
+			'security_summary'    => self::getSecuritySummary(),
 		];
 	}
 
@@ -313,6 +354,8 @@ class DiagnosticEngine {
 			'recent_logs'   => $recentLogs,
 			'performance'   => $perf,
 			'cache_stats'   => $cacheStats,
+			'timings'       => self::getTimings(),
+			'security'      => self::getSecuritySummary(),
 		];
 	}
 
@@ -358,6 +401,13 @@ class DiagnosticEngine {
 		if (!self::isEnabled()) return;
 
 		$config = self::loadConfig();
+
+		/* サーキットブレーカーチェック */
+		$breakerUntil = $config['circuit_breaker_until'] ?? 0;
+		if ($breakerUntil > 0 && time() < $breakerUntil) {
+			return; /* ブレーカー発動中 */
+		}
+
 		$lastSent = $config['last_sent'] ?? '';
 		$interval = $config['send_interval'] ?? self::INTERVAL;
 
@@ -370,16 +420,29 @@ class DiagnosticEngine {
 
 		$data = self::collect();
 		if (self::send($data)) {
+			$config = self::loadConfig();
 			$config['last_sent'] = date('c');
+			$config['consecutive_failures'] = 0;
+			$config['circuit_breaker_until'] = 0;
 			self::saveConfig($config);
 
 			/* 送信済みログをクリア（バッファリセット） */
 			self::clearSentLogs();
+		} else {
+			/* 連続失敗カウント → サーキットブレーカー */
+			$config = self::loadConfig();
+			$failures = ($config['consecutive_failures'] ?? 0) + 1;
+			$config['consecutive_failures'] = $failures;
+			if ($failures >= self::CIRCUIT_BREAKER_THRESHOLD) {
+				$config['circuit_breaker_until'] = time() + self::CIRCUIT_BREAKER_DURATION;
+				error_log('DiagnosticEngine: サーキットブレーカー発動（' . $failures . '回連続失敗）。24時間送信停止。');
+			}
+			self::saveConfig($config);
 		}
 	}
 
 	/**
-	 * 診断データを開発元へ送信
+	 * 診断データを開発元へ送信（指数バックオフリトライ付き）
 	 *
 	 * @return bool 送信成功したか
 	 */
@@ -398,28 +461,42 @@ class DiagnosticEngine {
 			'X-AP-Install-ID: ' . ($data['install_id'] ?? ''),
 		];
 
-		$ch = curl_init(self::ENDPOINT);
-		if ($ch === false) return false;
+		for ($attempt = 0; $attempt <= self::RETRY_MAX; $attempt++) {
+			if ($attempt > 0) {
+				$delay = self::RETRY_BACKOFF[$attempt - 1] ?? 4;
+				sleep($delay);
+			}
 
-		curl_setopt_array($ch, [
-			CURLOPT_POST           => true,
-			CURLOPT_POSTFIELDS     => $body,
-			CURLOPT_HTTPHEADER     => $headers,
-			CURLOPT_RETURNTRANSFER => true,
-			CURLOPT_TIMEOUT        => 5,
-			CURLOPT_CONNECTTIMEOUT => 3,
-			CURLOPT_FOLLOWLOCATION => false,
-		]);
+			$ch = curl_init(self::ENDPOINT);
+			if ($ch === false) return false;
 
-		$result = curl_exec($ch);
-		$httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-		curl_close($ch);
+			curl_setopt_array($ch, [
+				CURLOPT_POST           => true,
+				CURLOPT_POSTFIELDS     => $body,
+				CURLOPT_HTTPHEADER     => $headers,
+				CURLOPT_RETURNTRANSFER => true,
+				CURLOPT_TIMEOUT        => 5,
+				CURLOPT_CONNECTTIMEOUT => 3,
+				CURLOPT_FOLLOWLOCATION => false,
+			]);
 
-		if ($httpCode >= 200 && $httpCode < 300) {
-			return true;
+			$result = curl_exec($ch);
+			$httpCode = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+			curl_close($ch);
+
+			if ($httpCode >= 200 && $httpCode < 300) {
+				return true;
+			}
+
+			/* リトライ対象外のコードは即座に失敗 */
+			if (!in_array($httpCode, self::RETRYABLE_CODES, true)) {
+				error_log("DiagnosticEngine: 送信失敗 (HTTP {$httpCode}) — リトライ対象外");
+				return false;
+			}
+
+			error_log("DiagnosticEngine: 送信失敗 (HTTP {$httpCode}) — リトライ " . ($attempt + 1) . '/' . self::RETRY_MAX);
 		}
 
-		error_log("DiagnosticEngine: 送信失敗 (HTTP {$httpCode})");
 		return false;
 	}
 
@@ -481,6 +558,72 @@ class DiagnosticEngine {
 	}
 
 	/**
+	 * セキュリティイベントのサマリーを取得
+	 */
+	public static function getSecuritySummary(): array {
+		$log = json_read(self::LOG_FILE, settings_dir());
+		$custom = $log['custom'] ?? [];
+		$summary = [
+			'login_failure'  => 0,
+			'lockout'        => 0,
+			'rate_limit'     => 0,
+			'ssrf_blocked'   => 0,
+		];
+		foreach ($custom as $entry) {
+			if (($entry['category'] ?? '') !== 'security') continue;
+			$msg = $entry['message'] ?? '';
+			if (str_contains($msg, 'ログイン失敗')) $summary['login_failure']++;
+			elseif (str_contains($msg, 'ロックアウト')) $summary['lockout']++;
+			elseif (str_contains($msg, 'レート制限')) $summary['rate_limit']++;
+			elseif (str_contains($msg, 'SSRF')) $summary['ssrf_blocked']++;
+		}
+		return $summary;
+	}
+
+	/**
+	 * ヘルスチェック結果を返す
+	 */
+	public static function healthCheck(bool $detailed = false): array {
+		$config = self::loadConfig();
+		$log = json_read(self::LOG_FILE, settings_dir());
+
+		/* 直近24時間のエラー件数 */
+		$errors24h = 0;
+		$cutoff = date('c', time() - 86400);
+		foreach (($log['errors'] ?? []) as $e) {
+			if (($e['timestamp'] ?? '') >= $cutoff) $errors24h++;
+		}
+
+		$diskFree = @disk_free_space('.');
+		$status = 'ok';
+		if ($errors24h > 50) $status = 'critical';
+		elseif ($errors24h > 10) $status = 'warning';
+		if ($diskFree !== false && $diskFree < 100 * 1024 * 1024) $status = 'critical';
+
+		$result = [
+			'status'       => $status,
+			'version'      => defined('AP_VERSION') ? AP_VERSION : 'unknown',
+			'php'          => PHP_VERSION,
+			'uptime_check' => true,
+			'diagnostics'  => [
+				'errors_24h'           => $errors24h,
+				'disk_free_mb'         => $diskFree !== false ? round($diskFree / 1024 / 1024) : null,
+				'memory_peak_mb'       => round(memory_get_peak_usage(true) / 1024 / 1024, 1),
+				'last_diagnostic_sent' => $config['last_sent'] ?? '',
+			],
+		];
+
+		if ($detailed) {
+			$result['security'] = self::getSecuritySummary();
+			$result['timings']  = self::getTimings();
+			$result['diagnostics']['error_count'] = count($log['errors'] ?? []);
+			$result['diagnostics']['log_count']   = count($log['custom'] ?? []);
+		}
+
+		return $result;
+	}
+
+	/**
 	 * 全ログを取得（ダッシュボード詳細表示用）
 	 */
 	public static function getAllLogs(): array {
@@ -504,7 +647,7 @@ class DiagnosticEngine {
 			'diag_set_enabled', 'diag_set_level',
 			'diag_preview', 'diag_send_now',
 			'diag_clear_logs', 'diag_get_logs',
-			'diag_get_summary',
+			'diag_get_summary', 'diag_health',
 		];
 		if (!in_array($action, $valid, true)) return;
 
@@ -525,6 +668,7 @@ class DiagnosticEngine {
 			'diag_clear_logs'  => self::handleClearLogs(),
 			'diag_get_logs'    => self::handleGetLogs(),
 			'diag_get_summary' => self::handleGetSummary(),
+			'diag_health'      => self::handleHealth(),
 		};
 	}
 
@@ -595,7 +739,15 @@ class DiagnosticEngine {
 		$summary['level'] = $config['level'] ?? 'basic';
 		$summary['install_id'] = $config['install_id'] ?? '';
 		$summary['last_sent'] = $config['last_sent'] ?? '';
+		$summary['security'] = self::getSecuritySummary();
+		$summary['timings'] = self::getTimings();
+		$summary['circuit_breaker'] = ($config['circuit_breaker_until'] ?? 0) > time();
 		self::jsonOk($summary);
+	}
+
+	private static function handleHealth(): never {
+		$health = self::healthCheck(true);
+		self::jsonOk($health);
 	}
 
 	/* ══════════════════════════════════════════════

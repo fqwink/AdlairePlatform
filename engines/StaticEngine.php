@@ -150,6 +150,7 @@ class StaticEngine {
 		}
 
 		$elapsed = (int)((hrtime(true) - $start) / 1_000_000);
+		if (class_exists('DiagnosticEngine')) DiagnosticEngine::log('performance', 'StaticEngine 差分ビルド完了', ['built' => $built, 'skipped' => $skipped, 'deleted' => $deleted, 'elapsed_ms' => $elapsed]);
 		$result = ['ok' => true, 'built' => $built, 'skipped' => $skipped, 'deleted' => $deleted, 'elapsed_ms' => $elapsed];
 		if ($this->warnings) $result['warnings'] = $this->warnings;
 		return $result;
@@ -209,6 +210,7 @@ class StaticEngine {
 		}
 
 		$elapsed = (int)((hrtime(true) - $start) / 1_000_000);
+		if (class_exists('DiagnosticEngine')) DiagnosticEngine::log('performance', 'StaticEngine フルビルド完了', ['built' => $built, 'deleted' => $deleted, 'elapsed_ms' => $elapsed]);
 		$result = ['ok' => true, 'built' => $built, 'skipped' => 0, 'deleted' => $deleted, 'elapsed_ms' => $elapsed];
 		if ($this->warnings) $result['warnings'] = $this->warnings;
 		return $result;
@@ -391,6 +393,7 @@ class StaticEngine {
 		if ($tpl === false) {
 			$msg = "テンプレート読み込みエラー: {$tplPath}";
 			error_log("StaticEngine: {$msg}");
+			if (class_exists('DiagnosticEngine')) DiagnosticEngine::log('engine', $msg, ['template' => $tplPath]);
 			$this->warnings[] = $msg;
 			return '<!-- StaticEngine: ' . htmlspecialchars($msg, ENT_QUOTES, 'UTF-8') . ' -->';
 		}

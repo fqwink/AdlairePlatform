@@ -240,6 +240,7 @@ function apply_update(string $zip_url, string $new_version = ''): void {
 	$zip_data = @file_get_contents($zip_url, false, $ctx);
 	if($zip_data === false){
 		error_log('apply_update: download failed: '.$zip_url);
+		if (class_exists('DiagnosticEngine')) DiagnosticEngine::log('engine', 'アップデートダウンロード失敗', ['url' => $zip_url]);
 		header('HTTP/1.1 502 Bad Gateway');
 		echo json_encode(['error' => 'ダウンロードに失敗しました。']);
 		exit;

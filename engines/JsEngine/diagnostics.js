@@ -3,6 +3,7 @@
  *
  * ダッシュボードの診断データセクションを制御。
  * 有効/無効切替、レベル変更、ログ表示、プレビュー、手動送信。
+ * Ver.1.4 強化: パフォーマンスプロファイラ、セキュリティサマリー、ヘルスインジケーター。
  */
 (function () {
 	'use strict';
@@ -77,6 +78,12 @@
 			const logEl = document.getElementById('ap-diag-log-count');
 			if (logEl) logEl.textContent = d.log_count || '0';
 
+			/* サーキットブレーカー */
+			const cbEl = document.getElementById('ap-diag-circuit-breaker');
+			if (cbEl) {
+				cbEl.style.display = d.circuit_breaker ? 'block' : 'none';
+			}
+
 			/* エラー種別サマリー */
 			const typesEl = document.getElementById('ap-diag-error-types');
 			if (typesEl && d.error_types) {
@@ -90,10 +97,101 @@
 				}
 			}
 
+			/* セキュリティサマリー */
+			renderSecuritySummary(d.security || {});
+
+			/* パフォーマンスプロファイラ */
+			renderTimings(d.timings || {});
+
 			/* 直近のエラー一覧 */
 			renderRecentErrors(d.recent_errors || []);
 			renderRecentLogs(d.recent_logs || []);
+
+			/* ヘルスインジケーター */
+			loadHealth();
 		}).catch(() => {});
+	}
+
+	/* ── ヘルスチェック ── */
+	function loadHealth() {
+		post('diag_health').then(res => {
+			if (!res.ok) return;
+			const h = res.data;
+			const el = document.getElementById('ap-diag-health-status');
+			if (!el) return;
+
+			const colors = { ok: '#38a169', warning: '#d69e2e', critical: '#e53e3e' };
+			const labels = { ok: 'OK', warning: 'WARNING', critical: 'CRITICAL' };
+			const status = h.status || 'ok';
+			el.innerHTML = '<span style="color:' + (colors[status] || '#718096')
+				+ ';font-weight:bold;font-size:16px;">' + (labels[status] || status).toUpperCase() + '</span>';
+
+			const diagEl = document.getElementById('ap-diag-health-details');
+			if (diagEl && h.diagnostics) {
+				const d = h.diagnostics;
+				diagEl.innerHTML =
+					'<span>エラー(24h): <strong>' + (d.errors_24h || 0) + '</strong></span>'
+					+ '<span style="margin-left:16px;">ディスク空き: <strong>' + (d.disk_free_mb != null ? d.disk_free_mb + ' MB' : '-') + '</strong></span>'
+					+ '<span style="margin-left:16px;">メモリピーク: <strong>' + (d.memory_peak_mb || '-') + ' MB</strong></span>';
+			}
+		}).catch(() => {});
+	}
+
+	/* ── セキュリティサマリー ── */
+	function renderSecuritySummary(sec) {
+		const el = document.getElementById('ap-diag-security');
+		if (!el) return;
+		const items = [
+			{ label: 'ログイン失敗', count: sec.login_failure || 0, color: '#e53e3e' },
+			{ label: 'ロックアウト', count: sec.lockout || 0, color: '#c53030' },
+			{ label: 'レート制限', count: sec.rate_limit || 0, color: '#d69e2e' },
+			{ label: 'SSRF ブロック', count: sec.ssrf_blocked || 0, color: '#e53e3e' },
+		];
+		const total = items.reduce((s, i) => s + i.count, 0);
+		if (total === 0) {
+			el.innerHTML = '<span style="color:#38a169;font-size:13px;">セキュリティイベントなし</span>';
+			return;
+		}
+		el.innerHTML = items
+			.filter(i => i.count > 0)
+			.map(i => '<span class="ap-diag-badge" style="background:' + i.color + '20;color:' + i.color + ';">' + h(i.label) + ': ' + i.count + '</span>')
+			.join(' ');
+	}
+
+	/* ── パフォーマンスプロファイラ ── */
+	function renderTimings(timingsData) {
+		const el = document.getElementById('ap-diag-timings');
+		if (!el) return;
+		const timings = timingsData.timings_ms || {};
+		const entries = Object.entries(timings).filter(([k]) => k !== 'request_total');
+		const requestTotal = timings.request_total;
+
+		if (entries.length === 0 && !requestTotal) {
+			el.innerHTML = '<span style="color:#718096;font-size:13px;">計測データなし（次回リクエストで記録されます）</span>';
+			return;
+		}
+
+		const maxMs = Math.max(...entries.map(([, v]) => v), 1);
+		let html = '';
+
+		if (requestTotal != null) {
+			html += '<div style="font-size:13px;margin-bottom:8px;">リクエスト合計: <strong>' + requestTotal.toFixed(1) + ' ms</strong>';
+			if (timingsData.memory_peak_human) {
+				html += ' | メモリピーク: <strong>' + h(timingsData.memory_peak_human) + '</strong>';
+			}
+			html += '</div>';
+		}
+
+		entries.forEach(([label, ms]) => {
+			const pct = Math.max((ms / maxMs) * 100, 2);
+			html += '<div class="ap-diag-timing-row">'
+				+ '<span class="ap-diag-timing-label">' + h(label) + '</span>'
+				+ '<div class="ap-diag-timing-bar-bg"><div class="ap-diag-timing-bar" style="width:' + pct.toFixed(0) + '%;"></div></div>'
+				+ '<span class="ap-diag-timing-value">' + ms.toFixed(1) + ' ms</span>'
+				+ '</div>';
+		});
+
+		el.innerHTML = html;
 	}
 
 	/* ── 直近エラー一覧 ── */
