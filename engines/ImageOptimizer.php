@@ -21,12 +21,24 @@ class ImageOptimizer {
 		if (!extension_loaded('gd')) return false;
 		if (!file_exists($path)) return false;
 
+		/* C12 fix: ファイルサイズ上限チェック（50MB） */
+		$fileSize = filesize($path);
+		if ($fileSize === false || $fileSize > 50 * 1024 * 1024) return false;
+
 		$info = @getimagesize($path);
 		if ($info === false) return false;
 
 		$mime = $info['mime'] ?? '';
 		$origWidth  = $info[0];
 		$origHeight = $info[1];
+
+		/* C12 fix: メモリ使用量の事前チェック（ピクセル × 4バイト × 安全係数2） */
+		$requiredMemory = $origWidth * $origHeight * 4 * 2;
+		$memoryLimit = self::getMemoryLimitBytes();
+		if ($memoryLimit > 0 && (memory_get_usage() + $requiredMemory) > $memoryLimit) {
+			error_log("ImageOptimizer: メモリ不足のためスキップ: {$path} ({$origWidth}x{$origHeight})");
+			return false;
+		}
 
 		/* メイン画像リサイズ（最大 1920px） */
 		if ($origWidth > self::MAX_WIDTH || $origHeight > self::MAX_HEIGHT) {
@@ -105,7 +117,8 @@ class ImageOptimizer {
 	public static function batchOptimize(): array {
 		if (!extension_loaded('gd')) return ['error' => 'GD ライブラリが利用できません'];
 
-		$dir = 'uploads/';
+		/* M17 fix: __DIR__ ベースの絶対パスを使用 */
+		$dir = dirname(__DIR__) . '/uploads/';
 		if (!is_dir($dir)) return ['optimized' => 0, 'total' => 0];
 
 		$files = glob($dir . '*.{jpg,jpeg,png,gif,webp}', GLOB_BRACE) ?: [];
@@ -144,6 +157,20 @@ class ImageOptimizer {
 		$ratio = min($maxW / $w, $maxH / $h);
 		if ($ratio >= 1) return [$w, $h];
 		return [(int)round($w * $ratio), (int)round($h * $ratio)];
+	}
+
+	private static function getMemoryLimitBytes(): int {
+		$limit = ini_get('memory_limit');
+		if ($limit === '-1' || $limit === false) return 0; /* 無制限 */
+		$limit = trim($limit);
+		$unit = strtolower(substr($limit, -1));
+		$val = (int)$limit;
+		return match ($unit) {
+			'g' => $val * 1024 * 1024 * 1024,
+			'm' => $val * 1024 * 1024,
+			'k' => $val * 1024,
+			default => $val,
+		};
 	}
 
 	private static function preserveTransparency(\GdImage $img, string $mime): void {

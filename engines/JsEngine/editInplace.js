@@ -2,22 +2,25 @@
 
 var _apChanging = false;
 
-/* HTML フィールド（BR を含むフィールド）のサニタイズ */
+/* C13 fix: HTML サニタイズ — template 要素で解析（parse-time XSS 防止） */
 function _apSanitizeHtml(html) {
-	var tmp = document.createElement('div');
-	tmp.innerHTML = html;
+	var tpl = document.createElement('template');
+	tpl.innerHTML = html;
+	var tmp = tpl.content;
 	/* script/style/iframe 等の危険要素を除去 */
 	var dangerous = tmp.querySelectorAll('script,style,iframe,object,embed,form,input,textarea,select,button');
 	for (var i = 0; i < dangerous.length; i++) dangerous[i].remove();
 	/* on* イベント属性を除去 */
-	var all = tmp.getElementsByTagName('*');
+	var all = tmp.querySelectorAll('*');
 	for (var j = 0; j < all.length; j++) {
 		var attrs = Array.prototype.slice.call(all[j].attributes);
 		for (var k = 0; k < attrs.length; k++) {
 			if (/^on/i.test(attrs[k].name)) all[j].removeAttribute(attrs[k].name);
 		}
 	}
-	return tmp.innerHTML;
+	var div = document.createElement('div');
+	div.appendChild(tmp.cloneNode(true));
+	return div.innerHTML;
 }
 
 /* 保存フィードバックアニメーション */
@@ -92,6 +95,8 @@ function _apFieldSave(key, val) {
 	var csrfMeta = document.querySelector('meta[name="csrf-token"]');
 	if (!csrfMeta) { console.error('[AdlairePlatform] CSRF token meta tag not found'); _apChanging = false; return; }
 	var csrf = csrfMeta.getAttribute('content');
+	/* M18 fix: タイムアウトでロック解除（15秒） */
+	var _apChangingTimeout = setTimeout(function () { _apChanging = false; }, 15000);
 	fetch('index.php', {
 		method: 'POST',
 		headers: {
@@ -118,11 +123,13 @@ function _apFieldSave(key, val) {
 				_apFlash(el, true);
 			}
 		}
+		clearTimeout(_apChangingTimeout);
 		_apChanging = false;
 	}).catch(function (e) {
 		console.error('[AdlairePlatform] 保存エラー:', e.message);
 		var el = document.getElementById(key);
 		_apFlash(el, false);
+		clearTimeout(_apChangingTimeout);
 		_apChanging = false;
 	});
 }

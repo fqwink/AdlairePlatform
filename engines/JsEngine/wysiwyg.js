@@ -465,10 +465,12 @@ function _activate(span) {
    HTML ↔ ブロック変換
    ══════════════════════════════════════════════ */
 
-/* HTML文字列 → ブロック配列 */
+/* C15 fix: HTML文字列 → ブロック配列（template 要素で安全に解析） */
 function _parseHtmlToBlocks(html) {
+	const tpl = document.createElement('template');
+	tpl.innerHTML = html;
 	const tmp = document.createElement('div');
-	tmp.innerHTML = html;
+	tmp.appendChild(tpl.content.cloneNode(true));
 	const blocks = [];
 
 	const _pushText = (type, node, extra) => {
@@ -826,7 +828,7 @@ function _renderImageBlock(el, block) {
 	const content = document.createElement('div');
 	content.className = 'ap-wy-block-content';
 
-	if (block.data.src) {
+	if (block.data.src && _isSafeUrl(block.data.src)) {
 		const img = document.createElement('img');
 		img.src = block.data.src;
 		img.alt = block.data.alt || '';
@@ -2810,9 +2812,12 @@ function _fetchSave(key, val, callback) {
    HTML サニタイズ
    ══════════════════════════════════════════════ */
 
+/* C14 fix: template 要素で解析（parse-time XSS 防止） */
 function _cleanHtml(html) {
+	const tpl = document.createElement('template');
+	tpl.innerHTML = html;
 	const tmp = document.createElement('div');
-	tmp.innerHTML = html;
+	tmp.appendChild(tpl.content.cloneNode(true));
 	_sanitizeNode(tmp);
 	return tmp.innerHTML;
 }
@@ -2859,8 +2864,9 @@ function _sanitizeNode(node) {
 		}
 		if (child.tagName === 'IMG') {
 			const src = (child.getAttribute('src') || '').trim().toLowerCase();
-			if (/^javascript:/.test(src) ||
-				(/^data:/.test(src) && !/^data:image\/(png|jpeg|gif|webp)/.test(src))) {
+			/* C16 fix: javascript/vbscript スキーム + data:image/svg+xml もブロック */
+			if (/^(javascript|vbscript):/.test(src) ||
+				(/^data:/.test(src) && !/^data:image\/(png|jpeg|gif|webp)(;|,)/.test(src))) {
 				child.removeAttribute('src');
 			}
 		}
