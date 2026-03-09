@@ -423,7 +423,7 @@
 
 		<section class="ap-dash-card" id="ap-diag-section">
 			<h2>診断データ</h2>
-			<p style="font-size:13px;color:#718096;margin-bottom:8px;">システムエラー・ログデータを集約し、開発元へ匿名で送信します。デバッグ・品質改善に活用されます。</p>
+			<p style="font-size:13px;color:#718096;margin-bottom:8px;">システムエラー・ログデータをリアルタイムで集約し、開発元へ匿名送信します。全ログは作成から14日間サーバ内に強制保存されます。</p>
 
 			<div class="ap-dash-field" style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
 				<div style="display:flex;align-items:center;gap:8px;">
@@ -456,6 +456,7 @@
 				<span>エラー件数: <strong id="ap-diag-error-count">-</strong></span>
 				<span>ログ件数: <strong id="ap-diag-log-count">-</strong></span>
 				<span>最終送信: <strong id="ap-diag-last-sent">-</strong></span>
+				<span id="ap-diag-retention-info" style="color:#3182ce;font-weight:600;">-</span>
 			</div>
 
 			<div class="ap-dash-field">
@@ -509,7 +510,7 @@
 			<div style="margin-top:12px;border-top:1px solid #e2e8f0;padding-top:8px;font-size:12px;color:#718096;">
 				インストールID: <code id="ap-diag-install-id">-</code> |
 				ヘルスチェック API: <code>?ap_api=health</code><br>
-				コンテンツ本文・パスワード・トークンは収集されません。
+				全ログは作成から14日間サーバ内に強制保存されます。コンテンツ本文・パスワード・トークンは収集されません。
 			</div>
 		</section>
 

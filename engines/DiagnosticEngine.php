@@ -3,7 +3,8 @@
  * DiagnosticEngine - リアルタイム診断・テレメトリエンジン
  *
  * 本番サーバ環境でシステムエラー・ログデータ・環境情報を集約し、
- * 開発元へ定期送信する。デフォルト有効・エンドユーザーで無効化可能。
+ * 開発元へリアルタイム送信する。デフォルト有効・エンドユーザーで無効化可能。
+ * 全ログデータは作成から14日間サーバ内に強制保存し、14日経過後に古い順に削除。
  *
  * 収集レベル:
  *   basic    — 環境情報・エラー件数のみ（デフォルト）
@@ -20,9 +21,9 @@ class DiagnosticEngine {
 	private const CONFIG_FILE = 'diagnostics.json';
 	private const LOG_FILE    = 'diagnostics_log.json';
 	private const ENDPOINT    = 'https://telemetry.adlaire.com/v1/report';
-	private const INTERVAL    = 86400; /* 24時間 */
-	private const MAX_LOG_ENTRIES   = 500;
-	private const MAX_BUFFER_ITEMS  = 100;
+	private const INTERVAL    = 0; /* リアルタイム送信（毎リクエスト） */
+	private const LOG_RETENTION_DAYS = 14; /* ログ強制保存期間（日） */
+	private const MAX_BUFFER_ITEMS   = 100;
 	private const VALID_LEVELS = ['basic', 'extended', 'debug'];
 	private const RETRY_MAX        = 3;
 	private const RETRY_BACKOFF    = [1, 2, 4]; /* 秒 */
@@ -55,6 +56,7 @@ class DiagnosticEngine {
 			'level'                  => 'basic',
 			'install_id'             => '',
 			'last_sent'              => '',
+			'last_env_sent'          => '',
 			'first_run_notice_shown' => false,
 			'send_interval'          => self::INTERVAL,
 		];
@@ -201,10 +203,8 @@ class DiagnosticEngine {
 
 		$log['errors'][] = $entry;
 
-		/* 上限を超えたら古いものから削除 */
-		if (count($log['errors']) > self::MAX_LOG_ENTRIES) {
-			$log['errors'] = array_slice($log['errors'], -self::MAX_LOG_ENTRIES);
-		}
+		/* 14日超のエントリを削除 */
+		self::purgeExpiredEntries($log['errors']);
 
 		self::recordDailySummary($log, 'errors');
 		json_write(self::LOG_FILE, $log, settings_dir());
@@ -234,12 +234,49 @@ class DiagnosticEngine {
 		}
 
 		$log['custom'][] = $entry;
-		if (count($log['custom']) > self::MAX_LOG_ENTRIES) {
-			$log['custom'] = array_slice($log['custom'], -self::MAX_LOG_ENTRIES);
-		}
+
+		/* 14日超のエントリを削除 */
+		self::purgeExpiredEntries($log['custom']);
 
 		self::recordDailySummary($log, $category);
 		json_write(self::LOG_FILE, $log, settings_dir());
+	}
+
+	/* ══════════════════════════════════════════════
+	   14日間保持ポリシー
+	   ══════════════════════════════════════════════ */
+
+	/**
+	 * 14日超のエントリを配列から削除（参照渡し）
+	 */
+	private static function purgeExpiredEntries(array &$entries): void {
+		$cutoff = date('c', time() - self::LOG_RETENTION_DAYS * 86400);
+		$entries = array_values(array_filter($entries, function (array $e) use ($cutoff) {
+			return ($e['timestamp'] ?? '') >= $cutoff;
+		}));
+	}
+
+	/**
+	 * 全ログファイルの期限切れエントリを一括削除
+	 */
+	public static function purgeExpiredLogs(): void {
+		$log = self::safeJsonRead(self::LOG_FILE, settings_dir());
+		$changed = false;
+
+		if (!empty($log['errors'])) {
+			$before = count($log['errors']);
+			self::purgeExpiredEntries($log['errors']);
+			if (count($log['errors']) !== $before) $changed = true;
+		}
+		if (!empty($log['custom'])) {
+			$before = count($log['custom']);
+			self::purgeExpiredEntries($log['custom']);
+			if (count($log['custom']) !== $before) $changed = true;
+		}
+
+		if ($changed) {
+			json_write(self::LOG_FILE, $log, settings_dir());
+		}
 	}
 
 	/* ══════════════════════════════════════════════
@@ -558,10 +595,14 @@ class DiagnosticEngine {
 	   ══════════════════════════════════════════════ */
 
 	/**
-	 * 送信間隔をチェックし、条件を満たせば送信
+	 * リアルタイム送信: 毎リクエストで未送信ログを開発元へ送信
+	 * ログはサーバ内に14日間保持（送信後も削除しない）
 	 */
 	public static function maybeSend(): void {
 		if (!self::isEnabled()) return;
+
+		/* 期限切れログの自動削除 */
+		self::purgeExpiredLogs();
 
 		$config = self::loadConfig();
 
@@ -571,26 +612,42 @@ class DiagnosticEngine {
 			return; /* ブレーカー発動中 */
 		}
 
+		/* 送信間隔チェック（INTERVAL=0 でリアルタイム） */
 		$lastSent = $config['last_sent'] ?? '';
 		$interval = $config['send_interval'] ?? self::INTERVAL;
-
-		if ($lastSent !== '') {
+		if ($interval > 0 && $lastSent !== '') {
 			$lastTime = strtotime($lastSent);
 			if ($lastTime !== false && (time() - $lastTime) < $interval) {
-				return; /* まだ送信間隔に達していない */
+				return;
 			}
 		}
 
-		$data = self::collect();
+		/* 未送信のログエントリのみを抽出して送信 */
+		$data = self::collectWithUnsent($lastSent);
+
+		/* 新しいログがなければ環境データのみ送信（1日1回） */
+		$hasNewLogs = !empty($data['unsent_errors']) || !empty($data['unsent_logs']);
+		if (!$hasNewLogs) {
+			/* 最終環境送信から24時間未満なら送信スキップ */
+			$lastEnv = $config['last_env_sent'] ?? '';
+			if ($lastEnv !== '') {
+				$lastEnvTime = strtotime($lastEnv);
+				if ($lastEnvTime !== false && (time() - $lastEnvTime) < 86400) {
+					return;
+				}
+			}
+		}
+
 		if (self::send($data)) {
 			$config = self::loadConfig();
 			$config['last_sent'] = date('c');
 			$config['consecutive_failures'] = 0;
 			$config['circuit_breaker_until'] = 0;
+			if (!$hasNewLogs) {
+				$config['last_env_sent'] = date('c');
+			}
 			self::saveConfig($config);
-
-			/* 送信済みログをクリア（バッファリセット） */
-			self::clearSentLogs();
+			/* ログは削除しない — 14日間サーバ内に保持 */
 		} else {
 			/* 連続失敗カウント → サーキットブレーカー */
 			$config = self::loadConfig();
@@ -602,6 +659,42 @@ class DiagnosticEngine {
 			}
 			self::saveConfig($config);
 		}
+	}
+
+	/**
+	 * 未送信分を含むデータを収集
+	 */
+	private static function collectWithUnsent(string $lastSent): array {
+		$data = self::collect();
+		$log = self::safeJsonRead(self::LOG_FILE, settings_dir());
+
+		/* 前回送信以降のエントリを抽出 */
+		$unsentErrors = [];
+		$unsentLogs   = [];
+		if ($lastSent !== '') {
+			foreach (($log['errors'] ?? []) as $e) {
+				if (($e['timestamp'] ?? '') > $lastSent) {
+					$unsentErrors[] = $e;
+				}
+			}
+			foreach (($log['custom'] ?? []) as $c) {
+				if (($c['timestamp'] ?? '') > $lastSent) {
+					$unsentLogs[] = $c;
+				}
+			}
+		} else {
+			/* 初回送信: 全エントリ */
+			$unsentErrors = $log['errors'] ?? [];
+			$unsentLogs   = $log['custom'] ?? [];
+		}
+
+		$data['unsent_errors']     = $unsentErrors;
+		$data['unsent_logs']       = $unsentLogs;
+		$data['total_errors_held'] = count($log['errors'] ?? []);
+		$data['total_logs_held']   = count($log['custom'] ?? []);
+		$data['retention_days']    = self::LOG_RETENTION_DAYS;
+
+		return $data;
 	}
 
 	/**
@@ -664,15 +757,11 @@ class DiagnosticEngine {
 	}
 
 	/**
-	 * 送信済みログをクリア（daily_summary は保持）
+	 * 送信後の処理: ログは14日間保持のため削除しない。
+	 * 期限切れエントリのみ削除。
 	 */
 	private static function clearSentLogs(): void {
-		$log = self::safeJsonRead(self::LOG_FILE, settings_dir());
-		$newLog = ['errors' => [], 'custom' => []];
-		if (!empty($log['daily_summary'])) {
-			$newLog['daily_summary'] = $log['daily_summary'];
-		}
-		json_write(self::LOG_FILE, $newLog, settings_dir());
+		self::purgeExpiredLogs();
 	}
 
 	/* ══════════════════════════════════════════════
@@ -887,15 +976,19 @@ class DiagnosticEngine {
 		if (!AdminEngine::hasRole('admin')) {
 			self::jsonError('管理者権限が必要です', 403);
 		}
-		$data = self::collect();
+		$config = self::loadConfig();
+		$data = self::collectWithUnsent($config['last_sent'] ?? '');
 		$success = self::send($data);
 		if ($success) {
 			$config = self::loadConfig();
 			$config['last_sent'] = date('c');
+			$config['consecutive_failures'] = 0;
+			$config['circuit_breaker_until'] = 0;
 			self::saveConfig($config);
-			self::clearSentLogs();
+			/* ログは14日間保持 — 削除しない */
+			self::purgeExpiredLogs();
 			AdminEngine::logActivity('診断データを手動送信');
-			self::jsonOk(['message' => '送信しました', 'sent_at' => date('c')]);
+			self::jsonOk(['message' => '送信しました（ログは14日間保持）', 'sent_at' => date('c')]);
 		} else {
 			self::jsonError('送信に失敗しました（エンドポイントに到達できない可能性があります）');
 		}
@@ -925,6 +1018,8 @@ class DiagnosticEngine {
 		$summary['security'] = self::getSecuritySummary();
 		$summary['timings'] = self::getTimings();
 		$summary['circuit_breaker'] = ($config['circuit_breaker_until'] ?? 0) > time();
+		$summary['retention_days'] = self::LOG_RETENTION_DAYS;
+		$summary['realtime_send'] = (self::INTERVAL === 0);
 		self::jsonOk($summary);
 	}
 

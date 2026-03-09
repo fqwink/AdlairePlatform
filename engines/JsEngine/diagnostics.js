@@ -78,6 +78,13 @@
 			const logEl = document.getElementById('ap-diag-log-count');
 			if (logEl) logEl.textContent = d.log_count || '0';
 
+			/* 保持ポリシー・送信モード */
+			const retEl = document.getElementById('ap-diag-retention-info');
+			if (retEl) {
+				const mode = d.realtime_send ? 'リアルタイム' : '定期';
+				retEl.textContent = mode + '送信 | ' + (d.retention_days || 14) + '日間保持';
+			}
+
 			/* サーキットブレーカー */
 			const cbEl = document.getElementById('ap-diag-circuit-breaker');
 			if (cbEl) {
