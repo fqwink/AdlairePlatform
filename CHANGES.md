@@ -2,6 +2,37 @@
 
 ---
 
+## 2026-03-09（Ver.1.3-28 — セキュリティ監査 Round 6: 全ソースコード監査）
+
+- **[Fix/Critical]** `engines/UpdateEngine.php` — R11: `rollback_to_backup()` にパストラバーサル防止を追加（`apply_update()` と同等の `realpath` チェック）
+- **[Fix/Critical]** `engines/JsEngine/api_keys.js` — R21: CSRF トークンをヘッダー（`X-CSRF-TOKEN`）とボディの両方で送信するよう修正
+- **[Fix/High]** `engines/GitEngine.php` — R12: `pull()` に悪意あるリポジトリパスのパストラバーサル防止を追加
+- **[Fix/High]** `engines/ThemeEngine.php` — R13: JSON-LD 出力から `JSON_UNESCAPED_SLASHES` を除去（`</script>` インジェクション防止）
+- **[Fix/High]** `engines/CollectionEngine.php` — R14: `createCollection()` の `directory` フィールドにスラグパターン検証を追加
+- **[Fix/High]** `engines/CollectionEngine.php` — R15: `handleDelete()` / `handleItemSave()` / `handleItemDelete()` にコレクション名スラグ検証を追加
+- **[Fix/High]** `engines/ApiEngine.php` — R16: 非ワイルドカード CORS オリジンに `Vary: Origin` ヘッダーを追加（キャッシュポイズニング防止）
+- **[Fix/High]** `engines/WebhookEngine.php` — R19: `sendAsync()` に DNS リバインディング防止チェックを追加
+- **[Fix/Medium]** `engines/ApiEngine.php` — R17: メール Subject のヘッダインジェクション対策（改行除去）
+- **[Fix/Medium]** `engines/CacheEngine.php` — R18: エンドポイント名をサニタイズしてキャッシュキーのパストラバーサルを防止
+- **[Fix/Medium]** `engines/WebhookEngine.php` — R20: `isPrivateHost()` の DNS 解決失敗時にブロック（安全側に倒す）
+- **[Fix/Medium]** `engines/JsEngine/collection_manager.js` — R22: POST リクエストに `X-CSRF-TOKEN` ヘッダーを追加
+- **[Fix/Medium]** `engines/JsEngine/git_manager.js` — R23: POST リクエストに `X-CSRF-TOKEN` ヘッダーを追加
+- **[Fix/Medium]** `engines/JsEngine/updater.js` — R24: `_apPost()` に `X-CSRF-TOKEN` ヘッダーを追加
+- **[Fix/Medium]** `engines/JsEngine/collection_manager.js` — R25: プレビュー innerHTML にクライアントサイド HTML サニタイズを適用（XSS 防止）
+- **[Fix/Medium]** `index.php` — R26: パストラバーサル除去をループで再帰的に実行（`....//` パターン対策）
+- **[Fix/Medium]** `engines/JsEngine/editInplace.js` — R27: `_apSanitizeHtml()` に `javascript:` スキーム href ブロックを追加
+- **[Fix/Medium]** `engines/AdminEngine.php` — R28: リダイレクト先 URL の検証を追加（オープンリダイレクト防止）
+- **[Fix/Low]** `engines/AdminEngine.php` — R29: リビジョンファイル名にランダムサフィックスを追加（同一秒衝突防止）
+
+---
+
+## 2026-03-09（Ver.1.3-28 — セキュリティ監査 Round 5: 差分デバッグ）
+
+- **[Fix/High]** `engines/MarkdownEngine.php` — R8: YAML フロントマターの重複キーで最初の値を優先（後からのステータス上書き防止）
+- **[Fix/High]** `engines/StaticEngine.php` — R9: 検索インデックスからドラフト・非公開コレクションアイテムを除外
+
+---
+
 ## 2026-03-08（Ver.1.3-28 — StaticEngine 実装・theme.php 廃止）
 
 - **[Feature]** `engines/StaticEngine.php` 新規作成 — 静的サイト生成エンジン

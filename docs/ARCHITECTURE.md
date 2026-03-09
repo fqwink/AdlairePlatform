@@ -1,7 +1,8 @@
 # AdlairePlatform アーキテクチャ設計書
 
 > **Ver.1.3-28**: 本ドキュメントは Ver.1.3-28 時点のアーキテクチャを記録しています。
-> StaticEngine 実装完了。theme.php レガシーフォールバックを廃止。ApiEngine は Ver.1.3系で引き続き実装予定。
+> StaticEngine・ApiEngine・CollectionEngine・MarkdownEngine・GitEngine・WebhookEngine・CacheEngine・ImageOptimizer を実装済み。
+> theme.php レガシーフォールバックは廃止済み。
 
 > 分類: 社内限り
 
@@ -41,12 +42,25 @@ AdlairePlatform/
 │  ├─ ThemeEngine.php           # テーマ検証・読み込み・コンテキスト構築
 │  ├─ UpdateEngine.php          # アップデート・バックアップ・ロールバック
 │  ├─ StaticEngine.php          # 静的書き出し・差分ビルド・アセット管理
-│  ├─ ApiEngine.php             # 公開 REST API（ヘッドレス CMS）（計画）
+│  ├─ ApiEngine.php             # 公開 REST API（ヘッドレス CMS）
+│  ├─ CollectionEngine.php      # コレクション管理（ブログ・ニュース等）
+│  ├─ MarkdownEngine.php        # Markdown パーサー（フロントマター対応）
+│  ├─ GitEngine.php             # GitHub リポジトリ連携（Pull/Push）
+│  ├─ WebhookEngine.php         # Webhook 管理・送信（SSRF 防止付き）
+│  ├─ CacheEngine.php           # API レスポンスキャッシュ
+│  ├─ ImageOptimizer.php        # 画像最適化（リサイズ・品質調整）
 │  └─ JsEngine/
 │     ├─ autosize.js            # テキストエリア自動リサイズ
 │     ├─ editInplace.js         # インプレイス編集（バニラJS・plain text）
 │     ├─ dashboard.js           # ダッシュボード固有のインタラクション
-
+│     ├─ static_builder.js      # 静的書き出し管理 UI
+│     ├─ collection_manager.js  # コレクション管理 UI
+│     ├─ git_manager.js         # Git 連携 UI
+│     ├─ webhook_manager.js     # Webhook 管理 UI
+│     ├─ api_keys.js            # API キー管理 UI
+│     ├─ ap-api-client.js       # 静的サイト向け API クライアント
+│     └─ ap-search.js           # クライアントサイド検索
+│
 ├─ themes/
 │  ├─ AP-Default/
 │  │  ├─ theme.html             # テンプレートエンジン方式
@@ -66,7 +80,7 @@ AdlairePlatform/
 │     └─ pages.json             # ページコンテンツ
 ├─ uploads/                     # アップロード済み画像（公開・PHP実行不可）
 │  └─ .htaccess                 # Options -Indexes + PHP 禁止
-├─ static/                      # StaticEngine が書き出す静的 HTML（計画）
+├─ static/                      # StaticEngine が書き出す静的 HTML
 │  ├─ .htaccess                 # Static-First: HTML 優先・PHP フォールバック
 │  ├─ index.html                # 書き出し済みページ（例）
 │  └─ uploads/                  # uploads/ のミラー（filemtime 差分コピー）
@@ -203,48 +217,83 @@ StaticEngine::clean(): void
   └─ static/ ディレクトリを再帰削除 + static_build.json をリセット
 ```
 
-### engines/ApiEngine.php（計画・設計確定 Ver.0.3-1 — Ver.1.3系で実装予定）
+### engines/ApiEngine.php（実装済み）
 
 ```
 ApiEngine::handle(): void
   └─ ?ap_api= があれば JSON を返して exit
-     ├─ 'pages'    → getPages()
-     ├─ 'page'     → slug バリデーション → getPage($slug)
-     ├─ 'settings' → getSettings()
-     ├─ 'search'   → q バリデーション（1〜100文字） → search($q)
-     ├─ 'contact'  → POST 検証 → checkContactRate() → sendContact()
-     └─ default    → jsonError('不明な API エンドポイントです', 400)
+     ├─ 'pages'      → getPages()
+     ├─ 'page'       → slug バリデーション → getPage($slug)
+     ├─ 'settings'   → getSettings()
+     ├─ 'search'     → q バリデーション（1〜100文字） → search($q)
+     ├─ 'contact'    → POST 検証 → checkContactRate() → sendContact()
+     ├─ 'collection' → コレクション API
+     └─ default      → jsonError('不明な API エンドポイントです', 400)
 
-ApiEngine::getPages(): array
-  └─ 全ページの slug + makePreview() によるプレビュー（120文字）を返す
+CORS: 設定可能なオリジン許可 + Vary: Origin ヘッダー
+API キー認証: Bearer トークン + bcrypt
+レスポンスキャッシュ: CacheEngine 連携
+```
 
-ApiEngine::getPage(string $slug): array
-  └─ 単一ページの slug + content を返す（404: ページ不在）
+### engines/CollectionEngine.php（実装済み）
 
-ApiEngine::getSettings(): array
-  └─ title / description / keywords のみ返す（auth.json・contact_email は含めない）
+```
+CollectionEngine::handle(): void
+  └─ ap_action POST パラメータでディスパッチ
+     ├─ コレクション CRUD（作成・読取・更新・削除）
+     ├─ アイテム CRUD（Markdown ファイル管理）
+     └─ スキーマ定義（ap-collections.json）
 
-ApiEngine::search(string $query): array
-  └─ mb_stripos による全文検索（マッチ箇所前後のプレビュー付き）
+スラグパターン検証: /^[a-zA-Z0-9][a-zA-Z0-9_-]*$/
+directory フィールド検証: スラグパターン準拠（R14 fix）
+コレクション名検証: 全操作でスラグパターン検証（R15 fix）
+```
 
-ApiEngine::sendContact(): array
-  ├─ ハニーポット検出（website フィールド・ボットには 200 を装う）
-  ├─ name（1〜100文字）・email（FILTER_VALIDATE_EMAIL）・message（1〜5000文字）バリデーション
-  ├─ checkContactRate() — IP レート制限（5回/15分・識別キー: contact_<IP>）
-  ├─ settings.json の contact_email を宛先として取得
-  └─ PHP mail() で送信（メールヘッダインジェクション対策: 改行除去）
+### engines/MarkdownEngine.php（実装済み）
 
-ApiEngine::jsonResponse(bool $ok, mixed $data): void
-  └─ JSON_HEX_TAG | JSON_HEX_AMP で encode して exit
+```
+MarkdownEngine::parse(string $markdown): array
+  ├─ parseFrontmatter() — YAML フロントマター解析（重複キーは最初の値を優先: R8 fix）
+  └─ toHtml() — Markdown → HTML 変換
 
-ApiEngine::jsonError(string $message, int $status = 400): void
-  └─ HTTP ステータスコード（400/404/405/429/500）付きでエラーレスポンスを出力して exit
+MarkdownEngine::parseYamlValue(string $val): mixed
+  └─ YAML 値のパース（文字列・数値・真偽値・配列）
+```
 
-ApiEngine::checkContactRate(): void
-  └─ login_attempts.json を流用した IP ベースレート制限（contact_<IP> キー）
+### engines/GitEngine.php（実装済み）
 
-ApiEngine::makePreview(string $html, int $length = 120): string
-  └─ strip_tags → mb_substr で先頭 $length 文字を切り出し
+```
+GitEngine::handle(): void
+  └─ GitHub リポジトリとのコンテンツ同期
+     ├─ pull()  — リポジトリからコンテンツを取り込み（パストラバーサル防止: R12 fix）
+     └─ push()  — コンテンツをリポジトリに書き出し
+```
+
+### engines/WebhookEngine.php（実装済み）
+
+```
+WebhookEngine::handle(): void
+  └─ Webhook 管理・送信
+     ├─ register()    — Webhook URL 登録（プライベート IP ブロック）
+     ├─ sendAsync()   — 非同期送信（DNS リバインディング防止: R19 fix）
+     └─ isPrivateHost() — プライベート IP 判定（DNS 解決失敗時ブロック: R20 fix）
+```
+
+### engines/CacheEngine.php（実装済み）
+
+```
+CacheEngine::get(string $endpoint, string $key): mixed
+CacheEngine::set(string $endpoint, string $key, mixed $data, int $ttl): void
+CacheEngine::clear(string $endpoint): void
+
+エンドポイント名サニタイズ: /[^a-zA-Z0-9_\-]/ を除去（R18 fix）
+```
+
+### engines/ImageOptimizer.php（実装済み）
+
+```
+ImageOptimizer::optimize(string $path, array $options): bool
+  └─ JPEG/PNG/WebP の品質調整・リサイズ（GD ライブラリ使用）
 ```
 
 ### engines/JsEngine/
@@ -257,7 +306,12 @@ ApiEngine::makePreview(string $html, int $length = 120): string
 | `updater.js` | アップデート確認・適用・バックアップ一覧・ロールバック・削除 UI |
 | `dashboard.js` | ダッシュボード固有のインタラクション（テーマ選択変更時に `ap_action=edit_field` で保存） |
 | `static_builder.js` | 静的書き出し管理 UI（差分ビルド・全件ビルド・クリア・ZIP ダウンロード） |
-| `ap-api-client.js` | 静的サイト向け軽量 API クライアント（計画・設計確定）。`window.AP.api(action, params)` で公開 API を呼び出し、`<form class="ap-contact">` を自動バインド。API オリジンは `currentScript.src` から自動解決（Static-Only モード対応）。依存なし・ES5 互換 |
+| `collection_manager.js` | コレクション管理 UI（CRUD・プレビュー・XSS サニタイズ済み） |
+| `git_manager.js` | Git 連携 UI（Pull/Push 操作） |
+| `webhook_manager.js` | Webhook 管理 UI（登録・削除・テスト送信） |
+| `api_keys.js` | API キー管理 UI（生成・削除・CSRF トークン付き） |
+| `ap-api-client.js` | 静的サイト向け軽量 API クライアント。`window.AP.api(action, params)` で公開 API を呼び出し。依存なし・ES5 互換 |
+| `ap-search.js` | クライアントサイド検索（search-index.json を使用） |
 
 ---
 
@@ -274,14 +328,23 @@ index.php
     ├─ require engines/UpdateEngine.php
     ├─ require engines/AdminEngine.php
     ├─ require engines/StaticEngine.php
-    ├─ require engines/ApiEngine.php    ─ （計画）
+    ├─ require engines/ApiEngine.php
+    ├─ require engines/MarkdownEngine.php
+    ├─ require engines/CollectionEngine.php
+    ├─ require engines/GitEngine.php
+    ├─ require engines/WebhookEngine.php
+    ├─ require engines/CacheEngine.php
+    ├─ require engines/ImageOptimizer.php
     ├─ ob_start() ─ 出力バッファ開始
     ├─ session_start()
     ├─ migrate_from_files() ─ データ自動移行（Phase1: files/, Phase2: data/*.json）
     ├─ host() ─ URL・スラッグ解析
     ├─ AdminEngine::handle() ─ ap_action POST をディスパッチ（edit_field / upload_image / revision系）→ exit
     ├─ StaticEngine::handle() ─ ap_action=generate_static_* / build_zip / clean_static / static_status → exit
-    ├─ ApiEngine::handle() ─ ap_api= があれば JSON を返して exit（計画）
+    ├─ CollectionEngine::handle() ─ コレクション管理 POST アクション → exit
+    ├─ GitEngine::handle() ─ Git 連携 POST アクション → exit
+    ├─ WebhookEngine::handle() ─ Webhook 管理 POST アクション → exit
+    ├─ ApiEngine::handle() ─ ap_api= があれば JSON を返して exit
     ├─ handle_update_action() ─ ap_action POST があれば処理して exit
     │
     ├─ $c / $d 初期値設定
@@ -366,6 +429,26 @@ AdminEngine::registerHooks();
 | `AP_VERSION` | `'1.3.28'` | 現在のバージョン |
 | `AP_UPDATE_URL` | GitHub API URL | 最新リリース確認先 |
 | `AP_BACKUP_GENERATIONS` | `5` | 保持するバックアップ世代数 |
+| `AP_REVISION_LIMIT` | `30` | リビジョン保持数上限 |
+
+---
+
+## 9. エンジン一覧
+
+| エンジン | ファイル | ステータス | 説明 |
+|---------|---------|-----------|------|
+| AdminEngine | `engines/AdminEngine.php` | ✅ 実装済み（Ver.1.3-27） | 管理エンジン・ダッシュボード |
+| TemplateEngine | `engines/TemplateEngine.php` | ✅ 実装済み（Ver.1.2-26） | 軽量テンプレートエンジン |
+| ThemeEngine | `engines/ThemeEngine.php` | ✅ 実装済み（Ver.1.2-13） | テーマ検証・読み込み |
+| UpdateEngine | `engines/UpdateEngine.php` | ✅ 実装済み（Ver.1.0-11） | アップデート・バックアップ |
+| StaticEngine | `engines/StaticEngine.php` | ✅ 実装済み（Ver.1.3-28） | 静的サイト生成 |
+| ApiEngine | `engines/ApiEngine.php` | ✅ 実装済み（Ver.1.3-28） | ヘッドレス CMS REST API |
+| CollectionEngine | `engines/CollectionEngine.php` | ✅ 実装済み（Ver.1.3-28） | コレクション管理 |
+| MarkdownEngine | `engines/MarkdownEngine.php` | ✅ 実装済み（Ver.1.3-28） | Markdown パーサー |
+| GitEngine | `engines/GitEngine.php` | ✅ 実装済み（Ver.1.3-28） | GitHub リポジトリ連携 |
+| WebhookEngine | `engines/WebhookEngine.php` | ✅ 実装済み（Ver.1.3-28） | Webhook 管理・送信 |
+| CacheEngine | `engines/CacheEngine.php` | ✅ 実装済み（Ver.1.3-28） | API レスポンスキャッシュ |
+| ImageOptimizer | `engines/ImageOptimizer.php` | ✅ 実装済み（Ver.1.3-28） | 画像最適化 |
 
 ---
 
