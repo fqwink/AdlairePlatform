@@ -12,7 +12,7 @@ if (PHP_VERSION_ID < 80200) {
 	exit('AdlairePlatform requires PHP 8.2 or later. Current version: ' . PHP_VERSION);
 }
 
-define('AP_VERSION', '1.3.29');
+define('AP_VERSION', '1.4.0');
 define('AP_UPDATE_URL', 'https://api.github.com/repos/win-k/AdlairePlatform/releases/latest');
 define('AP_BACKUP_GENERATIONS', 5);
 define('AP_REVISION_LIMIT', 30);
@@ -29,6 +29,7 @@ require 'engines/GitEngine.php';
 require 'engines/WebhookEngine.php';
 require 'engines/CacheEngine.php';
 require 'engines/ImageOptimizer.php';
+require 'engines/DiagnosticEngine.php';
 
 ini_set('session.cookie_httponly', 1);
 ini_set('session.cookie_samesite', 'Lax');
@@ -36,6 +37,9 @@ if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') {
 	ini_set('session.cookie_secure', 1);
 }
 session_start();
+
+/* 診断エンジン: エラーハンドラ登録（セッション開始後） */
+DiagnosticEngine::registerErrorHandler();
 
 /* セキュリティヘッダー */
 header('X-Content-Type-Options: nosniff');
@@ -50,6 +54,7 @@ GitEngine::handle();         /* git_configure, git_pull, git_push 等 */
 WebhookEngine::handle();     /* webhook_add, webhook_delete, webhook_toggle 等 */
 StaticEngine::handle();      /* generate_static_*, clean_static, build_zip 等 */
 handle_update_action();      /* update, backup, rollback 等 */
+DiagnosticEngine::handle();  /* diag_set_enabled, diag_preview, diag_send_now 等 */
 
 $c['password'] = 'admin';
 $c['loggedin'] = false;
@@ -160,6 +165,10 @@ if (isset($_GET['admin'])) {
 }
 
 AdminEngine::registerHooks();
+
+/* 診断エンジン: リクエスト終了時にデータ収集・定期送信 */
+DiagnosticEngine::maybeSend();
+
 ThemeEngine::load($c['themeSelect']);
 
 /* ══════════════════════════════════════════════

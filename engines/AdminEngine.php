@@ -838,6 +838,10 @@ class AdminEngine {
 			return '<h1>Dashboard template read error</h1>';
 		}
 		$ctx = self::buildDashboardContext();
+		/* 診断データ初回通知バナーを表示済みとしてマーク */
+		if (class_exists('DiagnosticEngine') && DiagnosticEngine::shouldShowNotice()) {
+			DiagnosticEngine::markNoticeShown();
+		}
 		return TemplateEngine::render($tpl, $ctx, __DIR__ . '/AdminEngine');
 	}
 
@@ -952,6 +956,8 @@ class AdminEngine {
 			/* リダイレクト */
 			'redirects'            => $redirectList,
 			'has_redirects'        => !empty($redirectList),
+			/* 診断データ（Ver.1.4） */
+			'diag_show_notice'     => class_exists('DiagnosticEngine') && DiagnosticEngine::shouldShowNotice(),
 		];
 	}
 }

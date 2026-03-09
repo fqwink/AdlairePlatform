@@ -15,6 +15,7 @@
 	<script src="engines/JsEngine/git_manager.js"></script>
 	<script src="engines/JsEngine/api_keys.js"></script>
 	<script src="engines/JsEngine/webhook_manager.js"></script>
+	<script src="engines/JsEngine/diagnostics.js"></script>
 	<script src="engines/JsEngine/dashboard.js" defer></script>
 </head>
 <body>
@@ -32,6 +33,14 @@
 	<main class="ap-dash-main">
 		{{#if migrate_warning}}
 		<div class="ap-dash-alert">警告: パスワードが MD5 から bcrypt に移行されました。パスワードが "admin" にリセットされています。すぐに変更してください。</div>
+		{{/if}}
+
+		{{#if diag_show_notice}}
+		<div class="ap-dash-alert" id="ap-diag-notice" style="background:#ebf8ff;border-color:#3182ce;color:#2c5282;">
+			<strong>診断データについて</strong> — AdlairePlatform は匿名の利用統計・エラーログを開発元へ送信しています。コンテンツやパスワードは含まれません。
+			<a href="#ap-diag-section" style="color:#2b6cb0;text-decoration:underline;">設定で無効化</a>できます。
+			<button id="ap-diag-notice-dismiss" style="float:right;background:none;border:none;cursor:pointer;font-size:16px;color:#2c5282;">&times;</button>
+		</div>
 		{{/if}}
 
 		<section class="ap-dash-card">
@@ -410,6 +419,70 @@
 			<button id="ap-check-update">更新を確認</button>
 			<span id="ap-update-status"></span>
 			<div id="ap-update-result"></div>
+		</section>
+
+		<section class="ap-dash-card" id="ap-diag-section">
+			<h2>診断データ</h2>
+			<p style="font-size:13px;color:#718096;margin-bottom:8px;">システムエラー・ログデータを集約し、開発元へ匿名で送信します。デバッグ・品質改善に活用されます。</p>
+
+			<div class="ap-dash-field" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+				<label style="margin:0;">ステータス:</label>
+				<span id="ap-diag-status">読み込み中...</span>
+				<button id="ap-diag-toggle" style="font-size:13px;padding:4px 12px;">切替</button>
+			</div>
+
+			<div class="ap-dash-field" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+				<label style="margin:0;">収集レベル:</label>
+				<select id="ap-diag-level" style="padding:4px 8px;border:1px solid #cbd5e0;border-radius:4px;font-size:14px;">
+					<option value="basic">basic — 環境情報・エラー件数</option>
+					<option value="extended">extended — エラーメッセージ・パフォーマンス</option>
+					<option value="debug">debug — スタックトレース・詳細設定</option>
+				</select>
+			</div>
+
+			<div class="ap-dash-field" style="display:flex;gap:24px;flex-wrap:wrap;font-size:13px;">
+				<span>エラー件数: <strong id="ap-diag-error-count">-</strong></span>
+				<span>ログ件数: <strong id="ap-diag-log-count">-</strong></span>
+				<span>最終送信: <strong id="ap-diag-last-sent">-</strong></span>
+			</div>
+
+			<div class="ap-dash-field">
+				<label style="font-size:13px;color:#4a5568;">エラー種別</label>
+				<div id="ap-diag-error-types" style="font-size:13px;">読み込み中...</div>
+			</div>
+
+			<div class="ap-dash-field">
+				<label style="font-size:13px;color:#4a5568;">直近のエラー</label>
+				<div id="ap-diag-recent-errors" style="font-size:12px;max-height:200px;overflow-y:auto;"></div>
+			</div>
+
+			<div class="ap-dash-field">
+				<label style="font-size:13px;color:#4a5568;">直近のログ</label>
+				<div id="ap-diag-recent-logs" style="font-size:12px;max-height:200px;overflow-y:auto;"></div>
+			</div>
+
+			<div class="ap-dash-buttons" style="margin-top:8px;">
+				<button id="ap-diag-preview">送信データをプレビュー</button>
+				<button id="ap-diag-send-now" style="background:#3182ce;">今すぐ送信</button>
+				<button id="ap-diag-show-all-logs" style="background:#718096;">全ログ表示</button>
+				<button id="ap-diag-clear-logs" style="background:#e53e3e;">ログクリア</button>
+			</div>
+			<div id="ap-diag-result" style="margin-top:4px;font-size:13px;"></div>
+
+			<div id="ap-diag-preview-data" style="display:none;margin-top:12px;border-top:1px solid #e2e8f0;padding-top:8px;">
+				<label style="font-weight:bold;font-size:13px;">送信データプレビュー</label>
+				<pre style="background:#f7fafc;border:1px solid #e2e8f0;border-radius:4px;padding:8px;font-size:11px;max-height:300px;overflow:auto;white-space:pre-wrap;"></pre>
+			</div>
+
+			<div id="ap-diag-all-logs" style="display:none;margin-top:12px;border-top:1px solid #e2e8f0;padding-top:8px;">
+				<label style="font-weight:bold;font-size:13px;">全ログデータ</label>
+				<pre style="background:#f7fafc;border:1px solid #e2e8f0;border-radius:4px;padding:8px;font-size:11px;max-height:400px;overflow:auto;white-space:pre-wrap;"></pre>
+			</div>
+
+			<div style="margin-top:12px;border-top:1px solid #e2e8f0;padding-top:8px;font-size:12px;color:#718096;">
+				インストールID: <code id="ap-diag-install-id">-</code><br>
+				コンテンツ本文・パスワード・トークンは収集されません。
+			</div>
 		</section>
 
 		<section class="ap-dash-card">

@@ -472,6 +472,44 @@ button:disabled {
 	background: rgba(192, 57, 43, 0.08) !important;
 }
 
+/* ── 診断データ ── */
+
+.ap-diag-badge {
+	display: inline-block;
+	padding: 2px 8px;
+	margin: 2px;
+	border-radius: 4px;
+	font-size: 12px;
+	background: #fed7d7;
+	color: #c53030;
+	font-weight: 600;
+}
+
+.ap-diag-table {
+	width: 100%;
+	border-collapse: collapse;
+	margin-top: 4px;
+}
+
+.ap-diag-table th,
+.ap-diag-table td {
+	padding: 4px 8px;
+	border-bottom: 1px solid #e2e8f0;
+	text-align: left;
+	font-size: 12px;
+	word-break: break-all;
+}
+
+.ap-diag-table th {
+	background: #f7fafc;
+	font-weight: 600;
+	color: #4a5568;
+}
+
+.ap-diag-table tr:hover {
+	background: #f7fafc;
+}
+
 /* ── レスポンシブ ── */
 
 @media (max-width: 640px) {
