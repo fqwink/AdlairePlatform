@@ -83,13 +83,28 @@ class CollectionEngine {
 	 * @param array  $def  定義 {label, fields, sortBy?, sortOrder?}
 	 */
 	public static function createCollection(string $name, array $def): bool {
-		if (!preg_match(self::SLUG_PATTERN, $name)) return false;
+		if (!preg_match(self::SLUG_PATTERN, $name)) {
+			if (class_exists('DiagnosticEngine')) {
+				DiagnosticEngine::log('engine', 'コレクション作成失敗: 不正なスラッグ', ['name' => $name]);
+			}
+			return false;
+		}
 		$schema = self::loadSchema();
-		if (isset($schema['collections'][$name])) return false;
+		if (isset($schema['collections'][$name])) {
+			if (class_exists('DiagnosticEngine')) {
+				DiagnosticEngine::log('engine', 'コレクション作成失敗: 既に存在', ['name' => $name]);
+			}
+			return false;
+		}
 
 		$def['directory'] = $def['directory'] ?? $name;
 		/* R14 fix: directory フィールドもスラグパターンで検証（パストラバーサル防止） */
-		if (!preg_match(self::SLUG_PATTERN, $def['directory'])) return false;
+		if (!preg_match(self::SLUG_PATTERN, $def['directory'])) {
+			if (class_exists('DiagnosticEngine')) {
+				DiagnosticEngine::log('engine', 'コレクション作成失敗: 不正なディレクトリ名', ['directory' => $def['directory']]);
+			}
+			return false;
+		}
 		$schema['collections'][$name] = $def;
 		self::saveSchema($schema);
 
@@ -211,7 +226,12 @@ class CollectionEngine {
 	 * @param bool   $isNew      新規作成モード（true: 既存ファイルがあればエラー）
 	 */
 	public static function saveItem(string $collection, string $slug, array $meta, string $body, bool $isNew = false): bool {
-		if (!preg_match(self::SLUG_PATTERN, $slug)) return false;
+		if (!preg_match(self::SLUG_PATTERN, $slug)) {
+			if (class_exists('DiagnosticEngine')) {
+				DiagnosticEngine::log('engine', 'アイテム保存失敗: 不正なスラッグ', ['collection' => $collection, 'slug' => $slug]);
+			}
+			return false;
+		}
 		$def = self::getCollectionDef($collection);
 		if ($def === null) return false;
 
@@ -225,10 +245,19 @@ class CollectionEngine {
 
 		/* スキーマバリデーション */
 		$errors = self::validateFields($collection, $meta);
-		if (!empty($errors)) return false;
+		if (!empty($errors)) {
+			if (class_exists('DiagnosticEngine')) {
+				DiagnosticEngine::log('engine', 'アイテム保存失敗: バリデーションエラー', ['collection' => $collection, 'slug' => $slug, 'errors' => $errors]);
+			}
+			return false;
+		}
 
 		$content = self::buildMarkdown($meta, $body);
-		return file_put_contents($path, $content, LOCK_EX) !== false;
+		$result = file_put_contents($path, $content, LOCK_EX);
+		if ($result === false && class_exists('DiagnosticEngine')) {
+			DiagnosticEngine::log('engine', 'アイテム保存失敗: ファイル書き込みエラー', ['collection' => $collection, 'slug' => $slug]);
+		}
+		return $result !== false;
 	}
 
 	/**

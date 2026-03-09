@@ -29,6 +29,8 @@ class DiagnosticEngine {
 	private const RETRYABLE_CODES  = [429, 502, 503];
 	private const CIRCUIT_BREAKER_THRESHOLD = 5;
 	private const CIRCUIT_BREAKER_DURATION  = 86400; /* 24時間 */
+	private const MAX_LOG_SIZE_BYTES       = 524288; /* 512 KB */
+	private const LOG_ARCHIVE_GENERATIONS  = 3;
 
 	/* ── パフォーマンスプロファイラ（リクエスト内メモリ） ── */
 	private static array $timers = [];
@@ -193,7 +195,8 @@ class DiagnosticEngine {
 	 * エラーをログバッファに追加
 	 */
 	public static function logError(array $entry): void {
-		$log = json_read(self::LOG_FILE, settings_dir());
+		self::rotateIfNeeded();
+		$log = self::safeJsonRead(self::LOG_FILE, settings_dir());
 		if (!isset($log['errors'])) $log['errors'] = [];
 
 		$log['errors'][] = $entry;
@@ -203,6 +206,7 @@ class DiagnosticEngine {
 			$log['errors'] = array_slice($log['errors'], -self::MAX_LOG_ENTRIES);
 		}
 
+		self::recordDailySummary($log, 'errors');
 		json_write(self::LOG_FILE, $log, settings_dir());
 	}
 
@@ -216,7 +220,8 @@ class DiagnosticEngine {
 	public static function log(string $category, string $message, array $context = []): void {
 		if (!self::isEnabled()) return;
 
-		$log = json_read(self::LOG_FILE, settings_dir());
+		self::rotateIfNeeded();
+		$log = self::safeJsonRead(self::LOG_FILE, settings_dir());
 		if (!isset($log['custom'])) $log['custom'] = [];
 
 		$entry = [
@@ -233,7 +238,165 @@ class DiagnosticEngine {
 			$log['custom'] = array_slice($log['custom'], -self::MAX_LOG_ENTRIES);
 		}
 
+		self::recordDailySummary($log, $category);
 		json_write(self::LOG_FILE, $log, settings_dir());
+	}
+
+	/* ══════════════════════════════════════════════
+	   ログローテーション・破損検知
+	   ══════════════════════════════════════════════ */
+
+	/**
+	 * ログファイルが上限サイズを超えていたらローテーション
+	 */
+	public static function rotateIfNeeded(): void {
+		$path = settings_dir() . '/' . self::LOG_FILE;
+		if (!file_exists($path)) return;
+		$size = @filesize($path);
+		if ($size === false || $size < self::MAX_LOG_SIZE_BYTES) return;
+
+		/* 世代シフト: _3削除、_2→_3、_1→_2、current→_1 */
+		for ($i = self::LOG_ARCHIVE_GENERATIONS; $i >= 1; $i--) {
+			$dst = $path . '.' . $i;
+			if ($i === self::LOG_ARCHIVE_GENERATIONS && file_exists($dst)) {
+				@unlink($dst);
+			}
+			$src = ($i === 1) ? $path : $path . '.' . ($i - 1);
+			if (file_exists($src)) {
+				rename($src, $dst);
+			}
+		}
+
+		/* 空のログファイルを作成（daily_summary は保持） */
+		$oldLog = self::safeJsonRead(self::LOG_FILE . '.1', settings_dir());
+		$newLog = ['errors' => [], 'custom' => []];
+		if (!empty($oldLog['daily_summary'])) {
+			$newLog['daily_summary'] = $oldLog['daily_summary'];
+		}
+		file_put_contents($path, json_encode($newLog, JSON_UNESCAPED_UNICODE), LOCK_EX);
+	}
+
+	/**
+	 * JSON ファイルを安全に読み込み（破損検知・自動復旧）
+	 */
+	private static function safeJsonRead(string $file, string $dir): array {
+		$path = $dir . '/' . $file;
+		if (!file_exists($path)) return ['errors' => [], 'custom' => []];
+
+		$content = @file_get_contents($path);
+		if ($content === false) return ['errors' => [], 'custom' => []];
+
+		$data = json_decode($content, true);
+		if (json_last_error() !== JSON_ERROR_NONE) {
+			error_log('DiagnosticEngine: JSON parse error in ' . $file . ': ' . json_last_error_msg());
+			/* 破損ファイルをバックアップ */
+			@rename($path, $path . '.corrupt.' . time());
+			return ['errors' => [], 'custom' => []];
+		}
+		return is_array($data) ? $data : ['errors' => [], 'custom' => []];
+	}
+
+	/* ══════════════════════════════════════════════
+	   エラートレンド追跡
+	   ══════════════════════════════════════════════ */
+
+	/**
+	 * 日別サマリーにカウントを記録
+	 */
+	private static function recordDailySummary(array &$log, string $type): void {
+		$today = date('Y-m-d');
+		if (!isset($log['daily_summary'])) $log['daily_summary'] = [];
+		if (!isset($log['daily_summary'][$today])) {
+			$log['daily_summary'][$today] = ['errors' => 0, 'security' => 0, 'engine' => 0, 'other' => 0];
+		}
+
+		/* カテゴリに応じたカウンターをインクリメント */
+		$key = match ($type) {
+			'errors'   => 'errors',
+			'security' => 'security',
+			'engine'   => 'engine',
+			default    => 'other',
+		};
+		$log['daily_summary'][$today][$key]++;
+
+		/* 30日超のエントリを削除 */
+		$cutoff = date('Y-m-d', strtotime('-30 days'));
+		foreach (array_keys($log['daily_summary']) as $date) {
+			if ($date < $cutoff) {
+				unset($log['daily_summary'][$date]);
+			}
+		}
+	}
+
+	/**
+	 * 直近N日分のトレンドデータを返す
+	 */
+	public static function getTrends(int $days = 7): array {
+		$log = self::safeJsonRead(self::LOG_FILE, settings_dir());
+		$summary = $log['daily_summary'] ?? [];
+		$result = [];
+
+		for ($i = $days - 1; $i >= 0; $i--) {
+			$date = date('Y-m-d', strtotime("-{$i} days"));
+			$result[] = [
+				'date'   => $date,
+				'errors' => $summary[$date]['errors'] ?? 0,
+				'security' => $summary[$date]['security'] ?? 0,
+				'engine' => $summary[$date]['engine'] ?? 0,
+				'other'  => $summary[$date]['other'] ?? 0,
+				'total'  => ($summary[$date]['errors'] ?? 0)
+				          + ($summary[$date]['security'] ?? 0)
+				          + ($summary[$date]['engine'] ?? 0)
+				          + ($summary[$date]['other'] ?? 0),
+			];
+		}
+
+		/* トレンド方向判定: 直近3日平均 vs 前4日平均 */
+		$recent = array_slice($result, -3);
+		$older  = array_slice($result, 0, max($days - 3, 1));
+		$recentAvg = count($recent) > 0 ? array_sum(array_column($recent, 'total')) / count($recent) : 0;
+		$olderAvg  = count($older) > 0 ? array_sum(array_column($older, 'total')) / count($older) : 0;
+
+		$direction = 'stable';
+		if ($olderAvg > 0 && $recentAvg > $olderAvg * 1.5) {
+			$direction = 'increasing';
+		} elseif ($recentAvg > 0 && $olderAvg > $recentAvg * 1.5) {
+			$direction = 'decreasing';
+		}
+
+		return [
+			'days'            => $result,
+			'trend_direction' => $direction,
+			'spike_detected'  => self::detectSpike($summary),
+		];
+	}
+
+	/**
+	 * エラー急増を検知（当日 > 7日平均×3）
+	 */
+	private static function detectSpike(array $summary = []): bool {
+		if (empty($summary)) {
+			$log = self::safeJsonRead(self::LOG_FILE, settings_dir());
+			$summary = $log['daily_summary'] ?? [];
+		}
+		$today = date('Y-m-d');
+		$todayTotal = ($summary[$today]['errors'] ?? 0) + ($summary[$today]['security'] ?? 0)
+		            + ($summary[$today]['engine'] ?? 0) + ($summary[$today]['other'] ?? 0);
+		if ($todayTotal === 0) return false;
+
+		/* 過去7日間の平均 */
+		$sum = 0;
+		$count = 0;
+		for ($i = 1; $i <= 7; $i++) {
+			$date = date('Y-m-d', strtotime("-{$i} days"));
+			if (isset($summary[$date])) {
+				$sum += ($summary[$date]['errors'] ?? 0) + ($summary[$date]['security'] ?? 0)
+				      + ($summary[$date]['engine'] ?? 0) + ($summary[$date]['other'] ?? 0);
+				$count++;
+			}
+		}
+		$avg = $count > 0 ? $sum / $count : 0;
+		return $avg > 0 && $todayTotal > $avg * 3;
 	}
 
 	/* ══════════════════════════════════════════════
@@ -501,11 +664,15 @@ class DiagnosticEngine {
 	}
 
 	/**
-	 * 送信済みログをクリア
+	 * 送信済みログをクリア（daily_summary は保持）
 	 */
 	private static function clearSentLogs(): void {
-		$log = ['errors' => [], 'custom' => []];
-		json_write(self::LOG_FILE, $log, settings_dir());
+		$log = self::safeJsonRead(self::LOG_FILE, settings_dir());
+		$newLog = ['errors' => [], 'custom' => []];
+		if (!empty($log['daily_summary'])) {
+			$newLog['daily_summary'] = $log['daily_summary'];
+		}
+		json_write(self::LOG_FILE, $newLog, settings_dir());
 	}
 
 	/* ══════════════════════════════════════════════
@@ -554,6 +721,7 @@ class DiagnosticEngine {
 			'log_categories'  => $logCategories,
 			'recent_errors'   => $recentErrors,
 			'recent_logs'     => $recentLogs,
+			'trends'          => self::getTrends(7),
 		];
 	}
 
@@ -600,6 +768,15 @@ class DiagnosticEngine {
 		elseif ($errors24h > 10) $status = 'warning';
 		if ($diskFree !== false && $diskFree < 100 * 1024 * 1024) $status = 'critical';
 
+		/* エラー急増検知 */
+		if ($status !== 'critical' && self::detectSpike($log['daily_summary'] ?? [])) {
+			$status = 'warning';
+		}
+
+		/* ログファイルサイズ */
+		$logPath = settings_dir() . '/' . self::LOG_FILE;
+		$logSize = file_exists($logPath) ? @filesize($logPath) : 0;
+
 		$result = [
 			'status'       => $status,
 			'version'      => defined('AP_VERSION') ? AP_VERSION : 'unknown',
@@ -610,6 +787,7 @@ class DiagnosticEngine {
 				'disk_free_mb'         => $diskFree !== false ? round($diskFree / 1024 / 1024) : null,
 				'memory_peak_mb'       => round(memory_get_peak_usage(true) / 1024 / 1024, 1),
 				'last_diagnostic_sent' => $config['last_sent'] ?? '',
+				'log_file_size_kb'     => $logSize !== false ? round($logSize / 1024, 1) : 0,
 			],
 		];
 
@@ -631,10 +809,15 @@ class DiagnosticEngine {
 	}
 
 	/**
-	 * ログをクリア
+	 * ログをクリア（daily_summary は保持）
 	 */
 	public static function clearLogs(): void {
-		json_write(self::LOG_FILE, ['errors' => [], 'custom' => []], settings_dir());
+		$log = self::safeJsonRead(self::LOG_FILE, settings_dir());
+		$newLog = ['errors' => [], 'custom' => []];
+		if (!empty($log['daily_summary'])) {
+			$newLog['daily_summary'] = $log['daily_summary'];
+		}
+		json_write(self::LOG_FILE, $newLog, settings_dir());
 	}
 
 	/* ══════════════════════════════════════════════

@@ -80,7 +80,10 @@ class CacheEngine {
 		$path = self::cachePath($key);
 		$dir = dirname($path);
 		if (!is_dir($dir)) mkdir($dir, 0755, true);
-		file_put_contents($path, $content, LOCK_EX);
+		$result = file_put_contents($path, $content, LOCK_EX);
+		if ($result === false && class_exists('DiagnosticEngine')) {
+			DiagnosticEngine::log('engine', 'CacheEngine 書き込み失敗', ['endpoint' => $endpoint]);
+		}
 	}
 
 	/**

@@ -103,6 +103,9 @@
 			/* パフォーマンスプロファイラ */
 			renderTimings(d.timings || {});
 
+			/* エラートレンド */
+			renderTrends(d.trends || {});
+
 			/* 直近のエラー一覧 */
 			renderRecentErrors(d.recent_errors || []);
 			renderRecentLogs(d.recent_logs || []);
@@ -190,6 +193,49 @@
 				+ '<span class="ap-diag-timing-value">' + ms.toFixed(1) + ' ms</span>'
 				+ '</div>';
 		});
+
+		el.innerHTML = html;
+	}
+
+	/* ── エラートレンド ── */
+	function renderTrends(trends) {
+		const el = document.getElementById('ap-diag-trends');
+		if (!el) return;
+		const days = trends.days || [];
+		if (days.length === 0) {
+			el.innerHTML = '<span style="color:#718096;font-size:13px;">トレンドデータなし</span>';
+			return;
+		}
+
+		const maxTotal = Math.max(...days.map(d => d.total), 1);
+		let html = '<div class="ap-diag-trend-chart">';
+		days.forEach(d => {
+			const pct = Math.max((d.total / maxTotal) * 100, 2);
+			/* 色: 平均の2倍超=赤, 1倍超=黄, それ以下=緑 */
+			const avg = days.reduce((s, x) => s + x.total, 0) / days.length;
+			let color = '#38a169';
+			if (avg > 0 && d.total > avg * 2) color = '#e53e3e';
+			else if (avg > 0 && d.total > avg) color = '#d69e2e';
+
+			const dateLabel = d.date.slice(5); /* MM-DD */
+			html += '<div class="ap-diag-trend-bar-wrap">'
+				+ '<span class="ap-diag-trend-count">' + d.total + '</span>'
+				+ '<div class="ap-diag-trend-bar" style="height:' + pct.toFixed(0) + '%;background:' + color + ';"></div>'
+				+ '<span class="ap-diag-trend-date">' + h(dateLabel) + '</span>'
+				+ '</div>';
+		});
+		html += '</div>';
+
+		/* トレンド方向 */
+		const dir = trends.trend_direction || 'stable';
+		const dirLabels = { increasing: '増加傾向', stable: '安定', decreasing: '減少傾向' };
+		const dirColors = { increasing: '#e53e3e', stable: '#38a169', decreasing: '#3182ce' };
+		html += '<div class="ap-diag-trend-info">';
+		html += '<span style="color:' + (dirColors[dir] || '#718096') + ';font-weight:600;">' + (dirLabels[dir] || dir) + '</span>';
+		if (trends.spike_detected) {
+			html += '<span style="color:#e53e3e;font-weight:600;">⚠ 急増検知</span>';
+		}
+		html += '</div>';
 
 		el.innerHTML = html;
 	}
