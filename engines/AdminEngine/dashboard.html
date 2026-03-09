@@ -13,6 +13,7 @@
 	<script src="engines/JsEngine/static_builder.js"></script>
 	<script src="engines/JsEngine/collection_manager.js"></script>
 	<script src="engines/JsEngine/git_manager.js"></script>
+	<script src="engines/JsEngine/api_keys.js"></script>
 	<script src="engines/JsEngine/dashboard.js" defer></script>
 </head>
 <body>
@@ -192,6 +193,11 @@
 					お問い合わせを GitHub Issue として保存
 				</label>
 			</div>
+			<div class="ap-dash-field">
+				<label>Webhook シークレット <small>(GitHub Webhook の署名検証用・任意)</small></label>
+				<input type="text" id="ap-git-webhook-secret" value="{{git_webhook_secret}}" placeholder="Webhook Secret（任意）" style="width:100%;padding:6px 10px;border:1px solid #cbd5e0;border-radius:4px;font-size:14px;">
+				<div style="font-size:12px;color:#718096;margin-top:2px;">Webhook URL: <code>?ap_api=webhook</code></div>
+			</div>
 			<div class="ap-dash-buttons">
 				<button id="ap-git-save">設定を保存</button>
 				<button id="ap-git-test" style="background:#38a169;">接続テスト</button>
@@ -226,7 +232,7 @@
 				<span title="" id="contact_email" class="editText">{{contact_email}}</span>
 			</div>
 			<div class="ap-dash-field">
-				<label>エンドポイント</label>
+				<label>公開エンドポイント <small>(認証不要)</small></label>
 				<div style="font-size:13px;color:#4a5568;line-height:2;">
 					<code>?ap_api=pages</code> 全ページ一覧<br>
 					<code>?ap_api=page&amp;slug=…</code> 単一ページ取得<br>
@@ -237,6 +243,25 @@
 					<code>?ap_api=collection&amp;name=…</code> コレクションアイテム一覧<br>
 					<code>?ap_api=item&amp;collection=…&amp;slug=…</code> 単一アイテム取得
 				</div>
+			</div>
+			<div class="ap-dash-field">
+				<label>管理エンドポイント <small>(API キー認証必須: <code>Authorization: Bearer &lt;KEY&gt;</code>)</small></label>
+				<div style="font-size:13px;color:#4a5568;line-height:2;">
+					<code>?ap_api=item_upsert</code> アイテム作成・更新 (POST)<br>
+					<code>?ap_api=item_delete</code> アイテム削除 (POST)<br>
+					<code>?ap_api=page_upsert</code> ページ作成・更新 (POST)<br>
+					<code>?ap_api=page_delete</code> ページ削除 (POST)<br>
+					<code>?ap_api=webhook</code> GitHub Webhook 受信 (POST)
+				</div>
+			</div>
+			<div class="ap-dash-field" style="margin-top:12px;border-top:1px solid #e2e8f0;padding-top:12px;">
+				<label>API キー管理</label>
+				<div id="ap-api-keys-list" style="margin-bottom:8px;font-size:13px;color:#718096;">読み込み中...</div>
+				<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+					<input type="text" id="ap-api-key-label" placeholder="キーのラベル（任意）" style="flex:1;min-width:150px;padding:6px 10px;border:1px solid #cbd5e0;border-radius:4px;font-size:14px;">
+					<button id="ap-api-key-generate">新規キー生成</button>
+				</div>
+				<div id="ap-api-key-result" style="margin-top:8px;font-size:13px;"></div>
 			</div>
 		</section>
 

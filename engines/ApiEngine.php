@@ -1,6 +1,6 @@
 <?php
 /**
- * ApiEngine - ヘッドレスCMS / 公開 REST API エンジン
+ * ApiEngine - ヘッドレスCMS / 公開・管理 REST API エンジン
  *
  * 公開エンドポイント（認証不要）:
  *   ?ap_api=pages        — 全ページ一覧
@@ -11,6 +11,15 @@
  *   ?ap_api=collections  — コレクション定義一覧
  *   ?ap_api=collection   — 特定コレクションの全アイテム
  *   ?ap_api=item         — コレクション内の単一アイテム取得
+ *
+ * 管理エンドポイント（API キーまたはセッション認証）:
+ *   ?ap_api=item_upsert  — アイテム作成・更新 (POST)
+ *   ?ap_api=item_delete  — アイテム削除 (POST)
+ *   ?ap_api=page_upsert  — ページ作成・更新 (POST)
+ *   ?ap_api=page_delete  — ページ削除 (POST)
+ *
+ * Webhook:
+ *   ?ap_api=webhook       — GitHub Webhook 受信 (POST)
  */
 class ApiEngine {
 
@@ -19,6 +28,7 @@ class ApiEngine {
 	private const SEARCH_MAX_LEN = 100;
 	private const NAME_MAX_LEN   = 100;
 	private const MSG_MAX_LEN    = 5000;
+	private const API_KEYS_FILE  = 'api_keys.json';
 
 	/* レート制限: contact エンドポイント */
 	private const CONTACT_MAX_ATTEMPTS = 5;
@@ -38,6 +48,7 @@ class ApiEngine {
 
 		header('Content-Type: application/json; charset=UTF-8');
 
+		/* 公開エンドポイント（認証不要） */
 		match ($action) {
 			'pages'       => self::jsonResponse(true, self::getPages()),
 			'page'        => self::handleGetPage(),
@@ -47,8 +58,109 @@ class ApiEngine {
 			'collections' => self::handleCollections(),
 			'collection'  => self::handleCollection(),
 			'item'        => self::handleItem(),
+			'webhook'     => self::handleWebhook(),
+			/* 管理エンドポイント（要認証） */
+			'item_upsert' => self::requireAuth('handleItemUpsert'),
+			'item_delete' => self::requireAuth('handleItemDelete'),
+			'page_upsert' => self::requireAuth('handlePageUpsert'),
+			'page_delete' => self::requireAuth('handlePageDelete'),
+			'api_keys'    => self::requireAuth('handleApiKeys'),
 			default       => self::jsonError('不明な API エンドポイントです', 400),
 		};
+	}
+
+	/* ══════════════════════════════════════════════
+	   API キー認証
+	   ══════════════════════════════════════════════ */
+
+	/**
+	 * API キーまたはセッション認証を要求。
+	 * 認証成功時に指定メソッドを実行。
+	 */
+	private static function requireAuth(string $method): void {
+		if (!self::isAuthenticated()) {
+			self::jsonError('認証が必要です。Authorization ヘッダーに Bearer <API_KEY> を設定するか、セッションでログインしてください。', 401);
+		}
+		self::$method();
+	}
+
+	/** API キーまたはセッションで認証済みか判定 */
+	private static function isAuthenticated(): bool {
+		/* セッション認証（ダッシュボードからの呼び出し） */
+		if (class_exists('AdminEngine') && AdminEngine::isLoggedIn()) {
+			return true;
+		}
+
+		/* Bearer トークン認証（外部フロントエンドからの呼び出し） */
+		$authHeader = $_SERVER['HTTP_AUTHORIZATION']
+			?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION']
+			?? '';
+
+		if (preg_match('/^Bearer\s+(.+)$/i', $authHeader, $m)) {
+			return self::validateApiKey($m[1]);
+		}
+
+		return false;
+	}
+
+	/** API キーを検証 */
+	private static function validateApiKey(string $key): bool {
+		$keys = json_read(self::API_KEYS_FILE, settings_dir());
+		foreach ($keys as $entry) {
+			if (!is_array($entry)) continue;
+			if (!isset($entry['key_hash'])) continue;
+			if (!($entry['active'] ?? true)) continue;
+			if (password_verify($key, $entry['key_hash'])) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * API キーを生成して保存。
+	 * @return string 生成された平文キー（一度しか表示されない）
+	 */
+	public static function generateApiKey(string $label = ''): string {
+		$key = 'ap_' . bin2hex(random_bytes(24)); /* 48文字のランダムキー */
+		$keys = json_read(self::API_KEYS_FILE, settings_dir());
+
+		$keys[] = [
+			'label'      => $label ?: 'API Key ' . (count($keys) + 1),
+			'key_hash'   => password_hash($key, PASSWORD_BCRYPT),
+			'key_prefix' => substr($key, 0, 7) . '...',
+			'created_at' => date('c'),
+			'active'     => true,
+		];
+
+		json_write(self::API_KEYS_FILE, $keys, settings_dir());
+		return $key;
+	}
+
+	/** API キー一覧を取得（ハッシュは除外） */
+	public static function listApiKeys(): array {
+		$keys = json_read(self::API_KEYS_FILE, settings_dir());
+		$result = [];
+		foreach ($keys as $i => $entry) {
+			if (!is_array($entry)) continue;
+			$result[] = [
+				'index'      => $i,
+				'label'      => $entry['label'] ?? '',
+				'key_prefix' => $entry['key_prefix'] ?? '',
+				'created_at' => $entry['created_at'] ?? '',
+				'active'     => $entry['active'] ?? true,
+			];
+		}
+		return $result;
+	}
+
+	/** API キーを削除 */
+	public static function deleteApiKey(int $index): bool {
+		$keys = json_read(self::API_KEYS_FILE, settings_dir());
+		if (!isset($keys[$index])) return false;
+		array_splice($keys, $index, 1);
+		json_write(self::API_KEYS_FILE, $keys, settings_dir());
+		return true;
 	}
 
 	/* ══════════════════════════════════════════════
@@ -297,8 +409,249 @@ class ApiEngine {
 	}
 
 	/* ══════════════════════════════════════════════
+	   管理エンドポイント: item_upsert（要認証）
+	   ══════════════════════════════════════════════ */
+
+	private static function handleItemUpsert(): void {
+		if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+			self::jsonError('POST メソッドが必要です', 405);
+		}
+		if (!class_exists('CollectionEngine')) {
+			self::jsonError('コレクション機能が無効です', 400);
+		}
+
+		$input = self::getJsonInput();
+		$collection = $input['collection'] ?? '';
+		$slug = $input['slug'] ?? '';
+		$title = $input['title'] ?? $slug;
+		$body = $input['body'] ?? '';
+		$meta = $input['meta'] ?? [];
+
+		if (!preg_match(self::SLUG_PATTERN, $collection) || !preg_match(self::SLUG_PATTERN, $slug)) {
+			self::jsonError('collection と slug は必須です（英数字・ハイフン・アンダースコアのみ）');
+		}
+
+		if (!is_array($meta)) $meta = [];
+		$meta['title'] = $title;
+
+		if (!CollectionEngine::saveItem($collection, $slug, $meta, $body)) {
+			self::jsonError('アイテムの保存に失敗しました');
+		}
+
+		if (class_exists('AdminEngine') && method_exists('AdminEngine', 'logActivity')) {
+			AdminEngine::logActivity("API: アイテム保存 {$collection}/{$slug}");
+		}
+
+		self::jsonResponse(true, [
+			'collection' => $collection,
+			'slug'       => $slug,
+			'message'    => '保存しました',
+		]);
+	}
+
+	/* ══════════════════════════════════════════════
+	   管理エンドポイント: item_delete（要認証）
+	   ══════════════════════════════════════════════ */
+
+	private static function handleItemDelete(): void {
+		if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+			self::jsonError('POST メソッドが必要です', 405);
+		}
+		if (!class_exists('CollectionEngine')) {
+			self::jsonError('コレクション機能が無効です', 400);
+		}
+
+		$input = self::getJsonInput();
+		$collection = $input['collection'] ?? '';
+		$slug = $input['slug'] ?? '';
+
+		if (!preg_match(self::SLUG_PATTERN, $collection) || !preg_match(self::SLUG_PATTERN, $slug)) {
+			self::jsonError('collection と slug は必須です');
+		}
+
+		if (!CollectionEngine::deleteItem($collection, $slug)) {
+			self::jsonError('アイテムの削除に失敗しました', 404);
+		}
+
+		if (class_exists('AdminEngine') && method_exists('AdminEngine', 'logActivity')) {
+			AdminEngine::logActivity("API: アイテム削除 {$collection}/{$slug}");
+		}
+
+		self::jsonResponse(true, ['deleted' => "{$collection}/{$slug}"]);
+	}
+
+	/* ══════════════════════════════════════════════
+	   管理エンドポイント: page_upsert（要認証）
+	   ══════════════════════════════════════════════ */
+
+	private static function handlePageUpsert(): void {
+		if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+			self::jsonError('POST メソッドが必要です', 405);
+		}
+
+		$input = self::getJsonInput();
+		$slug = $input['slug'] ?? '';
+		$content = $input['content'] ?? '';
+
+		if (!preg_match(self::SLUG_PATTERN, $slug)) {
+			self::jsonError('不正な slug です（英数字・ハイフン・アンダースコアのみ）');
+		}
+
+		$pages = json_read('pages.json', content_dir());
+		$pages[$slug] = $content;
+		json_write('pages.json', $pages, content_dir());
+
+		if (class_exists('AdminEngine') && method_exists('AdminEngine', 'logActivity')) {
+			AdminEngine::logActivity("API: ページ保存 {$slug}");
+		}
+
+		self::jsonResponse(true, ['slug' => $slug, 'message' => '保存しました']);
+	}
+
+	/* ══════════════════════════════════════════════
+	   管理エンドポイント: page_delete（要認証）
+	   ══════════════════════════════════════════════ */
+
+	private static function handlePageDelete(): void {
+		if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+			self::jsonError('POST メソッドが必要です', 405);
+		}
+
+		$input = self::getJsonInput();
+		$slug = $input['slug'] ?? '';
+
+		if (!preg_match(self::SLUG_PATTERN, $slug)) {
+			self::jsonError('不正な slug です');
+		}
+
+		$pages = json_read('pages.json', content_dir());
+		if (!isset($pages[$slug])) {
+			self::jsonError('ページが見つかりません', 404);
+		}
+		unset($pages[$slug]);
+		json_write('pages.json', $pages, content_dir());
+
+		if (class_exists('AdminEngine') && method_exists('AdminEngine', 'logActivity')) {
+			AdminEngine::logActivity("API: ページ削除 {$slug}");
+		}
+
+		self::jsonResponse(true, ['deleted' => $slug]);
+	}
+
+	/* ══════════════════════════════════════════════
+	   管理エンドポイント: api_keys（要認証）
+	   ══════════════════════════════════════════════ */
+
+	private static function handleApiKeys(): void {
+		$method = $_SERVER['REQUEST_METHOD'];
+
+		if ($method === 'GET') {
+			self::jsonResponse(true, self::listApiKeys());
+		}
+
+		if ($method !== 'POST') {
+			self::jsonError('GET または POST メソッドが必要です', 405);
+		}
+
+		$input = self::getJsonInput();
+		$subAction = $input['action'] ?? 'generate';
+
+		if ($subAction === 'generate') {
+			$label = $input['label'] ?? '';
+			$key = self::generateApiKey($label);
+			self::jsonResponse(true, [
+				'key'     => $key,
+				'message' => 'API キーを生成しました。このキーは一度しか表示されません。安全な場所に保存してください。',
+			]);
+		}
+
+		if ($subAction === 'delete') {
+			$index = (int)($input['index'] ?? -1);
+			if (!self::deleteApiKey($index)) {
+				self::jsonError('API キーの削除に失敗しました');
+			}
+			self::jsonResponse(true, ['message' => 'API キーを削除しました']);
+		}
+
+		self::jsonError('不明なアクションです');
+	}
+
+	/* ══════════════════════════════════════════════
+	   Webhook: GitHub Push イベント受信
+	   ══════════════════════════════════════════════ */
+
+	private static function handleWebhook(): void {
+		if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+			self::jsonError('POST メソッドが必要です', 405);
+		}
+
+		$payload = file_get_contents('php://input');
+		if ($payload === false || $payload === '') {
+			self::jsonError('ペイロードが空です', 400);
+		}
+
+		/* Webhook シークレット検証 */
+		$cfg = class_exists('GitEngine') ? GitEngine::loadConfig() : [];
+		$secret = $cfg['webhook_secret'] ?? '';
+
+		if ($secret !== '') {
+			$sigHeader = $_SERVER['HTTP_X_HUB_SIGNATURE_256'] ?? '';
+			if ($sigHeader === '') {
+				self::jsonError('署名がありません', 403);
+			}
+			$expected = 'sha256=' . hash_hmac('sha256', $payload, $secret);
+			if (!hash_equals($expected, $sigHeader)) {
+				self::jsonError('署名が不正です', 403);
+			}
+		}
+
+		$data = json_decode($payload, true);
+		if (!is_array($data)) {
+			self::jsonError('無効な JSON ペイロードです', 400);
+		}
+
+		$event = $_SERVER['HTTP_X_GITHUB_EVENT'] ?? '';
+
+		/* Push イベント: 自動 Pull */
+		if ($event === 'push') {
+			$branch = $cfg['branch'] ?? 'main';
+			$ref = $data['ref'] ?? '';
+			if ($ref !== 'refs/heads/' . $branch) {
+				self::jsonResponse(true, ['message' => '対象外のブランチです', 'skipped' => true]);
+			}
+
+			if (class_exists('GitEngine') && GitEngine::isEnabled()) {
+				$result = GitEngine::pull();
+				if (class_exists('AdminEngine') && method_exists('AdminEngine', 'logActivity')) {
+					AdminEngine::logActivity('Webhook: Push 受信 → 自動 Pull 実行');
+				}
+				self::jsonResponse(true, $result);
+			}
+			self::jsonResponse(true, ['message' => 'Git 連携が無効です', 'skipped' => true]);
+		}
+
+		/* Ping イベント */
+		if ($event === 'ping') {
+			self::jsonResponse(true, ['message' => 'pong']);
+		}
+
+		self::jsonResponse(true, ['message' => '未対応のイベントです: ' . $event, 'skipped' => true]);
+	}
+
+	/* ══════════════════════════════════════════════
 	   ユーティリティ
 	   ══════════════════════════════════════════════ */
+
+	/** JSON リクエストボディまたは POST パラメータを取得 */
+	private static function getJsonInput(): array {
+		$contentType = $_SERVER['CONTENT_TYPE'] ?? '';
+		if (str_contains($contentType, 'application/json')) {
+			$raw = file_get_contents('php://input');
+			$data = json_decode($raw ?: '', true);
+			return is_array($data) ? $data : [];
+		}
+		return $_POST;
+	}
 
 	private static function makePreview(string $html, int $length = self::PREVIEW_LENGTH): string {
 		$text = strip_tags($html);

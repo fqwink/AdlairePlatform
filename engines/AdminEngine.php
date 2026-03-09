@@ -648,6 +648,7 @@ class AdminEngine {
 			'git_content_dir'      => $gitConfig['content_dir'] ?? 'content',
 			'git_last_sync'        => $gitConfig['last_sync'] ?? '',
 			'git_issues_enabled'   => !empty($gitConfig['issues_enabled']),
+			'git_webhook_secret'   => $gitConfig['webhook_secret'] ?? '',
 		];
 	}
 }

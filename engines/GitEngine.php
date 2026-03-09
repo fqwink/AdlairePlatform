@@ -610,6 +610,7 @@ class GitEngine {
 		$contentDir = trim($_POST['content_dir'] ?? '') ?: 'content';
 		$enabled = !empty($_POST['enabled']);
 		$issuesEnabled = !empty($_POST['issues_enabled']);
+		$webhookSecret = trim($_POST['webhook_secret'] ?? '');
 
 		if ($enabled && ($repository === '' || $token === '')) {
 			return ['ok' => false, 'error' => 'リポジトリとトークンは必須です'];
@@ -629,6 +630,7 @@ class GitEngine {
 			'token'          => $token,
 			'content_dir'    => $contentDir,
 			'issues_enabled' => $issuesEnabled,
+			'webhook_secret' => $webhookSecret,
 			'last_sync'      => $cfg['last_sync'] ?? null,
 			'last_sync_direction' => $cfg['last_sync_direction'] ?? null,
 			'last_commit_sha'     => $cfg['last_commit_sha'] ?? null,

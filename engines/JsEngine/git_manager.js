@@ -48,6 +48,7 @@
 					content_dir:    (document.getElementById('ap-git-content-dir') || {}).value || 'content',
 					enabled:        '1',
 					issues_enabled: (document.getElementById('ap-git-issues') || {}).checked ? '1' : '',
+					webhook_secret: (document.getElementById('ap-git-webhook-secret') || {}).value || '',
 				}, function(res) {
 					showResult('ap-git-config-result', res, res.message || '保存しました');
 					if (res.ok) setTimeout(function() { location.reload(); }, 1200);
