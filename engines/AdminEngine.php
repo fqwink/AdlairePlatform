@@ -428,7 +428,8 @@ class AdminEngine {
 		if ($lf === false) return;
 		if (!flock($lf, LOCK_EX)) { fclose($lf); return; }
 
-		$ts = date('Ymd_His');
+		/* R29 fix: 同一秒のリビジョン衝突を防止（ランダムサフィックス追加） */
+		$ts = date('Ymd_His') . '_' . bin2hex(random_bytes(2));
 		$rev = [
 			'timestamp' => date('c'),
 			'content'   => $content,
@@ -709,6 +710,12 @@ class AdminEngine {
 		if (!str_starts_with($from, '/')) {
 			http_response_code(400);
 			echo json_encode(['ok' => false, 'error' => '旧URLは / で始まる必要があります']);
+			exit;
+		}
+		/* R28 fix: リダイレクト先は相対パスまたは安全なスキームのみ許可（オープンリダイレクト防止） */
+		if (!str_starts_with($to, '/') && !preg_match('#^https?://#i', $to)) {
+			http_response_code(400);
+			echo json_encode(['ok' => false, 'error' => 'リダイレクト先は / で始まるパスまたは https:// URL を指定してください']);
 			exit;
 		}
 		if (!in_array($code, [301, 302], true)) $code = 301;
