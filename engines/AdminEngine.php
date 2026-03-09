@@ -303,6 +303,8 @@ class AdminEngine {
 			}
 		}
 		if (class_exists('CacheEngine')) CacheEngine::invalidateContent();
+		/* M19 fix: レスポンスの Content-Type を明示（XSS 防止） */
+		header('Content-Type: text/plain; charset=UTF-8');
 		echo $content;
 		exit;
 	}
@@ -902,7 +904,8 @@ class AdminEngine {
 			'ap_version'           => AP_VERSION,
 			'csrf_token'           => self::csrfToken(),
 			'theme_select_html'    => $selectHtml,
-			'menu_raw'             => $c['menu'] ?? '',
+			/* M25 fix: メニュー表示時に XSS 防止（br タグのみ許可） */
+			'menu_raw'             => strip_tags($c['menu'] ?? '', '<br>'),
 			'settings_fields'      => $fields,
 			'pages'                => $pageList,
 			'has_pages'            => !empty($pageList),

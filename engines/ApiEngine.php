@@ -54,6 +54,7 @@ class ApiEngine {
 	private const CONTACT_LOCKOUT_SEC  = 900; /* 15分 */
 	private const API_RATE_MAX         = 60;  /* 公開API: 60リクエスト/分 */
 	private const API_RATE_WINDOW      = 60;  /* 秒 */
+	private static bool $authenticatedViaApiKey = false;
 
 	/* ══════════════════════════════════════════════
 	   エントリーポイント
@@ -134,6 +135,10 @@ class ApiEngine {
 		if (!self::isAuthenticated()) {
 			self::jsonError('認証が必要です。Authorization ヘッダーに Bearer <API_KEY> を設定するか、セッションでログインしてください。', 401);
 		}
+		/* C17 fix: セッション認証時は CSRF 検証を要求（APIキー認証時は不要） */
+		if (class_exists('AdminEngine') && AdminEngine::isLoggedIn() && !self::$authenticatedViaApiKey) {
+			AdminEngine::verifyCsrf();
+		}
 		self::$method();
 	}
 
@@ -150,7 +155,9 @@ class ApiEngine {
 			?? '';
 
 		if (preg_match('/^Bearer\s+(.+)$/i', $authHeader, $m)) {
-			return self::validateApiKey($m[1]);
+			$valid = self::validateApiKey($m[1]);
+			if ($valid) self::$authenticatedViaApiKey = true;
+			return $valid;
 		}
 
 		return false;

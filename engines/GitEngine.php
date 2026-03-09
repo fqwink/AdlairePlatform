@@ -15,7 +15,8 @@
 class GitEngine {
 
 	private const CONFIG_FILE    = 'git_config.json';
-	private const SLUG_PATTERN   = '/^[a-zA-Z0-9_\-\/\.]+$/';
+	/* M23 fix: スラッシュとドットを除外（パストラバーサル防止） */
+	private const SLUG_PATTERN   = '/^[a-zA-Z0-9_\-]+$/';
 	private const API_BASE       = 'https://api.github.com';
 	private const COMMIT_AUTHOR  = 'AdlairePlatform';
 	private const COMMIT_EMAIL   = 'ap@localhost';
@@ -82,6 +83,7 @@ class GitEngine {
 				CURLOPT_URL            => $url,
 				CURLOPT_RETURNTRANSFER => true,
 				CURLOPT_TIMEOUT        => 30,
+				CURLOPT_CONNECTTIMEOUT => 10,
 				CURLOPT_HTTPHEADER     => $headers,
 				CURLOPT_CUSTOMREQUEST  => $method,
 			]);
@@ -620,7 +622,8 @@ class GitEngine {
 			'git_test'           => self::testConnection(),
 			'git_pull'           => self::pull(),
 			'git_push'           => self::push(trim($_POST['message'] ?? '')),
-			'git_log'            => self::log((int)($_POST['limit'] ?? 20)),
+			/* M24 fix: limit のバウンドチェック */
+			'git_log'            => self::log(max(1, min(100, (int)($_POST['limit'] ?? 20)))),
 			'git_status'         => self::status(),
 			'git_preview_branch' => self::createPreviewBranch(trim($_POST['name'] ?? 'draft')),
 		};
@@ -640,6 +643,18 @@ class GitEngine {
 
 		if ($enabled && ($repository === '' || $token === '')) {
 			return ['ok' => false, 'error' => 'リポジトリとトークンは必須です'];
+		}
+		/* C21 fix: リポジトリ名の形式を厳密に検証（owner/repo） */
+		if ($repository !== '' && !preg_match('#^[a-zA-Z0-9_.\-]+/[a-zA-Z0-9_.\-]+$#', $repository)) {
+			return ['ok' => false, 'error' => 'リポジトリは owner/repo 形式で入力してください'];
+		}
+		/* C22 fix: content_dir のパストラバーサル防止 */
+		if (!preg_match('/^[a-zA-Z0-9_\-]+$/', $contentDir)) {
+			return ['ok' => false, 'error' => 'content_dir に不正な文字が含まれています'];
+		}
+		/* M22 fix: ブランチ名の検証 */
+		if (!preg_match('/^[a-zA-Z0-9_.\-\/]+$/', $branch) || str_contains($branch, '..')) {
+			return ['ok' => false, 'error' => 'ブランチ名に不正な文字が含まれています'];
 		}
 
 		/* トークンが「********」の場合は既存値を維持 */
