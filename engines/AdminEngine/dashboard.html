@@ -366,8 +366,40 @@
 				<button id="ap-static-full">フルビルド</button>
 				<button id="ap-static-clean">クリーン</button>
 				<button id="ap-static-zip">ZIP DL</button>
+				<button id="ap-static-deploy-diff" style="background:#805ad5;">差分デプロイ ZIP</button>
 			</div>
 			<div id="ap-static-result" class="ap-dash-field"></div>
+		</section>
+
+		<section class="ap-dash-card">
+			<h2>リダイレクト管理</h2>
+			<p style="font-size:13px;color:#718096;margin-bottom:8px;">URL 変更時のリダイレクトルール。ビルド時に .htaccess と _redirects に反映されます。</p>
+			{{#if has_redirects}}
+			<div class="ap-dash-collections" id="ap-redirect-list">
+				{{#each redirects}}
+				<div class="ap-dash-collection-item">
+					<code>{{from}}</code> → <code>{{to}}</code>
+					<span style="font-size:12px;color:#718096;margin-left:4px;">({{code}})</span>
+					<button class="ap-redirect-delete" data-index="{{index}}" title="削除">&times;</button>
+				</div>
+				{{/each}}
+			</div>
+			{{else}}
+			<p style="font-size:13px;color:#718096;">リダイレクトルールが設定されていません。</p>
+			{{/if}}
+			<div class="ap-dash-field" style="margin-top:12px;">
+				<label>新規リダイレクト追加</label>
+				<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+					<input type="text" id="ap-redirect-from" placeholder="旧URL (/old-page)" style="flex:1;min-width:150px;padding:6px 10px;border:1px solid #cbd5e0;border-radius:4px;font-size:14px;">
+					<input type="text" id="ap-redirect-to" placeholder="新URL (/new-page)" style="flex:1;min-width:150px;padding:6px 10px;border:1px solid #cbd5e0;border-radius:4px;font-size:14px;">
+					<select id="ap-redirect-code" style="padding:6px 10px;border:1px solid #cbd5e0;border-radius:4px;font-size:14px;">
+						<option value="301">301 (永久)</option>
+						<option value="302">302 (一時)</option>
+					</select>
+					<button id="ap-redirect-add">追加</button>
+				</div>
+			</div>
+			<div id="ap-redirect-result" style="margin-top:4px;font-size:13px;"></div>
 		</section>
 
 		<section class="ap-dash-card">

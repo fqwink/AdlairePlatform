@@ -46,6 +46,8 @@ class AdminEngine {
 			'delete_page'       => self::handleDeletePage(),
 			'user_add'          => self::handleUserAdd(),
 			'user_delete'       => self::handleUserDelete(),
+			'redirect_add'      => self::handleRedirectAdd(),
+			'redirect_delete'   => self::handleRedirectDelete(),
 			default             => self::handleRevisionAction($action),
 		};
 	}
@@ -673,6 +675,45 @@ class AdminEngine {
 	}
 
 	/* ══════════════════════════════════════════════
+	   リダイレクト管理
+	   ══════════════════════════════════════════════ */
+
+	private static function handleRedirectAdd(): void {
+		header('Content-Type: application/json; charset=UTF-8');
+		$from = trim($_POST['from'] ?? '');
+		$to   = trim($_POST['to'] ?? '');
+		$code = (int)($_POST['code'] ?? 301);
+		if ($from === '' || $to === '') {
+			http_response_code(400);
+			echo json_encode(['ok' => false, 'error' => '旧URLと新URLは必須です']);
+			exit;
+		}
+		if (!in_array($code, [301, 302], true)) $code = 301;
+		$redirects = json_read('redirects.json', settings_dir());
+		$redirects[] = ['from' => $from, 'to' => $to, 'code' => $code];
+		json_write('redirects.json', $redirects, settings_dir());
+		self::logActivity("リダイレクト追加: {$from} → {$to}");
+		echo json_encode(['ok' => true]);
+		exit;
+	}
+
+	private static function handleRedirectDelete(): void {
+		header('Content-Type: application/json; charset=UTF-8');
+		$index = (int)($_POST['index'] ?? -1);
+		$redirects = json_read('redirects.json', settings_dir());
+		if ($index < 0 || $index >= count($redirects)) {
+			http_response_code(400);
+			echo json_encode(['ok' => false, 'error' => '無効なインデックス']);
+			exit;
+		}
+		array_splice($redirects, $index, 1);
+		json_write('redirects.json', $redirects, settings_dir());
+		self::logActivity("リダイレクト削除: #{$index}");
+		echo json_encode(['ok' => true]);
+		exit;
+	}
+
+	/* ══════════════════════════════════════════════
 	   ログインページ
 	   ══════════════════════════════════════════════ */
 
@@ -819,6 +860,13 @@ class AdminEngine {
 		/* キャッシュ情報（提案9） */
 		$cacheStats = class_exists('CacheEngine') ? CacheEngine::getStats() : ['files' => 0, 'size_human' => '0 B'];
 
+		/* リダイレクト情報 */
+		$redirects = json_read('redirects.json', settings_dir());
+		$redirectList = [];
+		foreach ($redirects as $i => $r) {
+			$redirectList[] = ['from' => $r['from'] ?? '', 'to' => $r['to'] ?? '', 'code' => $r['code'] ?? 301, 'index' => $i];
+		}
+
 		return [
 			'title'                => $c['title'] ?? '',
 			'host'                 => $host ?? '',
@@ -856,6 +904,9 @@ class AdminEngine {
 			/* キャッシュ（提案9） */
 			'cache_files'          => $cacheStats['files'] ?? 0,
 			'cache_size'           => $cacheStats['size_human'] ?? '0 B',
+			/* リダイレクト */
+			'redirects'            => $redirectList,
+			'has_redirects'        => !empty($redirectList),
 		];
 	}
 }

@@ -11,11 +11,12 @@ class StaticEngine {
 	private const BUILD_STATE    = 'static_build.json';
 	private const SLUG_PATTERN   = '/^[a-zA-Z0-9_\-]+(\/[a-zA-Z0-9_\-]+)*$/';
 
-	private array  $settings   = [];
-	private array  $pages      = [];
-	private string $themeDir   = '';
-	private array  $buildState = [];
-	private array  $warnings   = [];
+	private array  $settings     = [];
+	private array  $pages        = [];
+	private string $themeDir     = '';
+	private array  $buildState   = [];
+	private array  $warnings     = [];
+	private array  $changedFiles = [];
 
 	/* ══════════════════════════════════════════════
 	   ap_action ディスパッチャ
@@ -25,7 +26,7 @@ class StaticEngine {
 		$action = $_POST['ap_action'] ?? '';
 		$valid  = [
 			'generate_static_diff', 'generate_static_full',
-			'clean_static', 'build_zip', 'static_status',
+			'clean_static', 'build_zip', 'static_status', 'deploy_diff',
 		];
 		if (!in_array($action, $valid, true)) return;
 
@@ -47,6 +48,7 @@ class StaticEngine {
 			'clean_static'         => self::respondClean($engine),
 			'build_zip'            => $engine->serveZip(),
 			'static_status'        => self::respond($engine->getStatus()),
+			'deploy_diff'          => $engine->serveDiffZip(),
 		};
 	}
 
@@ -119,15 +121,28 @@ class StaticEngine {
 			$built++;
 		}
 
-		/* コレクション一覧ページを生成 */
+		/* ビルドフック: before_build */
+		$this->runHook('before_build', ['type' => 'diff']);
+
+		/* コレクション一覧ページを生成（ページネーション対応） */
 		$built += $this->buildCollectionIndexes();
+
+		/* タグページを生成 */
+		$built += $this->buildTagPages();
 
 		/* SEO ファイル生成 */
 		$this->generateSitemap();
 		$this->generateRobotsTxt();
+		$this->generate404Page();
+		$this->generateSearchIndex();
+		$this->generateRedirects();
 		$deleted = $this->deleteOrphanedFiles();
 		$this->buildState['last_diff_build'] = date('c');
+		$this->buildState['changed_files'] = $this->changedFiles;
 		$this->saveBuildState();
+
+		/* ビルドフック: after_build */
+		$this->runHook('after_build', ['type' => 'diff', 'built' => $built]);
 
 		/* Webhook: build.completed */
 		if (class_exists('WebhookEngine')) {
@@ -164,16 +179,29 @@ class StaticEngine {
 			$built++;
 		}
 
-		/* コレクション一覧ページを生成 */
+		/* ビルドフック: before_build */
+		$this->runHook('before_build', ['type' => 'full']);
+
+		/* コレクション一覧ページを生成（ページネーション対応） */
 		$built += $this->buildCollectionIndexes();
+
+		/* タグページを生成 */
+		$built += $this->buildTagPages();
 
 		/* SEO ファイル生成 */
 		$this->generateSitemap();
 		$this->generateRobotsTxt();
+		$this->generate404Page();
+		$this->generateSearchIndex();
+		$this->generateRedirects();
 		$deleted = $this->deleteOrphanedFiles();
 		$this->buildState['last_full_build'] = date('c');
 		$this->buildState['last_diff_build'] = date('c');
+		$this->buildState['changed_files'] = $this->changedFiles;
 		$this->saveBuildState();
+
+		/* ビルドフック: after_build */
+		$this->runHook('after_build', ['type' => 'full', 'built' => $built]);
 
 		/* Webhook: build.completed */
 		if (class_exists('WebhookEngine')) {
@@ -245,10 +273,18 @@ class StaticEngine {
 		$assetsDir = self::OUTPUT_DIR . '/assets';
 		$this->ensureDir($assetsDir);
 
-		/* テーマ CSS */
+		/* テーマ CSS（ミニファイ対応） */
 		$css = $this->themeDir . '/style.css';
 		if (file_exists($css)) {
-			copy($css, $assetsDir . '/style.css');
+			$cssContent = file_get_contents($css);
+			if ($cssContent !== false && !empty($this->settings['minify'] ?? true)) {
+				$cssContent = self::minifyCss($cssContent);
+			}
+			if ($cssContent !== false) {
+				file_put_contents($assetsDir . '/style.css', $cssContent, LOCK_EX);
+			} else {
+				copy($css, $assetsDir . '/style.css');
+			}
 		}
 
 		/* テーマ JS（style.css 以外の .js ファイル） */
@@ -265,8 +301,17 @@ class StaticEngine {
 		/* uploads/ 差分コピー */
 		$this->syncUploads();
 
+		/* 検索 JS */
+		$searchJs = 'engines/JsEngine/ap-search.js';
+		if (file_exists($searchJs)) {
+			copy($searchJs, $assetsDir . '/ap-search.js');
+		}
+
 		/* static/.htaccess 自動生成 */
 		$this->writeStaticHtaccess();
+
+		/* ビルドフック: after_asset_copy */
+		$this->runHook('after_asset_copy', ['assets_dir' => $assetsDir]);
 
 		$this->buildState['assets_copied_at'] = date('c');
 	}
@@ -312,11 +357,20 @@ class StaticEngine {
 	   ══════════════════════════════════════════════ */
 
 	private function buildPage(string $slug, string $content): void {
-		/* コレクション専用テンプレートを試す（提案5） */
+		/* コレクション専用テンプレートを試す */
 		$html = $this->renderPageWithCollectionTemplate($slug, $content);
 		if ($html === null) {
 			$html = $this->renderPage($slug, $content);
 		}
+
+		/* HTML ミニファイ */
+		if (!empty($this->settings['minify'] ?? true)) {
+			$html = self::minifyHtml($html);
+		}
+
+		/* ビルドフック: after_page_render */
+		$this->runHook('after_page_render', ['slug' => $slug, 'html' => &$html]);
+
 		if ($slug === 'index') {
 			$dir = self::OUTPUT_DIR;
 		} else {
@@ -325,9 +379,10 @@ class StaticEngine {
 		$this->ensureDir($dir);
 		$path = $dir . '/index.html';
 		file_put_contents($path, $html, LOCK_EX);
+		$this->changedFiles[] = $path;
 	}
 
-	private function renderPage(string $slug, string $content): string {
+	private function renderPage(string $slug, string $content, array $meta = []): string {
 		$tplPath = $this->themeDir . '/theme.html';
 		if (!file_exists($tplPath)) {
 			$tplPath = 'themes/AP-Default/theme.html';
@@ -340,7 +395,7 @@ class StaticEngine {
 			return '<!-- StaticEngine: ' . htmlspecialchars($msg, ENT_QUOTES, 'UTF-8') . ' -->';
 		}
 
-		$context = ThemeEngine::buildStaticContext($slug, $content, $this->settings);
+		$context = ThemeEngine::buildStaticContext($slug, $content, $this->settings, $meta);
 		$html = TemplateEngine::render($tpl, $context, dirname($tplPath));
 		return $this->rewriteAssetPaths($html);
 	}
@@ -382,48 +437,90 @@ class StaticEngine {
 
 		foreach ($collections as $col) {
 			$name = $col['name'];
-			if ($name === 'pages') continue; /* pages コレクションは個別ページとして既に生成 */
+			if ($name === 'pages') continue;
 
 			$items = CollectionEngine::getItems($name);
-			$html = $this->renderCollectionIndex($col, $items);
-			$this->buildPage($name, $html);
-			$built++;
+			$perPage = (int)($col['perPage'] ?? 10);
+			if ($perPage < 1) $perPage = 10;
+
+			$allItems = array_values(array_map(function($slug, $item) use ($name) {
+				$preview = strip_tags($item['html']);
+				if (mb_strlen($preview, 'UTF-8') > 200) {
+					$preview = mb_substr($preview, 0, 200, 'UTF-8') . '...';
+				}
+				return array_merge($item['meta'], [
+					'slug'    => $slug,
+					'preview' => $preview,
+					'link'    => '/' . $name . '/' . $slug . '/',
+					'html'    => $item['html'],
+				]);
+			}, array_keys($items), array_values($items)));
+
+			$totalItems = count($allItems);
+			$totalPages = max(1, (int)ceil($totalItems / $perPage));
+
+			for ($page = 1; $page <= $totalPages; $page++) {
+				$offset = ($page - 1) * $perPage;
+				$pageItems = array_slice($allItems, $offset, $perPage);
+
+				$pagination = [
+					'current_page' => $page,
+					'total_pages'  => $totalPages,
+					'per_page'     => $perPage,
+					'total_items'  => $totalItems,
+					'has_prev'     => $page > 1,
+					'has_next'     => $page < $totalPages,
+					'prev_url'     => $page === 2 ? '/' . $name . '/' : '/' . $name . '/page/' . ($page - 1) . '/',
+					'next_url'     => '/' . $name . '/page/' . ($page + 1) . '/',
+				];
+
+				$html = $this->renderCollectionIndex($col, $pageItems, $pagination, $allItems);
+
+				if ($page === 1) {
+					$this->buildPage($name, $html);
+				} else {
+					$slug = $name . '/page/' . $page;
+					$dir = self::OUTPUT_DIR . '/' . $slug;
+					$this->ensureDir($dir);
+					$path = $dir . '/index.html';
+					$rendered = $this->renderPage($slug, $html, ['title' => ($col['label'] ?? $name) . ' - ' . $page . 'ページ']);
+					if (!empty($this->settings['minify'] ?? true)) {
+						$rendered = self::minifyHtml($rendered);
+					}
+					file_put_contents($path, $rendered, LOCK_EX);
+					$this->changedFiles[] = $path;
+				}
+				$built++;
+			}
 		}
 		return $built;
 	}
 
-	private function renderCollectionIndex(array $col, array $items): string {
+	private function renderCollectionIndex(array $col, array $pageItems, array $pagination = [], array $allItems = []): string {
 		$name = $col['name'];
 		$template = $col['template'] ?? null;
 
-		/* コレクション専用テンプレートを検索（提案5） */
+		/* コレクション専用テンプレートを検索 */
 		$customTpl = $this->themeDir . '/collection-' . $name . '-index.html';
 		if ($template) {
 			$customTpl = $this->themeDir . '/' . $template . '-index.html';
 		}
 
+		/* 全タグを収集 */
+		$allTags = $this->collectTags($allItems ?: $pageItems);
+
 		if (file_exists($customTpl)) {
 			$tplContent = file_get_contents($customTpl);
 			if ($tplContent !== false) {
-				$itemsCtx = [];
-				foreach ($items as $slug => $item) {
-					$preview = strip_tags($item['html']);
-					if (mb_strlen($preview, 'UTF-8') > 200) {
-						$preview = mb_substr($preview, 0, 200, 'UTF-8') . '...';
-					}
-					$itemsCtx[] = array_merge($item['meta'], [
-						'slug'    => $slug,
-						'preview' => $preview,
-						'link'    => '/' . $name . '/' . $slug . '/',
-					]);
-				}
 				$ctx = array_merge(
-					ThemeEngine::buildStaticContext($name, '', $this->settings),
+					ThemeEngine::buildStaticContext($name, '', $this->settings, ['title' => $col['label'] ?? $name]),
 					[
 						'collection_name'  => $name,
 						'collection_label' => $col['label'] ?? $name,
-						'items'            => $itemsCtx,
-						'item_count'       => count($itemsCtx),
+						'items'            => $pageItems,
+						'item_count'       => count($pageItems),
+						'pagination'       => $pagination,
+						'all_tags'         => $allTags,
 					]
 				);
 				return TemplateEngine::render($tplContent, $ctx, $this->themeDir);
@@ -434,32 +531,43 @@ class StaticEngine {
 		$label = htmlspecialchars($col['label'] ?? $name, ENT_QUOTES, 'UTF-8');
 		$html  = "<h1>{$label}</h1>\n<div class=\"ap-collection-index\">\n";
 
-		foreach ($items as $slug => $item) {
-			$title   = htmlspecialchars($item['meta']['title'] ?? $slug, ENT_QUOTES, 'UTF-8');
-			$date    = htmlspecialchars($item['meta']['date'] ?? '', ENT_QUOTES, 'UTF-8');
-			$preview = strip_tags($item['html']);
-			if (mb_strlen($preview, 'UTF-8') > 200) {
-				$preview = mb_substr($preview, 0, 200, 'UTF-8') . '...';
-			}
-			$preview = htmlspecialchars($preview, ENT_QUOTES, 'UTF-8');
-			$link    = $col['name'] . '/' . $slug . '/';
+		foreach ($pageItems as $item) {
+			$slug    = $item['slug'] ?? '';
+			$title   = htmlspecialchars($item['title'] ?? $slug, ENT_QUOTES, 'UTF-8');
+			$date    = htmlspecialchars($item['date'] ?? '', ENT_QUOTES, 'UTF-8');
+			$preview = htmlspecialchars($item['preview'] ?? '', ENT_QUOTES, 'UTF-8');
+			$link    = $item['link'] ?? ('/' . $name . '/' . $slug . '/');
 
 			$html .= "<article class=\"ap-collection-entry\">\n";
-			$html .= "  <h2><a href=\"/{$link}\">{$title}</a></h2>\n";
+			$html .= "  <h2><a href=\"{$link}\">{$title}</a></h2>\n";
 			if ($date) $html .= "  <time>{$date}</time>\n";
 			$html .= "  <p>{$preview}</p>\n";
 			$html .= "</article>\n";
 		}
 
 		$html .= "</div>\n";
+
+		/* ページネーション HTML */
+		if (!empty($pagination) && $pagination['total_pages'] > 1) {
+			$html .= "<nav class=\"ap-pagination\">\n";
+			if ($pagination['has_prev']) {
+				$html .= '  <a href="' . htmlspecialchars($pagination['prev_url'], ENT_QUOTES, 'UTF-8') . '" class="ap-pagination-prev">&laquo; 前</a>' . "\n";
+			}
+			$html .= '  <span class="ap-pagination-info">' . $pagination['current_page'] . ' / ' . $pagination['total_pages'] . '</span>' . "\n";
+			if ($pagination['has_next']) {
+				$html .= '  <a href="' . htmlspecialchars($pagination['next_url'], ENT_QUOTES, 'UTF-8') . '" class="ap-pagination-next">次 &raquo;</a>' . "\n";
+			}
+			$html .= "</nav>\n";
+		}
+
 		return $html;
 	}
 
 	/**
-	 * 個別コレクションアイテムをカスタムテンプレートでレンダリング（提案5）
+	 * 個別コレクションアイテムをカスタムテンプレートでレンダリング
+	 * 前後ナビゲーション + OGP メタ情報を含む
 	 */
 	private function renderPageWithCollectionTemplate(string $slug, string $content): ?string {
-		/* slug が collection/item 形式かチェック */
 		if (!str_contains($slug, '/')) return null;
 		$parts = explode('/', $slug, 2);
 		$colName = $parts[0];
@@ -483,16 +591,54 @@ class StaticEngine {
 		$item = CollectionEngine::getItem($colName, $itemSlug);
 		$meta = $item ? $item['meta'] : [];
 
+		/* 前後記事ナビゲーション */
+		$prevNext = $this->getPrevNextItems($colName, $itemSlug);
+
 		$ctx = array_merge(
-			ThemeEngine::buildStaticContext($slug, $content, $this->settings),
+			ThemeEngine::buildStaticContext($slug, $content, $this->settings, $meta),
 			$meta,
 			[
 				'collection_name'  => $colName,
 				'collection_label' => $def['label'] ?? $colName,
 				'item_slug'        => $itemSlug,
+				'prev_item'        => $prevNext['prev'],
+				'next_item'        => $prevNext['next'],
 			]
 		);
 		return TemplateEngine::render($tplContent, $ctx, $this->themeDir);
+	}
+
+	/**
+	 * 前後アイテムを取得（日付降順）
+	 */
+	private function getPrevNextItems(string $colName, string $currentSlug): array {
+		$items = CollectionEngine::getItems($colName);
+		$slugs = array_keys($items);
+		$idx = array_search($currentSlug, $slugs, true);
+		$result = ['prev' => null, 'next' => null];
+		if ($idx === false) return $result;
+
+		if ($idx > 0) {
+			$prevSlug = $slugs[$idx - 1];
+			$prevItem = $items[$prevSlug];
+			$result['prev'] = [
+				'slug'  => $prevSlug,
+				'title' => $prevItem['meta']['title'] ?? $prevSlug,
+				'url'   => '/' . $colName . '/' . $prevSlug . '/',
+				'date'  => $prevItem['meta']['date'] ?? '',
+			];
+		}
+		if ($idx < count($slugs) - 1) {
+			$nextSlug = $slugs[$idx + 1];
+			$nextItem = $items[$nextSlug];
+			$result['next'] = [
+				'slug'  => $nextSlug,
+				'title' => $nextItem['meta']['title'] ?? $nextSlug,
+				'url'   => '/' . $colName . '/' . $nextSlug . '/',
+				'date'  => $nextItem['meta']['date'] ?? '',
+			];
+		}
+		return $result;
 	}
 
 	/* ══════════════════════════════════════════════
@@ -516,12 +662,39 @@ class StaticEngine {
 			$xml .= "  <url><loc>" . htmlspecialchars($loc, ENT_XML1, 'UTF-8') . "</loc></url>\n";
 		}
 
-		/* コレクション一覧 + アイテム */
+		/* コレクション一覧 + タグページ */
 		if (class_exists('CollectionEngine') && CollectionEngine::isEnabled()) {
 			$collections = CollectionEngine::listCollections();
 			foreach ($collections as $col) {
 				if ($col['name'] === 'pages') continue;
-				$xml .= "  <url><loc>" . htmlspecialchars($baseUrl . '/' . $col['name'] . '/', ENT_XML1, 'UTF-8') . "</loc></url>\n";
+				$colName = $col['name'];
+				$xml .= "  <url><loc>" . htmlspecialchars($baseUrl . '/' . $colName . '/', ENT_XML1, 'UTF-8') . "</loc></url>\n";
+
+				/* ページネーション */
+				$items = CollectionEngine::getItems($colName);
+				$perPage = (int)($col['perPage'] ?? 10);
+				$totalPages = max(1, (int)ceil(count($items) / max(1, $perPage)));
+				for ($p = 2; $p <= $totalPages; $p++) {
+					$xml .= "  <url><loc>" . htmlspecialchars($baseUrl . '/' . $colName . '/page/' . $p . '/', ENT_XML1, 'UTF-8') . "</loc></url>\n";
+				}
+
+				/* タグページ */
+				$tagSlugs = [];
+				foreach ($items as $item) {
+					$tags = $item['meta']['tags'] ?? [];
+					if (is_string($tags)) $tags = array_map('trim', explode(',', $tags));
+					foreach ($tags as $tag) {
+						$tag = trim($tag);
+						if ($tag === '') continue;
+						$tagSlugs[mb_convert_case(str_replace(' ', '-', $tag), MB_CASE_LOWER, 'UTF-8')] = true;
+					}
+				}
+				if ($tagSlugs) {
+					$xml .= "  <url><loc>" . htmlspecialchars($baseUrl . '/' . $colName . '/tags/', ENT_XML1, 'UTF-8') . "</loc></url>\n";
+					foreach (array_keys($tagSlugs) as $ts) {
+						$xml .= "  <url><loc>" . htmlspecialchars($baseUrl . '/' . $colName . '/tag/' . $ts . '/', ENT_XML1, 'UTF-8') . "</loc></url>\n";
+					}
+				}
 			}
 		}
 
@@ -540,6 +713,367 @@ class StaticEngine {
 		}
 		$this->ensureDir(self::OUTPUT_DIR);
 		file_put_contents(self::OUTPUT_DIR . '/robots.txt', $content, LOCK_EX);
+	}
+
+	/* ══════════════════════════════════════════════
+	   タグページ生成
+	   ══════════════════════════════════════════════ */
+
+	private function buildTagPages(): int {
+		if (!class_exists('CollectionEngine') || !CollectionEngine::isEnabled()) return 0;
+
+		$built = 0;
+		$collections = CollectionEngine::listCollections();
+
+		foreach ($collections as $col) {
+			$name = $col['name'];
+			if ($name === 'pages') continue;
+
+			$items = CollectionEngine::getItems($name);
+			$tagMap = []; // tag => [items]
+			foreach ($items as $slug => $item) {
+				$tags = $item['meta']['tags'] ?? [];
+				if (is_string($tags)) $tags = array_map('trim', explode(',', $tags));
+				foreach ($tags as $tag) {
+					$tag = trim($tag);
+					if ($tag === '') continue;
+					$tagSlug = mb_convert_case(str_replace(' ', '-', $tag), MB_CASE_LOWER, 'UTF-8');
+					if (!isset($tagMap[$tagSlug])) {
+						$tagMap[$tagSlug] = ['name' => $tag, 'items' => []];
+					}
+					$preview = strip_tags($item['html']);
+					if (mb_strlen($preview, 'UTF-8') > 200) {
+						$preview = mb_substr($preview, 0, 200, 'UTF-8') . '...';
+					}
+					$tagMap[$tagSlug]['items'][] = array_merge($item['meta'], [
+						'slug'    => $slug,
+						'preview' => $preview,
+						'link'    => '/' . $name . '/' . $slug . '/',
+					]);
+				}
+			}
+
+			if (empty($tagMap)) continue;
+
+			/* タグ別ページ */
+			$tagTplPath = $this->themeDir . '/collection-' . $name . '-tag.html';
+			$tagTpl = file_exists($tagTplPath) ? file_get_contents($tagTplPath) : null;
+
+			$allTags = [];
+			foreach ($tagMap as $tagSlug => $tagData) {
+				$allTags[] = [
+					'name'  => $tagData['name'],
+					'slug'  => $tagSlug,
+					'count' => count($tagData['items']),
+					'url'   => '/' . $name . '/tag/' . $tagSlug . '/',
+				];
+			}
+
+			foreach ($tagMap as $tagSlug => $tagData) {
+				$pageSlug = $name . '/tag/' . $tagSlug;
+				$dir = self::OUTPUT_DIR . '/' . $pageSlug;
+				$this->ensureDir($dir);
+
+				if ($tagTpl !== null) {
+					$ctx = array_merge(
+						ThemeEngine::buildStaticContext($pageSlug, '', $this->settings, ['title' => $tagData['name'] . ' - ' . ($col['label'] ?? $name)]),
+						[
+							'collection_name'  => $name,
+							'collection_label' => $col['label'] ?? $name,
+							'tag_name'         => $tagData['name'],
+							'tag_slug'         => $tagSlug,
+							'tag_items'        => $tagData['items'],
+							'item_count'       => count($tagData['items']),
+							'all_tags'         => $allTags,
+						]
+					);
+					$html = TemplateEngine::render($tagTpl, $ctx, $this->themeDir);
+				} else {
+					$esc = fn(string $s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
+					$html = '<h1>' . $esc($tagData['name']) . '</h1>' . "\n";
+					$html .= '<p class="ap-tag-count">' . count($tagData['items']) . ' 件</p>' . "\n";
+					$html .= '<div class="ap-collection-index">' . "\n";
+					foreach ($tagData['items'] as $ti) {
+						$html .= '<article class="ap-collection-entry">' . "\n";
+						$html .= '  <h2><a href="' . $esc($ti['link']) . '">' . $esc($ti['title'] ?? $ti['slug']) . '</a></h2>' . "\n";
+						if (!empty($ti['date'])) $html .= '  <time>' . $esc($ti['date']) . '</time>' . "\n";
+						$html .= '  <p>' . $esc($ti['preview']) . '</p>' . "\n";
+						$html .= '</article>' . "\n";
+					}
+					$html .= '</div>' . "\n";
+				}
+
+				$rendered = $this->renderPage($pageSlug, $html, ['title' => $tagData['name']]);
+				if (!empty($this->settings['minify'] ?? true)) {
+					$rendered = self::minifyHtml($rendered);
+				}
+				file_put_contents($dir . '/index.html', $rendered, LOCK_EX);
+				$this->changedFiles[] = $dir . '/index.html';
+				$built++;
+			}
+
+			/* タグ一覧ページ */
+			$tagsIndexSlug = $name . '/tags';
+			$tagsDir = self::OUTPUT_DIR . '/' . $tagsIndexSlug;
+			$this->ensureDir($tagsDir);
+
+			$esc = fn(string $s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
+			$tagsHtml = '<h1>' . $esc($col['label'] ?? $name) . ' — タグ一覧</h1>' . "\n";
+			$tagsHtml .= '<div class="ap-tags-list">' . "\n";
+			usort($allTags, fn($a, $b) => $b['count'] - $a['count']);
+			foreach ($allTags as $t) {
+				$tagsHtml .= '<a href="' . $esc($t['url']) . '" class="ap-tag-badge">' . $esc($t['name']) . ' <span>(' . $t['count'] . ')</span></a> ' . "\n";
+			}
+			$tagsHtml .= '</div>' . "\n";
+
+			$rendered = $this->renderPage($tagsIndexSlug, $tagsHtml, ['title' => ($col['label'] ?? $name) . ' タグ一覧']);
+			if (!empty($this->settings['minify'] ?? true)) {
+				$rendered = self::minifyHtml($rendered);
+			}
+			file_put_contents($tagsDir . '/index.html', $rendered, LOCK_EX);
+			$this->changedFiles[] = $tagsDir . '/index.html';
+			$built++;
+		}
+		return $built;
+	}
+
+	private function collectTags(array $items): array {
+		$tags = [];
+		foreach ($items as $item) {
+			$itemTags = $item['tags'] ?? [];
+			if (is_string($itemTags)) $itemTags = array_map('trim', explode(',', $itemTags));
+			foreach ($itemTags as $tag) {
+				$tag = trim($tag);
+				if ($tag === '') continue;
+				$tagSlug = mb_convert_case(str_replace(' ', '-', $tag), MB_CASE_LOWER, 'UTF-8');
+				if (!isset($tags[$tagSlug])) {
+					$tags[$tagSlug] = ['name' => $tag, 'slug' => $tagSlug, 'count' => 0];
+				}
+				$tags[$tagSlug]['count']++;
+			}
+		}
+		return array_values($tags);
+	}
+
+	/* ══════════════════════════════════════════════
+	   404 エラーページ
+	   ══════════════════════════════════════════════ */
+
+	private function generate404Page(): void {
+		$customTpl = $this->themeDir . '/404.html';
+		if (file_exists($customTpl)) {
+			$tplContent = file_get_contents($customTpl);
+			if ($tplContent !== false) {
+				$ctx = ThemeEngine::buildStaticContext('404', '', $this->settings, ['title' => 'ページが見つかりません']);
+				$html = TemplateEngine::render($tplContent, $ctx, $this->themeDir);
+			} else {
+				$html = $this->renderPage('404', '<h1>404 — ページが見つかりません</h1><p>お探しのページは存在しないか、移動されました。</p>', ['title' => '404']);
+			}
+		} else {
+			$html = $this->renderPage('404', '<h1>404 — ページが見つかりません</h1><p>お探しのページは存在しないか、移動されました。</p><p><a href="/">トップページへ</a></p>', ['title' => '404']);
+		}
+
+		if (!empty($this->settings['minify'] ?? true)) {
+			$html = self::minifyHtml($html);
+		}
+		$this->ensureDir(self::OUTPUT_DIR);
+		file_put_contents(self::OUTPUT_DIR . '/404.html', $html, LOCK_EX);
+		$this->changedFiles[] = self::OUTPUT_DIR . '/404.html';
+	}
+
+	/* ══════════════════════════════════════════════
+	   クライアントサイド検索インデックス
+	   ══════════════════════════════════════════════ */
+
+	private function generateSearchIndex(): void {
+		$index = [];
+
+		foreach ($this->pages as $slug => $content) {
+			if (!preg_match(self::SLUG_PATTERN, $slug)) continue;
+			$text = strip_tags($content);
+			$text = preg_replace('/\s+/', ' ', trim($text));
+
+			$entry = [
+				'slug'  => $slug,
+				'title' => $slug,
+				'body'  => mb_substr($text, 0, 500, 'UTF-8'),
+				'url'   => '/' . ($slug === 'index' ? '' : $slug . '/'),
+			];
+
+			/* コレクションアイテムならメタ情報を追加 */
+			if (str_contains($slug, '/') && class_exists('CollectionEngine')) {
+				$parts = explode('/', $slug, 2);
+				$item = CollectionEngine::getItem($parts[0], $parts[1]);
+				if ($item) {
+					$entry['title'] = $item['meta']['title'] ?? $parts[1];
+					$entry['tags']  = $item['meta']['tags'] ?? [];
+					$entry['date']  = $item['meta']['date'] ?? '';
+				}
+			}
+			$index[] = $entry;
+		}
+
+		$this->ensureDir(self::OUTPUT_DIR);
+		file_put_contents(
+			self::OUTPUT_DIR . '/search-index.json',
+			json_encode($index, JSON_UNESCAPED_UNICODE),
+			LOCK_EX
+		);
+		$this->changedFiles[] = self::OUTPUT_DIR . '/search-index.json';
+
+		/* ap-search.js をアセットにコピー */
+		$searchJs = 'engines/JsEngine/ap-search.js';
+		if (file_exists($searchJs)) {
+			$dst = self::OUTPUT_DIR . '/assets/ap-search.js';
+			$this->ensureDir(dirname($dst));
+			copy($searchJs, $dst);
+		}
+	}
+
+	/* ══════════════════════════════════════════════
+	   HTML / CSS ミニファイ
+	   ══════════════════════════════════════════════ */
+
+	private static function minifyHtml(string $html): string {
+		/* <pre>, <code>, <script>, <style>, <textarea> 内は保護 */
+		$protected = [];
+		$html = preg_replace_callback(
+			'#(<(?:pre|code|script|style|textarea)\b[^>]*>)(.*?)(</(?:pre|code|script|style|textarea)>)#si',
+			function($m) use (&$protected) {
+				$key = '<!--AP_PROTECT_' . count($protected) . '-->';
+				$protected[$key] = $m[0];
+				return $key;
+			},
+			$html
+		) ?? $html;
+
+		/* HTML コメント除去（IE条件コメント以外） */
+		$html = preg_replace('/<!--(?!\[if\s).*?-->/s', '', $html) ?? $html;
+		/* 連続空白を圧縮 */
+		$html = preg_replace('/\s{2,}/', ' ', $html) ?? $html;
+		/* タグ間の空白を除去 */
+		$html = preg_replace('/>\s+</', '><', $html) ?? $html;
+
+		/* 保護領域を復元 */
+		foreach ($protected as $key => $val) {
+			$html = str_replace($key, $val, $html);
+		}
+		return trim($html);
+	}
+
+	public static function minifyCss(string $css): string {
+		/* コメント除去 */
+		$css = preg_replace('#/\*.*?\*/#s', '', $css) ?? $css;
+		/* 空白圧縮 */
+		$css = preg_replace('/\s+/', ' ', $css) ?? $css;
+		/* セレクタ周辺の空白除去 */
+		$css = preg_replace('/\s*([{};:,>+~])\s*/', '$1', $css) ?? $css;
+		/* 末尾セミコロン除去 */
+		$css = str_replace(';}', '}', $css);
+		return trim($css);
+	}
+
+	/* ══════════════════════════════════════════════
+	   リダイレクト管理
+	   ══════════════════════════════════════════════ */
+
+	private function generateRedirects(): void {
+		$redirects = json_read('redirects.json', settings_dir());
+		if (empty($redirects)) return;
+
+		/* _redirects ファイル（Netlify / Cloudflare Pages 互換） */
+		$lines = [];
+		foreach ($redirects as $r) {
+			$from = $r['from'] ?? '';
+			$to   = $r['to'] ?? '';
+			$code = (int)($r['code'] ?? 301);
+			if ($from === '' || $to === '') continue;
+			$lines[] = "{$from}  {$to}  {$code}";
+		}
+
+		$this->ensureDir(self::OUTPUT_DIR);
+		if ($lines) {
+			file_put_contents(self::OUTPUT_DIR . '/_redirects', implode("\n", $lines) . "\n", LOCK_EX);
+			$this->changedFiles[] = self::OUTPUT_DIR . '/_redirects';
+		}
+	}
+
+	/* ══════════════════════════════════════════════
+	   ビルドフック
+	   ══════════════════════════════════════════════ */
+
+	private function runHook(string $hookName, array $context = []): void {
+		$hooks = json_read('build_hooks.json', settings_dir());
+		if (empty($hooks[$hookName])) return;
+
+		foreach ((array)$hooks[$hookName] as $hookFile) {
+			if (!is_string($hookFile)) continue;
+			/* セキュリティ: engines/ または data/ 内のファイルのみ許可 */
+			$real = realpath($hookFile);
+			if ($real === false) continue;
+			$projectRoot = realpath('.') ?: '';
+			if (!str_starts_with($real, $projectRoot . '/engines/') && !str_starts_with($real, $projectRoot . '/data/')) {
+				$this->warnings[] = "フック拒否（許可外パス）: {$hookFile}";
+				continue;
+			}
+			if (!str_ends_with($real, '.php')) continue;
+
+			try {
+				$apHookContext = array_merge($context, [
+					'settings'   => $this->settings,
+					'pages'      => array_keys($this->pages),
+					'output_dir' => self::OUTPUT_DIR,
+					'theme_dir'  => $this->themeDir,
+				]);
+				include $real;
+			} catch (\Throwable $e) {
+				$this->warnings[] = "フックエラー ({$hookFile}): " . $e->getMessage();
+			}
+		}
+	}
+
+	/* ══════════════════════════════════════════════
+	   インクリメンタルデプロイ
+	   ══════════════════════════════════════════════ */
+
+	private function serveDiffZip(): never {
+		$changedFiles = $this->buildState['changed_files'] ?? [];
+		if (empty($changedFiles)) {
+			http_response_code(400);
+			echo json_encode(['error' => '変更ファイルがありません。先にビルドを実行してください。']);
+			exit;
+		}
+		if (!class_exists('ZipArchive')) {
+			http_response_code(500);
+			echo json_encode(['error' => 'ZipArchive 拡張が利用できません。']);
+			exit;
+		}
+
+		$tmpFile = sys_get_temp_dir() . '/ap_deploy_diff_' . date('Ymd_His') . '.zip';
+		$zip = new ZipArchive();
+		if ($zip->open($tmpFile, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
+			http_response_code(500);
+			echo json_encode(['error' => 'ZIP ファイルの作成に失敗しました。']);
+			exit;
+		}
+
+		foreach ($changedFiles as $file) {
+			if (file_exists($file)) {
+				$rel = substr($file, strlen(self::OUTPUT_DIR) + 1);
+				$zip->addFile($file, $rel);
+			}
+		}
+		$zip->close();
+
+		try {
+			header('Content-Type: application/zip');
+			header('Content-Disposition: attachment; filename="deploy-diff-' . date('Ymd') . '.zip"');
+			header('Content-Length: ' . filesize($tmpFile));
+			readfile($tmpFile);
+		} finally {
+			@unlink($tmpFile);
+		}
+		exit;
 	}
 
 	/* ══════════════════════════════════════════════
@@ -627,9 +1161,25 @@ class StaticEngine {
 			. "# PHP 実行禁止\n"
 			. "<FilesMatch \"\\.php$\">\n"
 			. "    Require all denied\n"
-			. "</FilesMatch>\n\n"
-			. "# 未ビルドページは index.php にフォールバック\n"
-			. "ErrorDocument 404 " . $basePath . "index.php\n";
+			. "</FilesMatch>\n\n";
+
+		/* リダイレクトルール */
+		$redirects = json_read('redirects.json', settings_dir());
+		if (!empty($redirects)) {
+			$content .= "# リダイレクト\n";
+			foreach ($redirects as $r) {
+				$from = $r['from'] ?? '';
+				$to   = $r['to'] ?? '';
+				$code = (int)($r['code'] ?? 301);
+				if ($from === '' || $to === '') continue;
+				$content .= "Redirect {$code} {$from} {$to}\n";
+			}
+			$content .= "\n";
+		}
+
+		/* 404 エラーページ */
+		$content .= "ErrorDocument 404 /404.html\n";
+
 		file_put_contents($htaccess, $content, LOCK_EX);
 	}
 

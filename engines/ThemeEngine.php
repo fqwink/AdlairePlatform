@@ -85,18 +85,105 @@ class ThemeEngine {
 
 	/**
 	 * StaticEngine 用のコンテキスト（管理者 UI なし）
+	 * OGP / JSON-LD / canonical 自動生成を含む
 	 */
 	public static function buildStaticContext(
-		string $slug, string $content, array $settings
+		string $slug, string $content, array $settings, array $meta = []
 	): array {
 		$menuItems = self::parseMenu($settings['menu'] ?? '', $slug);
 
+		$siteTitle   = $settings['title'] ?? '';
+		$description = $settings['description'] ?? '';
+		$baseUrl     = rtrim($settings['site_url'] ?? '', '/');
+
+		/* ページ固有の値（コレクションアイテムの meta から） */
+		$pageTitle = $meta['title'] ?? $slug;
+		$pageDesc  = $meta['description'] ?? '';
+		if ($pageDesc === '' && $content !== '') {
+			$pageDesc = mb_substr(strip_tags($content), 0, 160, 'UTF-8');
+			$pageDesc = preg_replace('/\s+/', ' ', trim($pageDesc));
+		}
+		if ($pageDesc === '') $pageDesc = $description;
+		$pageImage = $meta['thumbnail'] ?? $meta['image'] ?? $meta['og_image'] ?? '';
+		$pageDate  = $meta['date'] ?? $meta['publishDate'] ?? '';
+		$pageTags  = $meta['tags'] ?? [];
+		if (is_string($pageTags)) $pageTags = array_map('trim', explode(',', $pageTags));
+
+		$canonicalUrl = $baseUrl . '/' . ($slug === 'index' ? '' : $slug . '/');
+		$ogType = str_contains($slug, '/') ? 'article' : 'website';
+
+		/* OGP メタタグ HTML 一括生成 */
+		$esc = fn(string $s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
+		$ogMeta  = '<meta property="og:title" content="' . $esc($pageTitle) . '">' . "\n";
+		$ogMeta .= '<meta property="og:description" content="' . $esc($pageDesc) . '">' . "\n";
+		$ogMeta .= '<meta property="og:type" content="' . $ogType . '">' . "\n";
+		$ogMeta .= '<meta property="og:site_name" content="' . $esc($siteTitle) . '">' . "\n";
+		if ($baseUrl !== '') {
+			$ogMeta .= '<meta property="og:url" content="' . $esc($canonicalUrl) . '">' . "\n";
+			$ogMeta .= '<link rel="canonical" href="' . $esc($canonicalUrl) . '">' . "\n";
+		}
+		if ($pageImage !== '') {
+			$imgUrl = str_starts_with($pageImage, 'http') ? $pageImage : $baseUrl . '/' . ltrim($pageImage, '/');
+			$ogMeta .= '<meta property="og:image" content="' . $esc($imgUrl) . '">' . "\n";
+		}
+		/* Twitter Card */
+		$ogMeta .= '<meta name="twitter:card" content="' . ($pageImage ? 'summary_large_image' : 'summary') . '">' . "\n";
+		$ogMeta .= '<meta name="twitter:title" content="' . $esc($pageTitle) . '">' . "\n";
+		$ogMeta .= '<meta name="twitter:description" content="' . $esc($pageDesc) . '">' . "\n";
+
+		/* JSON-LD 構造化データ */
+		$jsonLd = '';
+		if ($baseUrl !== '') {
+			if ($ogType === 'article') {
+				$ld = [
+					'@context' => 'https://schema.org',
+					'@type'    => 'Article',
+					'headline' => $pageTitle,
+					'description' => $pageDesc,
+					'url'      => $canonicalUrl,
+				];
+				if ($pageDate !== '') $ld['datePublished'] = $pageDate;
+				if ($pageImage !== '') {
+					$ld['image'] = str_starts_with($pageImage, 'http') ? $pageImage : $baseUrl . '/' . ltrim($pageImage, '/');
+				}
+				if ($pageTags) $ld['keywords'] = implode(', ', $pageTags);
+			} else {
+				$ld = [
+					'@context' => 'https://schema.org',
+					'@type'    => 'WebPage',
+					'name'     => $pageTitle,
+					'description' => $pageDesc,
+					'url'      => $canonicalUrl,
+				];
+			}
+			$jsonLd = '<script type="application/ld+json">' . json_encode($ld, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . '</script>';
+		}
+
+		/* パンくずリスト JSON-LD */
+		$breadcrumbLd = '';
+		if ($baseUrl !== '' && $slug !== 'index') {
+			$crumbs = [['@type' => 'ListItem', 'position' => 1, 'name' => $siteTitle ?: 'Home', 'item' => $baseUrl . '/']];
+			$parts = explode('/', $slug);
+			$path = '';
+			$pos = 2;
+			foreach ($parts as $part) {
+				$path .= $part . '/';
+				$crumbs[] = ['@type' => 'ListItem', 'position' => $pos++, 'name' => $meta['title'] ?? $part, 'item' => $baseUrl . '/' . $path];
+			}
+			$breadcrumbLd = '<script type="application/ld+json">' . json_encode([
+				'@context'        => 'https://schema.org',
+				'@type'           => 'BreadcrumbList',
+				'itemListElement' => $crumbs,
+			], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . '</script>';
+		}
+
 		return [
-			'title'          => $settings['title'] ?? '',
+			'title'          => $siteTitle,
 			'page'           => $slug,
+			'page_title'     => $pageTitle,
 			'host'           => '/',
 			'themeSelect'    => $settings['themeSelect'] ?? 'AP-Default',
-			'description'    => $settings['description'] ?? '',
+			'description'    => $description,
 			'keywords'       => $settings['keywords'] ?? '',
 			'admin'          => false,
 			'csrf_token'     => '',
@@ -107,6 +194,15 @@ class ThemeEngine {
 			'login_status'   => '',
 			'credit'         => "Powered by <a href=''>Adlaire Platform</a>",
 			'menu_items'     => $menuItems,
+			/* OGP / SEO */
+			'og_meta_tags'   => $ogMeta,
+			'json_ld'        => $jsonLd . ($breadcrumbLd ? "\n" . $breadcrumbLd : ''),
+			'canonical_url'  => $canonicalUrl,
+			'og_title'       => $pageTitle,
+			'og_description' => $pageDesc,
+			'og_image'       => $pageImage,
+			'og_type'        => $ogType,
+			'search_enabled' => !empty($settings['search_enabled']),
 		];
 	}
 

@@ -575,6 +575,16 @@ private function init(): void {
 | 画像最適化 | ImageOptimizer (新規) | GD によるリサイズ(1920px)、サムネイル(400px)、WebP 変換 |
 | API レスポンスキャッシュ | CacheEngine (新規) | ファイルベースキャッシュ + ETag/Last-Modified + 自動無効化 |
 | マルチユーザー基盤 | AdminEngine | users.json によるユーザー管理、admin/editor/viewer ロール |
+| OGP / メタタグ自動生成 | ThemeEngine | Open Graph / Twitter Card / JSON-LD / canonical 自動生成 |
+| コレクションページネーション | StaticEngine | perPage 設定による一覧ページ分割 |
+| タグ・カテゴリページ | StaticEngine | フロントマター tags からタグ別・タグ一覧ページ自動生成 |
+| 404 カスタムエラーページ | StaticEngine | テーマ対応 404.html 静的生成 |
+| 前後記事ナビゲーション | StaticEngine | コレクションアイテムの prev_item / next_item コンテキスト |
+| クライアントサイド検索 | StaticEngine + ap-search.js | search-index.json 生成 + 軽量検索 JS |
+| HTML/CSS ミニファイ | StaticEngine | PHP 正規表現ベースの軽量圧縮 |
+| リダイレクト管理 | AdminEngine + StaticEngine | .htaccess + _redirects 自動生成、ダッシュボード UI |
+| ビルドフック | StaticEngine | before_build / after_page_render / after_build / after_asset_copy |
+| インクリメンタルデプロイ | StaticEngine | 変更ファイルのみ ZIP ダウンロード |
 
 ## 8. 未解決事項
 
@@ -614,6 +624,7 @@ private function init(): void {
 |------------|------|---------|
 | Ver.0.1-1 | 2026-03-08 | 初版。pitcms.net 調査結果、AP 現状比較、アーキテクチャ設計、フェーズ別ロードマップ |
 | Ver.0.2-1 | 2026-03-09 | 9機能実装: スケジューリング、メディアAPI、Webhook、テンプレート、プレビュー、インポート/エクスポート、画像最適化、キャッシュ、マルチユーザー |
+| Ver.0.3-1 | 2026-03-09 | SSG 10機能実装: OGP、ページネーション、タグページ、404、前後ナビ、検索インデックス、ミニファイ、リダイレクト、ビルドフック、デプロイ |
 
 ---
 
