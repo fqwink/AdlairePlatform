@@ -9,7 +9,11 @@
  * 収集レベル:
  *   basic    — 環境情報・エラー件数のみ（デフォルト）
  *   extended — エラーメッセージ・パフォーマンス情報
- *   debug    — スタックトレース・エンジン別実行時間
+ *   debug    — 12カテゴリ別集計・スタックトレース・エンジン別実行時間
+ *
+ * デバッグ診断カテゴリ（12分類）:
+ *   syntax, runtime, logic, semantic, off_by_one, race_condition,
+ *   memory, performance, security, environment, timing, integration
  *
  * プライバシー:
  *   - パスワード・トークン・APIキー・コンテンツ本文は絶対に収集しない
@@ -32,6 +36,22 @@ class DiagnosticEngine {
 	private const CIRCUIT_BREAKER_DURATION  = 86400; /* 24時間 */
 	private const MAX_LOG_SIZE_BYTES       = 524288; /* 512 KB */
 	private const LOG_ARCHIVE_GENERATIONS  = 3;
+
+	/* ── デバッグ診断カテゴリ（12分類） ── */
+	private const DEBUG_CATEGORIES = [
+		'syntax',       /* 構文エラー: E_PARSE, E_COMPILE_ERROR */
+		'runtime',      /* 実行時エラー: E_ERROR, E_WARNING, E_NOTICE 等 */
+		'logic',        /* 論理エラー: アサーション失敗・不正な戻り値 */
+		'semantic',     /* 意味エラー: 型不整合・未定義変数 */
+		'off_by_one',   /* オフバイワン: 配列境界違反・範囲外アクセス */
+		'race_condition', /* 競合状態: ファイルロック失敗・同時アクセス */
+		'memory',       /* メモリ関連: メモリ上限・リーク・確保失敗 */
+		'performance',  /* パフォーマンス: 低速処理・ボトルネック */
+		'security',     /* セキュリティ: 不正アクセス・インジェクション */
+		'environment',  /* 環境依存: PHP バージョン差異・拡張不足・OS 固有 */
+		'timing',       /* タイミング: タイムアウト・応答遅延 */
+		'integration',  /* 統合: 外部 API 障害・Webhook 失敗 */
+	];
 
 	/* ── パフォーマンスプロファイラ（リクエスト内メモリ） ── */
 	private static array $timers = [];
@@ -154,7 +174,7 @@ class DiagnosticEngine {
 
 	/**
 	 * カスタムエラーハンドラを登録
-	 * PHP エラーをキャプチャしてログバッファに蓄積
+	 * PHP エラーをキャプチャし、12カテゴリに自動分類してログバッファに蓄積
 	 */
 	public static function registerErrorHandler(): void {
 		if (!self::isEnabled()) return;
@@ -166,13 +186,23 @@ class DiagnosticEngine {
 				return false; /* デフォルトハンドラに委譲 */
 			}
 
-			self::logError([
-				'type'      => self::errorTypeString($errno),
-				'message'   => self::sanitizeMessage($errstr),
-				'file'      => self::sanitizePath($errfile),
-				'line'      => $errline,
-				'timestamp' => date('c'),
-			]);
+			$debugCategory = self::classifyError($errno, $errstr);
+
+			$entry = [
+				'type'           => self::errorTypeString($errno),
+				'debug_category' => $debugCategory,
+				'message'        => self::sanitizeMessage($errstr),
+				'file'           => self::sanitizePath($errfile),
+				'line'           => $errline,
+				'timestamp'      => date('c'),
+			];
+
+			/* debug レベルではスタックトレースも収集 */
+			if ($level === 'debug') {
+				$entry['stack_trace'] = self::sanitizeStackTrace(debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 10));
+			}
+
+			self::logError($entry);
 
 			return false; /* PHP 標準のエラー処理も実行 */
 		});
@@ -183,14 +213,254 @@ class DiagnosticEngine {
 			if ($error === null) return;
 			if (!in_array($error['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR], true)) return;
 
+			$debugCategory = self::classifyError($error['type'], $error['message']);
+
 			self::logError([
-				'type'      => 'FATAL: ' . self::errorTypeString($error['type']),
-				'message'   => self::sanitizeMessage($error['message']),
-				'file'      => self::sanitizePath($error['file']),
-				'line'      => $error['line'],
-				'timestamp' => date('c'),
+				'type'           => 'FATAL: ' . self::errorTypeString($error['type']),
+				'debug_category' => $debugCategory,
+				'message'        => self::sanitizeMessage($error['message']),
+				'file'           => self::sanitizePath($error['file']),
+				'line'           => $error['line'],
+				'timestamp'      => date('c'),
 			]);
+
+			/* シャットダウン時にパフォーマンス・メモリ情報を記録 */
+			self::captureRuntimeSnapshot();
 		});
+	}
+
+	/**
+	 * PHP エラーを12カテゴリに自動分類
+	 */
+	private static function classifyError(int $errno, string $message): string {
+		$msg = strtolower($message);
+
+		/* 構文エラー */
+		if (in_array($errno, [E_PARSE, E_COMPILE_ERROR, E_COMPILE_WARNING], true)) {
+			return 'syntax';
+		}
+
+		/* メモリ関連 */
+		if (str_contains($msg, 'allowed memory size') || str_contains($msg, 'out of memory')
+			|| str_contains($msg, 'memory allocation')) {
+			return 'memory';
+		}
+
+		/* タイミング */
+		if (str_contains($msg, 'maximum execution time') || str_contains($msg, 'timed out')
+			|| str_contains($msg, 'timeout')) {
+			return 'timing';
+		}
+
+		/* オフバイワン・配列境界 */
+		if (str_contains($msg, 'undefined offset') || str_contains($msg, 'undefined index')
+			|| str_contains($msg, 'out of range') || str_contains($msg, 'array_slice')
+			|| str_contains($msg, 'undefined array key')) {
+			return 'off_by_one';
+		}
+
+		/* 意味エラー（型関連） */
+		if (str_contains($msg, 'type error') || str_contains($msg, 'typeerror')
+			|| str_contains($msg, 'cannot assign') || str_contains($msg, 'must be of type')
+			|| str_contains($msg, 'undefined variable') || str_contains($msg, 'undefined property')) {
+			return 'semantic';
+		}
+
+		/* 競合状態 */
+		if (str_contains($msg, 'lock') || str_contains($msg, 'deadlock')
+			|| str_contains($msg, 'resource temporarily unavailable')
+			|| str_contains($msg, 'concurrent') || str_contains($msg, 'flock')) {
+			return 'race_condition';
+		}
+
+		/* セキュリティ */
+		if (str_contains($msg, 'permission denied') || str_contains($msg, 'access denied')
+			|| str_contains($msg, 'csrf') || str_contains($msg, 'injection')
+			|| str_contains($msg, 'xss') || str_contains($msg, 'unauthorized')) {
+			return 'security';
+		}
+
+		/* 統合（外部連携） */
+		if (str_contains($msg, 'curl') || str_contains($msg, 'http') || str_contains($msg, 'api')
+			|| str_contains($msg, 'connection refused') || str_contains($msg, 'name resolution')
+			|| str_contains($msg, 'webhook') || str_contains($msg, 'socket')) {
+			return 'integration';
+		}
+
+		/* 環境依存 */
+		if (str_contains($msg, 'extension') || str_contains($msg, 'function not found')
+			|| str_contains($msg, 'class not found') || str_contains($msg, 'not supported')
+			|| str_contains($msg, 'php version') || str_contains($msg, 'call to undefined function')) {
+			return 'environment';
+		}
+
+		/* 論理エラー */
+		if ($errno === E_USER_ERROR || str_contains($msg, 'assertion')
+			|| str_contains($msg, 'invalid argument') || str_contains($msg, 'unexpected value')
+			|| str_contains($msg, 'logic error') || str_contains($msg, 'invariant')) {
+			return 'logic';
+		}
+
+		/* それ以外は実行時エラー */
+		return 'runtime';
+	}
+
+	/**
+	 * デバッグイベントを12カテゴリ分類付きで記録
+	 *
+	 * @param string $category DEBUG_CATEGORIES のいずれか
+	 * @param string $message  イベントメッセージ
+	 * @param array  $context  追加コンテキスト（スタックトレース等）
+	 */
+	public static function logDebugEvent(string $category, string $message, array $context = []): void {
+		if (!self::isEnabled()) return;
+		if (!in_array($category, self::DEBUG_CATEGORIES, true)) {
+			$category = 'runtime'; /* 不明カテゴリはランタイムへ */
+		}
+
+		$entry = [
+			'debug_category' => $category,
+			'message'        => self::sanitizeMessage($message),
+			'timestamp'      => date('c'),
+		];
+		if (!empty($context)) {
+			$entry['context'] = self::stripSensitiveKeys($context);
+		}
+		if (self::getLevel() === 'debug') {
+			$entry['stack_trace'] = self::sanitizeStackTrace(debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 8));
+		}
+
+		self::log($category, $message, array_merge($context, ['debug_category' => $category]));
+	}
+
+	/**
+	 * パフォーマンス異常を検知して記録
+	 *
+	 * @param string $label     処理名
+	 * @param float  $elapsed   経過時間（ミリ秒）
+	 * @param float  $threshold 閾値（ミリ秒）
+	 */
+	public static function logSlowExecution(string $label, float $elapsed, float $threshold = 1000.0): void {
+		if ($elapsed < $threshold) return;
+		self::logDebugEvent('performance', "低速処理検知: {$label} ({$elapsed}ms > {$threshold}ms)", [
+			'label'     => $label,
+			'elapsed_ms' => $elapsed,
+			'threshold_ms' => $threshold,
+		]);
+	}
+
+	/**
+	 * メモリ使用量を監視して異常時に記録
+	 */
+	public static function checkMemoryUsage(): void {
+		$limit = self::parseMemoryLimit(ini_get('memory_limit'));
+		if ($limit <= 0) return;
+		$usage = memory_get_usage(true);
+		$ratio = $usage / $limit;
+
+		if ($ratio > 0.85) {
+			self::logDebugEvent('memory', 'メモリ使用量が上限の' . round($ratio * 100) . '%に到達', [
+				'usage_bytes' => $usage,
+				'limit_bytes' => $limit,
+				'usage_human' => self::humanSize($usage),
+				'limit_human' => self::humanSize($limit),
+				'ratio'       => round($ratio, 3),
+			]);
+		}
+	}
+
+	/**
+	 * 競合状態（ファイルロック失敗等）を記録
+	 */
+	public static function logRaceCondition(string $resource, string $detail = ''): void {
+		self::logDebugEvent('race_condition', "競合状態検知: {$resource}" . ($detail !== '' ? " — {$detail}" : ''), [
+			'resource' => $resource,
+			'detail'   => $detail,
+			'pid'      => getmypid(),
+		]);
+	}
+
+	/**
+	 * 統合エラー（外部 API/Webhook 失敗）を記録
+	 */
+	public static function logIntegrationError(string $service, int $httpCode = 0, string $detail = ''): void {
+		self::logDebugEvent('integration', "外部連携エラー: {$service} (HTTP {$httpCode})" . ($detail !== '' ? " — {$detail}" : ''), [
+			'service'   => $service,
+			'http_code' => $httpCode,
+			'detail'    => $detail,
+		]);
+	}
+
+	/**
+	 * 環境依存エラーを記録
+	 */
+	public static function logEnvironmentIssue(string $issue, array $context = []): void {
+		self::logDebugEvent('environment', "環境依存: {$issue}", $context);
+	}
+
+	/**
+	 * タイミングエラー（タイムアウト等）を記録
+	 */
+	public static function logTimingIssue(string $operation, float $elapsed, float $limit): void {
+		self::logDebugEvent('timing', "タイミング異常: {$operation} ({$elapsed}s / 上限{$limit}s)", [
+			'operation'  => $operation,
+			'elapsed_s'  => $elapsed,
+			'limit_s'    => $limit,
+		]);
+	}
+
+	/**
+	 * シャットダウン時のランタイムスナップショット
+	 */
+	private static function captureRuntimeSnapshot(): void {
+		$snapshot = [
+			'memory_usage'      => memory_get_usage(true),
+			'memory_peak'       => memory_get_peak_usage(true),
+			'memory_usage_human' => self::humanSize(memory_get_usage(true)),
+			'memory_peak_human' => self::humanSize(memory_get_peak_usage(true)),
+			'timings'           => self::$timings,
+		];
+		self::log('runtime_snapshot', 'シャットダウン時スナップショット', $snapshot);
+	}
+
+	/**
+	 * スタックトレースをサニタイズ
+	 */
+	private static function sanitizeStackTrace(array $trace): array {
+		$result = [];
+		foreach ($trace as $frame) {
+			$entry = [];
+			if (isset($frame['file'])) {
+				$entry['file'] = self::sanitizePath($frame['file']);
+			}
+			if (isset($frame['line'])) {
+				$entry['line'] = $frame['line'];
+			}
+			if (isset($frame['function'])) {
+				$entry['function'] = $frame['function'];
+			}
+			if (isset($frame['class'])) {
+				$entry['class'] = $frame['class'];
+			}
+			$result[] = $entry;
+		}
+		return $result;
+	}
+
+	/**
+	 * memory_limit 文字列をバイト数に変換
+	 */
+	private static function parseMemoryLimit(string $limit): int {
+		$limit = trim($limit);
+		if ($limit === '-1') return 0;
+		$last = strtolower(substr($limit, -1));
+		$value = (int)$limit;
+		return match ($last) {
+			'g' => $value * 1024 * 1024 * 1024,
+			'm' => $value * 1024 * 1024,
+			'k' => $value * 1024,
+			default => $value,
+		};
 	}
 
 	/**
@@ -338,23 +608,33 @@ class DiagnosticEngine {
 	   ══════════════════════════════════════════════ */
 
 	/**
-	 * 日別サマリーにカウントを記録
+	 * 日別サマリーにカウントを記録（12デバッグカテゴリ対応）
 	 */
 	private static function recordDailySummary(array &$log, string $type): void {
 		$today = date('Y-m-d');
 		if (!isset($log['daily_summary'])) $log['daily_summary'] = [];
 		if (!isset($log['daily_summary'][$today])) {
-			$log['daily_summary'][$today] = ['errors' => 0, 'security' => 0, 'engine' => 0, 'other' => 0];
+			$defaults = ['errors' => 0, 'security' => 0, 'engine' => 0, 'other' => 0];
+			foreach (self::DEBUG_CATEGORIES as $cat) {
+				$defaults['debug_' . $cat] = 0;
+			}
+			$log['daily_summary'][$today] = $defaults;
 		}
 
-		/* カテゴリに応じたカウンターをインクリメント */
+		/* 従来カテゴリのカウンター */
 		$key = match ($type) {
 			'errors'   => 'errors',
 			'security' => 'security',
 			'engine'   => 'engine',
 			default    => 'other',
 		};
-		$log['daily_summary'][$today][$key]++;
+		$log['daily_summary'][$today][$key] = ($log['daily_summary'][$today][$key] ?? 0) + 1;
+
+		/* デバッグカテゴリのカウンター */
+		if (in_array($type, self::DEBUG_CATEGORIES, true)) {
+			$debugKey = 'debug_' . $type;
+			$log['daily_summary'][$today][$debugKey] = ($log['daily_summary'][$today][$debugKey] ?? 0) + 1;
+		}
 
 		/* 30日超のエントリを削除 */
 		$cutoff = date('Y-m-d', strtotime('-30 days'));
@@ -470,9 +750,15 @@ class DiagnosticEngine {
 
 		/* エラー種別ごとの件数集計 */
 		$errorSummary = [];
+		$debugCategorySummary = array_fill_keys(self::DEBUG_CATEGORIES, 0);
 		foreach (($log['errors'] ?? []) as $e) {
 			$type = $e['type'] ?? 'unknown';
 			$errorSummary[$type] = ($errorSummary[$type] ?? 0) + 1;
+			/* 12カテゴリ別集計 */
+			$cat = $e['debug_category'] ?? 'runtime';
+			if (isset($debugCategorySummary[$cat])) {
+				$debugCategorySummary[$cat]++;
+			}
 		}
 
 		/* 有効エンジン一覧 */
@@ -516,6 +802,7 @@ class DiagnosticEngine {
 			'collection_item_count' => $collectionItemCount,
 			'error_count'         => $errorCount,
 			'error_summary'       => $errorSummary,
+			'debug_category_summary' => $debugCategorySummary,
 			'custom_log_count'    => $customLogCount,
 			'security_summary'    => self::getSecuritySummary(),
 		];
@@ -560,13 +847,44 @@ class DiagnosticEngine {
 	}
 
 	/**
-	 * Level 3: debug — スタックトレース・詳細設定（手動有効化のみ）
+	 * Level 3: debug — 12カテゴリ別集計・スタックトレース・詳細設定
 	 */
 	public static function collectDebug(): array {
 		$log = json_read(self::LOG_FILE, settings_dir());
 
 		/* 直近20件のフルエラー（ファイルパス含む） */
 		$fullErrors = array_slice($log['errors'] ?? [], -20);
+
+		/* 12カテゴリ別エラー集計 */
+		$categoryBreakdown = array_fill_keys(self::DEBUG_CATEGORIES, 0);
+		foreach (($log['errors'] ?? []) as $e) {
+			$cat = $e['debug_category'] ?? 'runtime';
+			if (isset($categoryBreakdown[$cat])) {
+				$categoryBreakdown[$cat]++;
+			} else {
+				$categoryBreakdown['runtime']++;
+			}
+		}
+		/* カスタムログのカテゴリも集計 */
+		foreach (($log['custom'] ?? []) as $c) {
+			$ctx = $c['context'] ?? [];
+			$cat = $ctx['debug_category'] ?? ($c['category'] ?? 'runtime');
+			if (isset($categoryBreakdown[$cat])) {
+				$categoryBreakdown[$cat]++;
+			}
+		}
+
+		/* カテゴリ別直近エラー（各カテゴリ最新5件） */
+		$categoryRecent = [];
+		foreach (self::DEBUG_CATEGORIES as $cat) {
+			$categoryRecent[$cat] = [];
+		}
+		foreach (array_reverse($log['errors'] ?? []) as $e) {
+			$cat = $e['debug_category'] ?? 'runtime';
+			if (isset($categoryRecent[$cat]) && count($categoryRecent[$cat]) < 5) {
+				$categoryRecent[$cat][] = $e;
+			}
+		}
 
 		/* 設定値ダンプ（センシティブキー除外） */
 		$settings = json_read('settings.json', settings_dir());
@@ -583,10 +901,41 @@ class DiagnosticEngine {
 			'session.gc_maxlifetime' => ini_get('session.gc_maxlifetime'),
 		];
 
+		/* 環境依存情報 */
+		$envInfo = [
+			'php_version'     => PHP_VERSION,
+			'php_version_id'  => PHP_VERSION_ID,
+			'os'              => PHP_OS,
+			'os_family'       => PHP_OS_FAMILY,
+			'sapi'            => PHP_SAPI,
+			'extensions'      => get_loaded_extensions(),
+			'zend_version'    => zend_version(),
+			'server_software' => $_SERVER['SERVER_SOFTWARE'] ?? 'unknown',
+		];
+
+		/* メモリ詳細 */
+		$memoryInfo = [
+			'current'       => memory_get_usage(true),
+			'current_human' => self::humanSize(memory_get_usage(true)),
+			'peak'          => memory_get_peak_usage(true),
+			'peak_human'    => self::humanSize(memory_get_peak_usage(true)),
+			'limit'         => ini_get('memory_limit'),
+			'limit_bytes'   => self::parseMemoryLimit(ini_get('memory_limit')),
+		];
+		$limitBytes = $memoryInfo['limit_bytes'];
+		if ($limitBytes > 0) {
+			$memoryInfo['usage_ratio'] = round(memory_get_usage(true) / $limitBytes, 3);
+		}
+
 		return [
-			'full_errors'  => $fullErrors,
-			'settings'     => $safeSettings,
-			'php_config'   => $phpConfig,
+			'full_errors'          => $fullErrors,
+			'category_breakdown'   => $categoryBreakdown,
+			'category_recent'      => $categoryRecent,
+			'settings'             => $safeSettings,
+			'php_config'           => $phpConfig,
+			'environment'          => $envInfo,
+			'memory_detail'        => $memoryInfo,
+			'debug_categories'     => self::DEBUG_CATEGORIES,
 		];
 	}
 
