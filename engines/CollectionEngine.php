@@ -133,11 +133,14 @@ class CollectionEngine {
 			if ($status === 'draft' || $status === 'archived') return false;
 			if ($status === 'scheduled') {
 				$publishDate = $item['meta']['publishDate'] ?? '';
-				if ($publishDate !== '' && strtotime($publishDate) > $now) return false;
+				/* publishDate 未設定または不正な場合、scheduled アイテムは非公開 */
+				if ($publishDate === '') return false;
+				$ts = strtotime($publishDate);
+				if ($ts === false || $ts > $now) return false;
 			}
-			/* publishDate が設定されていて未来日の場合も除外 */
+			/* published でも publishDate が未来日の場合は除外 */
 			$pd = $item['meta']['publishDate'] ?? '';
-			if ($pd !== '' && strtotime($pd) !== false && strtotime($pd) > $now) return false;
+			if ($pd !== '' && ($ts = strtotime($pd)) !== false && $ts > $now) return false;
 			return true;
 		});
 
@@ -377,16 +380,30 @@ class CollectionEngine {
 		if (is_int($value) || is_float($value)) return (string)$value;
 		if (is_array($value)) {
 			$items = array_map(function(mixed $v): string {
-				if (is_string($v)) return '"' . addslashes($v) . '"';
+				if (is_string($v)) return '"' . self::escapeYamlString($v) . '"';
+				if (is_array($v)) return '"' . self::escapeYamlString(json_encode($v, JSON_UNESCAPED_UNICODE)) . '"';
 				return (string)$v;
 			}, $value);
 			return '[' . implode(', ', $items) . ']';
 		}
-		/* 特殊文字を含む文字列はクォート */
-		if (preg_match('/[:#\[\]{}|>]/', (string)$value) || trim((string)$value) !== (string)$value) {
-			return '"' . addslashes((string)$value) . '"';
+		$str = (string)$value;
+		/* 特殊文字・改行・YAML区切り文字を含む文字列はクォート */
+		if (preg_match('/[:#\[\]{}|>\r\n]/', $str)
+			|| str_contains($str, '---')
+			|| trim($str) !== $str
+			|| $str === '') {
+			return '"' . self::escapeYamlString($str) . '"';
 		}
-		return (string)$value;
+		return $str;
+	}
+
+	/** YAML ダブルクォート文字列用エスケープ */
+	private static function escapeYamlString(string $s): string {
+		return str_replace(
+			['\\',   '"',   "\n",  "\r",  "\t"],
+			['\\\\', '\\"', '\\n', '\\r', '\\t'],
+			$s
+		);
 	}
 
 	/* ══════════════════════════════════════════════
@@ -473,7 +490,16 @@ class CollectionEngine {
 		if (!empty($_POST['meta'])) {
 			$extra = json_decode($_POST['meta'], true);
 			if (is_array($extra)) {
-				$meta = array_merge($meta, $extra);
+				/* コレクション定義のフィールドのみ許可（任意キー注入防止） */
+				$def = self::getCollectionDef($collection);
+				$allowedFields = $def ? array_keys($def['fields'] ?? []) : [];
+				/* 基本フィールドも許可 */
+				$allowedFields = array_merge($allowedFields, ['title', 'date', 'tags', 'description', 'thumbnail', 'image', 'publishDate', 'status', 'order']);
+				foreach ($extra as $k => $v) {
+					if (in_array($k, $allowedFields, true)) {
+						$meta[$k] = $v;
+					}
+				}
 			}
 		}
 

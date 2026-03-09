@@ -336,19 +336,43 @@ class MarkdownEngine {
 	   ══════════════════════════════════════════════ */
 
 	private static function inlineFormat(string $text): string {
+		$esc = fn(string $s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
+
+		/* 画像・リンクを先に抽出しプレースホルダーに退避（エスケープ前に処理） */
+		$inlineRefs = [];
+
 		/* 画像 */
-		$text = preg_replace(
+		$text = preg_replace_callback(
 			'/!\[([^\]]*)\]\(([^)\s]+)(?:\s+"([^"]*)")?\)/',
-			'<img src="$2" alt="$1" title="$3">',
+			function(array $m) use (&$inlineRefs, $esc): string {
+				$url = self::sanitizeUrl($m[2]);
+				if ($url === null) return $esc($m[0]);
+				$alt   = $esc($m[1]);
+				$title = isset($m[3]) && $m[3] !== '' ? ' title="' . $esc($m[3]) . '"' : '';
+				$key = "\x00IMG" . count($inlineRefs) . "\x00";
+				$inlineRefs[$key] = '<img src="' . $esc($url) . '" alt="' . $alt . '"' . $title . '>';
+				return $key;
+			},
 			$text
 		) ?? $text;
 
 		/* リンク */
-		$text = preg_replace(
+		$text = preg_replace_callback(
 			'/\[([^\]]+)\]\(([^)\s]+)(?:\s+"([^"]*)")?\)/',
-			'<a href="$2" title="$3">$1</a>',
+			function(array $m) use (&$inlineRefs, $esc): string {
+				$url = self::sanitizeUrl($m[2]);
+				if ($url === null) return $esc($m[0]);
+				$linkText = $m[1]; /* リンクテキストは後でエスケープされる */
+				$title = isset($m[3]) && $m[3] !== '' ? ' title="' . $esc($m[3]) . '"' : '';
+				$key = "\x00LINK" . count($inlineRefs) . "\x00";
+				$inlineRefs[$key] = '<a href="' . $esc($url) . '"' . $title . '>' . $esc($linkText) . '</a>';
+				return $key;
+			},
 			$text
 		) ?? $text;
+
+		/* 残りのテキストを HTML エスケープ（XSS 防止） */
+		$text = $esc($text);
 
 		/* 太字 + 斜体 */
 		$text = preg_replace('/\*\*\*(.+?)\*\*\*/', '<strong><em>$1</em></strong>', $text) ?? $text;
@@ -368,7 +392,24 @@ class MarkdownEngine {
 		/* 改行（行末スペース2つ） */
 		$text = preg_replace('/  $/', '<br>', $text) ?? $text;
 
+		/* 画像・リンクプレースホルダーを復元 */
+		$text = strtr($text, $inlineRefs);
+
 		return $text;
+	}
+
+	/**
+	 * URL をサニタイズ。安全なスキームのみ許可。
+	 * @return string|null サニタイズ済み URL。危険な場合は null
+	 */
+	private static function sanitizeUrl(string $url): ?string {
+		$url = trim($url);
+		/* javascript:, data:, vbscript: 等の危険なスキームをブロック */
+		$lower = strtolower($url);
+		if (preg_match('/^(javascript|data|vbscript):/i', $lower)) {
+			return null;
+		}
+		return $url;
 	}
 
 	/* ══════════════════════════════════════════════

@@ -646,6 +646,12 @@ class ApiEngine {
 		if (class_exists('AdminEngine') && method_exists('AdminEngine', 'logActivity')) {
 			AdminEngine::logActivity("API: ページ削除 {$slug}");
 		}
+		/* キャッシュ無効化 */
+		if (class_exists('CacheEngine')) CacheEngine::invalidateContent();
+		/* Webhook 通知 */
+		if (class_exists('WebhookEngine')) {
+			WebhookEngine::dispatch('page.deleted', ['slug' => $slug]);
+		}
 
 		self::jsonResponse(true, ['deleted' => $slug]);
 	}
@@ -803,9 +809,10 @@ class ApiEngine {
 		}
 		$finfo = new finfo(FILEINFO_MIME_TYPE);
 		$mime  = $finfo->file($file['tmp_name']);
+		/* SVG は JavaScript 実行が可能なため除外（XSS 防止） */
 		$ext_map = [
 			'image/jpeg' => 'jpg', 'image/png' => 'png', 'image/gif' => 'gif',
-			'image/webp' => 'webp', 'image/svg+xml' => 'svg',
+			'image/webp' => 'webp',
 			'application/pdf' => 'pdf',
 		];
 		if (!isset($ext_map[$mime])) {

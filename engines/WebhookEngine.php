@@ -38,6 +38,11 @@ class WebhookEngine {
 	 */
 	public static function addWebhook(string $url, string $label = '', array $events = [], string $secret = ''): bool {
 		if (filter_var($url, FILTER_VALIDATE_URL) === false) return false;
+		/* SSRF 防止: http/https のみ許可、プライベート IP をブロック */
+		$scheme = strtolower(parse_url($url, PHP_URL_SCHEME) ?? '');
+		if (!in_array($scheme, ['http', 'https'], true)) return false;
+		$host = parse_url($url, PHP_URL_HOST);
+		if ($host !== null && self::isPrivateHost($host)) return false;
 
 		$config = self::loadConfig();
 		$config['webhooks'][] = [
@@ -143,8 +148,8 @@ class WebhookEngine {
 			CURLOPT_RETURNTRANSFER => true,
 			CURLOPT_TIMEOUT        => 5,
 			CURLOPT_CONNECTTIMEOUT => 3,
-			CURLOPT_FOLLOWLOCATION => true,
-			CURLOPT_MAXREDIRS      => 3,
+			/* SSRF 防止: リダイレクトを無効化 */
+			CURLOPT_FOLLOWLOCATION => false,
 		]);
 
 		$result = curl_exec($ch);
@@ -232,5 +237,19 @@ class WebhookEngine {
 		http_response_code($status);
 		echo json_encode(['ok' => false, 'error' => $msg], JSON_UNESCAPED_UNICODE);
 		exit;
+	}
+
+	/**
+	 * ホストがプライベート/内部 IP かどうかチェック（SSRF 防止）
+	 */
+	private static function isPrivateHost(string $host): bool {
+		/* localhost 系 */
+		if (in_array(strtolower($host), ['localhost', '127.0.0.1', '::1', '0.0.0.0'], true)) {
+			return true;
+		}
+		/* DNS 解決して IP を確認 */
+		$ip = gethostbyname($host);
+		if ($ip === $host) return false; /* 解決失敗 */
+		return filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) === false;
 	}
 }
