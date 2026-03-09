@@ -1022,51 +1022,30 @@ class DiagnosticEngine {
 		foreach (($log['errors'] ?? []) as $e) {
 			$type = $e['type'] ?? 'unknown';
 			$errorSummary[$type] = ($errorSummary[$type] ?? 0) + 1;
-			/* 12カテゴリ別集計 */
 			$cat = $e['debug_category'] ?? 'runtime';
 			if (isset($debugCategorySummary[$cat])) {
 				$debugCategorySummary[$cat]++;
 			}
 		}
 
-		/* 有効エンジン一覧 */
+		/* 有効エンジン一覧（環境依存カテゴリ） */
 		$engines = [];
 		foreach (self::ENGINE_CLASSES as $cls) {
 			if (class_exists($cls)) $engines[] = $cls;
 		}
 
-		/* コンテンツ件数 */
-		$pages = json_read('pages.json', content_dir());
-		$collectionCount = 0;
-		$collectionItemCount = 0;
-		if (class_exists('CollectionEngine') && CollectionEngine::isEnabled()) {
-			$collections = CollectionEngine::listCollections();
-			$collectionCount = count($collections);
-			foreach ($collections as $col) {
-				$collectionItemCount += $col['count'] ?? 0;
-			}
-		}
-
-		/* テーマ名 */
-		$settings = json_read('settings.json', settings_dir());
-		$theme = $settings['themeSelect'] ?? 'AP-Default';
-
 		return [
-			'install_id'          => self::getInstallId(),
-			'ap_version'          => defined('AP_VERSION') ? AP_VERSION : 'unknown',
-			'php_version'         => PHP_VERSION,
-			'os'                  => PHP_OS_FAMILY,
-			'sapi'                => PHP_SAPI,
-			'engines'             => $engines,
-			'theme'               => $theme,
-			'page_count'          => count($pages),
-			'collection_count'    => $collectionCount,
-			'collection_item_count' => $collectionItemCount,
-			'error_count'         => $errorCount,
-			'error_summary'       => $errorSummary,
+			'install_id'             => self::getInstallId(),
+			'ap_version'             => defined('AP_VERSION') ? AP_VERSION : 'unknown',
+			'php_version'            => PHP_VERSION,
+			'os'                     => PHP_OS_FAMILY,
+			'sapi'                   => PHP_SAPI,
+			'engines'                => $engines,
+			'error_count'            => $errorCount,
+			'error_summary'          => $errorSummary,
 			'debug_category_summary' => $debugCategorySummary,
-			'custom_log_count'    => $customLogCount,
-			'security_summary'    => self::getSecuritySummary(),
+			'custom_log_count'       => $customLogCount,
+			'security_summary'       => self::getSecuritySummary(),
 		];
 	}
 
@@ -1087,16 +1066,12 @@ class DiagnosticEngine {
 		/* 直近30件のカスタムログ */
 		$recentLogs = array_slice($log['custom'] ?? [], -30);
 
-		/* パフォーマンス情報 */
+		/* メモリ・パフォーマンス情報 */
 		$perf = [
 			'memory_peak'       => memory_get_peak_usage(true),
 			'memory_peak_human' => self::humanSize(memory_get_peak_usage(true)),
 			'disk_free'         => @disk_free_space('.') ?: 0,
-			'php_extensions'    => get_loaded_extensions(),
 		];
-
-		/* キャッシュ統計 */
-		$cacheStats = class_exists('CacheEngine') ? CacheEngine::getStats() : [];
 
 		/* エンジン別実行時間 */
 		$engineTimings = self::getEngineTimings();
@@ -1105,7 +1080,6 @@ class DiagnosticEngine {
 			'recent_errors'  => $recentErrors,
 			'recent_logs'    => $recentLogs,
 			'performance'    => $perf,
-			'cache_stats'    => $cacheStats,
 			'timings'        => self::getTimings(),
 			'engine_timings' => $engineTimings['engines'] ?? [],
 			'security'       => self::getSecuritySummary(),
@@ -1152,11 +1126,7 @@ class DiagnosticEngine {
 			}
 		}
 
-		/* 設定値ダンプ（センシティブキー除外） */
-		$settings = json_read('settings.json', settings_dir());
-		$safeSettings = self::stripSensitiveKeys($settings);
-
-		/* PHP 設定の主要項目 */
+		/* PHP 設定の主要項目（環境依存カテゴリ） */
 		$phpConfig = [
 			'max_execution_time'  => ini_get('max_execution_time'),
 			'memory_limit'        => ini_get('memory_limit'),
@@ -1215,7 +1185,6 @@ class DiagnosticEngine {
 			'traced_errors'        => $tracedErrors,
 			'captured_traces'      => $traces,
 			'engine_timings'       => $engineTimings,
-			'settings'             => $safeSettings,
 			'php_config'           => $phpConfig,
 			'environment'          => $envInfo,
 			'memory_detail'        => $memoryInfo,
