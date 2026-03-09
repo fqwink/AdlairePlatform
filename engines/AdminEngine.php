@@ -619,6 +619,10 @@ class AdminEngine {
 		$collectionsEnabled = class_exists('CollectionEngine') && CollectionEngine::isEnabled();
 		$collectionList = $collectionsEnabled ? CollectionEngine::listCollections() : [];
 
+		/* Git 連携情報 */
+		$gitEnabled = class_exists('GitEngine') && GitEngine::isEnabled();
+		$gitConfig = class_exists('GitEngine') ? GitEngine::loadConfig() : [];
+
 		return [
 			'title'                => $c['title'] ?? '',
 			'host'                 => $host ?? '',
@@ -638,6 +642,12 @@ class AdminEngine {
 			'collections_enabled'  => $collectionsEnabled,
 			'collections'          => $collectionList,
 			'has_collections'      => !empty($collectionList),
+			'git_enabled'          => $gitEnabled,
+			'git_repository'       => $gitConfig['repository'] ?? '',
+			'git_branch'           => $gitConfig['branch'] ?? 'main',
+			'git_content_dir'      => $gitConfig['content_dir'] ?? 'content',
+			'git_last_sync'        => $gitConfig['last_sync'] ?? '',
+			'git_issues_enabled'   => !empty($gitConfig['issues_enabled']),
 		];
 	}
 }

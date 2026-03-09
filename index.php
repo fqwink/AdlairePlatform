@@ -25,6 +25,7 @@ require 'engines/StaticEngine.php';
 require 'engines/ApiEngine.php';
 require 'engines/MarkdownEngine.php';
 require 'engines/CollectionEngine.php';
+require 'engines/GitEngine.php';
 
 ini_set('session.cookie_httponly', 1);
 ini_set('session.cookie_samesite', 'Lax');
@@ -34,6 +35,7 @@ host();
 AdminEngine::handle();       /* edit_field, upload_image, revision 等 */
 ApiEngine::handle();         /* ?ap_api= 公開REST API（認証不要） */
 CollectionEngine::handle();  /* collection_create, collection_item_save 等 */
+GitEngine::handle();         /* git_configure, git_pull, git_push 等 */
 StaticEngine::handle();      /* generate_static_*, clean_static, build_zip 等 */
 handle_update_action();      /* update, backup, rollback 等 */
 
@@ -57,6 +59,17 @@ $apcredit = "Powered by <a href=''>Adlaire Platform</a>";
 $_settings = json_read('settings.json', settings_dir());
 $_auth     = json_read('auth.json', settings_dir());
 $_pages    = json_read('pages.json', content_dir());
+
+/* コレクションモード: Markdown → HTML 変換済みページをマージ */
+if (class_exists('CollectionEngine') && CollectionEngine::isEnabled()) {
+	$_collectionPages = CollectionEngine::loadAllAsPages();
+	foreach ($_collectionPages as $_cpSlug => $_cpHtml) {
+		if (!isset($_pages[$_cpSlug])) {
+			$_pages[$_cpSlug] = $_cpHtml;
+		}
+	}
+	unset($_collectionPages, $_cpSlug, $_cpHtml);
+}
 
 foreach($c as $key => $val){
 	if($key == 'content') continue;

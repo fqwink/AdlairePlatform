@@ -12,6 +12,7 @@
 	<script src="engines/JsEngine/updater.js"></script>
 	<script src="engines/JsEngine/static_builder.js"></script>
 	<script src="engines/JsEngine/collection_manager.js"></script>
+	<script src="engines/JsEngine/git_manager.js"></script>
 	<script src="engines/JsEngine/dashboard.js" defer></script>
 </head>
 <body>
@@ -155,6 +156,67 @@
 					<div id="ap-editor-preview-html" style="padding:8px;background:#f7fafc;border:1px solid #e2e8f0;border-radius:4px;min-height:40px;"></div>
 				</div>
 			</div>
+		</section>
+
+		<section class="ap-dash-card">
+			<h2>Git 連携 <small>(GitHub)</small></h2>
+			<div class="ap-dash-field">
+				<label>ステータス</label>
+				{{#if git_enabled}}
+				<span style="color:#38a169;font-weight:bold;">✓ 有効 — {{git_repository}} ({{git_branch}})</span>
+				{{else}}
+				<span style="color:#718096;">無効</span>
+				{{/if}}
+			</div>
+			<div class="ap-dash-field">
+				<label>リポジトリ <small>(owner/repo 形式)</small></label>
+				<input type="text" id="ap-git-repository" value="{{git_repository}}" placeholder="user/my-site" style="width:100%;padding:6px 10px;border:1px solid #cbd5e0;border-radius:4px;font-size:14px;">
+			</div>
+			<div class="ap-dash-field">
+				<label>Personal Access Token <small>(GitHub PAT)</small></label>
+				<input type="password" id="ap-git-token" value="{{#if git_enabled}}********{{/if}}" placeholder="ghp_xxxxxxxxxxxx" style="width:100%;padding:6px 10px;border:1px solid #cbd5e0;border-radius:4px;font-size:14px;">
+			</div>
+			<div style="display:flex;gap:12px;flex-wrap:wrap;">
+				<div class="ap-dash-field" style="flex:1;min-width:120px;">
+					<label>ブランチ</label>
+					<input type="text" id="ap-git-branch" value="{{git_branch}}" placeholder="main" style="width:100%;padding:6px 10px;border:1px solid #cbd5e0;border-radius:4px;font-size:14px;">
+				</div>
+				<div class="ap-dash-field" style="flex:1;min-width:120px;">
+					<label>コンテンツディレクトリ</label>
+					<input type="text" id="ap-git-content-dir" value="{{git_content_dir}}" placeholder="content" style="width:100%;padding:6px 10px;border:1px solid #cbd5e0;border-radius:4px;font-size:14px;">
+				</div>
+			</div>
+			<div class="ap-dash-field">
+				<label style="display:inline;cursor:pointer;">
+					<input type="checkbox" id="ap-git-issues" {{#if git_issues_enabled}}checked{{/if}} style="margin-right:6px;">
+					お問い合わせを GitHub Issue として保存
+				</label>
+			</div>
+			<div class="ap-dash-buttons">
+				<button id="ap-git-save">設定を保存</button>
+				<button id="ap-git-test" style="background:#38a169;">接続テスト</button>
+			</div>
+			<div id="ap-git-config-result" style="font-size:13px;margin-top:4px;"></div>
+			{{#if git_enabled}}
+			<div style="margin-top:16px;border-top:1px solid #e2e8f0;padding-top:12px;">
+				<div class="ap-dash-buttons">
+					<button id="ap-git-pull" style="background:#3182ce;">Pull（取得）</button>
+					<button id="ap-git-push" style="background:#e53e3e;">Push（送信）</button>
+				</div>
+				<div class="ap-dash-field" style="margin-top:4px;">
+					<input type="text" id="ap-git-commit-msg" placeholder="コミットメッセージ（Push 時）" style="width:100%;padding:6px 10px;border:1px solid #cbd5e0;border-radius:4px;font-size:14px;">
+				</div>
+				<div id="ap-git-sync-result" style="font-size:13px;margin-top:4px;"></div>
+				{{#if git_last_sync}}
+				<div style="font-size:12px;color:#718096;margin-top:4px;">最終同期: {{git_last_sync}}</div>
+				{{/if}}
+				<div style="margin-top:12px;border-top:1px solid #e2e8f0;padding-top:8px;">
+					<label style="font-weight:600;font-size:13px;color:#4a5568;">コミット履歴</label>
+					<button id="ap-git-load-log" style="font-size:12px;padding:2px 10px;margin-left:8px;">読み込み</button>
+					<div id="ap-git-log" style="margin-top:8px;max-height:250px;overflow-y:auto;"></div>
+				</div>
+			</div>
+			{{/if}}
 		</section>
 
 		<section class="ap-dash-card">

@@ -190,6 +190,18 @@ class ApiEngine {
 			AdminEngine::logActivity('お問い合わせ受信: ' . $safeName . ' <' . $safeEmail . '>');
 		}
 
+		/* GitHub Issue として保存（Git 連携 + Issue 有効時） */
+		if (class_exists('GitEngine') && GitEngine::isEnabled()) {
+			$gitCfg = GitEngine::loadConfig();
+			if (!empty($gitCfg['issues_enabled'])) {
+				GitEngine::createIssue(
+					'お問い合わせ: ' . $safeName,
+					"**名前**: {$safeName}\n**メール**: {$safeEmail}\n\n{$message}",
+					['contact']
+				);
+			}
+		}
+
 		self::jsonResponse(true, ['message' => '送信しました。']);
 	}
 
