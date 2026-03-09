@@ -26,6 +26,9 @@ require 'engines/ApiEngine.php';
 require 'engines/MarkdownEngine.php';
 require 'engines/CollectionEngine.php';
 require 'engines/GitEngine.php';
+require 'engines/WebhookEngine.php';
+require 'engines/CacheEngine.php';
+require 'engines/ImageOptimizer.php';
 
 ini_set('session.cookie_httponly', 1);
 ini_set('session.cookie_samesite', 'Lax');
@@ -36,6 +39,7 @@ AdminEngine::handle();       /* edit_field, upload_image, revision 等 */
 ApiEngine::handle();         /* ?ap_api= 公開REST API（認証不要） */
 CollectionEngine::handle();  /* collection_create, collection_item_save 等 */
 GitEngine::handle();         /* git_configure, git_pull, git_push 等 */
+WebhookEngine::handle();     /* webhook_add, webhook_delete, webhook_toggle 等 */
 StaticEngine::handle();      /* generate_static_*, clean_static, build_zip 等 */
 handle_update_action();      /* update, backup, rollback 等 */
 

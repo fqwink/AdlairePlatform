@@ -23,7 +23,8 @@
 			margin-bottom: 20px;
 			text-align: center;
 		}
-		.ap-login-card input[type="password"] {
+		.ap-login-card input[type="password"],
+		.ap-login-card input[type="text"] {
 			display: block;
 			width: 100%;
 			padding: 10px 12px;
@@ -33,7 +34,8 @@
 			margin-bottom: 12px;
 			background: #f7fafc;
 		}
-		.ap-login-card input[type="password"]:focus {
+		.ap-login-card input[type="password"]:focus,
+		.ap-login-card input[type="text"]:focus {
 			outline: none;
 			border-color: #3182ce;
 			box-shadow: 0 0 0 2px rgba(49, 130, 206, 0.2);
@@ -75,7 +77,8 @@
 			<h2>{{title}}</h2>
 			<form action="" method="POST">
 				<input type="hidden" name="csrf" value="{{csrf_token}}">
-				<input type="password" name="password" placeholder="パスワード" autofocus>
+				<input type="text" name="username" placeholder="ユーザー名（マルチユーザー時）" autocomplete="username">
+				<input type="password" name="password" placeholder="パスワード" autofocus autocomplete="current-password">
 				<button type="submit" name="login" value="Login">ログイン</button>
 				<input type="hidden" name="sub" value="sub">
 				{{#if login_message}}

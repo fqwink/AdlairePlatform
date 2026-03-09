@@ -112,6 +112,8 @@ class CollectionEngine {
 
 	/**
 	 * コレクション内の全アイテムを取得。
+	 * status フィルタ: draft/scheduled/archived を公開 API から除外。
+	 * publishDate が未来日のアイテムも除外。
 	 * @return array<string, array{meta: array, body: string, html: string}>
 	 */
 	public static function getItems(string $collection): array {
@@ -123,9 +125,20 @@ class CollectionEngine {
 
 		$items = MarkdownEngine::loadDirectory($dir);
 
-		/* ドラフト除外（公開 API 用） */
-		$items = array_filter($items, function(array $item): bool {
-			return empty($item['meta']['draft']);
+		/* ドラフト除外 + ステータス + 予約公開フィルタ（公開 API 用） */
+		$now = time();
+		$items = array_filter($items, function(array $item) use ($now): bool {
+			if (!empty($item['meta']['draft'])) return false;
+			$status = $item['meta']['status'] ?? 'published';
+			if ($status === 'draft' || $status === 'archived') return false;
+			if ($status === 'scheduled') {
+				$publishDate = $item['meta']['publishDate'] ?? '';
+				if ($publishDate !== '' && strtotime($publishDate) > $now) return false;
+			}
+			/* publishDate が設定されていて未来日の場合も除外 */
+			$pd = $item['meta']['publishDate'] ?? '';
+			if ($pd !== '' && strtotime($pd) !== false && strtotime($pd) > $now) return false;
+			return true;
 		});
 
 		/* ソート */
@@ -478,6 +491,10 @@ class CollectionEngine {
 		if (class_exists('AdminEngine') && method_exists('AdminEngine', 'logActivity')) {
 			AdminEngine::logActivity("コレクションアイテム保存: {$collection}/{$slug}");
 		}
+		if (class_exists('WebhookEngine')) {
+			WebhookEngine::dispatch($isNew ? 'item.created' : 'item.updated', ['collection' => $collection, 'slug' => $slug]);
+		}
+		if (class_exists('CacheEngine')) CacheEngine::invalidateContent();
 		self::jsonOk(['collection' => $collection, 'slug' => $slug]);
 	}
 
@@ -490,6 +507,10 @@ class CollectionEngine {
 		if (class_exists('AdminEngine') && method_exists('AdminEngine', 'logActivity')) {
 			AdminEngine::logActivity("コレクションアイテム削除: {$collection}/{$slug}");
 		}
+		if (class_exists('WebhookEngine')) {
+			WebhookEngine::dispatch('item.deleted', ['collection' => $collection, 'slug' => $slug]);
+		}
+		if (class_exists('CacheEngine')) CacheEngine::invalidateContent();
 		self::jsonOk(['deleted' => "{$collection}/{$slug}"]);
 	}
 

@@ -27,6 +27,7 @@ class AdminEngine {
 			'edit_field', 'upload_image', 'delete_page',
 			'list_revisions', 'get_revision', 'restore_revision',
 			'pin_revision', 'search_revisions',
+			'user_add', 'user_delete',
 		];
 		if (!in_array($action, $valid, true)) return;
 
@@ -43,6 +44,8 @@ class AdminEngine {
 			'edit_field'        => self::handleEditField(),
 			'upload_image'      => self::handleUploadImage(),
 			'delete_page'       => self::handleDeletePage(),
+			'user_add'          => self::handleUserAdd(),
+			'user_delete'       => self::handleUserDelete(),
 			default             => self::handleRevisionAction($action),
 		};
 	}
@@ -51,8 +54,103 @@ class AdminEngine {
 	   認証
 	   ══════════════════════════════════════════════ */
 
+	private const USERS_FILE = 'users.json';
+
 	public static function isLoggedIn(): bool {
 		return isset($_SESSION['l']) && $_SESSION['l'] === true;
+	}
+
+	/** 現在のユーザーのロールを取得 */
+	public static function currentRole(): string {
+		if (!self::isLoggedIn()) return '';
+		return $_SESSION['ap_role'] ?? 'admin';
+	}
+
+	/** 現在のユーザー名を取得 */
+	public static function currentUsername(): string {
+		if (!self::isLoggedIn()) return '';
+		return $_SESSION['ap_username'] ?? 'admin';
+	}
+
+	/** 指定ロール以上の権限があるかチェック */
+	public static function hasRole(string $requiredRole): bool {
+		if (!self::isLoggedIn()) return false;
+		$roleLevel = ['viewer' => 1, 'editor' => 2, 'admin' => 3];
+		$current = $roleLevel[self::currentRole()] ?? 0;
+		$required = $roleLevel[$requiredRole] ?? 0;
+		return $current >= $required;
+	}
+
+	/* ── マルチユーザー管理 ── */
+
+	/** ユーザー一覧を取得（パスワードハッシュは除外） */
+	public static function listUsers(): array {
+		$users = json_read(self::USERS_FILE, settings_dir());
+		if (empty($users)) return [];
+		$result = [];
+		foreach ($users as $username => $user) {
+			$result[] = [
+				'username'   => $username,
+				'role'       => $user['role'] ?? 'editor',
+				'created_at' => $user['created_at'] ?? '',
+				'active'     => $user['active'] ?? true,
+			];
+		}
+		return $result;
+	}
+
+	/** ユーザーを追加 */
+	public static function addUser(string $username, string $password, string $role = 'editor'): bool {
+		if (!preg_match('/^[a-zA-Z0-9_\-]{3,30}$/', $username)) return false;
+		if (!in_array($role, ['admin', 'editor', 'viewer'], true)) return false;
+
+		$users = json_read(self::USERS_FILE, settings_dir());
+		if (isset($users[$username])) return false;
+
+		$users[$username] = [
+			'password_hash' => password_hash($password, PASSWORD_BCRYPT),
+			'role'          => $role,
+			'created_at'    => date('c'),
+			'active'        => true,
+		];
+		json_write(self::USERS_FILE, $users, settings_dir());
+		return true;
+	}
+
+	/** ユーザーを削除 */
+	public static function deleteUser(string $username): bool {
+		$users = json_read(self::USERS_FILE, settings_dir());
+		if (!isset($users[$username])) return false;
+		unset($users[$username]);
+		json_write(self::USERS_FILE, $users, settings_dir());
+		return true;
+	}
+
+	/** ユーザーのロールを変更 */
+	public static function updateUserRole(string $username, string $role): bool {
+		if (!in_array($role, ['admin', 'editor', 'viewer'], true)) return false;
+		$users = json_read(self::USERS_FILE, settings_dir());
+		if (!isset($users[$username])) return false;
+		$users[$username]['role'] = $role;
+		json_write(self::USERS_FILE, $users, settings_dir());
+		return true;
+	}
+
+	/**
+	 * マルチユーザーログイン試行。
+	 * users.json にユーザーが定義されていればそちらで認証。
+	 */
+	private static function tryMultiUserLogin(string $username, string $password): ?array {
+		$users = json_read(self::USERS_FILE, settings_dir());
+		if (empty($users)) return null; /* マルチユーザー未設定 */
+		if (!isset($users[$username])) return null;
+		$user = $users[$username];
+		if (!($user['active'] ?? true)) return null;
+		if (!password_verify($password, $user['password_hash'] ?? '')) return null;
+		return [
+			'username' => $username,
+			'role'     => $user['role'] ?? 'editor',
+		];
 	}
 
 	/**
@@ -65,7 +163,27 @@ class AdminEngine {
 			$remaining = self::getLockoutRemaining($ip);
 			return '試行回数が多すぎます。' . $remaining . '分後に再試行してください。';
 		}
-		if (!password_verify($_POST['password'] ?? '', $passwordHash)) {
+
+		$password = $_POST['password'] ?? '';
+		$username = $_POST['username'] ?? '';
+
+		/* マルチユーザーログイン試行（提案10） */
+		if ($username !== '') {
+			$multiUser = self::tryMultiUserLogin($username, $password);
+			if ($multiUser !== null) {
+				self::clearLoginRate($ip);
+				session_regenerate_id(true);
+				$_SESSION['l'] = true;
+				$_SESSION['ap_username'] = $multiUser['username'];
+				$_SESSION['ap_role'] = $multiUser['role'];
+				self::logActivity('ログイン: ' . $multiUser['username'] . ' (' . $multiUser['role'] . ')');
+				header('Location: ./');
+				exit;
+			}
+		}
+
+		/* 従来の単一パスワード認証（後方互換） */
+		if (!password_verify($password, $passwordHash)) {
 			self::recordLoginFailure($ip);
 			$attemptsLeft = self::getRemainingAttempts($ip);
 			if ($attemptsLeft > 0) {
@@ -80,6 +198,8 @@ class AdminEngine {
 		}
 		session_regenerate_id(true);
 		$_SESSION['l'] = true;
+		$_SESSION['ap_username'] = 'admin';
+		$_SESSION['ap_role'] = 'admin';
 		header('Location: ./');
 		exit;
 	}
@@ -175,7 +295,11 @@ class AdminEngine {
 			$pages[$fieldname] = $content;
 			json_write('pages.json', $pages, content_dir());
 			self::logActivity('ページ編集: ' . $fieldname);
+			if (class_exists('WebhookEngine')) {
+				WebhookEngine::dispatch('page.updated', ['slug' => $fieldname]);
+			}
 		}
+		if (class_exists('CacheEngine')) CacheEngine::invalidateContent();
 		echo $content;
 		exit;
 	}
@@ -217,6 +341,10 @@ class AdminEngine {
 			echo json_encode(['error' => 'ファイル保存に失敗しました']);
 			exit;
 		}
+		/* 画像最適化（提案8: リサイズ + サムネイル + WebP） */
+		if (class_exists('ImageOptimizer')) {
+			ImageOptimizer::optimize($dir . $filename);
+		}
 		self::logActivity('画像アップロード: ' . $filename);
 		echo json_encode(['url' => $dir . $filename]);
 		exit;
@@ -255,10 +383,16 @@ class AdminEngine {
 
 	public static function logActivity(string $message): void {
 		$log = json_read('activity.json', settings_dir());
-		array_unshift($log, [
+		$entry = [
 			'time'    => date('c'),
 			'message' => $message,
-		]);
+		];
+		/* ユーザー名を記録（マルチユーザー対応） */
+		$username = $_SESSION['ap_username'] ?? '';
+		if ($username !== '') {
+			$entry['user'] = $username;
+		}
+		array_unshift($log, $entry);
 		/* 最新100件のみ保持 */
 		$log = array_slice($log, 0, 100);
 		json_write('activity.json', $log, settings_dir());
@@ -487,6 +621,58 @@ class AdminEngine {
 	}
 
 	/* ══════════════════════════════════════════════
+	   ユーザー管理ハンドラ（提案10）
+	   ══════════════════════════════════════════════ */
+
+	private static function handleUserAdd(): void {
+		header('Content-Type: application/json; charset=UTF-8');
+		if (!self::hasRole('admin')) {
+			http_response_code(403);
+			echo json_encode(['ok' => false, 'error' => '管理者権限が必要です']);
+			exit;
+		}
+		$username = trim($_POST['username'] ?? '');
+		$password = $_POST['password'] ?? '';
+		$role = trim($_POST['role'] ?? 'editor');
+		if ($username === '' || $password === '') {
+			http_response_code(400);
+			echo json_encode(['ok' => false, 'error' => 'ユーザー名とパスワードは必須です']);
+			exit;
+		}
+		if (!self::addUser($username, $password, $role)) {
+			http_response_code(400);
+			echo json_encode(['ok' => false, 'error' => 'ユーザーの追加に失敗しました（既に存在するか、不正な名前です）']);
+			exit;
+		}
+		self::logActivity("ユーザー追加: {$username} ({$role})");
+		echo json_encode(['ok' => true, 'data' => ['username' => $username, 'role' => $role]]);
+		exit;
+	}
+
+	private static function handleUserDelete(): void {
+		header('Content-Type: application/json; charset=UTF-8');
+		if (!self::hasRole('admin')) {
+			http_response_code(403);
+			echo json_encode(['ok' => false, 'error' => '管理者権限が必要です']);
+			exit;
+		}
+		$username = trim($_POST['username'] ?? '');
+		if ($username === self::currentUsername()) {
+			http_response_code(400);
+			echo json_encode(['ok' => false, 'error' => '自分自身は削除できません']);
+			exit;
+		}
+		if (!self::deleteUser($username)) {
+			http_response_code(400);
+			echo json_encode(['ok' => false, 'error' => 'ユーザーの削除に失敗しました']);
+			exit;
+		}
+		self::logActivity("ユーザー削除: {$username}");
+		echo json_encode(['ok' => true, 'data' => ['deleted' => $username]]);
+		exit;
+	}
+
+	/* ══════════════════════════════════════════════
 	   ログインページ
 	   ══════════════════════════════════════════════ */
 
@@ -623,6 +809,16 @@ class AdminEngine {
 		$gitEnabled = class_exists('GitEngine') && GitEngine::isEnabled();
 		$gitConfig = class_exists('GitEngine') ? GitEngine::loadConfig() : [];
 
+		/* マルチユーザー情報（提案10） */
+		$users = self::listUsers();
+		$hasUsers = !empty($users);
+
+		/* Webhook 情報（提案4） */
+		$webhooks = class_exists('WebhookEngine') ? WebhookEngine::listWebhooks() : [];
+
+		/* キャッシュ情報（提案9） */
+		$cacheStats = class_exists('CacheEngine') ? CacheEngine::getStats() : ['files' => 0, 'size_human' => '0 B'];
+
 		return [
 			'title'                => $c['title'] ?? '',
 			'host'                 => $host ?? '',
@@ -649,6 +845,17 @@ class AdminEngine {
 			'git_last_sync'        => $gitConfig['last_sync'] ?? '',
 			'git_issues_enabled'   => !empty($gitConfig['issues_enabled']),
 			'git_webhook_secret'   => $gitConfig['webhook_secret'] ?? '',
+			/* マルチユーザー（提案10） */
+			'current_user'         => self::currentUsername(),
+			'current_role'         => self::currentRole(),
+			'users'                => $users,
+			'has_users'            => $hasUsers,
+			/* Webhook（提案4） */
+			'webhooks'             => $webhooks,
+			'has_webhooks'         => !empty($webhooks),
+			/* キャッシュ（提案9） */
+			'cache_files'          => $cacheStats['files'] ?? 0,
+			'cache_size'           => $cacheStats['size_human'] ?? '0 B',
 		];
 	}
 }

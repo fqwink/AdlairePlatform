@@ -125,10 +125,14 @@ class StaticEngine {
 		/* SEO ファイル生成 */
 		$this->generateSitemap();
 		$this->generateRobotsTxt();
-
 		$deleted = $this->deleteOrphanedFiles();
 		$this->buildState['last_diff_build'] = date('c');
 		$this->saveBuildState();
+
+		/* Webhook: build.completed */
+		if (class_exists('WebhookEngine')) {
+			WebhookEngine::dispatch('build.completed', ['type' => 'diff', 'built' => $built, 'skipped' => $skipped]);
+		}
 
 		$elapsed = (int)((hrtime(true) - $start) / 1_000_000);
 		$result = ['ok' => true, 'built' => $built, 'skipped' => $skipped, 'deleted' => $deleted, 'elapsed_ms' => $elapsed];
@@ -166,11 +170,15 @@ class StaticEngine {
 		/* SEO ファイル生成 */
 		$this->generateSitemap();
 		$this->generateRobotsTxt();
-
 		$deleted = $this->deleteOrphanedFiles();
 		$this->buildState['last_full_build'] = date('c');
 		$this->buildState['last_diff_build'] = date('c');
 		$this->saveBuildState();
+
+		/* Webhook: build.completed */
+		if (class_exists('WebhookEngine')) {
+			WebhookEngine::dispatch('build.completed', ['type' => 'full', 'built' => $built]);
+		}
 
 		$elapsed = (int)((hrtime(true) - $start) / 1_000_000);
 		$result = ['ok' => true, 'built' => $built, 'skipped' => 0, 'deleted' => $deleted, 'elapsed_ms' => $elapsed];
@@ -304,7 +312,11 @@ class StaticEngine {
 	   ══════════════════════════════════════════════ */
 
 	private function buildPage(string $slug, string $content): void {
-		$html = $this->renderPage($slug, $content);
+		/* コレクション専用テンプレートを試す（提案5） */
+		$html = $this->renderPageWithCollectionTemplate($slug, $content);
+		if ($html === null) {
+			$html = $this->renderPage($slug, $content);
+		}
 		if ($slug === 'index') {
 			$dir = self::OUTPUT_DIR;
 		} else {
@@ -381,8 +393,46 @@ class StaticEngine {
 	}
 
 	private function renderCollectionIndex(array $col, array $items): string {
-		$name  = htmlspecialchars($col['label'] ?? $col['name'], ENT_QUOTES, 'UTF-8');
-		$html  = "<h1>{$name}</h1>\n<div class=\"ap-collection-index\">\n";
+		$name = $col['name'];
+		$template = $col['template'] ?? null;
+
+		/* コレクション専用テンプレートを検索（提案5） */
+		$customTpl = $this->themeDir . '/collection-' . $name . '-index.html';
+		if ($template) {
+			$customTpl = $this->themeDir . '/' . $template . '-index.html';
+		}
+
+		if (file_exists($customTpl)) {
+			$tplContent = file_get_contents($customTpl);
+			if ($tplContent !== false) {
+				$itemsCtx = [];
+				foreach ($items as $slug => $item) {
+					$preview = strip_tags($item['html']);
+					if (mb_strlen($preview, 'UTF-8') > 200) {
+						$preview = mb_substr($preview, 0, 200, 'UTF-8') . '...';
+					}
+					$itemsCtx[] = array_merge($item['meta'], [
+						'slug'    => $slug,
+						'preview' => $preview,
+						'link'    => '/' . $name . '/' . $slug . '/',
+					]);
+				}
+				$ctx = array_merge(
+					ThemeEngine::buildStaticContext($name, '', $this->settings),
+					[
+						'collection_name'  => $name,
+						'collection_label' => $col['label'] ?? $name,
+						'items'            => $itemsCtx,
+						'item_count'       => count($itemsCtx),
+					]
+				);
+				return TemplateEngine::render($tplContent, $ctx, $this->themeDir);
+			}
+		}
+
+		/* デフォルトテンプレート */
+		$label = htmlspecialchars($col['label'] ?? $name, ENT_QUOTES, 'UTF-8');
+		$html  = "<h1>{$label}</h1>\n<div class=\"ap-collection-index\">\n";
 
 		foreach ($items as $slug => $item) {
 			$title   = htmlspecialchars($item['meta']['title'] ?? $slug, ENT_QUOTES, 'UTF-8');
@@ -403,6 +453,46 @@ class StaticEngine {
 
 		$html .= "</div>\n";
 		return $html;
+	}
+
+	/**
+	 * 個別コレクションアイテムをカスタムテンプレートでレンダリング（提案5）
+	 */
+	private function renderPageWithCollectionTemplate(string $slug, string $content): ?string {
+		/* slug が collection/item 形式かチェック */
+		if (!str_contains($slug, '/')) return null;
+		$parts = explode('/', $slug, 2);
+		$colName = $parts[0];
+		$itemSlug = $parts[1];
+
+		if (!class_exists('CollectionEngine')) return null;
+		$def = CollectionEngine::getCollectionDef($colName);
+		if ($def === null) return null;
+
+		$template = $def['template'] ?? null;
+		$singleTpl = $this->themeDir . '/collection-' . $colName . '-single.html';
+		if ($template) {
+			$singleTpl = $this->themeDir . '/' . $template . '-single.html';
+		}
+
+		if (!file_exists($singleTpl)) return null;
+
+		$tplContent = file_get_contents($singleTpl);
+		if ($tplContent === false) return null;
+
+		$item = CollectionEngine::getItem($colName, $itemSlug);
+		$meta = $item ? $item['meta'] : [];
+
+		$ctx = array_merge(
+			ThemeEngine::buildStaticContext($slug, $content, $this->settings),
+			$meta,
+			[
+				'collection_name'  => $colName,
+				'collection_label' => $def['label'] ?? $colName,
+				'item_slug'        => $itemSlug,
+			]
+		);
+		return TemplateEngine::render($tplContent, $ctx, $this->themeDir);
 	}
 
 	/* ══════════════════════════════════════════════

@@ -461,28 +461,35 @@ content/pages/contact.md
 | ホスティング連携 | Cloudflare Pages / Vercel / Netlify の Deploy Preview と連動 |
 | レビュー UI | ダッシュボードにレビュー依頼・承認のインターフェース |
 
-### Phase 4: ヘッドレス API 強化
+### Phase 4: ヘッドレス API 強化 ✅ 実装済み
 
 > 外部フロントエンド（Astro, Next.js 等）からの利用を本格サポート。
 
-| タスク | 詳細 |
-|--------|------|
-| 管理 API 認証 | API キー or Bearer トークンによる認証 |
-| GraphQL 対応（検討） | REST に加えて GraphQL エンドポイント（オプション） |
-| Webhook 送信 | コンテンツ更新時に外部サービスへ通知 |
-| メディア API | 画像アップロード・管理の API |
-| API ドキュメント自動生成 | OpenAPI / Swagger 形式 |
+| タスク | 詳細 | ステータス |
+|--------|------|-----------|
+| 管理 API 認証 | API キー + Bearer トークン認証 | ✅ 実装済み |
+| GraphQL 対応（検討） | REST に加えて GraphQL エンドポイント（オプション） | 🔜 将来 |
+| Webhook 送信 | WebhookEngine: HMAC-SHA256 署名付き通知 | ✅ 実装済み |
+| メディア API | media_list / media_upload / media_delete | ✅ 実装済み |
+| コンテンツスケジューリング | status + publishDate による予約公開 | ✅ 実装済み |
+| プレビューモード | `?ap_api=preview` ドラフトプレビュー | ✅ 実装済み |
+| インポート/エクスポート | JSON/CSV バルク操作 | ✅ 実装済み |
+| 画像最適化 | GD リサイズ + サムネイル + WebP | ✅ 実装済み |
+| API キャッシュ | ファイルベース + ETag + 自動無効化 | ✅ 実装済み |
+| コレクションテンプレート | テーマ別一覧・個別テンプレート | ✅ 実装済み |
+| API ドキュメント自動生成 | OpenAPI / Swagger 形式 | 🔜 将来 |
 
-### Phase 5: マルチ環境 + マルチユーザー
+### Phase 5: マルチ環境 + マルチユーザー（部分実装）
 
 > 本格的なチーム運用に対応。
 
-| タスク | 詳細 |
-|--------|------|
-| マルチ環境 | Git ブランチ = 環境（dev / staging / production） |
-| マルチユーザー | GitHub OAuth or 独自ユーザー管理 |
-| ロールベースアクセス | 編集者 / レビュアー / 管理者 |
-| 監査ログ | 全操作の記録（Phase 0 の C4 を拡張） |
+| タスク | 詳細 | ステータス |
+|--------|------|-----------|
+| マルチ環境 | Git ブランチ = 環境（dev / staging / production） | 🔜 将来 |
+| マルチユーザー | users.json による独自ユーザー管理 | ✅ 実装済み |
+| ロールベースアクセス | admin / editor / viewer ロール | ✅ 実装済み |
+| 監査ログ | ユーザー名付きアクティビティログ | ✅ 実装済み |
+| GitHub OAuth | 外部認証連携 | 🔜 将来 |
 
 ---
 
@@ -553,18 +560,31 @@ private function init(): void {
 
 ---
 
-## 7. 未解決事項
+## 7. 実装済み新機能（Ver.1.3-28 拡張）
+
+以下の機能が Ver.1.3-28 で実装された:
+
+| 機能 | エンジン | 概要 |
+|------|---------|------|
+| コンテンツスケジューリング | CollectionEngine | status (draft/published/scheduled/archived) + publishDate による予約公開 |
+| メディア管理 API | ApiEngine | `media_list`, `media_upload`, `media_delete` エンドポイント |
+| Outgoing Webhook | WebhookEngine (新規) | コンテンツ変更時に外部サービスへ HMAC-SHA256 署名付き通知 |
+| コレクションテンプレート | StaticEngine | `collection-{name}-index.html`, `collection-{name}-single.html` |
+| プレビューモード | ApiEngine | `?ap_api=preview` でドラフト含むアイテムをプレビュー |
+| インポート/エクスポート | ApiEngine | JSON/CSV でのバルクインポート・エクスポート |
+| 画像最適化 | ImageOptimizer (新規) | GD によるリサイズ(1920px)、サムネイル(400px)、WebP 変換 |
+| API レスポンスキャッシュ | CacheEngine (新規) | ファイルベースキャッシュ + ETag/Last-Modified + 自動無効化 |
+| マルチユーザー基盤 | AdminEngine | users.json によるユーザー管理、admin/editor/viewer ロール |
+
+## 8. 未解決事項
 
 | 事項 | ステータス | 内容 |
 |------|-----------|------|
-| Markdown パーサー選定 | ❓ 未定 | 自前実装 vs Parsedown 同梱 vs GitHub API |
-| Git 認証方式 | ❓ 未定 | PAT のみ or GitHub App も対応 |
-| コレクション定義の書式 | ❓ 未定 | JSON vs JSONC vs YAML |
 | WYSIWYG → Markdown 変換 | 🔜 将来 | 逆変換の精度と実装コスト |
-| GitHub Issue フォーム連携 | ❓ 未定 | 実装優先度と認証トークンの管理 |
-| マルチユーザー認証 | 🔜 将来 | GitHub OAuth vs 独自ユーザーテーブル |
-| Webhook 受信（自動同期） | ❓ 未定 | PHP で Webhook サーバーを実装する方法 |
+| GraphQL 対応 | 🔜 将来 | REST に加えて GraphQL エンドポイント |
+| GitHub OAuth | 🔜 将来 | GitHub OAuth による外部認証 |
 | Astro / Next.js テンプレート | 🔜 将来 | スターターテンプレートの提供 |
+| OpenAPI ドキュメント自動生成 | 🔜 将来 | Swagger 形式の API ドキュメント |
 
 ---
 
@@ -593,6 +613,7 @@ private function init(): void {
 | バージョン | 日付 | 変更内容 |
 |------------|------|---------|
 | Ver.0.1-1 | 2026-03-08 | 初版。pitcms.net 調査結果、AP 現状比較、アーキテクチャ設計、フェーズ別ロードマップ |
+| Ver.0.2-1 | 2026-03-09 | 9機能実装: スケジューリング、メディアAPI、Webhook、テンプレート、プレビュー、インポート/エクスポート、画像最適化、キャッシュ、マルチユーザー |
 
 ---
 

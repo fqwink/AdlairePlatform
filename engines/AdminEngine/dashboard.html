@@ -14,6 +14,7 @@
 	<script src="engines/JsEngine/collection_manager.js"></script>
 	<script src="engines/JsEngine/git_manager.js"></script>
 	<script src="engines/JsEngine/api_keys.js"></script>
+	<script src="engines/JsEngine/webhook_manager.js"></script>
 	<script src="engines/JsEngine/dashboard.js" defer></script>
 </head>
 <body>
@@ -226,6 +227,82 @@
 		</section>
 
 		<section class="ap-dash-card">
+			<h2>Outgoing Webhook</h2>
+			<p style="font-size:13px;color:#718096;margin-bottom:8px;">コンテンツ変更時に外部サービスへ通知します（Vercel / Netlify デプロイフック等）</p>
+			{{#if has_webhooks}}
+			<div class="ap-dash-collections" id="ap-webhook-list">
+				{{#each webhooks}}
+				<div class="ap-dash-collection-item">
+					<strong>{{label}}</strong>
+					<span style="font-size:12px;color:#718096;margin-left:8px;">{{url}}</span>
+					{{#if active}}<span style="color:#38a169;font-size:12px;margin-left:4px;">有効</span>{{else}}<span style="color:#e53e3e;font-size:12px;margin-left:4px;">無効</span>{{/if}}
+					<button class="ap-webhook-toggle" data-index="{{index}}" style="font-size:12px;padding:2px 8px;margin-left:4px;">切替</button>
+					<button class="ap-webhook-test" data-index="{{index}}" style="font-size:12px;padding:2px 8px;">テスト</button>
+					<button class="ap-webhook-delete" data-index="{{index}}" title="削除">&times;</button>
+				</div>
+				{{/each}}
+			</div>
+			{{else}}
+			<p style="font-size:13px;color:#718096;">Webhook が設定されていません。</p>
+			{{/if}}
+			<div class="ap-dash-field" style="margin-top:12px;">
+				<label>新規 Webhook 追加</label>
+				<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+					<input type="url" id="ap-webhook-url" placeholder="https://api.vercel.com/v1/..." style="flex:2;min-width:200px;padding:6px 10px;border:1px solid #cbd5e0;border-radius:4px;font-size:14px;">
+					<input type="text" id="ap-webhook-label" placeholder="ラベル" style="flex:1;min-width:100px;padding:6px 10px;border:1px solid #cbd5e0;border-radius:4px;font-size:14px;">
+					<input type="text" id="ap-webhook-secret" placeholder="シークレット（任意）" style="flex:1;min-width:100px;padding:6px 10px;border:1px solid #cbd5e0;border-radius:4px;font-size:14px;">
+					<button id="ap-webhook-add">追加</button>
+				</div>
+			</div>
+			<div id="ap-webhook-result" style="margin-top:4px;font-size:13px;"></div>
+		</section>
+
+		<section class="ap-dash-card">
+			<h2>API キャッシュ</h2>
+			<div class="ap-dash-field">
+				<span>キャッシュファイル: <strong>{{cache_files}}</strong> 件 / サイズ: <strong>{{cache_size}}</strong></span>
+			</div>
+			<div class="ap-dash-buttons">
+				<button id="ap-cache-clear">キャッシュクリア</button>
+			</div>
+			<div id="ap-cache-result" style="margin-top:4px;font-size:13px;"></div>
+		</section>
+
+		<section class="ap-dash-card">
+			<h2>ユーザー管理</h2>
+			<div class="ap-dash-field">
+				<span>ログイン中: <strong>{{current_user}}</strong> ({{current_role}})</span>
+			</div>
+			{{#if has_users}}
+			<div class="ap-dash-collections" id="ap-users-list">
+				{{#each users}}
+				<div class="ap-dash-collection-item">
+					<strong>{{username}}</strong>
+					<span class="ap-collection-label">{{role}}</span>
+					<button class="ap-user-delete" data-username="{{username}}" title="ユーザーを削除">&times;</button>
+				</div>
+				{{/each}}
+			</div>
+			{{else}}
+			<p style="font-size:13px;color:#718096;">マルチユーザーモードは無効です（users.json 未設定）。下のフォームからユーザーを追加するとマルチユーザーモードが有効になります。</p>
+			{{/if}}
+			<div class="ap-dash-field" style="margin-top:12px;">
+				<label>新規ユーザー追加</label>
+				<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+					<input type="text" id="ap-user-username" placeholder="ユーザー名" style="flex:1;min-width:120px;padding:6px 10px;border:1px solid #cbd5e0;border-radius:4px;font-size:14px;">
+					<input type="password" id="ap-user-password" placeholder="パスワード" style="flex:1;min-width:120px;padding:6px 10px;border:1px solid #cbd5e0;border-radius:4px;font-size:14px;">
+					<select id="ap-user-role" style="padding:6px 10px;border:1px solid #cbd5e0;border-radius:4px;font-size:14px;">
+						<option value="editor">editor</option>
+						<option value="admin">admin</option>
+						<option value="viewer">viewer</option>
+					</select>
+					<button id="ap-user-add">追加</button>
+				</div>
+			</div>
+			<div id="ap-user-result" style="margin-top:4px;font-size:13px;"></div>
+		</section>
+
+		<section class="ap-dash-card">
 			<h2>API 設定</h2>
 			<div class="ap-dash-field">
 				<label>お問い合わせ送信先メール <small>(?ap_api=contact の宛先)</small></label>
@@ -251,6 +328,15 @@
 					<code>?ap_api=item_delete</code> アイテム削除 (POST)<br>
 					<code>?ap_api=page_upsert</code> ページ作成・更新 (POST)<br>
 					<code>?ap_api=page_delete</code> ページ削除 (POST)<br>
+					<code>?ap_api=media_list</code> メディア一覧<br>
+					<code>?ap_api=media_upload</code> メディアアップロード (POST)<br>
+					<code>?ap_api=media_delete</code> メディア削除 (POST)<br>
+					<code>?ap_api=preview&amp;collection=…&amp;slug=…</code> 下書きプレビュー<br>
+					<code>?ap_api=export&amp;collection=…&amp;format=json|csv</code> エクスポート<br>
+					<code>?ap_api=import</code> インポート (POST)<br>
+					<code>?ap_api=webhooks</code> Webhook 一覧<br>
+					<code>?ap_api=cache_clear</code> キャッシュクリア (POST)<br>
+					<code>?ap_api=cache_stats</code> キャッシュ統計<br>
 					<code>?ap_api=webhook</code> GitHub Webhook 受信 (POST)
 				</div>
 			</div>

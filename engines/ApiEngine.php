@@ -20,6 +20,25 @@
  *
  * Webhook:
  *   ?ap_api=webhook       — GitHub Webhook 受信 (POST)
+ *
+ * メディア管理（API キー認証）:
+ *   ?ap_api=media_list    — メディアファイル一覧 (GET)
+ *   ?ap_api=media_upload  — メディアアップロード (POST)
+ *   ?ap_api=media_delete  — メディア削除 (POST)
+ *
+ * プレビュー（認証必須）:
+ *   ?ap_api=preview       — 下書きアイテムプレビュー (GET)
+ *
+ * インポート/エクスポート（認証必須）:
+ *   ?ap_api=export        — コレクションエクスポート (GET)
+ *   ?ap_api=import        — コレクションインポート (POST)
+ *
+ * キャッシュ管理（認証必須）:
+ *   ?ap_api=cache_clear   — キャッシュクリア (POST)
+ *   ?ap_api=cache_stats   — キャッシュ統計 (GET)
+ *
+ * Webhook 管理（認証必須）:
+ *   ?ap_api=webhooks      — Webhook 一覧 (GET)
  */
 class ApiEngine {
 
@@ -67,26 +86,39 @@ class ApiEngine {
 		$publicActions = ['pages', 'page', 'settings', 'search', 'collections', 'collection', 'item'];
 		if (in_array($action, $publicActions, true)) {
 			self::checkApiRate();
+			/* API キャッシュチェック（公開エンドポイントのみ） */
+			if (class_exists('CacheEngine') && $action !== 'search') {
+				CacheEngine::serve($action, $_GET);
+			}
 		}
 
 		/* 公開エンドポイント（認証不要） */
 		match ($action) {
-			'pages'       => self::handlePages(),
-			'page'        => self::handleGetPage(),
-			'settings'    => self::jsonResponse(true, self::getSettings()),
-			'search'      => self::handleSearch(),
-			'contact'     => self::handleContact(),
-			'collections' => self::handleCollections(),
-			'collection'  => self::handleCollection(),
-			'item'        => self::handleItem(),
-			'webhook'     => self::handleWebhook(),
+			'pages'        => self::handlePages(),
+			'page'         => self::handleGetPage(),
+			'settings'     => self::jsonResponse(true, self::getSettings()),
+			'search'       => self::handleSearch(),
+			'contact'      => self::handleContact(),
+			'collections'  => self::handleCollections(),
+			'collection'   => self::handleCollection(),
+			'item'         => self::handleItem(),
+			'webhook'      => self::handleWebhook(),
 			/* 管理エンドポイント（要認証） */
-			'item_upsert' => self::requireAuth('handleItemUpsert'),
-			'item_delete' => self::requireAuth('handleItemDelete'),
-			'page_upsert' => self::requireAuth('handlePageUpsert'),
-			'page_delete' => self::requireAuth('handlePageDelete'),
-			'api_keys'    => self::requireAuth('handleApiKeys'),
-			default       => self::jsonError('不明な API エンドポイントです', 400),
+			'item_upsert'  => self::requireAuth('handleItemUpsert'),
+			'item_delete'  => self::requireAuth('handleItemDelete'),
+			'page_upsert'  => self::requireAuth('handlePageUpsert'),
+			'page_delete'  => self::requireAuth('handlePageDelete'),
+			'api_keys'     => self::requireAuth('handleApiKeys'),
+			'media_list'   => self::requireAuth('handleMediaList'),
+			'media_upload' => self::requireAuth('handleMediaUpload'),
+			'media_delete' => self::requireAuth('handleMediaDelete'),
+			'preview'      => self::requireAuth('handlePreview'),
+			'export'       => self::requireAuth('handleExport'),
+			'import'       => self::requireAuth('handleImport'),
+			'cache_clear'  => self::requireAuth('handleCacheClear'),
+			'cache_stats'  => self::requireAuth('handleCacheStats'),
+			'webhooks'     => self::requireAuth('handleWebhooks'),
+			default        => self::jsonError('不明な API エンドポイントです', 400),
 		};
 	}
 
@@ -509,6 +541,10 @@ class ApiEngine {
 		if (class_exists('AdminEngine') && method_exists('AdminEngine', 'logActivity')) {
 			AdminEngine::logActivity("API: アイテム保存 {$collection}/{$slug}");
 		}
+		if (class_exists('WebhookEngine')) {
+			WebhookEngine::dispatch('item.updated', ['collection' => $collection, 'slug' => $slug]);
+		}
+		if (class_exists('CacheEngine')) CacheEngine::invalidateContent();
 
 		self::jsonResponse(true, [
 			'collection' => $collection,
@@ -544,6 +580,10 @@ class ApiEngine {
 		if (class_exists('AdminEngine') && method_exists('AdminEngine', 'logActivity')) {
 			AdminEngine::logActivity("API: アイテム削除 {$collection}/{$slug}");
 		}
+		if (class_exists('WebhookEngine')) {
+			WebhookEngine::dispatch('item.deleted', ['collection' => $collection, 'slug' => $slug]);
+		}
+		if (class_exists('CacheEngine')) CacheEngine::invalidateContent();
 
 		self::jsonResponse(true, ['deleted' => "{$collection}/{$slug}"]);
 	}
@@ -572,6 +612,10 @@ class ApiEngine {
 		if (class_exists('AdminEngine') && method_exists('AdminEngine', 'logActivity')) {
 			AdminEngine::logActivity("API: ページ保存 {$slug}");
 		}
+		if (class_exists('WebhookEngine')) {
+			WebhookEngine::dispatch('page.updated', ['slug' => $slug]);
+		}
+		if (class_exists('CacheEngine')) CacheEngine::invalidateContent();
 
 		self::jsonResponse(true, ['slug' => $slug, 'message' => '保存しました']);
 	}
@@ -706,6 +750,311 @@ class ApiEngine {
 		}
 
 		self::jsonResponse(true, ['message' => '未対応のイベントです: ' . $event, 'skipped' => true]);
+	}
+
+	/* ══════════════════════════════════════════════
+	   管理エンドポイント: メディア管理
+	   ══════════════════════════════════════════════ */
+
+	private static function handleMediaList(): void {
+		$dir = 'uploads/';
+		if (!is_dir($dir)) {
+			self::jsonResponse(true, ['files' => [], 'total' => 0]);
+		}
+		$files = [];
+		foreach (glob($dir . '*') ?: [] as $f) {
+			if (is_dir($f)) continue;
+			$base = basename($f);
+			if ($base === '.htaccess') continue;
+			$finfo = new finfo(FILEINFO_MIME_TYPE);
+			$files[] = [
+				'name'       => $base,
+				'url'        => $dir . $base,
+				'size'       => filesize($f),
+				'mime'       => $finfo->file($f),
+				'created_at' => date('c', filectime($f) ?: time()),
+			];
+		}
+		/* 作成日降順ソート */
+		usort($files, fn($a, $b) => strcmp($b['created_at'], $a['created_at']));
+
+		$p = self::getPagination();
+		$total = count($files);
+		$paged = array_slice($files, $p['offset'], $p['limit']);
+
+		echo json_encode([
+			'ok'   => true,
+			'data' => ['files' => $paged],
+			'meta' => ['total' => $total, 'limit' => $p['limit'], 'offset' => $p['offset']],
+		], JSON_UNESCAPED_UNICODE);
+		exit;
+	}
+
+	private static function handleMediaUpload(): void {
+		if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+			self::jsonError('POST メソッドが必要です', 405);
+		}
+		if (!isset($_FILES['file']) || $_FILES['file']['error'] !== UPLOAD_ERR_OK) {
+			self::jsonError('ファイルエラー', 400);
+		}
+		$file = $_FILES['file'];
+		if ($file['size'] > 5 * 1024 * 1024) {
+			self::jsonError('ファイルサイズが上限（5MB）を超えています', 400);
+		}
+		$finfo = new finfo(FILEINFO_MIME_TYPE);
+		$mime  = $finfo->file($file['tmp_name']);
+		$ext_map = [
+			'image/jpeg' => 'jpg', 'image/png' => 'png', 'image/gif' => 'gif',
+			'image/webp' => 'webp', 'image/svg+xml' => 'svg',
+			'application/pdf' => 'pdf',
+		];
+		if (!isset($ext_map[$mime])) {
+			self::jsonError('許可されていないファイル形式です', 400);
+		}
+		$dir = 'uploads/';
+		if (!is_dir($dir)) mkdir($dir, 0755, true);
+		$filename = bin2hex(random_bytes(12)) . '.' . $ext_map[$mime];
+		if (!move_uploaded_file($file['tmp_name'], $dir . $filename)) {
+			self::jsonError('ファイル保存に失敗しました', 500);
+		}
+
+		/* 画像最適化（提案8） */
+		if (class_exists('ImageOptimizer')) {
+			ImageOptimizer::optimize($dir . $filename);
+		}
+
+		if (class_exists('AdminEngine') && method_exists('AdminEngine', 'logActivity')) {
+			AdminEngine::logActivity("API: メディアアップロード {$filename}");
+		}
+		self::jsonResponse(true, [
+			'name' => $filename,
+			'url'  => $dir . $filename,
+			'mime' => $mime,
+			'size' => filesize($dir . $filename),
+		]);
+	}
+
+	private static function handleMediaDelete(): void {
+		if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+			self::jsonError('POST メソッドが必要です', 405);
+		}
+		$input = self::getJsonInput();
+		$name = $input['name'] ?? '';
+		if ($name === '' || str_contains($name, '/') || str_contains($name, '..')) {
+			self::jsonError('不正なファイル名です', 400);
+		}
+		$path = 'uploads/' . $name;
+		if (!file_exists($path)) {
+			self::jsonError('ファイルが見つかりません', 404);
+		}
+		if (!unlink($path)) {
+			self::jsonError('ファイルの削除に失敗しました', 500);
+		}
+		/* サムネイルも削除 */
+		$thumbPath = 'uploads/thumb/' . $name;
+		if (file_exists($thumbPath)) @unlink($thumbPath);
+
+		if (class_exists('AdminEngine') && method_exists('AdminEngine', 'logActivity')) {
+			AdminEngine::logActivity("API: メディア削除 {$name}");
+		}
+		self::jsonResponse(true, ['deleted' => $name]);
+	}
+
+	/* ══════════════════════════════════════════════
+	   管理エンドポイント: プレビューモード
+	   ══════════════════════════════════════════════ */
+
+	private static function handlePreview(): void {
+		$collection = $_GET['collection'] ?? '';
+		$slug = $_GET['slug'] ?? '';
+		if (!preg_match(self::SLUG_PATTERN, $collection) || !preg_match(self::SLUG_PATTERN, $slug)) {
+			self::jsonError('collection と slug は必須です', 400);
+		}
+		if (!class_exists('CollectionEngine')) {
+			self::jsonError('コレクション機能が無効です', 400);
+		}
+
+		/* ドラフト含む全アイテムから取得 */
+		$item = CollectionEngine::getItem($collection, $slug);
+		if ($item === null) {
+			self::jsonError('アイテムが見つかりません', 404);
+		}
+
+		self::jsonResponse(true, [
+			'collection' => $collection,
+			'slug'       => $slug,
+			'meta'       => $item['meta'],
+			'content'    => $item['html'],
+			'markdown'   => $item['body'],
+			'status'     => $item['meta']['status'] ?? 'published',
+			'preview'    => true,
+		]);
+	}
+
+	/* ══════════════════════════════════════════════
+	   管理エンドポイント: エクスポート
+	   ══════════════════════════════════════════════ */
+
+	private static function handleExport(): void {
+		$collection = $_GET['collection'] ?? '';
+		$format = $_GET['format'] ?? 'json';
+		if (!preg_match(self::SLUG_PATTERN, $collection)) {
+			self::jsonError('コレクション名を指定してください', 400);
+		}
+		if (!class_exists('CollectionEngine')) {
+			self::jsonError('コレクション機能が無効です', 400);
+		}
+
+		$items = CollectionEngine::getAllItems($collection);
+		if ($format === 'csv') {
+			self::exportCsv($collection, $items);
+		}
+		/* JSON エクスポート */
+		$exportData = [];
+		foreach ($items as $slug => $item) {
+			$exportData[] = [
+				'slug'     => $slug,
+				'meta'     => $item['meta'],
+				'body'     => $item['body'],
+			];
+		}
+		header('Content-Disposition: attachment; filename="' . $collection . '.json"');
+		self::jsonResponse(true, [
+			'collection' => $collection,
+			'count'      => count($exportData),
+			'items'      => $exportData,
+		]);
+	}
+
+	private static function exportCsv(string $collection, array $items): never {
+		header('Content-Type: text/csv; charset=UTF-8');
+		header('Content-Disposition: attachment; filename="' . $collection . '.csv"');
+
+		$output = fopen('php://output', 'w');
+		if ($output === false) {
+			self::jsonError('CSV 出力に失敗しました', 500);
+		}
+		/* BOM for Excel */
+		fwrite($output, "\xEF\xBB\xBF");
+
+		/* ヘッダー行を収集 */
+		$allKeys = ['slug'];
+		foreach ($items as $item) {
+			foreach (array_keys($item['meta']) as $k) {
+				if (!in_array($k, $allKeys, true)) $allKeys[] = $k;
+			}
+		}
+		$allKeys[] = 'body';
+		fputcsv($output, $allKeys);
+
+		foreach ($items as $slug => $item) {
+			$row = [$slug];
+			foreach (array_slice($allKeys, 1, -1) as $key) {
+				$val = $item['meta'][$key] ?? '';
+				if (is_array($val)) $val = json_encode($val, JSON_UNESCAPED_UNICODE);
+				if (is_bool($val)) $val = $val ? 'true' : 'false';
+				$row[] = (string)$val;
+			}
+			$row[] = $item['body'];
+			fputcsv($output, $row);
+		}
+		fclose($output);
+		exit;
+	}
+
+	/* ══════════════════════════════════════════════
+	   管理エンドポイント: インポート
+	   ══════════════════════════════════════════════ */
+
+	private static function handleImport(): void {
+		if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+			self::jsonError('POST メソッドが必要です', 405);
+		}
+		if (!class_exists('CollectionEngine')) {
+			self::jsonError('コレクション機能が無効です', 400);
+		}
+
+		$input = self::getJsonInput();
+		$collection = $input['collection'] ?? '';
+		$items = $input['items'] ?? [];
+
+		if (!preg_match(self::SLUG_PATTERN, $collection)) {
+			self::jsonError('コレクション名を指定してください', 400);
+		}
+		if (!is_array($items) || empty($items)) {
+			self::jsonError('インポートするアイテムが空です', 400);
+		}
+
+		$def = CollectionEngine::getCollectionDef($collection);
+		if ($def === null) {
+			self::jsonError('コレクションが存在しません', 404);
+		}
+
+		$imported = 0;
+		$errors = [];
+		foreach ($items as $item) {
+			$slug = $item['slug'] ?? '';
+			$meta = $item['meta'] ?? [];
+			$body = $item['body'] ?? '';
+			if (!preg_match(self::SLUG_PATTERN, $slug)) {
+				$errors[] = "不正なスラッグ: {$slug}";
+				continue;
+			}
+			if (CollectionEngine::saveItem($collection, $slug, $meta, $body)) {
+				$imported++;
+			} else {
+				$errors[] = "保存失敗: {$slug}";
+			}
+		}
+
+		if (class_exists('AdminEngine') && method_exists('AdminEngine', 'logActivity')) {
+			AdminEngine::logActivity("API: インポート {$collection} ({$imported}件)");
+		}
+
+		/* Webhook 発火 */
+		if (class_exists('WebhookEngine') && $imported > 0) {
+			WebhookEngine::dispatch('item.updated', ['collection' => $collection, 'imported' => $imported]);
+		}
+		/* キャッシュ無効化 */
+		if (class_exists('CacheEngine')) CacheEngine::invalidateContent();
+
+		self::jsonResponse(true, [
+			'collection' => $collection,
+			'imported'   => $imported,
+			'errors'     => $errors,
+		]);
+	}
+
+	/* ══════════════════════════════════════════════
+	   管理エンドポイント: キャッシュ管理
+	   ══════════════════════════════════════════════ */
+
+	private static function handleCacheClear(): void {
+		if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+			self::jsonError('POST メソッドが必要です', 405);
+		}
+		if (class_exists('CacheEngine')) {
+			CacheEngine::clear();
+		}
+		self::jsonResponse(true, ['message' => 'キャッシュをクリアしました']);
+	}
+
+	private static function handleCacheStats(): void {
+		if (!class_exists('CacheEngine')) {
+			self::jsonResponse(true, ['files' => 0, 'size' => 0]);
+		}
+		self::jsonResponse(true, CacheEngine::getStats());
+	}
+
+	/* ══════════════════════════════════════════════
+	   管理エンドポイント: Webhook 管理
+	   ══════════════════════════════════════════════ */
+
+	private static function handleWebhooks(): void {
+		if (!class_exists('WebhookEngine')) {
+			self::jsonResponse(true, []);
+		}
+		self::jsonResponse(true, WebhookEngine::listWebhooks());
 	}
 
 	/* ══════════════════════════════════════════════
