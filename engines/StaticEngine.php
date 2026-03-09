@@ -689,7 +689,8 @@ class StaticEngine {
 					foreach ($tags as $tag) {
 						$tag = trim($tag);
 						if ($tag === '') continue;
-						$tagSlugs[mb_convert_case(str_replace(' ', '-', $tag), MB_CASE_LOWER, 'UTF-8')] = true;
+						$ts_ = preg_replace('/[^a-z0-9\-_\p{L}\p{N}]/u', '', mb_convert_case(str_replace(' ', '-', $tag), MB_CASE_LOWER, 'UTF-8'));
+						if ($ts_ !== '' && !str_contains($ts_, '..')) $tagSlugs[$ts_] = true;
 					}
 				}
 				if ($tagSlugs) {
@@ -741,6 +742,9 @@ class StaticEngine {
 					$tag = trim($tag);
 					if ($tag === '') continue;
 					$tagSlug = mb_convert_case(str_replace(' ', '-', $tag), MB_CASE_LOWER, 'UTF-8');
+					/* R3 fix: タグスラグのサニタイズ（パストラバーサル防止） */
+					$tagSlug = preg_replace('/[^a-z0-9\-_\p{L}\p{N}]/u', '', $tagSlug);
+					if ($tagSlug === '' || str_contains($tagSlug, '..')) continue;
 					if (!isset($tagMap[$tagSlug])) {
 						$tagMap[$tagSlug] = ['name' => $tag, 'items' => []];
 					}
@@ -849,6 +853,8 @@ class StaticEngine {
 				$tag = trim($tag);
 				if ($tag === '') continue;
 				$tagSlug = mb_convert_case(str_replace(' ', '-', $tag), MB_CASE_LOWER, 'UTF-8');
+				$tagSlug = preg_replace('/[^a-z0-9\-_\p{L}\p{N}]/u', '', $tagSlug);
+				if ($tagSlug === '' || str_contains($tagSlug, '..')) continue;
 				if (!isset($tags[$tagSlug])) {
 					$tags[$tagSlug] = ['name' => $tag, 'slug' => $tagSlug, 'count' => 0];
 				}
@@ -908,6 +914,11 @@ class StaticEngine {
 				$parts = explode('/', $slug, 2);
 				$item = CollectionEngine::getItem($parts[0], $parts[1]);
 				if ($item) {
+					/* R9 fix: ドラフト・非公開アイテムを検索インデックスから除外 */
+					$status = $item['meta']['status'] ?? 'published';
+					if (!empty($item['meta']['draft']) || $status === 'draft' || $status === 'archived') {
+						continue;
+					}
 					$entry['title'] = $item['meta']['title'] ?? $parts[1];
 					$entry['tags']  = $item['meta']['tags'] ?? [];
 					$entry['date']  = $item['meta']['date'] ?? '';
@@ -940,8 +951,9 @@ class StaticEngine {
 	private static function minifyHtml(string $html): string {
 		/* <pre>, <code>, <script>, <style>, <textarea> 内は保護 */
 		$protected = [];
+		/* R6 fix: 後方参照で開閉タグの一致を保証（ネスト保護の正確性向上） */
 		$html = preg_replace_callback(
-			'#(<(?:pre|code|script|style|textarea)\b[^>]*>)(.*?)(</(?:pre|code|script|style|textarea)>)#si',
+			'#(<(pre|code|script|style|textarea)\b[^>]*>)(.*?)(</\2>)#si',
 			function($m) use (&$protected) {
 				/* C1 fix: HTML コメント形式ではなく固有トークンを使用（コメント除去で消されない） */
 				$key = "\x00AP_PROTECT_" . count($protected) . "\x00";
@@ -966,14 +978,25 @@ class StaticEngine {
 	}
 
 	public static function minifyCss(string $css): string {
+		/* R7 fix: calc() 内の空白を保護 */
+		$calcProtected = [];
+		$css = preg_replace_callback('/calc\([^)]+\)/i', function($m) use (&$calcProtected) {
+			$key = "\x00AP_CALC_" . count($calcProtected) . "\x00";
+			$calcProtected[$key] = $m[0];
+			return $key;
+		}, $css) ?? $css;
 		/* コメント除去 */
 		$css = preg_replace('#/\*.*?\*/#s', '', $css) ?? $css;
 		/* 空白圧縮 */
 		$css = preg_replace('/\s+/', ' ', $css) ?? $css;
 		/* セレクタ周辺の空白除去 */
-		$css = preg_replace('/\s*([{};:,>+~])\s*/', '$1', $css) ?? $css;
+		$css = preg_replace('/\s*([{};:,>~])\s*/', '$1', $css) ?? $css;
 		/* 末尾セミコロン除去 */
 		$css = str_replace(';}', '}', $css);
+		/* calc() 復元 */
+		foreach ($calcProtected as $key => $val) {
+			$css = str_replace($key, $val, $css);
+		}
 		return trim($css);
 	}
 

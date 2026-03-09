@@ -46,7 +46,10 @@ class MarkdownEngine {
 			$key = trim(substr($line, 0, $pos));
 			$val = trim(substr($line, $pos + 1));
 			if ($key === '') continue;
-			$result[$key] = self::parseYamlValue($val);
+			/* R8 fix: 重複キーは最初の値を優先（後からのステータス上書き防止） */
+			if (!array_key_exists($key, $result)) {
+				$result[$key] = self::parseYamlValue($val);
+			}
 		}
 		return $result;
 	}
@@ -404,12 +407,18 @@ class MarkdownEngine {
 	 */
 	private static function sanitizeUrl(string $url): ?string {
 		$url = trim($url);
-		/* javascript:, data:, vbscript: 等の危険なスキームをブロック */
-		$lower = strtolower($url);
-		if (preg_match('/^(javascript|data|vbscript):/i', $lower)) {
-			return null;
+		/* R4 fix: 制御文字・空白を除去（スキームチェックバイパス防止） */
+		$url = preg_replace('/[\x00-\x1f\x7f\s]/', '', $url);
+		/* 許可リスト方式: 安全なスキーム / 相対パスのみ許可 */
+		if (preg_match('#^https?://#i', $url) || preg_match('#^(mailto:|/|#|\?)#', $url)) {
+			return $url;
 		}
-		return $url;
+		/* 相対パス（スキームなし・コロンなし） */
+		if (!str_contains($url, ':')) {
+			return $url;
+		}
+		/* それ以外（javascript:, data:, vbscript: 等）はブロック */
+		return null;
 	}
 
 	/* ══════════════════════════════════════════════

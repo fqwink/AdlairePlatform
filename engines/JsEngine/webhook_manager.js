@@ -22,10 +22,11 @@
 			.catch(function(e) { callback({ ok: false, error: e.message }); });
 	}
 
+	/* R1 fix: CSRF トークンを X-CSRF-TOKEN ヘッダーで送信 */
 	function apiPost(endpoint, data, callback) {
 		fetch('./?ap_api=' + encodeURIComponent(endpoint), {
 			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
+			headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf },
 			body: JSON.stringify(data)
 		})
 		.then(function(r) {

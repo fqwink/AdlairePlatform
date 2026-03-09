@@ -361,6 +361,12 @@ class AdminEngine {
 
 	private static function handleDeletePage(): void {
 		header('Content-Type: application/json; charset=UTF-8');
+		/* R5 fix: ページ削除は admin ロールを要求 */
+		if (!self::hasRole('admin')) {
+			http_response_code(403);
+			echo json_encode(['error' => '管理者権限が必要です']);
+			exit;
+		}
 		$slug = $_POST['slug'] ?? '';
 		if (!preg_match('/^[a-zA-Z0-9_\-]+$/', $slug)) {
 			http_response_code(400);

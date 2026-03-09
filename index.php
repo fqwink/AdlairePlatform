@@ -93,11 +93,10 @@ foreach($c as $key => $val){
 			if(empty($_auth['password_hash'])){
 				$c[$key] = AdminEngine::savePassword($val);
 			} elseif(strlen($_auth['password_hash']) === 32 && ctype_xdigit($_auth['password_hash'])){
-				/* MD5ハッシュ検出: ランダムパスワードで上書き（セキュリティ確保） */
-				$tempPw = bin2hex(random_bytes(16));
-				$c[$key] = AdminEngine::savePassword($tempPw);
+				/* R2 fix: MD5ハッシュ検出 → デフォルトパスワード 'admin' で bcrypt 化（ログイン可能を維持） */
+				$c[$key] = AdminEngine::savePassword('admin');
 				$c['migrate_warning'] = true;
-				error_log('AdlairePlatform: MD5パスワードを検出。ランダムパスワードに移行しました。管理者はパスワードリセットが必要です。');
+				error_log('AdlairePlatform: MD5パスワードを検出。デフォルト "admin" で bcrypt 化しました。直ちにパスワードを変更してください。');
 			} else {
 				$c[$key] = $_auth['password_hash'];
 			}
