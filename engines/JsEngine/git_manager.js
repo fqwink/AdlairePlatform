@@ -16,7 +16,8 @@
 		for (var k in params) {
 			if (params.hasOwnProperty(k)) fd.append(k, params[k]);
 		}
-		fetch('./', { method: 'POST', body: fd })
+		/* R23 fix: X-CSRF-TOKEN ヘッダーを追加 */
+		fetch('./', { method: 'POST', headers: { 'X-CSRF-TOKEN': csrf }, body: fd })
 			.then(function(r) { return r.json(); })
 			.then(callback)
 			.catch(function(e) { callback({ ok: false, error: e.message }); });

@@ -88,6 +88,8 @@ class CollectionEngine {
 		if (isset($schema['collections'][$name])) return false;
 
 		$def['directory'] = $def['directory'] ?? $name;
+		/* R14 fix: directory フィールドもスラグパターンで検証（パストラバーサル防止） */
+		if (!preg_match(self::SLUG_PATTERN, $def['directory'])) return false;
 		$schema['collections'][$name] = $def;
 		self::saveSchema($schema);
 
@@ -465,6 +467,10 @@ class CollectionEngine {
 
 	private static function handleDelete(): never {
 		$name = trim($_POST['name'] ?? '');
+		/* R15 fix: コレクション名をスラグパターンで検証 */
+		if (!preg_match(self::SLUG_PATTERN, $name)) {
+			self::jsonError('無効なコレクション名です');
+		}
 		if (!self::deleteCollection($name)) {
 			self::jsonError('コレクションの削除に失敗しました');
 		}
@@ -483,6 +489,10 @@ class CollectionEngine {
 
 		if ($collection === '' || $slug === '') {
 			self::jsonError('コレクション名とスラッグは必須です');
+		}
+		/* R15 fix: コレクション名をスラグパターンで検証（パストラバーサル防止） */
+		if (!preg_match(self::SLUG_PATTERN, $collection)) {
+			self::jsonError('無効なコレクション名です');
 		}
 
 		$meta = ['title' => $title ?: $slug];
@@ -527,6 +537,10 @@ class CollectionEngine {
 	private static function handleItemDelete(): never {
 		$collection = trim($_POST['collection'] ?? '');
 		$slug = trim($_POST['slug'] ?? '');
+		/* R15 fix: コレクション名をスラグパターンで検証 */
+		if (!preg_match(self::SLUG_PATTERN, $collection)) {
+			self::jsonError('無効なコレクション名です');
+		}
 		if (!self::deleteItem($collection, $slug)) {
 			self::jsonError('アイテムの削除に失敗しました');
 		}

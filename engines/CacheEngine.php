@@ -140,6 +140,8 @@ class CacheEngine {
 	}
 
 	private static function cacheKey(string $endpoint, array $params): string {
+		/* R18 fix: エンドポイント名をサニタイズ（パストラバーサル防止） */
+		$endpoint = preg_replace('/[^a-zA-Z0-9_\-]/', '', $endpoint);
 		ksort($params);
 		return $endpoint . '_' . md5(json_encode($params));
 	}

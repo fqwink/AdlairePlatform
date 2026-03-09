@@ -71,6 +71,10 @@ class ApiEngine {
 		/* CORS ヘッダー（ヘッドレス CMS: 外部フロントエンドからの API 呼び出し対応） */
 		$allowedOrigin = self::getCorsOrigin();
 		header('Access-Control-Allow-Origin: ' . $allowedOrigin);
+		/* R16 fix: オリジン別レスポンスのキャッシュ分離（CORS キャッシュポイズニング防止） */
+		if ($allowedOrigin !== '*') {
+			header('Vary: Origin');
+		}
 		header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
 		header('Access-Control-Allow-Headers: Content-Type, Authorization');
 		header('Access-Control-Max-Age: 86400');
@@ -395,7 +399,9 @@ class ApiEngine {
 		$safeName  = str_replace(["\r", "\n"], '', $name);
 		$safeEmail = str_replace(["\r", "\n"], '', $email);
 
-		$subject = '【' . ($settings['title'] ?? 'AP') . '】お問い合わせ: ' . $safeName;
+		/* R17 fix: サブジェクトのヘッダインジェクション対策 */
+		$safeTitle = str_replace(["\r", "\n"], '', $settings['title'] ?? 'AP');
+		$subject = '【' . $safeTitle . '】お問い合わせ: ' . $safeName;
 		$body    = "名前: {$safeName}\nメール: {$safeEmail}\n\n{$message}";
 		$headers = "From: {$safeEmail}\r\nReply-To: {$safeEmail}\r\nContent-Type: text/plain; charset=UTF-8";
 

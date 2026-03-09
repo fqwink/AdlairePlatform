@@ -17,6 +17,10 @@ function _apSanitizeHtml(html) {
 		for (var k = 0; k < attrs.length; k++) {
 			if (/^on/i.test(attrs[k].name)) all[j].removeAttribute(attrs[k].name);
 		}
+		/* R27 fix: javascript: スキームの href をブロック */
+		if (all[j].tagName === 'A' && /^\s*javascript:/i.test(all[j].getAttribute('href') || '')) {
+			all[j].removeAttribute('href');
+		}
 	}
 	var div = document.createElement('div');
 	div.appendChild(tmp.cloneNode(true));

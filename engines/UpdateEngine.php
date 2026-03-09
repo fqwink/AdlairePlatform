@@ -342,15 +342,22 @@ function rollback_to_backup(string $backup_name): void {
 		new RecursiveDirectoryIterator($src, RecursiveDirectoryIterator::SKIP_DOTS),
 		RecursiveIteratorIterator::SELF_FIRST
 	);
+	/* R11 fix: apply_update() と同等のパストラバーサル防止をロールバックにも適用 */
+	$app_root = realpath('.');
 	foreach($iter as $item){
 		$rel   = substr($item->getRealPath(), strlen($real_src) + 1);
-		if($rel === 'meta.json') continue;
+		if($rel === false || $rel === '' || $rel === 'meta.json') continue;
+		if(str_contains($rel, '..')) continue;
 		$parts = explode(DIRECTORY_SEPARATOR, $rel);
 		if(in_array($parts[0], $exclude, true)) continue;
+		$dest = $app_root . DIRECTORY_SEPARATOR . $rel;
 		if($item->isDir()){
-			@mkdir('./'.$rel, 0755, true);
+			@mkdir($dest, 0755, true);
 		} else {
-			@copy($item->getRealPath(), './'.$rel);
+			$destDir = dirname($dest);
+			$realDestDir = realpath($destDir);
+			if($realDestDir === false || !str_starts_with($realDestDir, $app_root)) continue;
+			@copy($item->getRealPath(), $dest);
 		}
 	}
 }

@@ -16,6 +16,9 @@
 		if (method === 'POST') {
 			opts.headers['Content-Type'] = 'application/json';
 			opts.headers['Authorization'] = 'session'; /* セッション認証を使用 */
+			/* R21 fix: CSRF トークンをヘッダーとボディの両方で送信 */
+			opts.headers['X-CSRF-TOKEN'] = csrf;
+			params.csrf = csrf;
 			opts.body = JSON.stringify(params);
 		}
 

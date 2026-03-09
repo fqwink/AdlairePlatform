@@ -191,11 +191,22 @@ class GitEngine {
 
 			/* ローカルパスを計算 */
 			$relativePath = substr($path, strlen($remoteDir) + 1);
+			/* R12 fix: パストラバーサル防止（リポジトリ内の悪意あるパスを排除） */
+			if (str_contains($relativePath, '..') || str_starts_with($relativePath, '/')) {
+				$errors[] = "不正なパス検出: {$path}";
+				continue;
+			}
 			$localPath = content_dir() . '/' . $relativePath;
 
 			/* ディレクトリ作成 */
 			$localDir = dirname($localPath);
 			if (!is_dir($localDir)) mkdir($localDir, 0755, true);
+			$realContentDir = realpath(content_dir());
+			$realLocalDir = realpath($localDir);
+			if ($realLocalDir === false || $realContentDir === false || !str_starts_with($realLocalDir, $realContentDir)) {
+				$errors[] = "パストラバーサル検出: {$path}";
+				continue;
+			}
 
 			/* ファイルサイズチェック */
 			$fileSize = $item['size'] ?? 0;

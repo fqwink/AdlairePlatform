@@ -183,8 +183,12 @@ function verify_csrf(): void {
 
 function getSlug(string $p): string {
 	$slug = mb_convert_case(str_replace(' ', '-', $p), MB_CASE_LOWER, "UTF-8");
-	/* M12 fix: パストラバーサル防止 */
-	$slug = str_replace(['../', '..\\', "\0"], '', $slug);
+	/* R26 fix: ループでパストラバーサルを再帰的に除去（ ....// → ../ 対策） */
+	$slug = str_replace("\0", '', $slug);
+	do {
+		$prev = $slug;
+		$slug = str_replace(['../', '..\\'], '', $slug);
+	} while ($slug !== $prev);
 	$slug = preg_replace('#/+#', '/', $slug);
 	return ltrim($slug, '/');
 }

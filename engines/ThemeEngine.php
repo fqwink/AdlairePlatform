@@ -156,7 +156,8 @@ class ThemeEngine {
 					'url'      => $canonicalUrl,
 				];
 			}
-			$jsonLd = '<script type="application/ld+json">' . json_encode($ld, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . '</script>';
+			/* R13 fix: JSON_UNESCAPED_SLASHES を除去（</script> インジェクション防止） */
+		$jsonLd = '<script type="application/ld+json">' . json_encode($ld, JSON_UNESCAPED_UNICODE) . '</script>';
 		}
 
 		/* パンくずリスト JSON-LD */
@@ -173,11 +174,12 @@ class ThemeEngine {
 				$name = ($i === $lastIndex) ? ($meta['title'] ?? $part) : $part;
 				$crumbs[] = ['@type' => 'ListItem', 'position' => $pos++, 'name' => $name, 'item' => $baseUrl . '/' . $path];
 			}
+			/* R13 fix: JSON_UNESCAPED_SLASHES を除去（</script> インジェクション防止） */
 			$breadcrumbLd = '<script type="application/ld+json">' . json_encode([
 				'@context'        => 'https://schema.org',
 				'@type'           => 'BreadcrumbList',
 				'itemListElement' => $crumbs,
-			], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . '</script>';
+			], JSON_UNESCAPED_UNICODE) . '</script>';
 		}
 
 		return [

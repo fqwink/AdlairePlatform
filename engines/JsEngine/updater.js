@@ -206,7 +206,8 @@ document.addEventListener('DOMContentLoaded', function () {
     function _apPost(params) {
         return fetch('index.php', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            /* R24 fix: X-CSRF-TOKEN ヘッダーを追加 */
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRF-TOKEN': csrf },
             body: new URLSearchParams(params)
         }).then(function (r) {
             if (!r.ok) return r.text().then(function (t) {

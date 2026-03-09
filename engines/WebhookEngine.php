@@ -138,6 +138,13 @@ class WebhookEngine {
 	 * 非同期 cURL で POST 送信（レスポンス待ちなし、タイムアウト5秒）
 	 */
 	private static function sendAsync(string $url, string $body, array $headers): void {
+		/* R19 fix: DNS リバインディング防止 — 送信時にもホストの IP を再検証 */
+		$host = parse_url($url, PHP_URL_HOST);
+		if ($host !== null && self::isPrivateHost($host)) {
+			error_log('AdlairePlatform: Webhook SSRF blocked (DNS rebinding): ' . $url);
+			return;
+		}
+
 		$ch = curl_init($url);
 		if ($ch === false) return;
 
@@ -249,7 +256,8 @@ class WebhookEngine {
 		}
 		/* DNS 解決して IP を確認 */
 		$ip = gethostbyname($host);
-		if ($ip === $host) return false; /* 解決失敗 */
+		/* R20 fix: DNS 解決失敗時はブロック（安全側に倒す） */
+		if ($ip === $host) return true;
 		return filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) === false;
 	}
 }

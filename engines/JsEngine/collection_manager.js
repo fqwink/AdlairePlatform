@@ -16,7 +16,8 @@
 		for (var k in params) {
 			if (params.hasOwnProperty(k)) fd.append(k, params[k]);
 		}
-		fetch('./', { method: 'POST', body: fd })
+		/* R22 fix: X-CSRF-TOKEN ヘッダーを追加 */
+		fetch('./', { method: 'POST', headers: { 'X-CSRF-TOKEN': csrf }, body: fd })
 			.then(function(r) { return r.json(); })
 			.then(callback)
 			.catch(function(e) { callback({ ok: false, error: e.message }); });
@@ -290,7 +291,22 @@
 			var slug = ((document.getElementById('ap-editor-edit-area') || {}).getAttribute('data-slug')) || 'preview';
 			fetchApi('item', { collection: currentCollection, slug: slug }, function(res) {
 				if (res.ok && res.data && res.data.content) {
-					previewEl.innerHTML = res.data.content;
+					/* R25 fix: サーバーレスポンスの HTML をサニタイズ（XSS 防止） */
+					var tmp = document.createElement('div');
+					tmp.innerHTML = res.data.content;
+					var dangerous = tmp.querySelectorAll('script,iframe,object,embed,form');
+					for (var i = 0; i < dangerous.length; i++) dangerous[i].remove();
+					var all = tmp.querySelectorAll('*');
+					for (var j = 0; j < all.length; j++) {
+						var attrs = all[j].attributes;
+						for (var a = attrs.length - 1; a >= 0; a--) {
+							if (attrs[a].name.indexOf('on') === 0) all[j].removeAttribute(attrs[a].name);
+						}
+						if (all[j].tagName === 'A' && /^\s*javascript:/i.test(all[j].getAttribute('href') || '')) {
+							all[j].removeAttribute('href');
+						}
+					}
+					previewEl.innerHTML = tmp.innerHTML;
 				}
 			});
 		}
