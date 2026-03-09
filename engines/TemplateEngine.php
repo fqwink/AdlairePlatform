@@ -92,7 +92,9 @@ class TemplateEngine {
 				$offset = $tagEnd;
 				continue;
 			}
-			$closeStart = strrpos(substr($tpl, 0, $closeEnd), '{{/each}}');
+			/* C10 fix: strrpos の代わりに閉じタグ長から直接計算 */
+			$closeTagLen = strlen('{{/each}}');
+			$closeStart = $closeEnd - $closeTagLen;
 			$body = substr($tpl, $tagEnd, $closeStart - $tagEnd);
 
 			$items = $ctx[$key] ?? [];
@@ -102,13 +104,24 @@ class TemplateEngine {
 				$items = array_values($items);
 				$count = count($items);
 				$out = '';
+				/* C9 fix: セキュリティキー（admin, csrf_token 等）の上書き防止 */
+				$protectedKeys = ['admin', 'csrf_token', 'admin_scripts'];
 				foreach ($items as $i => $item) {
-					if (!is_array($item)) continue;
-					$loopCtx = array_merge($ctx, $item, [
-						'@index' => $i,
-						'@first' => ($i === 0),
-						'@last'  => ($i === $count - 1),
-					]);
+					$loopCtx = $ctx; /* 親コンテキストをベースに */
+					$loopCtx['@index'] = $i;
+					$loopCtx['@first'] = ($i === 0);
+					$loopCtx['@last']  = ($i === $count - 1);
+					if (is_array($item)) {
+						/* アイテムのキーをマージするが、保護キーは上書きしない */
+						foreach ($item as $ik => $iv) {
+							if (!in_array($ik, $protectedKeys, true)) {
+								$loopCtx[$ik] = $iv;
+							}
+						}
+					} else {
+						/* M13 fix: スカラー値は {{this}} でアクセス可能に */
+						$loopCtx['this'] = $item;
+					}
 					$rendered = self::processEach($body, $loopCtx);
 					$rendered = self::processIf($rendered, $loopCtx);
 					$rendered = self::processRawVars($rendered, $loopCtx);
@@ -141,7 +154,9 @@ class TemplateEngine {
 				$offset = $tagEnd;
 				continue;
 			}
-			$closeStart = strrpos(substr($tpl, 0, $closeEnd), '{{/if}}');
+			/* C10 fix: strrpos の代わりに閉じタグ長から直接計算 */
+			$closeTagLen = strlen('{{/if}}');
+			$closeStart = $closeEnd - $closeTagLen;
 			$innerContent = substr($tpl, $tagEnd, $closeStart - $tagEnd);
 
 			/* 同じネストレベルの {{else}} を検索 */

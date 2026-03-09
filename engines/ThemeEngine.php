@@ -2,8 +2,8 @@
 /**
  * ThemeEngine - テーマ検証・読み込み・コンテキスト構築
  *
- * theme.html（テンプレートエンジン方式）を優先し、
- * なければ theme.php（レガシー PHP 方式）にフォールバック。
+ * theme.html（テンプレートエンジン方式）でレンダリング。
+ * theme.php（レガシー PHP 方式）は Ver.1.3-28 で廃止。
  */
 class ThemeEngine {
 	private const FALLBACK   = 'AP-Default';
@@ -11,37 +11,26 @@ class ThemeEngine {
 
 	/**
 	 * テーマをロードしてレンダリング
-	 * theme.html があれば TemplateEngine で処理、なければ theme.php を require
+	 * theme.html を TemplateEngine で処理。なければ AP-Default にフォールバック
 	 */
 	public static function load(string $themeSelect): void {
 		if (!preg_match('/^[a-zA-Z0-9_-]+$/', $themeSelect)) {
 			$themeSelect = self::FALLBACK;
 		}
 
-		$themeDir  = self::THEMES_DIR . '/' . $themeSelect;
-		$htmlPath  = $themeDir . '/theme.html';
-		$phpPath   = $themeDir . '/theme.php';
+		$themeDir = self::THEMES_DIR . '/' . $themeSelect;
+		$htmlPath = $themeDir . '/theme.html';
 
-		if (file_exists($htmlPath)) {
-			$tpl = file_get_contents($htmlPath);
-			if ($tpl !== false) {
-				$context = self::buildContext();
-				echo TemplateEngine::render($tpl, $context, $themeDir);
-			} elseif (file_exists($phpPath)) {
-				require $phpPath;
-			}
-		} elseif (file_exists($phpPath)) {
-			require $phpPath;
+		if (!file_exists($htmlPath)) {
+			$themeDir = self::THEMES_DIR . '/' . self::FALLBACK;
+			$htmlPath = $themeDir . '/theme.html';
+		}
+
+		$tpl = file_get_contents($htmlPath);
+		if ($tpl !== false) {
+			echo TemplateEngine::render($tpl, self::buildContext(), $themeDir);
 		} else {
-			$fallbackDir  = self::THEMES_DIR . '/' . self::FALLBACK;
-			$fallbackHtml = $fallbackDir . '/theme.html';
-			$fallbackPhp  = $fallbackDir . '/theme.php';
-			$tpl = file_exists($fallbackHtml) ? file_get_contents($fallbackHtml) : false;
-			if ($tpl !== false) {
-				echo TemplateEngine::render($tpl, self::buildContext(), $fallbackDir);
-			} else {
-				require $fallbackPhp;
-			}
+			echo '<!-- ThemeEngine: テンプレート読み込みエラー -->';
 		}
 	}
 
@@ -54,22 +43,28 @@ class ThemeEngine {
 	 * 動的 CMS 用のテンプレートコンテキストを構築
 	 */
 	public static function buildContext(): array {
-		global $c, $d, $host, $lstatus, $apcredit, $hook;
+		global $c, $d, $host, $lstatus, $apcredit;
 
 		$menuItems = self::parseMenu($c['menu'] ?? '', $c['page'] ?? '');
-		$admin     = is_loggedin();
+		$admin     = AdminEngine::isLoggedIn();
 
 		$adminScripts = '';
 		if ($admin) {
-			foreach (($hook['admin-head'] ?? []) as $o) {
-				$adminScripts .= "\t" . $o . "\n";
-			}
+			$adminScripts = AdminEngine::getAdminScripts();
 		}
 
-		$contentHtml = self::renderContent($c['page'] ?? '', $c['content'] ?? '', $admin);
-		$subsideHtml = self::renderContent('subside', $c['subside'] ?? '', $admin);
+		$contentHtml = AdminEngine::renderEditableContent(
+			$c['page'] ?? '',
+			$c['content'] ?? '',
+			$d['default']['content'] ?? 'Click to edit!'
+		);
+		$subsideHtml = AdminEngine::renderEditableContent(
+			'subside',
+			$c['subside'] ?? '',
+			$d['default']['content'] ?? 'Click to edit!'
+		);
 
-		$ctx = [
+		return [
 			'title'          => $c['title'] ?? '',
 			'page'           => $c['page'] ?? '',
 			'host'           => $host ?? '',
@@ -77,7 +72,7 @@ class ThemeEngine {
 			'description'    => $c['description'] ?? '',
 			'keywords'       => $c['keywords'] ?? '',
 			'admin'          => $admin,
-			'csrf_token'     => csrf_token(),
+			'csrf_token'     => AdminEngine::csrfToken(),
 			'admin_scripts'  => $adminScripts,
 			'content'        => $contentHtml,
 			'subside'        => $subsideHtml,
@@ -86,28 +81,114 @@ class ThemeEngine {
 			'credit'         => $apcredit ?? '',
 			'menu_items'     => $menuItems,
 		];
-
-		if ($admin) {
-			$ctx = array_merge($ctx, self::buildSettingsContext());
-		}
-
-		return $ctx;
 	}
 
 	/**
 	 * StaticEngine 用のコンテキスト（管理者 UI なし）
+	 * OGP / JSON-LD / canonical 自動生成を含む
 	 */
 	public static function buildStaticContext(
-		string $slug, string $content, array $settings
+		string $slug, string $content, array $settings, array $meta = []
 	): array {
 		$menuItems = self::parseMenu($settings['menu'] ?? '', $slug);
 
+		$siteTitle   = $settings['title'] ?? '';
+		$description = $settings['description'] ?? '';
+		$baseUrl     = rtrim($settings['site_url'] ?? '', '/');
+
+		/* ページ固有の値（コレクションアイテムの meta から） */
+		$pageTitle = $meta['title'] ?? $slug;
+		$pageDesc  = $meta['description'] ?? '';
+		if ($pageDesc === '' && $content !== '') {
+			$pageDesc = mb_substr(strip_tags($content), 0, 160, 'UTF-8');
+			$pageDesc = preg_replace('/\s+/', ' ', trim($pageDesc)) ?? '';
+		}
+		if ($pageDesc === '' || $pageDesc === null) $pageDesc = $description;
+		$pageImage = $meta['thumbnail'] ?? $meta['image'] ?? $meta['og_image'] ?? '';
+		$pageDate  = $meta['date'] ?? $meta['publishDate'] ?? '';
+		$pageTags  = $meta['tags'] ?? [];
+		if (is_string($pageTags)) $pageTags = array_map('trim', explode(',', $pageTags));
+
+		$canonicalUrl = $baseUrl . '/' . ($slug === 'index' ? '' : $slug . '/');
+		$ogType = str_contains($slug, '/') ? 'article' : 'website';
+
+		/* OGP メタタグ HTML 一括生成 */
+		$esc = fn(string $s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
+		$ogMeta  = '<meta property="og:title" content="' . $esc($pageTitle) . '">' . "\n";
+		$ogMeta .= '<meta property="og:description" content="' . $esc($pageDesc) . '">' . "\n";
+		$ogMeta .= '<meta property="og:type" content="' . $ogType . '">' . "\n";
+		$ogMeta .= '<meta property="og:site_name" content="' . $esc($siteTitle) . '">' . "\n";
+		if ($baseUrl !== '') {
+			$ogMeta .= '<meta property="og:url" content="' . $esc($canonicalUrl) . '">' . "\n";
+			$ogMeta .= '<link rel="canonical" href="' . $esc($canonicalUrl) . '">' . "\n";
+		}
+		if ($pageImage !== '') {
+			$imgUrl = str_starts_with($pageImage, 'http') ? $pageImage : $baseUrl . '/' . ltrim($pageImage, '/');
+			$ogMeta .= '<meta property="og:image" content="' . $esc($imgUrl) . '">' . "\n";
+		}
+		/* Twitter Card */
+		$ogMeta .= '<meta name="twitter:card" content="' . ($pageImage ? 'summary_large_image' : 'summary') . '">' . "\n";
+		$ogMeta .= '<meta name="twitter:title" content="' . $esc($pageTitle) . '">' . "\n";
+		$ogMeta .= '<meta name="twitter:description" content="' . $esc($pageDesc) . '">' . "\n";
+
+		/* JSON-LD 構造化データ */
+		$jsonLd = '';
+		if ($baseUrl !== '') {
+			if ($ogType === 'article') {
+				$ld = [
+					'@context' => 'https://schema.org',
+					'@type'    => 'Article',
+					'headline' => $pageTitle,
+					'description' => $pageDesc,
+					'url'      => $canonicalUrl,
+				];
+				if ($pageDate !== '') $ld['datePublished'] = $pageDate;
+				if ($pageImage !== '') {
+					$ld['image'] = str_starts_with($pageImage, 'http') ? $pageImage : $baseUrl . '/' . ltrim($pageImage, '/');
+				}
+				if ($pageTags) $ld['keywords'] = implode(', ', $pageTags);
+			} else {
+				$ld = [
+					'@context' => 'https://schema.org',
+					'@type'    => 'WebPage',
+					'name'     => $pageTitle,
+					'description' => $pageDesc,
+					'url'      => $canonicalUrl,
+				];
+			}
+			/* R13 fix: JSON_UNESCAPED_SLASHES を除去（</script> インジェクション防止） */
+		$jsonLd = '<script type="application/ld+json">' . json_encode($ld, JSON_UNESCAPED_UNICODE) . '</script>';
+		}
+
+		/* パンくずリスト JSON-LD */
+		$breadcrumbLd = '';
+		if ($baseUrl !== '' && $slug !== 'index') {
+			$crumbs = [['@type' => 'ListItem', 'position' => 1, 'name' => $siteTitle ?: 'Home', 'item' => $baseUrl . '/']];
+			$parts = explode('/', $slug);
+			$path = '';
+			$pos = 2;
+			$lastIndex = count($parts) - 1;
+			foreach ($parts as $i => $part) {
+				$path .= $part . '/';
+				/* M3 fix: meta title は最後のセグメントのみに使用 */
+				$name = ($i === $lastIndex) ? ($meta['title'] ?? $part) : $part;
+				$crumbs[] = ['@type' => 'ListItem', 'position' => $pos++, 'name' => $name, 'item' => $baseUrl . '/' . $path];
+			}
+			/* R13 fix: JSON_UNESCAPED_SLASHES を除去（</script> インジェクション防止） */
+			$breadcrumbLd = '<script type="application/ld+json">' . json_encode([
+				'@context'        => 'https://schema.org',
+				'@type'           => 'BreadcrumbList',
+				'itemListElement' => $crumbs,
+			], JSON_UNESCAPED_UNICODE) . '</script>';
+		}
+
 		return [
-			'title'          => $settings['title'] ?? '',
+			'title'          => $siteTitle,
 			'page'           => $slug,
+			'page_title'     => $pageTitle,
 			'host'           => '/',
 			'themeSelect'    => $settings['themeSelect'] ?? 'AP-Default',
-			'description'    => $settings['description'] ?? '',
+			'description'    => $description,
 			'keywords'       => $settings['keywords'] ?? '',
 			'admin'          => false,
 			'csrf_token'     => '',
@@ -118,6 +199,15 @@ class ThemeEngine {
 			'login_status'   => '',
 			'credit'         => "Powered by <a href=''>Adlaire Platform</a>",
 			'menu_items'     => $menuItems,
+			/* OGP / SEO */
+			'og_meta_tags'   => $ogMeta,
+			'json_ld'        => $jsonLd . ($breadcrumbLd ? "\n" . $breadcrumbLd : ''),
+			'canonical_url'  => $canonicalUrl,
+			'og_title'       => $pageTitle,
+			'og_description' => $pageDesc,
+			'og_image'       => $pageImage,
+			'og_type'        => $ogType,
+			'search_enabled' => !empty($settings['search_enabled']),
 		];
 	}
 
@@ -138,49 +228,5 @@ class ThemeEngine {
 			];
 		}
 		return $items;
-	}
-
-	/**
-	 * content() の文字列返却版
-	 */
-	private static function renderContent(string $id, string $content, bool $admin): string {
-		global $d;
-		$content = (string)($content ?? '');
-		if ($admin) {
-			return "<span title='" . h($d['default']['content'] ?? 'Click to edit!')
-				. "' id='" . h($id) . "' class='editRich'>" . $content . "</span>";
-		}
-		return $content;
-	}
-
-	/**
-	 * settings.html パーシャル用のコンテキスト変数を構築
-	 */
-	private static function buildSettingsContext(): array {
-		global $c, $d;
-
-		$selectHtml = "<select name='themeSelect' id='ap-theme-select'>";
-		foreach (self::listThemes() as $val) {
-			$selected = ($val == $c['themeSelect']) ? ' selected' : '';
-			$selectHtml .= '<option value="' . h($val) . '"' . $selected . '>' . h($val) . "</option>\n";
-		}
-		$selectHtml .= '</select>';
-
-		$fields = [];
-		foreach (['title', 'description', 'keywords', 'copyright'] as $key) {
-			$fields[] = [
-				'key'           => $key,
-				'default_value' => $d['default'][$key] ?? '',
-				'value'         => $c[$key] ?? '',
-			];
-		}
-
-		return [
-			'migrate_warning'  => !empty($c['migrate_warning']),
-			'theme_select_html' => $selectHtml,
-			'menu_raw'         => $c['menu'] ?? '',
-			'settings_fields'  => $fields,
-			'ap_version'       => AP_VERSION,
-		];
 	}
 }

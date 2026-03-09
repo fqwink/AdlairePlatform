@@ -7,6 +7,17 @@ document.addEventListener('DOMContentLoaded', function () {
     var statusEl = document.getElementById('ap-update-status');
     var resultEl = document.getElementById('ap-update-result');
 
+    /* ── インライン通知ヘルパー ── */
+    function _apNotify(msg, type) {
+        if (!resultEl) return;
+        var cls = type === 'error' ? 'color:#c0392b;' : type === 'success' ? 'color:#27ae60;' : 'color:#2d3748;';
+        var el = document.createElement('div');
+        el.style.cssText = 'padding:8px 12px;margin:4px 0;border-radius:4px;font-size:13px;background:#f7fafc;border:1px solid #e2e8f0;' + cls;
+        el.textContent = msg;
+        resultEl.appendChild(el);
+        setTimeout(function () { if (el.parentNode) el.style.opacity = '0.6'; }, 8000);
+    }
+
     /* ── 更新確認ボタン ── */
     var checkBtn = document.getElementById('ap-check-update');
     if (checkBtn) {
@@ -64,7 +75,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         if (!env.ziparchive) issues.push('ZipArchive 拡張が無効です');
                         if (!env.url_fopen)  issues.push('allow_url_fopen が無効です');
                         if (!env.writable)   issues.push('ディレクトリへの書き込み権限がありません');
-                        alert('更新を実行できません:\n・' + issues.join('\n・'));
+                        _apNotify('更新を実行できません: ' + issues.join(' / '), 'error');
                         btn.disabled = false;
                         btn.textContent = '今すぐ更新する';
                         return;
@@ -80,17 +91,17 @@ document.addEventListener('DOMContentLoaded', function () {
                     return _apPost({ ap_action: 'apply', zip_url: zip_url, version: version, csrf: csrf })
                         .then(function (data) {
                             if (data.error) {
-                                alert('エラー: ' + data.error);
+                                _apNotify('更新エラー: ' + data.error, 'error');
                                 btn.disabled = false;
                                 btn.textContent = '今すぐ更新する';
                             } else {
-                                alert(data.message || 'アップデートが完了しました。');
-                                location.reload(true);
+                                _apNotify(data.message || 'アップデートが完了しました。ページをリロードします...', 'success');
+                                setTimeout(function () { location.reload(true); }, 1500);
                             }
                         });
                 })
                 .catch(function (err) {
-                    alert('エラー: ' + (err.message || '更新中にエラーが発生しました。'));
+                    _apNotify('エラー: ' + (err.message || '更新中にエラーが発生しました。'), 'error');
                     btn.disabled = false;
                     btn.textContent = '今すぐ更新する';
                 });
@@ -135,7 +146,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     }
                     if (resultEl) resultEl.insertAdjacentHTML('beforeend', '<div id="ap-backup-list" style="margin-top:10px;">' + html + '</div>');
                 })
-                .catch(function () { alert('通信エラーが発生しました。'); })
+                .catch(function () { _apNotify('バックアップ一覧の取得に失敗しました。', 'error'); })
                 .finally(function () { btn.disabled = false; });
         }
 
@@ -149,16 +160,16 @@ document.addEventListener('DOMContentLoaded', function () {
             _apPost({ ap_action: 'rollback', backup: name, csrf: csrf })
                 .then(function (data) {
                     if (data.error) {
-                        alert('エラー: ' + data.error);
+                        _apNotify('復元エラー: ' + data.error, 'error');
                         btn.disabled = false;
                         btn.textContent = '復元';
                     } else {
-                        alert(data.message || 'ロールバックが完了しました。');
-                        location.reload(true);
+                        _apNotify(data.message || 'ロールバックが完了しました。ページをリロードします...', 'success');
+                        setTimeout(function () { location.reload(true); }, 1500);
                     }
                 })
                 .catch(function (err) {
-                    alert('エラー: ' + (err.message || '復元中にエラーが発生しました。'));
+                    _apNotify('復元エラー: ' + (err.message || '復元中にエラーが発生しました。'), 'error');
                     btn.disabled = false;
                     btn.textContent = '復元';
                 });
@@ -174,7 +185,7 @@ document.addEventListener('DOMContentLoaded', function () {
             _apPost({ ap_action: 'delete_backup', backup: name, csrf: csrf })
                 .then(function (data) {
                     if (data.error) {
-                        alert('エラー: ' + data.error);
+                        _apNotify('削除エラー: ' + data.error, 'error');
                         btn.disabled = false;
                         btn.textContent = '削除';
                     } else {
@@ -183,7 +194,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     }
                 })
                 .catch(function (err) {
-                    alert('エラー: ' + (err.message || '削除中にエラーが発生しました。'));
+                    _apNotify('削除エラー: ' + (err.message || '削除中にエラーが発生しました。'), 'error');
                     btn.disabled = false;
                     btn.textContent = '削除';
                 });
@@ -195,7 +206,8 @@ document.addEventListener('DOMContentLoaded', function () {
     function _apPost(params) {
         return fetch('index.php', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            /* R24 fix: X-CSRF-TOKEN ヘッダーを追加 */
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRF-TOKEN': csrf },
             body: new URLSearchParams(params)
         }).then(function (r) {
             if (!r.ok) return r.text().then(function (t) {

@@ -63,13 +63,14 @@ function handle_update_action(): void {
 	$action = $_POST['ap_action'] ?? '';
 	$valid_actions = ['check', 'check_env', 'apply', 'list_backups', 'rollback', 'delete_backup'];
 	if(!in_array($action, $valid_actions, true)) return;
-	if(!isset($_SESSION['l']) || $_SESSION['l'] !== true){
+	/* M21 fix: AdminEngine::isLoggedIn() を使用（セッション直接参照を廃止） */
+	if(!AdminEngine::isLoggedIn()){
 		header('HTTP/1.1 401 Unauthorized');
 		header('Content-Type: application/json');
 		echo json_encode(['error' => '認証が必要です']);
 		exit;
 	}
-	verify_csrf();
+	AdminEngine::verifyCsrf();
 	header('Content-Type: application/json');
 	switch($_POST['ap_action']){
 		case 'check':
@@ -79,13 +80,20 @@ function handle_update_action(): void {
 			echo json_encode(check_environment());
 			break;
 		case 'apply':
-			$zip_url = $_POST['zip_url'] ?? '';
+			/* C20 fix: URL をサーバー側で取得（ユーザー入力の URL を信頼しない） */
+			$updateInfo = check_update();
+			if(empty($updateInfo['zip_url']) || empty($updateInfo['update_available'])){
+				header('HTTP/1.1 400 Bad Request');
+				echo json_encode(['error' => 'アップデートが利用できません']);
+				exit;
+			}
+			$zip_url = $updateInfo['zip_url'];
 			if(!preg_match('#^https://(api\.github\.com|github\.com|codeload\.github\.com)/#', $zip_url)){
 				header('HTTP/1.1 400 Bad Request');
 				echo json_encode(['error' => '無効な URL です']);
 				exit;
 			}
-			$version = $_POST['version'] ?? '';
+			$version = $updateInfo['latest'] ?? '';
 			apply_update($zip_url, $version);
 			echo json_encode(['success' => true, 'message' => 'アップデートが完了しました。ページを再読み込みします。']);
 			break;
@@ -221,17 +229,24 @@ function backup_current(): string {
 function apply_update(string $zip_url, string $new_version = ''): void {
 	$backup = backup_current();
 	prune_old_backups();
-	$tmp = sys_get_temp_dir().'/ap_update_'.time().'.zip';
+	/* M20 fix: 推測不可能なランダムファイル名を使用 */
+	$tmp = sys_get_temp_dir().'/ap_update_'.bin2hex(random_bytes(16)).'.zip';
 	$ctx = stream_context_create(['http' => [
 		'method'  => 'GET',
 		'header'  => "User-Agent: AdlairePlatform/".AP_VERSION."\r\n",
 		'timeout' => 60,
 	]]);
+	/* C18 fix: ダウンロードサイズ上限チェック（100MB） */
 	$zip_data = @file_get_contents($zip_url, false, $ctx);
 	if($zip_data === false){
 		error_log('apply_update: download failed: '.$zip_url);
 		header('HTTP/1.1 502 Bad Gateway');
 		echo json_encode(['error' => 'ダウンロードに失敗しました。']);
+		exit;
+	}
+	if(strlen($zip_data) > 100 * 1024 * 1024){
+		header('HTTP/1.1 413 Content Too Large');
+		echo json_encode(['error' => 'ダウンロードサイズが上限（100MB）を超えています。']);
 		exit;
 	}
 	file_put_contents($tmp, $zip_data);
@@ -242,7 +257,7 @@ function apply_update(string $zip_url, string $new_version = ''): void {
 		echo json_encode(['error' => 'ZIP の展開に失敗しました。']);
 		exit;
 	}
-	$extract_dir = sys_get_temp_dir().'/ap_update_extract_'.time();
+	$extract_dir = sys_get_temp_dir().'/ap_update_extract_'.bin2hex(random_bytes(16));
 	$ok = $zip->extractTo($extract_dir);
 	$zip->close();
 	unlink($tmp);
@@ -260,18 +275,26 @@ function apply_update(string $zip_url, string $new_version = ''): void {
 		exit;
 	}
 	$exclude = ['data', 'backup'];
+	/* C19 fix: ZIP Slip（パストラバーサル）防止 */
+	$app_root = realpath('.');
 	$iter = new RecursiveIteratorIterator(
 		new RecursiveDirectoryIterator($real_src, RecursiveDirectoryIterator::SKIP_DOTS),
 		RecursiveIteratorIterator::SELF_FIRST
 	);
 	foreach($iter as $item){
 		$rel   = substr($item->getRealPath(), strlen($real_src) + 1);
+		if(str_contains($rel, '..')) continue; /* パストラバーサル防止 */
 		$parts = explode(DIRECTORY_SEPARATOR, $rel);
 		if(in_array($parts[0], $exclude, true)) continue;
+		$dest = $app_root . DIRECTORY_SEPARATOR . $rel;
+		/* 最終パスがアプリケーションルート内であることを確認 */
 		if($item->isDir()){
-			@mkdir('./'.$rel, 0755, true);
+			@mkdir($dest, 0755, true);
 		} else {
-			@copy($item->getRealPath(), './'.$rel);
+			$destDir = dirname($dest);
+			$realDestDir = realpath($destDir);
+			if($realDestDir === false || !str_starts_with($realDestDir, $app_root)) continue;
+			@copy($item->getRealPath(), $dest);
 		}
 	}
 	$clean = new RecursiveIteratorIterator(
@@ -319,15 +342,22 @@ function rollback_to_backup(string $backup_name): void {
 		new RecursiveDirectoryIterator($src, RecursiveDirectoryIterator::SKIP_DOTS),
 		RecursiveIteratorIterator::SELF_FIRST
 	);
+	/* R11 fix: apply_update() と同等のパストラバーサル防止をロールバックにも適用 */
+	$app_root = realpath('.');
 	foreach($iter as $item){
 		$rel   = substr($item->getRealPath(), strlen($real_src) + 1);
-		if($rel === 'meta.json') continue;
+		if($rel === false || $rel === '' || $rel === 'meta.json') continue;
+		if(str_contains($rel, '..')) continue;
 		$parts = explode(DIRECTORY_SEPARATOR, $rel);
 		if(in_array($parts[0], $exclude, true)) continue;
+		$dest = $app_root . DIRECTORY_SEPARATOR . $rel;
 		if($item->isDir()){
-			@mkdir('./'.$rel, 0755, true);
+			@mkdir($dest, 0755, true);
 		} else {
-			@copy($item->getRealPath(), './'.$rel);
+			$destDir = dirname($dest);
+			$realDestDir = realpath($destDir);
+			if($realDestDir === false || !str_starts_with($realDestDir, $app_root)) continue;
+			@copy($item->getRealPath(), $dest);
 		}
 	}
 }

@@ -465,10 +465,12 @@ function _activate(span) {
    HTML ↔ ブロック変換
    ══════════════════════════════════════════════ */
 
-/* HTML文字列 → ブロック配列 */
+/* C15 fix: HTML文字列 → ブロック配列（template 要素で安全に解析） */
 function _parseHtmlToBlocks(html) {
+	const tpl = document.createElement('template');
+	tpl.innerHTML = html;
 	const tmp = document.createElement('div');
-	tmp.innerHTML = html;
+	tmp.appendChild(tpl.content.cloneNode(true));
 	const blocks = [];
 
 	const _pushText = (type, node, extra) => {
@@ -826,7 +828,7 @@ function _renderImageBlock(el, block) {
 	const content = document.createElement('div');
 	content.className = 'ap-wy-block-content';
 
-	if (block.data.src) {
+	if (block.data.src && _isSafeUrl(block.data.src)) {
 		const img = document.createElement('img');
 		img.src = block.data.src;
 		img.alt = block.data.alt || '';
@@ -2518,9 +2520,11 @@ function _computeDiff(oldText, newText) {
 	const m = oldLines.length;
 	const n = newLines.length;
 
-	/* B4: 行数が多すぎる場合は簡易比較にフォールバック */
+	/* B4: 行数が多すぎる場合は簡易比較にフォールバック（通知付き） */
 	if (m * n > _DIFF_LINE_LIMIT * _DIFF_LINE_LIMIT) {
-		return _computeSimpleDiff(oldLines, newLines);
+		const result = _computeSimpleDiff(oldLines, newLines);
+		result._truncated = true;
+		return result;
 	}
 
 	/* LCS テーブル構築 */
@@ -2679,6 +2683,12 @@ function _renderDiffView(container, diff, keepEl) {
 	if (!hasChanges) {
 		view.innerHTML = '<div style="padding:16px;color:#999;">変更はありません</div>';
 	}
+	if (diff._truncated) {
+		const notice = document.createElement('div');
+		notice.style.cssText = 'padding:8px 10px;font-size:12px;color:#e2a308;background:rgba(226,163,8,.1);border-radius:4px;margin-top:4px;';
+		notice.textContent = '⚠ 大容量コンテンツのため簡易比較で表示しています（行単位の直接比較）';
+		view.appendChild(notice);
+	}
 
 	container.appendChild(view);
 }
@@ -2731,14 +2741,18 @@ function _cancel(span, originalHtml) {
 	span.innerHTML = originalHtml;
 }
 
+var _autoSaving = false;
+
 function _startAutoSave(fieldId) {
 	_autoTimer = setInterval(() => {
-		if (!_active || !_blocksEl) return;
+		if (!_active || !_blocksEl || _autoSaving) return;
 		_syncAllBlocks();
 		const html = _cleanHtml(_serializeBlocks());
 		if (html === _lastSaved) return;
+		_autoSaving = true;
 		_setStatus('保存中...');
 		_fetchSave(fieldId, html, ok => {
+			_autoSaving = false;
 			if (ok) {
 				_lastSaved = html;
 				_setStatus('✓ 自動保存済み');
@@ -2789,7 +2803,7 @@ function _fetchSave(key, val, callback) {
 			'Content-Type': 'application/x-www-form-urlencoded',
 			'X-CSRF-TOKEN': csrf,
 		},
-		body: new URLSearchParams({ fieldname: key, content: val, csrf }),
+		body: new URLSearchParams({ ap_action: 'edit_field', fieldname: key, content: val, csrf }),
 	}).then(r => { if (callback) callback(r.ok); })
 	  .catch(() => { if (callback) callback(false); });
 }
@@ -2798,9 +2812,12 @@ function _fetchSave(key, val, callback) {
    HTML サニタイズ
    ══════════════════════════════════════════════ */
 
+/* C14 fix: template 要素で解析（parse-time XSS 防止） */
 function _cleanHtml(html) {
+	const tpl = document.createElement('template');
+	tpl.innerHTML = html;
 	const tmp = document.createElement('div');
-	tmp.innerHTML = html;
+	tmp.appendChild(tpl.content.cloneNode(true));
 	_sanitizeNode(tmp);
 	return tmp.innerHTML;
 }
@@ -2846,9 +2863,10 @@ function _sanitizeNode(node) {
 			if (!_isSafeUrl(href)) child.removeAttribute('href');
 		}
 		if (child.tagName === 'IMG') {
-			const src = child.getAttribute('src') || '';
-			if (/^javascript:/i.test(src.trim()) ||
-				(/^data:/i.test(src.trim()) && !/^data:image\/(png|jpeg|gif|webp)/i.test(src.trim()))) {
+			const src = (child.getAttribute('src') || '').trim().toLowerCase();
+			/* C16 fix: javascript/vbscript スキーム + data:image/svg+xml もブロック */
+			if (/^(javascript|vbscript):/.test(src) ||
+				(/^data:/.test(src) && !/^data:image\/(png|jpeg|gif|webp)(;|,)/.test(src))) {
 				child.removeAttribute('src');
 			}
 		}

@@ -2,6 +2,39 @@
 
 var _apChanging = false;
 
+/* C13 fix: HTML サニタイズ — template 要素で解析（parse-time XSS 防止） */
+function _apSanitizeHtml(html) {
+	var tpl = document.createElement('template');
+	tpl.innerHTML = html;
+	var tmp = tpl.content;
+	/* script/style/iframe 等の危険要素を除去 */
+	var dangerous = tmp.querySelectorAll('script,style,iframe,object,embed,form,input,textarea,select,button');
+	for (var i = 0; i < dangerous.length; i++) dangerous[i].remove();
+	/* on* イベント属性を除去 */
+	var all = tmp.querySelectorAll('*');
+	for (var j = 0; j < all.length; j++) {
+		var attrs = Array.prototype.slice.call(all[j].attributes);
+		for (var k = 0; k < attrs.length; k++) {
+			if (/^on/i.test(attrs[k].name)) all[j].removeAttribute(attrs[k].name);
+		}
+		/* R27 fix: javascript: スキームの href をブロック */
+		if (all[j].tagName === 'A' && /^\s*javascript:/i.test(all[j].getAttribute('href') || '')) {
+			all[j].removeAttribute('href');
+		}
+	}
+	var div = document.createElement('div');
+	div.appendChild(tmp.cloneNode(true));
+	return div.innerHTML;
+}
+
+/* 保存フィードバックアニメーション */
+function _apFlash(el, success) {
+	if (!el) return;
+	var cls = success ? 'ap-field-saved' : 'ap-field-error';
+	el.classList.add(cls);
+	setTimeout(function () { el.classList.remove(cls); }, 1500);
+}
+
 document.addEventListener('DOMContentLoaded', function () {
 	/* ── インライン編集 ── */
 	document.querySelectorAll('span.editText').forEach(function (el) {
@@ -58,18 +91,23 @@ function _apNl2br(s) {
 	return (s + '').replace(/\r\n|\r/g, '\n').replace(/([^>\n]?)(\n)/g, '$1<br />\n');
 }
 
+/* BR を含む HTML フィールドかどうか判定 */
+var _apHtmlFields = ['menu', 'subside', 'copyright'];
+
 /* フィールド保存（Fetch API） */
 function _apFieldSave(key, val) {
 	var csrfMeta = document.querySelector('meta[name="csrf-token"]');
 	if (!csrfMeta) { console.error('[AdlairePlatform] CSRF token meta tag not found'); _apChanging = false; return; }
 	var csrf = csrfMeta.getAttribute('content');
+	/* M18 fix: タイムアウトでロック解除（15秒） */
+	var _apChangingTimeout = setTimeout(function () { _apChanging = false; }, 15000);
 	fetch('index.php', {
 		method: 'POST',
 		headers: {
 			'Content-Type': 'application/x-www-form-urlencoded',
 			'X-CSRF-TOKEN': csrf
 		},
-		body: new URLSearchParams({ fieldname: key, content: val, csrf: csrf })
+		body: new URLSearchParams({ ap_action: 'edit_field', fieldname: key, content: val, csrf: csrf })
 	}).then(function (r) {
 		if (!r.ok) throw new Error('HTTP ' + r.status);
 		return r.text();
@@ -81,14 +119,21 @@ function _apFieldSave(key, val) {
 			if (el) {
 				if (val === '') {
 					el.textContent = el.getAttribute('title') || '';
+				} else if (_apHtmlFields.indexOf(key) !== -1) {
+					el.innerHTML = _apSanitizeHtml(val);
 				} else {
-					el.innerHTML = val;
+					el.textContent = val;
 				}
+				_apFlash(el, true);
 			}
 		}
+		clearTimeout(_apChangingTimeout);
 		_apChanging = false;
-	}).catch(function () {
-		alert('保存に失敗しました。再試行してください。');
+	}).catch(function (e) {
+		console.error('[AdlairePlatform] 保存エラー:', e.message);
+		var el = document.getElementById(key);
+		_apFlash(el, false);
+		clearTimeout(_apChangingTimeout);
 		_apChanging = false;
 	});
 }

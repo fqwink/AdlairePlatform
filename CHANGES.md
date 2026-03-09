@@ -2,6 +2,113 @@
 
 ---
 
+## 2026-03-09（Ver.1.3-29 — Ver.1.3系終了）
+
+> **Ver.1.3系は本リビジョンをもって終了とします。**
+> 以降の機能追加・アーキテクチャ変更は次期バージョンにて実施予定です。
+
+- **[End of Series]** Ver.1.3系の開発を終了
+  - Ver.1.3系で実施した主要な成果:
+    - AdminEngine 導入・管理ダッシュボード化（Ver.1.3-27）
+    - StaticEngine 実装・Static-First Hybrid アーキテクチャ・theme.php 廃止（Ver.1.3-28）
+    - ヘッドレス CMS 機能一斉実装: ApiEngine・CollectionEngine・MarkdownEngine・GitEngine・WebhookEngine・CacheEngine・ImageOptimizer（Ver.1.3-28）
+    - セキュリティ監査 Round 1-6（計 29 件のバグ修正: R1-R29）
+    - 全 12 エンジン実装完了
+  - 次期バージョンで検討予定:
+    - WorkflowEngine（プレビュー + レビュー承認ワークフロー）
+    - マルチ環境（Git ブランチ = 環境）
+    - GraphQL 対応
+    - GitHub OAuth
+    - OpenAPI ドキュメント自動生成
+- **[Docs]** 全ドキュメントを Ver.1.3系終了に伴い更新
+- **[Version]** `AP_VERSION` を `'1.3.29'` に更新
+
+---
+
+## 2026-03-09（Ver.1.3-28 — セキュリティ監査 Round 6: 全ソースコード監査）
+
+- **[Fix/Critical]** `engines/UpdateEngine.php` — R11: `rollback_to_backup()` にパストラバーサル防止を追加（`apply_update()` と同等の `realpath` チェック）
+- **[Fix/Critical]** `engines/JsEngine/api_keys.js` — R21: CSRF トークンをヘッダー（`X-CSRF-TOKEN`）とボディの両方で送信するよう修正
+- **[Fix/High]** `engines/GitEngine.php` — R12: `pull()` に悪意あるリポジトリパスのパストラバーサル防止を追加
+- **[Fix/High]** `engines/ThemeEngine.php` — R13: JSON-LD 出力から `JSON_UNESCAPED_SLASHES` を除去（`</script>` インジェクション防止）
+- **[Fix/High]** `engines/CollectionEngine.php` — R14: `createCollection()` の `directory` フィールドにスラグパターン検証を追加
+- **[Fix/High]** `engines/CollectionEngine.php` — R15: `handleDelete()` / `handleItemSave()` / `handleItemDelete()` にコレクション名スラグ検証を追加
+- **[Fix/High]** `engines/ApiEngine.php` — R16: 非ワイルドカード CORS オリジンに `Vary: Origin` ヘッダーを追加（キャッシュポイズニング防止）
+- **[Fix/High]** `engines/WebhookEngine.php` — R19: `sendAsync()` に DNS リバインディング防止チェックを追加
+- **[Fix/Medium]** `engines/ApiEngine.php` — R17: メール Subject のヘッダインジェクション対策（改行除去）
+- **[Fix/Medium]** `engines/CacheEngine.php` — R18: エンドポイント名をサニタイズしてキャッシュキーのパストラバーサルを防止
+- **[Fix/Medium]** `engines/WebhookEngine.php` — R20: `isPrivateHost()` の DNS 解決失敗時にブロック（安全側に倒す）
+- **[Fix/Medium]** `engines/JsEngine/collection_manager.js` — R22: POST リクエストに `X-CSRF-TOKEN` ヘッダーを追加
+- **[Fix/Medium]** `engines/JsEngine/git_manager.js` — R23: POST リクエストに `X-CSRF-TOKEN` ヘッダーを追加
+- **[Fix/Medium]** `engines/JsEngine/updater.js` — R24: `_apPost()` に `X-CSRF-TOKEN` ヘッダーを追加
+- **[Fix/Medium]** `engines/JsEngine/collection_manager.js` — R25: プレビュー innerHTML にクライアントサイド HTML サニタイズを適用（XSS 防止）
+- **[Fix/Medium]** `index.php` — R26: パストラバーサル除去をループで再帰的に実行（`....//` パターン対策）
+- **[Fix/Medium]** `engines/JsEngine/editInplace.js` — R27: `_apSanitizeHtml()` に `javascript:` スキーム href ブロックを追加
+- **[Fix/Medium]** `engines/AdminEngine.php` — R28: リダイレクト先 URL の検証を追加（オープンリダイレクト防止）
+- **[Fix/Low]** `engines/AdminEngine.php` — R29: リビジョンファイル名にランダムサフィックスを追加（同一秒衝突防止）
+
+---
+
+## 2026-03-09（Ver.1.3-28 — セキュリティ監査 Round 5: 差分デバッグ）
+
+- **[Fix/High]** `engines/MarkdownEngine.php` — R8: YAML フロントマターの重複キーで最初の値を優先（後からのステータス上書き防止）
+- **[Fix/High]** `engines/StaticEngine.php` — R9: 検索インデックスからドラフト・非公開コレクションアイテムを除外
+
+---
+
+## 2026-03-08（Ver.1.3-28 — StaticEngine 実装・theme.php 廃止）
+
+- **[Feature]** `engines/StaticEngine.php` 新規作成 — 静的サイト生成エンジン
+  - 差分ビルド（`buildDiff()`）: `content_hash` / `settings_hash` で変更ページのみ再生成
+  - フルビルド（`buildAll()`）: 全ページ強制再生成
+  - クリーン（`clean()`）: `static/` ディレクトリを完全削除
+  - ZIP ダウンロード（`serveZip()`）: 静的ファイル一式を ZIP 圧縮してダウンロード
+  - ステータス取得（`getStatus()`）: ページ別ビルド状態（current/outdated/not_built）
+  - アセットコピー（`copyAssets()`）: テーマ CSS/JS + uploads/ を `static/assets/` に差分コピー
+  - `static/.htaccess` 自動生成（PHP 実行禁止・404 フォールバック）
+  - `TemplateEngine::render()` + `ThemeEngine::buildStaticContext()` でレンダリング
+  - アセットパス書き換え（`rewriteAssetPaths()`）: CSS/画像パスを静的配信向けに変換
+  - パストラバーサル防止（`realpath()` + プロジェクトルート内チェック）
+- **[Feature]** `engines/JsEngine/static_builder.js` 新規作成 — ダッシュボード上の静的書き出し管理 UI
+  - 差分ビルド / フルビルド / クリーン / ZIP ダウンロード ボタン
+  - ページ別ビルド状態のリアルタイム表示
+- **[Feature]** `engines/AdminEngine/dashboard.html` 改修 — 「静的書き出し」セクション追加
+- **[Architecture]** `.htaccess` 改修 — Static-First モードの静的ファイル優先配信ルール追加
+  - `static/index.html` が存在すればトップページを静的配信
+  - `static/{slug}/index.html` が存在すればスラッグページを静的配信
+  - `?admin` / `?login` / `?ap_action` / `?ap_api` クエリは常に PHP にルーティング
+- **[Breaking]** `theme.php`（レガシー PHP テーマ方式）を廃止
+  - `themes/AP-Default/theme.php` 削除
+  - `themes/AP-Adlaire/theme.php` 削除
+  - `ThemeEngine::load()` を簡素化 — theme.html のみ対応、PHP フォールバック削除
+  - レガシーラッパー関数 `content()` / `editTags()` / `menu()` を index.php から削除
+  - `is_loggedin()` / `csrf_token()` / `verify_csrf()` / `h()` / `getSlug()` は維持
+- **[Version]** `AP_VERSION` を `'1.3.28'` に更新
+
+---
+
+## 2026-03-08（Ver.1.3-27 — AdminEngine・ダッシュボード）
+
+- **[Architecture]** `engines/AdminEngine.php` 新規作成 — 認証・CSRF・フィールド保存・画像アップロード・リビジョン管理・ダッシュボードを集約
+- **[Architecture]** `index.php` を大幅簡素化 — 管理機能を AdminEngine に移動（670行 → ~250行）、ルーティング・初期化・共有ユーティリティのみ残留
+- **[Feature]** 管理ダッシュボード（`?admin`）— テーマ非依存の専用管理画面を新規実装
+  - サイト設定（タイトル・説明・キーワード・著作権・テーマ・メニュー）
+  - ページ一覧（プレビュー付き、クリックで編集ページへ移動）
+  - アップデート管理（バージョン確認・適用・バックアップ・ロールバック）
+  - システム情報（PHP バージョン・ディスク空き容量）
+- **[Architecture]** `engines/AdminEngine/dashboard.html` — TemplateEngine ベースのダッシュボードテンプレート
+- **[Architecture]** `engines/AdminEngine/dashboard.css` — ダッシュボード専用スタイルシート（テーマ非依存）
+- **[Architecture]** `engines/JsEngine/dashboard.js` — ダッシュボード固有のインタラクション（テーマ選択保存）
+- **[Refactor]** `engines/ThemeEngine.php` — `AdminEngine::isLoggedIn()` / `AdminEngine::csrfToken()` / `AdminEngine::getAdminScripts()` / `AdminEngine::renderEditableContent()` への委譲に変更。`buildSettingsContext()` / `renderContent()` を削除
+- **[Refactor]** JsEngine 保存リクエストに `ap_action=edit_field` パラメータを追加（`editInplace.js` / `wysiwyg.js`）
+- **[Refactor]** テーマから設定パネルを削除 — `settings.html` パーシャルを廃止、`{{#if admin}}{{> settings}}{{/if}}` を削除
+- **[Refactor]** `theme.php` レガシーテーマから `settings()` 呼び出しを削除
+- **[Refactor]** ログイン時のフッターに Dashboard リンク（`?admin`）を追加
+- **[Refactor]** レガシー互換ラッパー維持: `is_loggedin()`, `csrf_token()`, `verify_csrf()`, `content()`, `editTags()`, `menu()` は AdminEngine への委譲として存続
+- **[Version]** `AP_VERSION` を `'1.3.27'` に更新
+
+---
+
 ## 2026-03-08（Ver.1.2-26 — Ver.1.2系終了）
 
 > **Ver.1.2系は本リビジョンをもって終了とします。**
@@ -15,12 +122,15 @@
     - WYSIWYGエディタ独自実装（ブロックベース・依存なし）
     - セキュリティ多層強化（CSP / CSRF / XSS / レート制限）
     - TemplateEngine 導入によるテーマ PHP フリー化
-  - 設計確定済み・次期バージョン以降で実装予定:
+  - Ver.1.3系で実装予定:
     - StaticEngine（静的サイト生成）— `docs/STATIC_GENERATOR.md` Ver.0.3-1
     - ApiEngine（ヘッドレス CMS REST API）— `docs/HEADLESS_CMS.md` Ver.0.3-1
+    - 管理ツールのダッシュボード化
+    - 管理ツールのエンジン駆動モデル化
 - **[Docs]** 全ドキュメントを Ver.1.2系終了に伴い更新
   - 各設計書にシリーズ終了通知を追記
-  - 未実装エンジン（StaticEngine / ApiEngine）のステータスを「次期バージョン以降で実装」に変更
+  - StaticEngine / ApiEngine のステータスを「Ver.1.3系で実装予定」に変更
+  - Ver.1.3系ロードマップ（StaticEngine・ApiEngine・ダッシュボード化・エンジン駆動モデル化）を追記
   - バージョン計画・ロードマップを更新
 
 ---

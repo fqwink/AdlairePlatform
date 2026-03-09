@@ -7,7 +7,7 @@
 APは、デザインテンプレートエンジンを搭載したフラットファイルベースの軽量 CMS フレームワークです。
 データベース不要で動作し、各機能を小さなエンジン単位として設計することで、段階的なシステム拡張が可能です。
 
-> **現在のバージョン**: Ver.1.2-26（Ver.1.2系最終リビジョン）
+> **現在のバージョン**: Ver.1.3-29（Ver.1.3系最終リビジョン）
 
 ---
 
@@ -18,26 +18,52 @@ APは、デザインテンプレートエンジンを搭載したフラットフ
 - **インプレイス編集** — ログイン中は任意のコンテンツ領域をクリックしてその場で編集・保存（Fetch API）
 - **マルチページ対応** — スラッグベースの URL ルーティングにより複数ページを管理
 - **設定管理** — サイトタイトル・説明・キーワード・著作権表示・メニュー・テーマをブラウザ上から変更
+- **コレクション管理** — Markdown ベースのコレクション（ブログ・ニュース等）を管理（`engines/CollectionEngine.php`）
+- **Markdown エンジン** — フロントマター付き Markdown をパース・HTML 変換（`engines/MarkdownEngine.php`）
 
 ### テーマエンジン
 - **テーマ切替** — `themes/` ディレクトリに配置したテーマを管理画面からリアルタイムで切替
 - **同梱テーマ** — `AP-Default`（シンプル）、`AP-Adlaire`（Adlaire デザイン）の 2 種類
-- **テーマ構造** — `theme.html`（テンプレートエンジン方式・PHP フリー）＋ `style.css`（`theme.php` レガシーフォールバック対応）
+- **テーマ構造** — `theme.html`（テンプレートエンジン方式・PHP フリー）＋ `style.css`
 - **テンプレートエンジン** — `engines/TemplateEngine.php` による軽量テンプレートエンジン（`{{var}}` / `{{{raw}}}` / `{{#if}}` / `{{#each}}` / `{{> partial}}`）
 - **エンジン分離** — `engines/ThemeEngine.php` によるテーマ検証・ロード・コンテキスト構築
 
 ### WYSIWYGエディタ
-- **依存ライブラリなし** — `engines/JsEngine/wysiwyg.js` による独自実装（ES5 互換）
+- **依存ライブラリなし** — `engines/JsEngine/wysiwyg.js` による独自実装（ES2020+）
 - **ツールバー** — B/I/U/リンク/H2/H3/箇条書き/番号リスト/引用/コードブロック/区切り線/テーブル/Undo/Redo
 - **画像挿入** — D&D / クリップボード貼付 / ボタン選択、JPEG/PNG/GIF/WebP 対応
-- **画像リサイズ** — 4コーナーハンドル・アスペクト比維持・alt 属性インライン編集
-- **フローティングツールバー** — テキスト選択時に B/I/U/リンク/✕ を浮かせる
-- **テーブルサポート** — 8×8 グリッドピッカー・行/列の追加削除バー
+- **画像リサイズ** — サイズプリセット（25%/50%/75%/100%）・alt 属性・キャプション
+- **フローティングツールバー** — テキスト選択時に B/I/U/S/Code/Marker/Link を浮かせる
+- **テーブルサポート** — 3×3 初期テーブル・各セル個別 contenteditable・行/列の追加削除
 - **スラッシュコマンドメニュー** — 空行で `/` 入力 → ブロック種類選択・インクリメンタル絞り込み・キーボード操作
 - **ブロックハンドル** — ブロックホバー時に左端へ `⠿` を表示・クリックでタイプ変換ポップアップ
 - **ドラッグ並べ替え** — ハンドルドラッグでブロック順序変更・シアン色ドロップラインインジケータ
 - **自動保存** — 30秒定期自動保存・Ctrl+Enter/blur で即時保存
 - **HTML サニタイザー** — ホワイトリスト方式（保存前に不正タグを除去）
+
+### 静的サイト生成
+- **StaticEngine** — 静的 HTML 書き出し・差分ビルド・フルビルド・クリーン・ZIP ダウンロード（`engines/StaticEngine.php`）
+- **Static-First Hybrid** — `.htaccess` で静的ファイル優先配信、管理・API は PHP にルーティング
+- **コレクション対応** — コレクション一覧・個別ページ・タグページ・ページネーションの静的生成
+- **sitemap.xml / robots.txt** — ビルド時に自動生成
+- **検索インデックス** — `search-index.json` をビルド時に生成（クライアントサイド検索用）
+- **OGP / JSON-LD** — Open Graph メタタグ・構造化データの自動生成
+
+### ヘッドレス CMS API
+- **ApiEngine** — 公開 REST API エンドポイント（`engines/ApiEngine.php`）
+- **コンテンツ API** — ページ・コレクション・検索の JSON 取得
+- **お問い合わせフォーム** — ハニーポット・レート制限付きメール送信
+- **API キー認証** — Bearer トークン + bcrypt による認証
+- **CORS 対応** — 設定可能なオリジン許可
+- **レスポンスキャッシュ** — `engines/CacheEngine.php` による API レスポンスキャッシュ
+
+### Git 連携
+- **GitEngine** — GitHub リポジトリとのコンテンツ同期（`engines/GitEngine.php`）
+- **Pull / Push** — コンテンツの取り込み・書き出し
+- **Webhook 連携** — `engines/WebhookEngine.php` によるビルド完了通知・外部連携
+
+### 画像最適化
+- **ImageOptimizer** — JPEG/PNG/WebP の品質調整・リサイズ（`engines/ImageOptimizer.php`）
 
 ### アップデートエンジン
 - **バージョン管理** — `AP_VERSION` 定数・`data/settings/version.json` に更新履歴を保存
@@ -48,16 +74,18 @@ APは、デザインテンプレートエンジンを搭載したフラットフ
 - **環境チェック** — ZipArchive / allow_url_fopen / ディスク容量を事前確認
 
 ### 認証・セキュリティ
-- **セッション認証** — シングルパスワード認証、bcrypt ハッシュ化保存
-- **CSRF 保護** — `random_bytes(32)` による CSRF トークン生成・全フォーム検証
+- **マルチユーザー認証** — admin / editor / viewer ロールベースアクセス制御
+- **CSRF 保護** — `random_bytes(32)` による CSRF トークン生成・全フォーム検証（セッション + ヘッダー `X-CSRF-TOKEN` + POST フィールド）
 - **XSS 対策** — 全出力に `htmlspecialchars(ENT_QUOTES)` を適用
 - **セキュアセッション** — `HttpOnly` / `SameSite=Lax` クッキー、ログイン時の `session_regenerate_id()`
 - **レート制限** — 5回失敗で15分ロックアウト（IP ベース）
 - **ディレクトリ保護** — `.htaccess` による `data/` / `backup/` / `engines/*.php` への直接アクセス拒否
 - **CSP** — `Content-Security-Policy: default-src 'self'` ヘッダー
 - **セキュリティヘッダー** — `X-Content-Type-Options: nosniff` / `X-Frame-Options: SAMEORIGIN` / `Referrer-Policy: same-origin`
-- **パストラバーサル防止** — テーマ名・フィールド名・バックアップ名の正規表現バリデーション
+- **パストラバーサル防止** — テーマ名・フィールド名・バックアップ名・スラッグの正規表現バリデーション（再帰的 `../` 除去）
 - **画像アップロード保護** — MIME 検証（`finfo`）、2MB 制限、ランダムファイル名、`uploads/` 内 PHP 実行不可
+- **SSRF 防止** — Webhook 送信時の DNS リバインディング対策・プライベート IP ブロック
+- **JSON-LD XSS 防止** — `JSON_UNESCAPED_SLASHES` 除去による `</script>` インジェクション防止
 
 ---
 
@@ -65,28 +93,44 @@ APは、デザインテンプレートエンジンを搭載したフラットフ
 
 ```
 AdlairePlatform/
-├── index.php                     # アプリケーション本体（ルーティング・認証・API・レンダリング）
-├── .htaccess                     # Apache リライト・セキュリティ設定
+├── index.php                     # エントリーポイント（ルーティング・初期化・ユーティリティ）
+├── .htaccess                     # Apache リライト・セキュリティ設定・Static-First 配信
 ├── nginx.conf.example            # Nginx 設定リファレンス
 ├── engines/
+│   ├── AdminEngine.php           # 管理エンジン（認証・CSRF・管理アクション・ダッシュボード）
+│   ├── AdminEngine/
+│   │   ├── dashboard.html        # ダッシュボードテンプレート
+│   │   └── dashboard.css         # ダッシュボード専用スタイル
 │   ├── TemplateEngine.php        # 軽量テンプレートエンジン（PHP フリーテーマ用）
 │   ├── ThemeEngine.php           # テーマ検証・読み込み・コンテキスト構築
 │   ├── UpdateEngine.php          # アップデート・バックアップ・ロールバック
+│   ├── StaticEngine.php          # 静的サイト生成（差分ビルド・フルビルド・ZIP）
+│   ├── ApiEngine.php             # 公開 REST API（ヘッドレス CMS）
+│   ├── CollectionEngine.php      # コレクション管理（ブログ・ニュース等）
+│   ├── MarkdownEngine.php        # Markdown パーサー（フロントマター対応）
+│   ├── GitEngine.php             # GitHub リポジトリ連携（Pull/Push）
+│   ├── WebhookEngine.php         # Webhook 管理・送信（SSRF 防止付き）
+│   ├── CacheEngine.php           # API レスポンスキャッシュ
+│   ├── ImageOptimizer.php        # 画像最適化（リサイズ・品質調整）
 │   └── JsEngine/
 │       ├── autosize.js           # テキストエリア自動リサイズ
 │       ├── editInplace.js        # インプレイス編集（バニラJS・plain text）
 │       ├── wysiwyg.js            # WYSIWYGエディタ（依存なし）
-│       └── updater.js            # アップデートUI
+│       ├── updater.js            # アップデートUI
+│       ├── dashboard.js          # ダッシュボード固有インタラクション
+│       ├── static_builder.js     # 静的書き出し管理 UI
+│       ├── collection_manager.js # コレクション管理 UI
+│       ├── git_manager.js        # Git 連携 UI
+│       ├── webhook_manager.js    # Webhook 管理 UI
+│       ├── api_keys.js           # API キー管理 UI
+│       ├── ap-api-client.js      # 静的サイト向け API クライアント
+│       └── ap-search.js          # クライアントサイド検索
 ├── themes/
 │   ├── AP-Default/
-│   │   ├── theme.html            # テンプレートエンジン方式（推奨）
-│   │   ├── settings.html         # 管理者設定パネル（パーシャル）
-│   │   ├── theme.php             # レガシー PHP 方式（フォールバック）
+│   │   ├── theme.html            # テンプレートエンジン方式
 │   │   └── style.css
 │   └── AP-Adlaire/
 │       ├── theme.html
-│       ├── settings.html
-│       ├── theme.php
 │       └── style.css
 ├── data/
 │   ├── settings/
@@ -94,10 +138,13 @@ AdlairePlatform/
 │   │   ├── auth.json             # 認証情報（bcrypt）
 │   │   ├── update_cache.json     # GitHub API キャッシュ
 │   │   ├── login_attempts.json   # ログイン試行記録
-│   │   └── version.json          # アップデート履歴
+│   │   ├── version.json          # アップデート履歴
+│   │   └── static_build.json     # 静的ビルド差分状態
 │   └── content/
-│       └── pages.json            # ページコンテンツ
+│       ├── pages.json            # ページコンテンツ
+│       └── collections/          # コレクションデータ（Markdown）
 ├── uploads/                      # アップロード済み画像（PHP実行不可）
+├── static/                       # 静的サイト出力先（StaticEngine が生成）
 ├── backup/                       # 自動バックアップ（最大5世代）
 ├── docs/
 │   ├── ARCHITECTURE.md
@@ -107,9 +154,11 @@ AdlairePlatform/
 │   ├── VERSIONING.md
 │   ├── STATIC_GENERATOR.md
 │   ├── HEADLESS_CMS.md
+│   ├── HEADLESS_CMS_ROADMAP.md
 │   └── Licenses/
 │       ├── LICENSE_Ver.1.0.md    # 旧ライセンス（参照用・アーカイブ）
-│       └── LICENSE_Ver.2.0.md    # 現行ライセンス
+│       ├── LICENSE_Ver.2.0.md    # 現行ライセンス
+│       └── RELEASE-NOTES.md
 ├── CHANGES.md
 ├── RELEASE-NOTES.md
 └── README.md
@@ -117,32 +166,41 @@ AdlairePlatform/
 
 ---
 
-## 主要関数リファレンス（`index.php`）
+## 主要関数・エンジンリファレンス
+
+### index.php（エントリーポイント）
 
 | 関数 | 説明 |
 |------|------|
 | `host()` | リクエスト URI からホスト URL・ページスラッグを解析 |
-| `edit()` | POST リクエストによるコンテンツ・設定の保存処理 |
-| `upload_image()` | 認証済みユーザーの画像アップロード（JPEG/PNG/GIF/WebP、2MB制限） |
-| `login()` | パスワード認証・セッション生成・パスワード変更 |
-| `savePassword(string $p)` | bcrypt ハッシュ化して `auth.json` に保存 |
-| `check_login_rate()` | IP ベースのログイン試行レート制限チェック |
-| `registerCoreHooks()` | `admin-head` フックに JsEngine スクリプトを登録 |
-| `migrate_from_files()` | レガシーフラットファイルから JSON への一回限りの移行 |
-| `content($id, $content)` | ログイン時は編集可能 `<span>`、非ログイン時はそのまま出力 |
-| `menu()` | `$c['menu']` 設定から `<ul>` ナビゲーションを生成 |
-| `settings()` | テーマ選択・各種設定フォームを出力 |
 | `json_read(string $file)` | `data/` 内の JSON ファイルを読み込んで配列を返す |
 | `json_write(string $file, array $data)` | 配列を JSON ファイルへ書き出す |
-| `csrf_token()` | セッション CSRF トークンを生成・取得 |
-| `verify_csrf()` | POST / ヘッダーの CSRF トークンを検証（失敗時 403 終了） |
 | `h(string $s)` | `htmlspecialchars(ENT_QUOTES, UTF-8)` による XSS エスケープ |
 | `getSlug(string $p)` | スペースをハイフンに変換して小文字スラッグを生成 |
-| `is_loggedin()` | セッションのログイン状態を返す |
-| `editTags()` | 管理者向けの `<script>` タグを `<head>` に出力 |
 | `data_dir()` | `data/` ディレクトリのパスを返す（存在しない場合は作成） |
 | `settings_dir()` | `data/settings/` のパスを返す |
 | `content_dir()` | `data/content/` のパスを返す |
+| `migrate_from_files()` | レガシーフラットファイルから JSON への一回限りの移行 |
+| `is_loggedin()` | AdminEngine::isLoggedIn() へ委譲（レガシーラッパー） |
+| `csrf_token()` | AdminEngine::csrfToken() へ委譲（レガシーラッパー） |
+| `verify_csrf()` | AdminEngine::verifyCsrf() へ委譲（レガシーラッパー） |
+
+### エンジン一覧
+
+| エンジン | ファイル | 説明 |
+|---------|---------|------|
+| AdminEngine | `engines/AdminEngine.php` | 管理機能（認証・CSRF・フィールド保存・画像アップロード・リビジョン・ダッシュボード） |
+| TemplateEngine | `engines/TemplateEngine.php` | 軽量テンプレートエンジン |
+| ThemeEngine | `engines/ThemeEngine.php` | テーマ検証・読み込み・コンテキスト構築 |
+| UpdateEngine | `engines/UpdateEngine.php` | アップデート・バックアップ・ロールバック |
+| StaticEngine | `engines/StaticEngine.php` | 静的サイト生成（差分ビルド・フルビルド・ZIP） |
+| ApiEngine | `engines/ApiEngine.php` | 公開 REST API（ヘッドレス CMS） |
+| CollectionEngine | `engines/CollectionEngine.php` | コレクション管理（ブログ・ニュース等） |
+| MarkdownEngine | `engines/MarkdownEngine.php` | Markdown パーサー（フロントマター対応） |
+| GitEngine | `engines/GitEngine.php` | GitHub リポジトリ連携 |
+| WebhookEngine | `engines/WebhookEngine.php` | Webhook 管理・送信 |
+| CacheEngine | `engines/CacheEngine.php` | API レスポンスキャッシュ |
+| ImageOptimizer | `engines/ImageOptimizer.php` | 画像最適化 |
 
 ---
 

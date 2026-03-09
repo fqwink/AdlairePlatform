@@ -2,7 +2,7 @@
 
 > 確定日: 2026-03-07
 > バージョン規則: `Ver.{メジャー}.{マイナー}-{リビジョン}` (AFE VERSIONING.md準拠)
-> **⚠️ Ver.1.2系終了**: Ver.1.2-26 をもって Ver.1.2系は終了しました。以降の変更は次期メジャーバージョン（Ver.2.x）にて実施予定です。
+> **Ver.1.3-29**: Ver.1.3系終了。全 12 エンジン実装完了・セキュリティ監査完了。
 ---
 
 ## 1. アーキテクチャ方針
@@ -21,28 +21,44 @@
 
 ```
 AdlairePlatform/
-├─ index.php                # Router・Auth・Content・Hook 集約
+├─ index.php                # Router・ユーティリティ・レガシーラッパー
 ├─ .htaccess                # CSP・engines/ アクセス禁止・URL rewrite
 ├─ nginx.conf.example       # Nginx 用設定リファレンス
 ├─ engines/
+│  ├─ AdminEngine.php       # 認証・CSRF・管理アクション・ダッシュボード
+│  ├─ AdminEngine/
+│  │  ├─ dashboard.html     # ダッシュボードテンプレート（テーマ非依存）
+│  │  └─ dashboard.css      # ダッシュボード専用スタイル
 │  ├─ TemplateEngine.php    # 軽量テンプレートエンジン（PHP フリーテーマ用）
 │  ├─ ThemeEngine.php       # テーマ検証・読み込み・コンテキスト構築
 │  ├─ UpdateEngine.php      # アップデート・バックアップ・ロールバック
+│  ├─ StaticEngine.php      # 静的サイト生成（差分ビルド・フルビルド・ZIP）
+│  ├─ ApiEngine.php         # 公開 REST API（ヘッドレス CMS）
+│  ├─ CollectionEngine.php  # コレクション管理（ブログ・ニュース等）
+│  ├─ MarkdownEngine.php    # Markdown パーサー（フロントマター対応）
+│  ├─ GitEngine.php         # GitHub リポジトリ連携
+│  ├─ WebhookEngine.php     # Webhook 管理・送信
+│  ├─ CacheEngine.php       # API レスポンスキャッシュ
+│  ├─ ImageOptimizer.php    # 画像最適化
 │  └─ JsEngine/
 │     ├─ editInplace.js     # インプレイス編集（バニラJS）
 │     ├─ autosize.js        # テキストエリア自動リサイズ
 │     ├─ wysiwyg.js         # WYSIWYGエディタ（依存なし）
-│     └─ updater.js         # アップデートUI（AJAX）
+│     ├─ updater.js         # アップデートUI（AJAX）
+│     ├─ dashboard.js       # ダッシュボード固有インタラクション
+│     ├─ static_builder.js  # 静的書き出し管理 UI
+│     ├─ collection_manager.js # コレクション管理 UI
+│     ├─ git_manager.js     # Git 連携 UI
+│     ├─ webhook_manager.js # Webhook 管理 UI
+│     ├─ api_keys.js        # API キー管理 UI
+│     ├─ ap-api-client.js   # 静的サイト向け API クライアント
+│     └─ ap-search.js       # クライアントサイド検索
 ├─ themes/
 │  ├─ AP-Default/
-│  │  ├─ theme.html         # テンプレートエンジン方式（推奨）
-│  │  ├─ settings.html      # 管理者設定パネル（パーシャル）
-│  │  ├─ theme.php          # レガシー PHP 方式（フォールバック）
+│  │  ├─ theme.html         # テンプレートエンジン方式
 │  │  └─ style.css
 │  └─ AP-Adlaire/
 │     ├─ theme.html
-│     ├─ settings.html
-│     ├─ theme.php
 │     └─ style.css
 ├─ data/
 │  ├─ settings/
@@ -77,16 +93,26 @@ AdlairePlatform/
 
 ## 3. 各コンポーネントの責務
 
-### index.php（集約エントリーポイント）
+### index.php（エントリーポイント）
 
 | 機能グループ | 主な関数 |
 |------------|---------|
-| ルーティング | `getSlug()`, `host()`, 404ハンドリング |
-| 認証 | `login()`, `logout()`, `savePassword()`, `is_loggedin()` |
-| CSRF | `csrf_token()`, `verify_csrf()` |
-| コンテンツ | `content()`, `menu()`, `settings()`, `json_read()`, `json_write()` |
-| フック | `editTags()`, `registerCoreHooks()`, `$hook[]` |
-| ユーティリティ | `h()`, `data_dir()`, `settings_dir()`, `content_dir()`, `migrate_from_files()` |
+| ルーティング | `getSlug()`, `host()`, 404ハンドリング, `?admin` ダッシュボード |
+| データ層 | `json_read()`, `json_write()`, `data_dir()`, `settings_dir()`, `content_dir()` |
+| ユーティリティ | `h()`, `migrate_from_files()` |
+| レガシーラッパー | `is_loggedin()`, `csrf_token()`, `verify_csrf()`, `content()`, `editTags()`, `menu()` → AdminEngine に委譲 |
+
+### engines/AdminEngine.php（管理エンジン）
+
+| 機能グループ | 主なメソッド |
+|------------|------------|
+| POSTディスパッチ | `handle()` — `ap_action` パラメータでルーティング |
+| 認証 | `isLoggedIn()`, `login()`, `savePassword()` |
+| CSRF | `csrfToken()`, `verifyCsrf()` |
+| 管理アクション | `handleEditField()`, `handleUploadImage()`, リビジョン系 |
+| コンテンツ出力 | `renderEditableContent()` |
+| フック | `registerHooks()`, `getAdminScripts()` |
+| ダッシュボード | `renderDashboard()`, `buildDashboardContext()` |
 
 ### engines/TemplateEngine.php
 
@@ -97,9 +123,10 @@ AdlairePlatform/
 ### engines/ThemeEngine.php
 
 - テーマ自動検出・存在確認・バリデーション
-- `theme.html` 優先ロード → なければ `theme.php` にフォールバック
-- `buildContext()` / `buildStaticContext()` / `parseMenu()` / `buildSettingsContext()`
+- `theme.html` をロード（なければ AP-Default にフォールバック）
+- `buildContext()` / `buildStaticContext()` / `parseMenu()`（AdminEngine に認証・コンテンツ出力を委譲）
 - テーマ切替ロジック（設定値に基づく）
+- OGP メタタグ / JSON-LD 構造化データ生成
 
 ### engines/UpdateEngine.php
 
@@ -177,13 +204,11 @@ AdlairePlatform/
 ### 現行実装
 
 ```php
-// 旧: loadPlugins() → 新: registerCoreHooks()
-function registerCoreHooks(): void {
-    global $hook;
-    $hook['admin-head'][] = "\n\t<script src='engines/JsEngine/autosize.js'></script>";
-    $hook['admin-head'][] = "\n\t<script src='engines/JsEngine/editInplace.js'></script>";
-    $hook['admin-head'][] = "\n\t<script src='engines/JsEngine/updater.js'></script>";
-}
+// AdminEngine::registerHooks() が admin-head フックに JsEngine スクリプトを登録
+AdminEngine::registerHooks();
+
+// AdminEngine::getAdminScripts() がフック内容を文字列で返却（theme.html 方式用）
+// editTags() はレガシー theme.php フォールバック用ラッパーとして維持
 ```
 
 ---
@@ -266,9 +291,28 @@ Header always set Content-Security-Policy "default-src 'self'; script-src 'self'
 | WYSIWYG | `Ver.1.2-20 〜 25` | ✅ 完了 | WYSIWYG エディタ独自実装（ブロックベース） |
 | テンプレート | `Ver.1.2-26` | ✅ 完了 | TemplateEngine 導入・テーマ PHP フリー化・最終バグ修正 |
 | **Ver.1.2系終了** | `Ver.1.2-26` | **🔒 終了** | **Ver.1.2系最終リビジョン** |
+| AdminEngine | `Ver.1.3-27` | ✅ 完了 | 管理エンジン導入・ダッシュボード化 |
+| StaticEngine | `Ver.1.3-28` | ✅ 完了 | 静的サイト生成・theme.php 廃止 |
+| ヘッドレス CMS | `Ver.1.3-28` | ✅ 完了 | ApiEngine・CollectionEngine・MarkdownEngine・GitEngine・WebhookEngine・CacheEngine・ImageOptimizer |
+| **Ver.1.3系終了** | `Ver.1.3-29` | **🔒 終了** | **Ver.1.3系最終リビジョン** |
+
+### Ver.1.3系（🔒 終了）
+
+| フェーズ | 主な内容 | ステータス |
+|---------|---------|-----------|
+| AdminEngine・ダッシュボード | 管理ツールのエンジン駆動モデル化・ダッシュボード UI 導入 | ✅ 完了（Ver.1.3-27） |
+| StaticEngine | 静的サイト生成エンジン・theme.php 廃止 | ✅ 完了（Ver.1.3-28） |
+| ApiEngine | ヘッドレス CMS REST API 実装 | ✅ 完了（Ver.1.3-28） |
+| CollectionEngine | Markdown ベースのコレクション管理 | ✅ 完了（Ver.1.3-28） |
+| MarkdownEngine | フロントマター付き Markdown パーサー | ✅ 完了（Ver.1.3-28） |
+| GitEngine | GitHub リポジトリ連携 | ✅ 完了（Ver.1.3-28） |
+| WebhookEngine | Webhook 管理・送信 | ✅ 完了（Ver.1.3-28） |
+| CacheEngine | API レスポンスキャッシュ | ✅ 完了（Ver.1.3-28） |
+| ImageOptimizer | 画像最適化 | ✅ 完了（Ver.1.3-28） |
 
 > **バージョン規則**: リビジョンはリセット禁止、常に累積加算
 > **Ver.1.2系実績**: `Ver.1.0-11 → Ver.1.1-12 → Ver.1.2-13 → ... → Ver.1.2-26（終了）`
+> **Ver.1.3系実績**: `Ver.1.3-27 → Ver.1.3-28 → Ver.1.3-29（終了）`
 
 ---
 
@@ -335,7 +379,7 @@ Header always set Content-Security-Policy "default-src 'self'; script-src 'self'
 
 ## 11. 機能リスト
 
-### 実装済み（Ver.1.2-26 / Ver.1.2系最終）
+### 実装済み（Ver.1.3-29 現在（Ver.1.3系終了））
 
 #### コンテンツ管理
 - ✅ ページ作成・編集・保存（JSON）
@@ -388,12 +432,27 @@ Header always set Content-Security-Policy "default-src 'self'; script-src 'self'
 - ✅ `data/content/` 分割（pages.json）
 - ✅ `migrate_from_files()` 旧パス自動移行
 
-### 次期バージョン以降で実装予定（Ver.1.2系では未実装）
+#### 静的サイト生成（Ver.1.3-28）
+- ✅ StaticEngine — 差分ビルド・フルビルド・クリーン・ZIP ダウンロード
+- ✅ Static-First Hybrid 配信（`.htaccess`）
+- ✅ コレクション一覧・個別・タグページ・ページネーションの静的生成
+- ✅ sitemap.xml / robots.txt / search-index.json 自動生成
+- ✅ OGP メタタグ / JSON-LD 構造化データ
+- ✅ HTML / CSS ミニファイ
 
-- 🔜 静的サイト生成（`engines/StaticEngine.php`）— 設計確定（`docs/STATIC_GENERATOR.md` Ver.0.3-1）
-- 🔜 ヘッドレスCMS（`engines/ApiEngine.php`）— 設計確定（`docs/HEADLESS_CMS.md` Ver.0.3-1）
+#### ヘッドレス CMS（Ver.1.3-28）
+- ✅ ApiEngine — 公開 REST API（ページ・コレクション・検索・お問い合わせ）
+- ✅ API キー認証（Bearer トークン + bcrypt）
+- ✅ CORS 対応（`Vary: Origin` ヘッダー）
+- ✅ CollectionEngine — Markdown ベースのコレクション管理
+- ✅ MarkdownEngine — フロントマター付き Markdown パーサー
+- ✅ GitEngine — GitHub リポジトリ連携
+- ✅ WebhookEngine — Webhook 管理・送信（SSRF 防止）
+- ✅ CacheEngine — API レスポンスキャッシュ
+- ✅ ImageOptimizer — 画像最適化
 
-> Ver.1.2系終了に伴い、上記の実装は次期メジャーバージョン（Ver.2.x）以降に持ち越します。
+#### 管理エンジン（Ver.1.3-27）
+- ✅ AdminEngine 導入・管理ダッシュボード化（`engines/AdminEngine.php` / `?admin`）
 
 ---
 

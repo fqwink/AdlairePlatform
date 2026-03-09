@@ -14,8 +14,31 @@ server {
     index index.php;
 
     # -----------------------------------------------------------------
+    # Static-First: 静的ファイルが存在すれば優先配信
+    # 管理・ログイン・API はバイパスして PHP にルーティング
+    # -----------------------------------------------------------------
+    location = / {
+        if ($args ~ "(^|&)(ap_action|ap_api|admin|login)") {
+            rewrite ^ /index.php?$args last;
+        }
+        try_files /static/index.html /index.php?$args;
+    }
+
+    location ~ "^/([a-zA-Z0-9_-]+)/?$" {
+        if ($args ~ "(^|&)(ap_action|ap_api|admin|login)") {
+            rewrite ^ /index.php?page=$1&$args last;
+        }
+        try_files /static/$1/index.html /index.php?page=$1&$args;
+    }
+
+    # static/ 内アセットへの直接アクセス
+    location /static/ {
+        try_files $uri =404;
+    }
+
+    # -----------------------------------------------------------------
     # クリーンURL（拡張子なしURL → index.php へルーティング）
-    # .htaccess の RewriteRule に相当
+    # Static-First でマッチしなかった場合のフォールバック
     # -----------------------------------------------------------------
     location / {
         try_files $uri $uri/ /index.php?page=$uri&$args;
