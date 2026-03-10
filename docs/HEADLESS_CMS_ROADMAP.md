@@ -615,7 +615,7 @@ private function init(): void {
 - `docs/HEADLESS_CMS.md` — ApiEngine 設計書（Ver.0.3-1）
 - `docs/STATIC_GENERATOR.md` — StaticEngine 仕様書（Ver.0.3-2）
 - `docs/ARCHITECTURE.md` — 全体設計書
-- `docs/SPEC.md` — 仕様書
+- `docs/AdlairePlatform_Design.md` — 設計書・仕様書
 
 ### 一般参考
 - ヘッドレス CMS アーキテクチャ: Git ベース vs API ベースの比較

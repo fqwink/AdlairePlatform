@@ -1,47 +1,43 @@
 # AdlairePlatform — 設計書・仕様書
 
-<!-- ⚠️ 削除禁止: 本ドキュメントはプロジェクトの正式な設計書・仕様書です -->
+<!-- ⚠️ 削除禁止: 本ドキュメントは基本設計書・基本方針に関する最上位ドキュメントです -->
 
-> **ドキュメントバージョン**: Ver.0.4-1
+> **ドキュメントバージョン**: Ver.0.5-2
 > **ステータス**: 🔧 開発中（Ver.1.4-pre）
 > **作成日**: 2026-03-06
-> **最終更新**: 2026-03-10（SPEC.md 統合・Ver.1.4-pre 更新）
+> **最終更新**: 2026-03-10（ドキュメント役割再定義・4ドキュメント体制）
 > **所有者**: Adlaire Group
 > **バージョニング規則**: [AFE/VERSIONING.md](https://github.com/fqwink/AdlaireGroup-Documents-Repository/blob/main/AFE/VERSIONING.md)
 >
 > **Ver.1.4-pre**: Ver.1.4系開発開始。全 15 エンジン（AppContext・Logger・MailerEngine 追加）。
 
-> **注**: アーキテクチャ・ファイル責務については [ARCHITECTURE.md](ARCHITECTURE.md) を参照してください。
-> 実装機能一覧については [features.md](features.md) を参照してください。
+> **関連ドキュメント**:
+> - エンジン駆動モデルアーキテクチャ基本設計書 → [ARCHITECTURE.md](ARCHITECTURE.md)
+> - 詳細設計書（実装レベルの技術仕様） → [DETAILED_DESIGN.md](DETAILED_DESIGN.md)
+> - 機能一覧・関数リファレンス → [features.md](features.md)
+> - 本ドキュメントは **基本設計書・基本方針に関するすべて** を定めています。
 
 ---
 
 ## 目次
 
 1. [概要](#1-概要)
-2. [技術スタック](#2-技術スタック)
+2. [技術スタック・ライブラリ方針](#2-技術スタックライブラリ方針)
 3. [動作要件](#3-動作要件)
-4. [アーキテクチャ設計](#4-アーキテクチャ設計)
-5. [機能仕様](#5-機能仕様)
-   - 5.1 [コンテンツ管理](#51-コンテンツ管理)
-   - 5.2 [テーマエンジン](#52-テーマエンジン)
-   - 5.3 [認証・セキュリティ](#53-認証セキュリティ)
-   - 5.4 [フロントエンド](#54-フロントエンド)
-   - 5.5 [WYSIWYGエディタ](#55-wysiwygエディタ)
-   - 5.6 [アップデートエンジン](#56-アップデートエンジン)
-   - 5.7 [管理エンジン・ダッシュボード](#57-管理エンジンダッシュボード)
-6. [エディタ設計（3段階実装）](#6-エディタ設計3段階実装)
-7. [フック機構](#7-フック機構)
-8. [データ層](#8-データ層)
-9. [jQuery 廃止 / バニラ JS 移行仕様](#9-jquery-廃止--バニラ-js-移行仕様)
-10. [PHP 8.2 対応仕様](#10-php-82-対応仕様)
-11. [静的サイト生成エンジン](#11-静的サイト生成エンジン)
-12. [ヘッドレス CMS / API エンジン](#12-ヘッドレス-cms--api-エンジン)
-13. [データ仕様](#13-データ仕様)
-14. [セキュリティ方針](#14-セキュリティ方針)
-15. [バージョン計画](#15-バージョン計画)
-16. [実装タスクリスト（全24件）](#16-実装タスクリスト全24件)
-17. [変更履歴](#17-変更履歴)
+4. [設計方針](#4-設計方針)
+   - 4.1 [コンテンツ管理](#41-コンテンツ管理)
+   - 4.2 [テーマエンジン](#42-テーマエンジン)
+   - 4.3 [認証・セキュリティ](#43-認証セキュリティ)
+   - 4.4 [フロントエンド](#44-フロントエンド)
+   - 4.5 [エディタ設計（3段階実装）](#45-エディタ設計3段階実装)
+   - 4.6 [フック機構](#46-フック機構)
+   - 4.7 [データ層](#47-データ層)
+5. [PHP 8.2 対応仕様](#5-php-82-対応仕様)
+6. [セキュリティ方針](#6-セキュリティ方針)
+7. [バージョン計画](#7-バージョン計画)
+   - [保留事項・次期バージョン検討項目](#保留事項次期バージョン検討項目)
+8. [実装タスクリスト（全24件）](#8-実装タスクリスト全24件)
+9. [変更履歴](#9-変更履歴)
 
 ---
 
@@ -90,38 +86,24 @@ WYSIWYGエディタ（完了）      →    ─                                 
 
 ---
 
-## 2. 技術スタック
+## 2. 技術スタック・ライブラリ方針
 
 ### 2.1 確定技術スタック
 
 | 項目 | 採用技術 | バージョン要件 | 備考 |
 |------|----------|----------------|------|
-| **サーバーサイド言語** | PHP | **8.2 以降必須** | 8.2 未満は非サポート・廃止 |
-| **Web サーバー** | Apache / Nginx | 任意（要件参照） | Apache: mod_rewrite / mod_headers 必須、Nginx: php-fpm 連携・server block 設定必須 |
+| **サーバーサイド言語** | PHP | **8.2 以降必須** | 8.2 未満は非サポート |
+| **Web サーバー** | Apache / Nginx | 任意（要件参照） | Apache: mod_rewrite / mod_headers 必須、Nginx: php-fpm 連携必須 |
 | **フロントエンドライブラリ** | autosize | 最新安定版 | テキストエリア自動拡張専用（セルフホスト） |
 | **スクリプト言語** | JavaScript（バニラ） | ES5+ | jQuery は廃止済み |
 | **スタイルシート** | CSS | CSS3 | フレームワーク非依存 |
 | **データストレージ** | JSON ファイル | — | DB 不要（フラットファイル） |
 | **認証ハッシュ** | bcrypt | PASSWORD_BCRYPT | PHP 標準実装 |
 
-### 2.2 廃止・削除項目
-
-| 廃止項目 | 理由 | 代替 |
-|----------|------|------|
-| **jQuery** | 外部依存の削減、バニラ JS で代替可能 | バニラ JavaScript（ES5+） |
-| **PHP 8.2 未満** | EOL/セキュリティリスク、新機能活用のため | PHP 8.2 以降 |
-| **MD5 パスワードハッシュ** | 既に廃止済み（自動移行実装済み） | bcrypt |
-| **plugins/ システム** | 内部コアフックへの統合により廃止 | `registerCoreHooks()` |
-| **rte.php / rte.js** | 独自 WYSIWYG 実装により廃止 | `engines/JsEngine/wysiwyg.js` |
-| **js/ ディレクトリ** | `engines/JsEngine/` へ移行 | `engines/JsEngine/` |
-
-### 2.3 外部依存ライブラリ方針
+### 2.2 外部依存ライブラリ方針
 
 ```
 【原則】外部 CDN への依存を最小化し、自己ホスト（セルフホスト）を優先する
-
-廃止済み:
-  - jQuery 3.7.1（CDN 経由）→ 削除済み
 
 維持:
   - autosize（テキストエリア自動拡張・セルフホスト）
@@ -146,10 +128,8 @@ WYSIWYGエディタ（完了）      →    ─                                 
 | PHP 拡張 | `ZipArchive` | アップデートエンジン（推奨） |
 | PHP 拡張 | `finfo` | 画像 MIME 型検証 |
 | PHP 設定 | `allow_url_fopen = On` | アップデートチェック（推奨） |
-| Web サーバー | **Apache** または **Nginx** | Apache: `mod_rewrite`・`mod_headers` 有効必須 / Nginx: `php-fpm` 連携・server block 設定必須 |
-| ファイル権限 | `data/` ディレクトリ | Web サーバーユーザーによる書き込み可 |
-| ファイル権限 | `backup/` ディレクトリ | Web サーバーユーザーによる書き込み可 |
-| ファイル権限 | `uploads/` ディレクトリ | Web サーバーユーザーによる書き込み可 |
+| Web サーバー | **Apache** または **Nginx** | Apache: `mod_rewrite`・`mod_headers` 有効必須 / Nginx: `php-fpm` 連携必須 |
+| ファイル権限 | `data/` / `backup/` / `uploads/` | Web サーバーユーザーによる書き込み可 |
 | ディスク容量 | 最低 50MB 以上 | バックアップ世代管理を考慮 |
 
 #### Apache 固有要件
@@ -166,8 +146,8 @@ WYSIWYGエディタ（完了）      →    ─                                 
 | 要件 | 詳細 |
 |------|------|
 | `php-fpm` | PHP 処理のための FastCGI プロセスマネージャー |
-| server block 設定 | URL リライト・セキュリティヘッダー・ディレクトリ保護を `nginx.conf` または `conf.d/*.conf` に記述 |
-| `.htaccess` 非対応 | Nginx は `.htaccess` を読み込まないため、同等の設定を server block に手動記述すること |
+| server block 設定 | URL リライト・セキュリティヘッダー・ディレクトリ保護を手動記述 |
+| `.htaccess` 非対応 | Nginx は `.htaccess` を読み込まないため、`nginx.conf.example` を参照 |
 
 ### 3.2 クライアント要件
 
@@ -179,596 +159,100 @@ WYSIWYGエディタ（完了）      →    ─                                 
 
 ### 3.3 非サポート環境
 
-- PHP 8.1 以前（廃止）
+- PHP 8.1 以前
 - IIS など Apache・Nginx 以外の Web サーバー
 - `mod_rewrite` が無効な Apache 環境
 - `php-fpm` が利用できない Nginx 環境
 
 ---
 
-## 4. アーキテクチャ設計
+## 4. 設計方針
 
-### 4.1 現行アーキテクチャ（v1.3）
+> 本セクションは各機能の**設計判断の根拠**を記録します。
+> 実装の詳細は [ARCHITECTURE.md](ARCHITECTURE.md)、機能一覧は [features.md](features.md) を参照してください。
 
-現行は**シングルエントリーポイント + エンジン分離方式**を採用しています。
-`index.php` はルーティング・初期化・ユーティリティに特化し、管理機能は `AdminEngine` に集約されています。
+### 4.1 コンテンツ管理
 
-**Apache 環境:**
-```
-[クライアント]
-    │ HTTP リクエスト
-    ▼
-[.htaccess]
-    │ mod_rewrite → index.php?page=<slug>
-    ▼
-[index.php]  ←── ルーティング・初期化
-    │
-    ├── PHP バージョンチェック
-    ├── require engines/AdminEngine.php
-    ├── require engines/ThemeEngine.php
-    ├── require engines/UpdateEngine.php
-    ├── AdminEngine::handle() ─ 管理 POST アクション（edit_field / upload_image / revision系）
-    ├── handle_update_action() ─ アップデート POST 処理
-    ├── ?admin → AdminEngine::renderDashboard() ─ 管理ダッシュボード
-    ├── AdminEngine::registerHooks() ─ JsEngine スクリプト登録
-    ├── テーマ読み込み（ThemeEngine::load()）
-    │        │
-    │        ▼
-    │   [JSON データ層]
-    │   ├── data/settings/settings.json   （サイト設定）
-    │   ├── data/settings/auth.json       （認証情報）
-    │   ├── data/settings/version.json    （バージョン履歴）
-    │   ├── data/settings/update_cache.json （APIキャッシュ）
-    │   ├── data/settings/login_attempts.json （ログイン試行）
-    │   └── data/content/pages.json       （ページコンテンツ）
-    │
-    └── ob_end_flush()
-```
+**設計判断**:
+- **フラットファイル JSON** を採用し、データベースへの依存を排除。小規模サイトではファイル I/O で十分なパフォーマンスが得られる
+- **スラッグベース URL** でページを識別。`mb_convert_case` による UTF-8 対応の小文字化を行う
+- **インプレイス編集** を採用し、管理画面と公開画面を分離しない。ログイン中のみ `editText` / `editRich` クラスで編集 UI を付与
+- **設定管理** はダッシュボード（`?admin`）に集約。テーマ内の `settings.html` パーシャルは Ver.1.3-27 で廃止
 
-**Nginx 環境:**
-```
-[クライアント]
-    │ HTTP リクエスト
-    ▼
-[nginx server block]
-    │ try_files → index.php?page=<slug>（.htaccess は無効）
-    ▼
-[php-fpm]
-    │ FastCGI → index.php
-    ▼
-[index.php] ← 同上
-```
+> 実装詳細: [ARCHITECTURE.md §5 データ層](ARCHITECTURE.md)、[features.md §1 コンテンツ管理](features.md)
 
-> ⚠️ **Nginx 利用時の注意**: `.htaccess` は Apache 専用のため Nginx では機能しない。
-> `nginx.conf.example` を参照して server block に同等の設定を記述すること。
+### 4.2 テーマエンジン
 
-### 4.2 AdminEngine アーキテクチャ（Ver.1.3-27 で導入）
+**設計判断**:
+- **PHP フリーのテンプレートエンジン**（`theme.html` 方式）を採用。`theme.php` は Ver.1.3-28 で廃止
+- 独自テンプレート構文（`{{var}}` / `{{#if}}` / `{{#each}}` / `{{> partial}}`）を実装し、Handlebars ライクな構文で PHP の知識なしにテーマを作成可能にする
+- **フィルター構文**（`{{var|upper}}`）とドット記法（`{{obj.prop}}`）を Ver.1.4-pre で追加
+- テーマ名のバリデーション（`[a-zA-Z0-9_-]`）でパストラバーサルを防止
+- デフォルトテーマ `AP-Default` へのフォールバックで存在しないテーマ指定時も安全に動作
 
-> ✅ **ステータス: 実装済み（Ver.1.3-27）**
+> 構文仕様: [features.md §2 テーマエンジン](features.md)、エンジン実装: [ARCHITECTURE.md §3.3-3.4](ARCHITECTURE.md)
 
-`engines/AdminEngine.php` に管理機能を集約。index.php から認証・CSRF・フィールド保存・画像アップロード・リビジョン管理を分離。
-専用ダッシュボード（`?admin`）を導入し、フロントエンドの settings.html パーシャルを廃止。
+### 4.3 認証・セキュリティ
 
-詳細は `docs/ARCHITECTURE.md` のファイル責務セクションを参照。
+**設計判断**:
+- **シングルパスワード認証** を採用。マルチユーザー管理の複雑性を排除し、小規模サイトに適した軽量設計
+- **bcrypt** によるパスワードハッシュ化。MD5 からの自動移行を実装済み
+- **CSRF トークン** は `random_bytes(32)` で生成し、`hash_equals()` で定数時間比較
+- **レート制限**（5回失敗で15分ロックアウト）は IP ベースで JSON ファイルに記録
+- **HTTP セキュリティヘッダー**（CSP / X-Content-Type-Options / X-Frame-Options / Referrer-Policy）を `.htaccess` / Nginx server block で付与
 
----
+> 実装詳細: [ARCHITECTURE.md §6 セキュリティ](ARCHITECTURE.md)、[features.md §4 認証・セキュリティ](features.md)
 
-## 5. 機能仕様
+### 4.4 フロントエンド
 
-### 5.1 コンテンツ管理
+**設計判断**:
+- **jQuery を廃止し、バニラ JavaScript（ES5+）** で全 DOM 操作・イベント処理を実装。外部依存の削減、バニラ JS の成熟（ES5+ でネイティブ実装可能）、jQuery（~90KB）除去による軽量化が理由
+- **Fetch API** で HTTP 通信を統一。XMLHttpRequest は使用しない
+- **autosize** のみ外部ライブラリとして維持（セルフホスト）。テキストエリア自動拡張の独自実装コストに対するトレードオフ
+- **クリーン URL** は Apache `mod_rewrite` / Nginx `try_files` で実現
 
-#### 5.1.1 データストレージ
+> JS モジュール一覧: [ARCHITECTURE.md §3.14 JsEngine](ARCHITECTURE.md)、[features.md §5 フロントエンド](features.md)
 
-| ファイル | 用途 | 自動生成 |
-|----------|------|----------|
-| `data/settings/settings.json` | サイト設定（タイトル・説明・テーマ等） | ✅ |
-| `data/content/pages.json` | 全ページコンテンツ（スラッグをキーとする） | ✅ |
-| `data/settings/auth.json` | 認証情報（bcrypt ハッシュ） | ✅ |
-| `data/settings/update_cache.json` | アップデート確認キャッシュ（TTL: 1時間） | ✅ |
-| `data/settings/version.json` | アップデート履歴 | ✅ |
-| `data/settings/login_attempts.json` | ログイン試行記録（レート制限） | ✅ |
-| `data/settings/static_build.json` | 静的ビルド差分状態 | ✅ |
+### 4.5 エディタ設計（3段階実装）
 
-#### 5.1.2 ページ管理
+エディタは 3 フェーズに分けて段階的に実装した。
 
-- URL スラッグはページ識別子として使用する
-- スラッグ生成: スペース→ハイフン変換、`mb_convert_case` による小文字化（UTF-8対応）
-- 存在しないスラッグへのアクセス: HTTP 404 を返す
-  - ログイン中: 新規ページ作成画面を表示
-  - 非ログイン: 404 コンテンツを表示
-- ページコンテンツは `pages.json` にスラッグをキーとして格納する
+#### Phase 1（Ver.1.1-12 で実装済み）
 
-#### 5.1.3 インプレイス編集
+- `class="editText"` に一本化し、HTMLタグ直接入力モードとして再定義
 
-- ログイン中にのみ編集可能な `<span>` タグをコンテンツに付与する
-- `class="editText"` によってバニラ JS がバインドする（jQuery 依存なし）
-- リッチテキスト対象要素には `class="editRich"` を追加する（WYSIWYGエディタ起動）
-- 編集内容は `fetch` API により非同期保存する
-- 保存 API エンドポイント: `POST /`（`ap_action=edit_field` + フィールド名を POST パラメータとして送信）
-
-#### 5.1.4 設定管理
-
-管理パネルから以下の設定を編集可能とする:
-
-| 設定キー | 内容 | 型 |
-|----------|------|----|
-| `title` | サイトタイトル | string |
-| `description` | サイト説明文 | string |
-| `keywords` | メタキーワード | string |
-| `copyright` | 著作権表記 | string |
-| `menu` | メニュー項目（改行区切り） | string |
-| `themeSelect` | 使用テーマ名 | string |
-
-#### 5.1.5 画像アップロード
-
-- エンドポイント: `POST /`（`ap_action=upload_image`）
-- 認証必須・CSRF 検証必須
-- 許可形式: JPEG / PNG / GIF / WebP（`finfo` による MIME 検証）
-- 最大サイズ: 2MB
-- 保存先: `uploads/` ディレクトリ（PHP 実行不可・ランダムファイル名）
-
----
-
-### 5.2 テーマエンジン
-
-#### 5.2.1 テーマ構造
-
-```
-themes/
-└── <テーマ名>/
-    ├── theme.html      （テンプレートエンジン方式・PHP フリー）
-    └── style.css       （必須: スタイルシート）
-```
-
-> **注**: `theme.php`（レガシー PHP テーマ方式）は Ver.1.3-28 で廃止されました。
-> `settings.html`（管理者設定パネル パーシャル）は Ver.1.3-27 でダッシュボードに統合され、廃止されました。
-
-#### 5.2.2 テーマ仕様
-
-- テーマ名の許可文字: `[a-zA-Z0-9_-]`（パストラバーサル防止）
-- テーマの自動検出: `themes/` ディレクトリを走査し、有効なテーマを一覧表示
-- テーマ切替: 管理パネルからリアルタイムに切替可能
-- デフォルトテーマ: `AP-Default`（存在しないテーマが指定された場合のフォールバック）
-- エンジン: `engines/ThemeEngine.php`（`ThemeEngine::load()` / `ThemeEngine::listThemes()` / `ThemeEngine::buildContext()` / `ThemeEngine::buildStaticContext()`）
-- テンプレートエンジン: `engines/TemplateEngine.php`（`{{var}}` / `{{{raw}}}` / `{{#if}}` / `{{#each}}` / `{{> partial}}` / `{{obj.prop}}` ドット記法 / `{{var|filter}}` フィルター）
-
-#### 5.2.2a テンプレート構文（theme.html 方式）
-
-| 構文 | 説明 | 例 |
-|------|------|----|
-| `{{variable}}` | エスケープ出力（`htmlspecialchars`） | `{{title}}` |
-| `{{{variable}}}` | 生 HTML 出力 | `{{{content}}}` |
-| `{{#if var}}...{{else}}...{{/if}}` | 条件分岐（`!var` で否定可） | `{{#if admin}}...{{/if}}` |
-| `{{#each items}}...{{/each}}` | ループ（配列要素のキーが変数として使用可能） | `{{#each menu_items}}...{{/each}}` |
-| `{{> partial}}` | 部分テンプレートの読み込み（同ディレクトリの `partial.html`） | `{{> settings}}` |
-| `{{obj.prop}}` | ネストされたプロパティへのドット記法アクセス（`$ctx['obj']['prop']`） | `{{user.name}}` |
-| `{{var\|filter}}` | フィルター適用（値を変換して出力） | `{{name\|upper}}` |
-| `{{var\|filter1\|filter2}}` | フィルターチェーン（複数フィルターを左から順に適用） | `{{name\|trim\|upper}}` |
-
-**組み込みフィルター:**
-
-| フィルター | 説明 | 例 |
-|-----------|------|----|
-| `upper` | 大文字に変換（`mb_strtoupper`） | `{{name\|upper}}` → `TANAKA` |
-| `lower` | 小文字に変換（`mb_strtolower`） | `{{name\|lower}}` → `tanaka` |
-| `capitalize` | 先頭文字を大文字に変換 | `{{name\|capitalize}}` → `Tanaka` |
-| `trim` | 前後の空白を除去 | `{{name\|trim}}` |
-| `nl2br` | 改行を `<br>` に変換 | `{{desc\|nl2br}}` |
-| `length` | 文字列長または配列要素数を返す | `{{items\|length}}` → `5` |
-| `truncate:N` | N 文字で切り詰め、末尾に `...` を付与 | `{{title\|truncate:20}}` |
-| `default:value` | 値が空の場合にデフォルト値を使用 | `{{name\|default:ゲスト}}` |
-
-**ループ内メタ変数:**
-
-| 変数 | 型 | 説明 |
-|------|-----|------|
-| `{{@index}}` | int | 現在のループインデックス（0 始まり） |
-| `{{@first}}` | bool | 最初の要素で `true` |
-| `{{@last}}` | bool | 最後の要素で `true` |
-
-**未処理タグ検出:**
-
-テンプレートエンジンはレンダリング後に未処理のテンプレートタグ（`{{...}}`）を検出し、`error_log()` で警告を出力します。テーマ開発時のデバッグに活用できます。
-
-**パーシャル（部分テンプレート）:**
-
-- パーシャルはテーマディレクトリ内の `*.html` ファイルを参照します（例: `{{> settings}}` → `themes/<テーマ名>/settings.html`）
-- 循環参照防止: 最大ネスト深度 10
-
-#### 5.2.2b テンプレートコンテキスト変数
-
-| 変数名 | 型 | 説明 |
-|--------|-----|------|
-| `title` | string | サイトタイトル |
-| `page` | string | 現在のページスラッグ |
-| `host` | string | サイトベース URL |
-| `themeSelect` | string | 現在のテーマ名 |
-| `description` | string | サイト説明文 |
-| `keywords` | string | メタキーワード |
-| `admin` | bool | ログイン状態（管理者 UI の表示制御） |
-| `csrf_token` | string | CSRF トークン |
-| `admin_scripts` | string | 管理スクリプトタグ（HTML） |
-| `content` | string | ページコンテンツ HTML |
-| `subside` | string | サイドバーコンテンツ HTML |
-| `copyright` | string | 著作権表記 |
-| `login_status` | string | ログイン/ログアウトリンク HTML |
-| `credit` | string | Adlaire クレジット HTML |
-| `menu_items` | array | メニュー項目（各要素: `slug`, `label`, `active`） |
-
-**管理者ログイン時のみ追加される変数（ダッシュボード用）:**
-
-> 以下の変数は `AdminEngine::buildDashboardContext()` がダッシュボードテンプレート用に構築します。
-> フロントエンドテーマテンプレートでは使用しません。
-
-| 変数名 | 型 | 説明 |
-|--------|-----|------|
-| `migrate_warning` | bool | パスワード移行警告の表示フラグ |
-| `theme_select_html` | string | テーマ選択 `<select>` HTML |
-| `menu_raw` | string | メニュー生テキスト（編集用） |
-| `settings_fields` | array | 設定フィールド（各要素: `key`, `default_value`, `value`） |
-| `ap_version` | string | 現在の AP バージョン |
-| `pages` | array | ページ一覧（各要素: `slug`, `preview`） |
-| `has_pages` | bool | ページが1件以上存在するか |
-| `php_version` | string | PHP バージョン |
-| `disk_free` | string | ディスク空き容量 |
-
-#### 5.2.3 同梱テーマ
-
-| テーマ名 | 用途 |
-|----------|------|
-| `AP-Default` | 標準・汎用テーマ |
-| `AP-Adlaire` | Adlaire デザインテーマ |
-
-#### 5.2.4 テーマ内利用可能関数（theme.php レガシー方式のみ）
-
-| 関数 | 説明 |
-|------|------|
-| `content(string $id, string $content)` | コンテンツ出力（ログイン中は編集可能タグ付与）— AdminEngine に委譲 |
-| `menu()` | ナビゲーションメニュー出力 |
-| `h(string $s): string` | XSS エスケープ出力 |
-| `editTags()` | 管理用スクリプト・スタイルの出力 — AdminEngine に委譲 |
-| `is_loggedin(): bool` | ログイン状態の確認 — AdminEngine に委譲 |
-
-> **注**: `theme.html` 方式ではこれらの関数は使用しません。代わりにテンプレート変数（`{{{content}}}`, `{{#each menu_items}}` 等）でデータにアクセスします。
-
----
-
-### 5.3 認証・セキュリティ
-
-#### 5.3.1 認証仕様
-
-| 項目 | 仕様 |
-|------|------|
-| 認証方式 | シングルパスワード認証 |
-| ハッシュアルゴリズム | `PASSWORD_BCRYPT`（`password_hash` / `password_verify`） |
-| 認証情報格納 | `data/settings/auth.json`（`password_hash` キー） |
-| セッション管理 | `$_SESSION['l'] = true` |
-| セッション固定対策 | ログイン成功時に `session_regenerate_id(true)` を実行 |
-| クッキー設定 | `HttpOnly: 1`、`SameSite: Lax` |
-| レート制限 | 5回失敗で15分ロックアウト（IP ベース・`login_attempts.json`） |
-| レガシー対応 | MD5 ハッシュ（32文字 hex）検出時に自動警告・移行を促す |
-
-#### 5.3.2 CSRF 対策
-
-- 32 バイトのランダムトークンをセッションに保持する（`random_bytes(32)`）
-- 全 POST リクエストで `verify_csrf()` による検証を行う
-- 検証方法: `empty()` ガード + `hash_equals()` による定数時間比較
-- トークン送信: フォーム hidden フィールド（`csrf`）または HTTP ヘッダー（`X-CSRF-TOKEN`）
-
-#### 5.3.3 XSS 対策
-
-- 全出力箇所で `h()` 関数（`htmlspecialchars(ENT_QUOTES, 'UTF-8')`）を使用する
-- コンテンツの生出力は原則禁止とし、信頼されたコンテンツにのみ例外を設ける
-
-#### 5.3.4 パストラバーサル対策
-
-- テーマ名、フィールド名、バックアップ名は正規表現 `^[a-zA-Z0-9_\-]+$` で検証する
-- バックアップ名は `^[0-9_]+$`（数字とアンダースコアのみ）でさらに厳格に検証する
-- 検証失敗時: HTTP 400 Bad Request を返す
-
-#### 5.3.5 HTTP セキュリティヘッダー（.htaccess / Nginx）
-
-| ヘッダー | 値 | 目的 |
-|----------|----|------|
-| `Content-Security-Policy` | `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'` | XSS・コンテンツインジェクション防止 |
-| `X-Content-Type-Options` | `nosniff` | MIME スニッフィング防止 |
-| `X-Frame-Options` | `SAMEORIGIN` | クリックジャッキング対策 |
-| `Referrer-Policy` | `same-origin` | リファラー情報の漏洩防止 |
-
-**Apache（.htaccess）:**
-```apache
-<IfModule mod_headers.c>
-    Header always set Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline';"
-    Header always set X-Content-Type-Options "nosniff"
-    Header always set X-Frame-Options "SAMEORIGIN"
-    Header always set Referrer-Policy "same-origin"
-</IfModule>
-```
-
-**Nginx（server block）:**
-```nginx
-add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline';" always;
-add_header X-Content-Type-Options "nosniff" always;
-add_header X-Frame-Options "SAMEORIGIN" always;
-add_header Referrer-Policy "same-origin" always;
-```
-
-#### 5.3.6 ディレクトリ保護（.htaccess / Nginx）
-
-| 対象ディレクトリ | 保護内容 |
-|------------------|----------|
-| `data/` | 外部アクセス完全遮断 |
-| `backup/` | 外部アクセス完全遮断 |
-| `files/` | 外部アクセス完全遮断（レガシー互換） |
-| `engines/*.php` | 直接アクセス禁止（`RedirectMatch 403`） |
-| `uploads/` | PHP 実行禁止（`Options -ExecCGI`） |
-
----
-
-### 5.4 フロントエンド
-
-#### 5.4.1 基本方針
-
-- **jQuery は使用しない（廃止済み）**
-- DOM 操作・イベント処理はすべてバニラ JavaScript（ES5+）で実装する
-- HTTP 通信は `fetch` API を使用する
-- テキストエリアの自動拡張は `autosize` ライブラリを使用する（セルフホスト）
-
-#### 5.4.2 インプレイス編集（バニラ JS 仕様）
-
-```
-【イベントバインド】
-  document.querySelectorAll('.editText') でバインド
-  → click イベントで編集モードへ移行（textarea 変換）
-
-【保存処理】
-  fetch('/index.php', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({ fieldname: value, csrf: token })
-  })
-
-【autosize 適用】
-  apAutosize(textarea)  // engines/JsEngine/autosize.js
-```
-
-#### 5.4.3 AJAX 保存仕様
-
-- 保存成功時: 画面遷移なし、UIフィードバック（視覚的インジケーター）
-- 保存失敗時: エラーメッセージをインライン表示
-- CSRF トークンは POST ボディまたは `X-CSRF-TOKEN` ヘッダーで送信する
-
-#### 5.4.4 URL 設計（クリーン URL）
-
-**Apache（mod_rewrite / .htaccess）:**
-```apache
-RewriteEngine on
-Options -Indexes
-RewriteCond %{REQUEST_FILENAME} !-f
-RewriteCond %{REQUEST_FILENAME} !-d
-RewriteCond $1#%{REQUEST_URI} ([^#]*)#(.*)$
-RewriteRule ^([^\.]+)$ %2?page=$1 [QSA,L]
-```
-
-**Nginx（server block）:**
-```nginx
-location / {
-    try_files $uri $uri/ @php_rewrite;
-}
-
-location @php_rewrite {
-    rewrite ^/([^.]+)$ /index.php?page=$1 last;
-}
-
-location ~ \.php$ {
-    fastcgi_pass unix:/run/php/php8.2-fpm.sock;
-    fastcgi_index index.php;
-    fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
-    include fastcgi_params;
-}
-```
-
----
-
-### 5.5 WYSIWYGエディタ
-
-`engines/JsEngine/wysiwyg.js` による依存ライブラリなしの独自実装（ES2020+）。
-Editor.js スタイルのブロックベースアーキテクチャを採用。
-
-#### 5.5.1 起動条件
-
-- `class="editRich"` を持つ `<span>` 要素をクリックすると WYSIWYG モードで起動する
-- `editInplace.js` とは独立したモジュールとして動作する
-
-#### 5.5.2 アーキテクチャ
-
-- 各ブロックが独立した contenteditable 要素を持つブロックベース設計
-- 内部データモデル: `{ id, type, data }` の配列
-- 入力: 既存 HTML をブロック配列にパース（後方互換性を維持）
-- 出力: ブロック配列を HTML にシリアライズ（AP の既存保存フローと完全互換）
-
-#### 5.5.3 ブロックタイプ
-
-| タイプ | ツールバー | HTML 出力 |
-|--------|-----------|-----------|
-| paragraph | ¶ | `<p>` |
-| heading | H2 / H3 | `<h2>` / `<h3>` |
-| list | •≡ / 1≡ | `<ul><li>` / `<ol><li>` |
-| blockquote | ❝ | `<blockquote>` |
-| code | {} | `<pre><code>` |
-| delimiter | — | `<hr>` |
-| table | 📊 | `<table>` |
-| image | 🖼 | `<figure><img><figcaption>` |
-| checklist | — | `<ul class="ap-checklist">` |
-
-#### 5.5.4 インラインツール
-
-| ツール | ショートカット | HTML |
-|--------|---------------|------|
-| Bold | Ctrl+B | `<b>` |
-| Italic | Ctrl+I | `<i>` |
-| Underline | Ctrl+U | `<u>` |
-| Strikethrough | Ctrl+Shift+S | `<s>` |
-| Inline Code | Ctrl+E | `<code>` |
-| Marker | Ctrl+Shift+M | `<mark>` |
-| Link | Ctrl+K | `<a href>` |
-
-#### 5.5.5 〜 5.5.13 その他の機能
-
-- **フローティングインラインツールバー**: テキスト選択時に B/I/U/S/Code/Marker/Link ボタンを浮かせる
-- **画像ブロック**: D&D / クリップボード / ボタン / スラッシュコマンドで挿入。サイズプリセット・Alt・キャプション対応
-- **テーブル**: 3×3 初期テーブル、Tab/Shift+Tab セル間移動、行列追加・削除
-- **チェックリスト**: `/checklist` で挿入、Enter で新項目、空項目 + Backspace で削除
-- **スラッシュコマンド**: 空ブロック `/` でメニュー表示、インクリメンタル絞り込み
-- **ブロックハンドル**: `⠿` ホバー表示、タイプ変換ポップアップ、Block Tunes（配置）
-- **ドラッグ並べ替え**: `⠿` ドラッグでブロック順序変更（シアン色ドロップライン）
-- **ARIA**: `role="toolbar"` / `role="textbox"` / `aria-live="polite"` / `role="listbox"`
-- **保存**: 30秒自動保存、Ctrl+Enter / blur で即時保存、ホワイトリスト方式サニタイザー
-- **HTML サニタイザー**: 許可タグ `P / H1-H6 / BR / B / I / U / S / A / UL / OL / LI / BLOCKQUOTE / PRE / CODE / HR / TABLE / TBODY / THEAD / TFOOT / TR / TD / TH / IMG`
-
----
-
-### 5.6 アップデートエンジン
-
-`engines/UpdateEngine.php` による実装。
-
-#### 5.6.1 API エンドポイント一覧
-
-| `ap_action` 値 | 処理内容 | 認証必須 |
-|----------------|----------|----------|
-| `check` | 最新バージョンを GitHub API で確認（TTL: 1時間キャッシュ） | ✅ |
-| `check_env` | 環境確認（ZipArchive・allow_url_fopen・書込権限・ディスク容量） | ✅ |
-| `apply` | アップデート適用（ZIP DL → 展開 → バックアップ → 上書き） | ✅ |
-| `list_backups` | バックアップ一覧取得 | ✅ |
-| `rollback` | 指定バックアップへのロールバック | ✅ |
-| `delete_backup` | バックアップの削除 | ✅ |
-
-#### 5.6.2 バックアップ仕様
-
-- 保存先: `backup/YYYYMMDD_His/`
-- 世代管理: 最大 **5 世代**（`AP_BACKUP_GENERATIONS` 定数で変更可能）
-- 保護対象: `data/`・`backup/`・`.git/` ディレクトリはバックアップ・アップデート時に除外
-- メタデータ: 各バックアップに `meta.json`（更新前バージョン・作成日時・ファイル数・サイズ）を記録
-
----
-
-### 5.7 管理エンジン・ダッシュボード
-
-`engines/AdminEngine.php` による実装（Ver.1.3-27 導入）。
-
-#### 5.7.1 AdminEngine 概要
-
-index.php に集約されていた管理機能を単一エンジンに分離。静的クラスメソッドによるエンジン駆動モデル。
-
-| 機能グループ | メソッド | 説明 |
-|------------|---------|------|
-| POSTディスパッチ | `handle()` | `ap_action` パラメータでルーティング。後方互換: `fieldname` のみでも動作 |
-| 認証 | `isLoggedIn()`, `login()`, `savePassword()` | セッション・bcrypt 認証・パスワード変更 |
-| CSRF | `csrfToken()`, `verifyCsrf()` | トークン生成・検証 |
-| フィールド保存 | `handleEditField()` | サイト設定・ページコンテンツの保存 |
-| 画像アップロード | `handleUploadImage()` | MIME 検証・ランダムファイル名 |
-| リビジョン管理 | `saveRevision()`, `listRevisions()` 等 | 保存・一覧・復元・ピン留め・検索 |
-| コンテンツ出力 | `renderEditableContent()` | ログイン時は editRich span 付与 |
-| フック | `registerHooks()`, `getAdminScripts()` | JsEngine スクリプト登録 |
-| ダッシュボード | `renderDashboard()`, `buildDashboardContext()` | 管理画面レンダリング |
-
-#### 5.7.2 管理ダッシュボード
-
-| 項目 | 仕様 |
-|------|------|
-| アクセス URL | `?admin` |
-| 認証 | 必須（未ログインは `?login` にリダイレクト） |
-| テンプレート | `engines/AdminEngine/dashboard.html`（TemplateEngine 方式・テーマ非依存） |
-| スタイル | `engines/AdminEngine/dashboard.css`（テーマ CSS に依存しない） |
-| JS | `engines/JsEngine/dashboard.js`（テーマ選択変更の保存） |
-
-#### 5.7.3 `ap_action` パラメータ（AdminEngine 管轄）
-
-| `ap_action` 値 | 処理内容 | 認証必須 |
-|----------------|----------|----------|
-| `edit_field` | フィールド保存（設定・ページコンテンツ） | ✅ |
-| `upload_image` | 画像アップロード | ✅ |
-| `list_revisions` | リビジョン一覧取得 | ✅ |
-| `get_revision` | リビジョンコンテンツ取得 | ✅ |
-| `restore_revision` | リビジョン復元 | ✅ |
-| `pin_revision` | リビジョンピン留め | ✅ |
-| `search_revisions` | リビジョン検索 | ✅ |
-
----
-
-## 6. エディタ設計（3段階実装）
-
-### Phase 1（Ver.1.1-12 で実装済み）
-
-- **RTE廃止**: `richText` クラスを削除、`rte.php` / `rte.js` を削除
-- **統合**: `class="editText"` に一本化し、HTMLタグ直接入力モードとして再定義
-- **削除対象**: `admin-richText` フック、`rte.js`（JsEngineに含まない）
-
-### Phase 2（Ver.1.2-20 で実装済み）
+#### Phase 2（Ver.1.2-20 で実装済み）
 
 - 外部WYSIWYGライブラリは採用せず、`engines/JsEngine/wysiwyg.js` として独自実装
 - `class="editRich"` 要素クリックで WYSIWYG エディタを起動
 - 基本インラインツール（B/I/U）、ブロックタイプ（H2/H3/P/UL/OL）、画像挿入（D&D/クリップボード/ボタン）、自動保存（30秒）
 
-### Phase 3（Ver.1.2-22 で実装済み）
+#### Phase 3（Ver.1.2-22 で実装済み）
 
 - Editor.js スタイルのブロックベースアーキテクチャに全面改修
 - 各ブロックが独立した contenteditable を持つ設計
-- 新ブロックタイプ: blockquote / code / delimiter(hr) / table / image(figure) / checklist
-- インラインツール拡張: S（取消線）/ Code（インラインコード）/ Marker / Link
-- フローティングインラインツールバー（テキスト選択時に自動表示）
-- "/" スラッシュコマンドメニュー（空ブロックで / 入力時にブロックタイプ選択）
-- ブロックハンドル ⠿（ホバー時表示、タイプ変換ポップアップ）
-- ドラッグ並べ替え（⠿ ハンドルでブロック順序変更、シアン色ドロップライン）
-- Block Tunes（テキスト配置: 左/中央/右）
-- ARIA アクセシビリティ対応（role/aria-label/aria-live）
+- 新ブロックタイプ: blockquote / code / delimiter / table / image / checklist
+- インラインツール拡張: S / Code / Marker / Link
+- フローティングインラインツールバー・スラッシュコマンドメニュー・ブロックハンドル・ドラッグ並べ替え
+- ARIA アクセシビリティ対応
 
----
+> 機能詳細: [features.md §3 WYSIWYGエディタ](features.md)
 
-## 7. フック機構
+### 4.6 フック機構
 
-### 存続フック（内部専用）
+**設計判断**:
+- 外部プラグインによるフック登録は廃止。`loadPlugins()` / `plugins/` ディレクトリを削除
+- **内部コアフックのみ** に限定。`admin-head` フックで JsEngine スクリプトを登録
+- `AdminEngine::registerHooks()` → `AdminEngine::getAdminScripts()` のパターンでフック内容を取得
 
-| フック名 | 用途 |
-|---------|-----|
-| `admin-head` | 管理画面 `<head>` 内スクリプト挿入 |
-| `admin-richText` | Phase 1では廃止済み、Phase 2でWYSIWYG用に復活予定 |
+> 実装詳細: [ARCHITECTURE.md §7 フック機構](ARCHITECTURE.md)
 
-### 廃止済み
+### 4.7 データ層
 
-- `loadPlugins()` による外部プラグイン走査
-- `plugins/` ディレクトリ全体
-- 外部からのフック登録機能
-
-### 現行実装
-
-```php
-// AdminEngine::registerHooks() が admin-head フックに JsEngine スクリプトを登録
-AdminEngine::registerHooks();
-
-// AdminEngine::getAdminScripts() がフック内容を文字列で返却（theme.html 方式用）
-// editTags() はレガシー theme.php フォールバック用ラッパーとして維持
-```
-
-外部プラグインによるフック登録は廃止。内部コアフックのみ使用。
-
----
-
-## 8. データ層
-
-### 移行パス
-
-| 旧パス | 新パス |
-|-------|-------|
-| `data/settings.json` | `data/settings/settings.json` |
-| `data/auth.json` | `data/settings/auth.json` |
-| `data/update_cache.json` | `data/settings/update_cache.json` |
-| `data/pages.json` | `data/content/pages.json` |
-
-### 自動マイグレーション
-
-`migrate_from_files()` 関数が旧パスから新パスへ自動移行する。
-起動時に旧ファイルが存在すれば新ディレクトリに移動する。（実装済み）
+**設計判断**:
+- `data/settings/`（設定系）と `data/content/`（コンテンツ系）に分離して管理
+- 初回アクセス時にディレクトリを自動生成し、インストールの手間を最小化
+- レガシーデータからの自動マイグレーションを 2 段階で実装:
 
 ```
 Phase 1: files/{key} → data/settings/{key}.json / data/content/pages.json
@@ -777,60 +261,21 @@ Phase 2: data/{file}.json → data/settings/{file}.json / data/content/pages.jso
 
 Phase 2 は起動時に毎回チェックするが、移行済みの場合は `file_exists` で早期 skip される。
 
----
-
-## 9. jQuery 廃止 / バニラ JS 移行仕様
-
-### 9.1 廃止背景
-
-| 理由 | 詳細 |
-|------|------|
-| 外部依存の削減 | CDN 依存によるパフォーマンス・セキュリティリスクの排除 |
-| バニラ JS の成熟 | ES5+ により jQuery 相当の機能がネイティブ実装可能 |
-| 軽量化 | jQuery（約 90KB minified）の除去によるロード時間短縮 |
-| ライセンス整合性 | 外部ライブラリへの依存をプロジェクト方針に沿って最小化 |
-
-### 9.2 移行完了ファイル
-
-| ファイル | 移行内容 |
-|----------|----------|
-| `engines/JsEngine/editInplace.js` | jQuery を全廃・バニラJS (ES2020+) で完全リライト |
-| `engines/JsEngine/wysiwyg.js` | 依存ライブラリなしの独自 WYSIWYG 実装 |
-| `engines/JsEngine/updater.js` | 依存ライブラリなしの Fetch API 実装 |
-| `themes/AP-Default/theme.php` | jQuery CDN 読み込みタグを削除済み（theme.php 自体は Ver.1.3-28 で廃止） |
-| `themes/AP-Adlaire/theme.php` | jQuery CDN 読み込みタグを削除済み（theme.php 自体は Ver.1.3-28 で廃止） |
-
-### 9.3 置換対応表
-
-| jQuery 記法 | バニラ JS 代替 |
-|-------------|----------------|
-| `$(selector)` | `document.querySelector(selector)` |
-| `$(selector).each()` | `document.querySelectorAll().forEach()` |
-| `$(selector).on(event, fn)` | `element.addEventListener(event, fn)` |
-| `$(selector).val()` | `element.value` |
-| `$(selector).text(str)` | `element.textContent = str` |
-| `$(selector).html(str)` | `element.innerHTML = str` |
-| `$(selector).addClass(c)` | `element.classList.add(c)` |
-| `$(selector).removeClass(c)` | `element.classList.remove(c)` |
-| `$.ajax({ ... })` | `fetch(url, { method, headers, body })` |
-| `$(document).ready(fn)` | `document.addEventListener('DOMContentLoaded', fn)` |
+> 現行データ構造: [ARCHITECTURE.md §5 データ層](ARCHITECTURE.md)
 
 ---
 
-## 10. PHP 8.2 対応仕様
+## 5. PHP 8.2 対応仕様
 
-### 10.1 廃止背景
+### 5.1 サポートバージョン
 
-| バージョン | EOL（セキュリティ） | 廃止理由 |
+| バージョン | EOL（セキュリティ） | ステータス |
 |------------|---------------------|----------|
-| PHP 5.3 〜 7.x | 終了済み | 重大なセキュリティリスク |
-| PHP 8.0 | 2023-11-26 終了 | EOL、サポート対象外 |
-| PHP 8.1 | 2024-11-25 終了 | EOL、サポート対象外 |
 | **PHP 8.2** | **2026-12-31** | **最低サポートバージョン** |
 | PHP 8.3 | 2027-12-31 | 推奨バージョン |
 | PHP 8.4 | 2028-12-31 | 最新安定版 |
 
-### 10.2 バージョンチェック
+### 5.2 バージョンチェック
 
 アプリケーション起動時に PHP バージョンを検証する:
 
@@ -843,146 +288,9 @@ if (PHP_VERSION_ID < 80200) {
 
 ---
 
-## 11. 静的サイト生成エンジン
+## 6. セキュリティ方針
 
-> ✅ **ステータス: 実装済み（Ver.1.3-28）**
-
-`engines/StaticEngine.php` による静的サイト生成エンジン。コンテンツを静的 HTML として書き出し、`.htaccess` で静的ファイルを優先配信する Static-First Hybrid アーキテクチャを実現。
-
-### 11.1 主要機能
-
-| 機能 | メソッド | 説明 |
-|------|---------|------|
-| 差分ビルド | `buildDiff()` | `content_hash` / `settings_hash` に基づき変更ページのみ再生成 |
-| フルビルド | `buildAll()` | 全ページ強制再生成 |
-| クリーン | `clean()` | `static/` を完全削除 |
-| ZIP ダウンロード | `serveZip()` | 静的ファイル一式を ZIP 圧縮 |
-| アセット管理 | `copyAssets()` | テーマ CSS/JS + uploads/ を `static/assets/` に差分コピー |
-| ステータス取得 | `getStatus()` | ページ別ビルド状態（current/outdated/not_built） |
-
-### 11.2 追加機能
-
-- コレクション一覧・個別ページ・タグページの静的生成
-- ページネーション（`perPage` 設定に基づく複数ページ分割）
-- `sitemap.xml` / `robots.txt` 自動生成
-- `search-index.json` 生成（クライアントサイド検索用、ドラフト記事除外: R9 fix）
-- OGP メタタグ / JSON-LD 構造化データ自動生成
-- 前後記事ナビゲーション
-- HTML / CSS ミニファイ
-
-詳細は `docs/STATIC_GENERATOR.md` を参照してください。
-
----
-
-## 12. ヘッドレス CMS / API エンジン
-
-> ✅ **ステータス: 実装済み（Ver.1.3-28）**
-
-`engines/ApiEngine.php` により、公開 REST API エンドポイントを提供します。
-
-- **主用途**: StaticEngine が生成した静的 HTML から Fetch API で呼び出す動的機能（フォーム・検索等）
-- **将来用途**: 外部フロントエンド（Next.js / Nuxt / SvelteKit）からのヘッドレス CMS 利用
-
-### 12.1 関連エンジン
-
-| エンジン | 説明 |
-|---------|------|
-| `CollectionEngine` | Markdown ベースのコレクション（ブログ・ニュース等）管理 |
-| `MarkdownEngine` | フロントマター付き Markdown パース・HTML 変換 |
-| `GitEngine` | GitHub リポジトリとのコンテンツ同期 |
-| `WebhookEngine` | ビルド完了通知・外部連携（SSRF 防止付き） |
-| `CacheEngine` | API レスポンスキャッシュ |
-| `ImageOptimizer` | 画像最適化（リサイズ・品質調整） |
-| `AppContext` | アプリケーションコンテキスト管理（リクエスト情報・設定の一元管理） |
-| `Logger` | 構造化ログ出力（レベル別・ファイルローテーション対応） |
-| `MailerEngine` | メール送信エンジン（`mail()` 直接呼び出しを置換・テンプレート対応） |
-
-### 12.2 公開エンドポイント
-
-| メソッド | `ap_api` 値 | 説明 |
-|---------|------------|------|
-| POST | `contact` | お問い合わせフォーム送信（`MailerEngine::sendContact()` 使用） |
-| GET | `search` | ページ全文検索（`mb_stripos` ベース） |
-| GET | `page` | 単一ページコンテンツの JSON 取得 |
-| GET | `pages` | 全ページ一覧（slug + プレビュー） |
-| GET | `settings` | 公開サイト設定（title, description, keywords）のみ |
-| GET | `collection` | コレクション API |
-
-### 12.3 認証
-
-- 公開エンドポイント: 認証不要
-- 管理エンドポイント: API キー認証（Bearer トークン + bcrypt）
-- CORS: 設定可能なオリジン許可（`Vary: Origin` ヘッダー付き: R16 fix）
-
-### 12.4 セキュリティ
-
-- IP ベースレート制限（`contact`: 5回/15分）
-- ハニーポットフィールドによるボット検出
-- パラメータバリデーション（slug: `^[a-zA-Z0-9_-]+$`、検索語: 100文字制限）
-- `settings` エンドポイントは `auth.json` 等の機密情報を含めない
-- メール Subject ヘッダインジェクション対策（R17 fix）
-
-詳細は `docs/HEADLESS_CMS.md` を参照してください。
-
----
-
-## 13. データ仕様
-
-### 13.1 data/settings/settings.json
-
-```json
-{
-  "title": "サイトタイトル",
-  "description": "サイト説明文",
-  "keywords": "キーワード1, キーワード2",
-  "copyright": "© 2026 Adlaire Group",
-  "menu": "ページ名1\nページ名2",
-  "themeSelect": "AP-Default"
-}
-```
-
-### 13.2 data/content/pages.json
-
-```json
-{
-  "index": "<p>トップページのコンテンツ</p>",
-  "about": "<p>概要ページのコンテンツ</p>",
-  "contact": "<p>お問い合わせページのコンテンツ</p>"
-}
-```
-
-### 13.3 data/settings/auth.json
-
-```json
-{
-  "password_hash": "$2y$10$..."
-}
-```
-
-> ⚠️ `password_hash` の値は必ず bcrypt ハッシュ（`$2y$` で始まる文字列）でなければならない。
-> MD5 ハッシュ（32文字の16進数）が検出された場合は警告を表示し、パスワードリセットを促す。
-
-### 13.4 data/settings/version.json
-
-```json
-{
-  "version": "1.2.20",
-  "updated_at": "2026-03-08",
-  "history": [
-    {
-      "version": "1.2.20",
-      "applied_at": "2026-03-08 12:00:00",
-      "backup": "20260308_120000"
-    }
-  ]
-}
-```
-
----
-
-## 14. セキュリティ方針
-
-### 14.1 セキュリティ設計原則
+### 6.1 セキュリティ設計原則
 
 1. **デフォルト拒否の原則**: 不要なアクセスはすべてデフォルトで拒否する
 2. **最小権限の原則**: 処理に必要な最低限の権限のみを使用する
@@ -990,32 +298,12 @@ if (PHP_VERSION_ID < 80200) {
 4. **入力の検証**: すべてのユーザー入力を検証・サニタイズする
 5. **出力のエスケープ**: すべての出力箇所でエスケープ処理を行う
 
-### 14.2 脆弱性対策マトリクス
-
-| 脅威 | 対策 | 実装場所 |
-|------|------|---------|
-| XSS | `h()` 関数による出力エスケープ | `index.php` / `AdminEngine` 全出力箇所 |
-| CSRF | 32バイトトークン + `empty()` + `hash_equals()` | `AdminEngine::verifyCsrf()` |
-| セッションハイジャック | `session_regenerate_id(true)` | `AdminEngine::login()` |
-| パストラバーサル | 正規表現バリデーション | フィールド名・テーマ名・バックアップ名 |
-| クリックジャッキング | `X-Frame-Options: SAMEORIGIN` | `.htaccess` / server block |
-| MIME スニッフィング | `X-Content-Type-Options: nosniff` | `.htaccess` / server block |
-| ディレクトリ列挙 | `Options -Indexes` | `.htaccess` / `autoindex off` |
-| データ漏洩 | 保護ディレクトリへのアクセス拒否 | `.htaccess` / server block |
-| ブルートフォース | 5回失敗で15分ロックアウト（IP ベース） | `check_login_rate()` |
-| パスワード平文保存 | bcrypt ハッシュ化 | `savePassword()` |
-| コンテンツインジェクション | CSP ヘッダー（`default-src 'self'`） | `.htaccess` / server block |
-| 画像アップロード悪用 | MIME 検証・PHP 実行禁止・ランダムファイル名 | `upload_image()` |
-| SSRF | プライベート IP ブロック・DNS リバインディング防止 | `WebhookEngine` |
-| JSON-LD XSS | `JSON_UNESCAPED_SLASHES` 除去 | `ThemeEngine` |
-| メールヘッダインジェクション | Subject の改行除去 | `ApiEngine` |
-| CORS キャッシュポイズニング | `Vary: Origin` ヘッダー | `ApiEngine` |
-| オープンリダイレクト | リダイレクト先 URL 検証 | `AdminEngine` |
-| API 認証 | Bearer トークン + bcrypt | `ApiEngine` |
+> 脅威対策マトリクス（実装仕様）は [DETAILED_DESIGN.md §4 セキュリティ実装仕様](DETAILED_DESIGN.md) を参照してください。
+> アーキテクチャレベルのセキュリティ設計は [ARCHITECTURE.md §6 セキュリティ設計方針](ARCHITECTURE.md) を参照してください。
 
 ---
 
-## 15. バージョン計画
+## 7. バージョン計画
 
 | フェーズ | バージョン | ステータス | 主な内容 |
 |---------|----------|-----------|---------|
@@ -1052,9 +340,54 @@ if (PHP_VERSION_ID < 80200) {
 > **Ver.1.2系実績**: `Ver.1.0-11 → Ver.1.1-12 → Ver.1.2-13 → ... → Ver.1.2-26（終了）`
 > **Ver.1.3系実績**: `Ver.1.3-27 → Ver.1.3-28 → Ver.1.3-29（終了）`
 
+### 保留事項・次期バージョン検討項目
+
+#### 次期バージョン検討予定
+
+| # | 項目 | 概要 | 参照 |
+|---|------|------|------|
+| F-1 | WorkflowEngine | プレビュー + レビュー承認ワークフロー | `docs/HEADLESS_CMS_ROADMAP.md` Phase 3 |
+| F-2 | マルチ環境 | Git ブランチ = 環境（dev / staging / production） | `docs/HEADLESS_CMS_ROADMAP.md` |
+| F-3 | GraphQL 対応 | REST に加えて GraphQL エンドポイント | `docs/HEADLESS_CMS_ROADMAP.md` |
+| F-4 | GitHub OAuth | 外部認証連携 | `docs/HEADLESS_CMS_ROADMAP.md` |
+| F-5 | OpenAPI 自動生成 | Swagger 形式の API ドキュメント | `docs/HEADLESS_CMS_ROADMAP.md` |
+| F-6 | Astro / Next.js テンプレート | スターターテンプレートの提供 | `docs/HEADLESS_CMS_ROADMAP.md` |
+| F-7 | WYSIWYG ↔ Markdown 変換 | 逆変換の精度と実装コスト | `docs/HEADLESS_CMS_ROADMAP.md` |
+
+#### 暫定実装（⚠️）
+
+| # | 項目 | 現状 | 参照 |
+|---|------|------|------|
+| P-1 | メール送信 | PHP `mail()` 暫定使用。SMTP 対応は未実装 | `docs/HEADLESS_CMS.md` |
+| P-2 | 日本語検索 | `mb_stripos` ベース。形態素解析は非実装 | `docs/HEADLESS_CMS.md` |
+| P-3 | 管理 API 認証方式 | セッション Cookie 暫定。API キー / Bearer トークンは検討中 | `docs/HEADLESS_CMS.md` |
+
+#### 未定（❓）
+
+| # | 項目 | 参照 |
+|---|------|------|
+| U-1 | API バージョニング戦略 | `docs/HEADLESS_CMS.md` |
+| U-2 | 複数テーマ CSS パス（サブディレクトリ対応） | `docs/STATIC_GENERATOR.md` |
+| U-3 | メニュー active クラス動的付与 | `docs/STATIC_GENERATOR.md` |
+
+#### 将来予定（🔜）
+
+| # | 項目 | 概要 | 参照 |
+|---|------|------|------|
+| L-1 | メディアアップロード API | 外部フロントエンドからの画像アップロード | `docs/HEADLESS_CMS.md` |
+| L-2 | `api_origin` 管理画面設定 | Static-Only モード選択時の設定 UI | `docs/HEADLESS_CMS.md` |
+
+#### 未実装・未検討
+
+| # | モジュール | 略称 | 説明 |
+|---|----------|------|------|
+| X-1 | Core modules | CM | コアモジュール |
+| X-2 | SubCore modules | SCM | サブコアモジュール |
+| X-3 | Adlaire account authentication system | A3S | アドレイルアカウント認証システム |
+
 ---
 
-## 16. 実装タスクリスト（全24件）
+## 8. 実装タスクリスト（全24件）
 
 ### P1 – 即実装（→ Ver.1.1-12）✅ 完了
 
@@ -1115,23 +448,19 @@ if (PHP_VERSION_ID < 80200) {
 
 ---
 
-## 17. 変更履歴
+## 9. 変更履歴
 
 | バージョン | 日付 | 変更内容 | 担当 |
 |------------|------|----------|------|
+| Ver.0.5-2 | 2026-03-10 | ドキュメント役割再定義。基本設計書・基本方針の最上位ドキュメントとして位置付け。§6.2 脅威マトリクスを DETAILED_DESIGN.md に移出。関連ドキュメント参照を 4 ドキュメント体制に更新 | Adlaire Group |
+| Ver.0.5-1 | 2026-03-10 | ARCHITECTURE.md との重複排除のためゼロベースで書き換え。設計方針（Why）に特化し、実装詳細（What）は ARCHITECTURE.md・features.md への参照に置換。§4 設計方針セクションに集約。全 16 セクション → 9 セクションに再構成（約 1100 行 → 約 450 行） | Adlaire Group |
+| Ver.0.4-2 | 2026-03-10 | 廃止機能記載の削除（§2.2 廃止テーブル・§5.2.4 theme.php 関数・§9 jQuery 移行仕様など約 85 行）。§14 に保留事項・次期バージョン検討項目を集約追加 | Adlaire Group |
 | Ver.0.4-1 | 2026-03-10 | SPEC.md を統合。設計書・仕様書を単一ドキュメントに集約。ディレクトリ構成・ライセンス・機能リストなど他ドキュメントと重複するセクションを削除 | Adlaire Group |
-| Ver.0.3-12 | 2026-03-10 | Ver.1.4-pre 更新。AppContext・Logger・MailerEngine の 3 エンジン追加（15 エンジン体制）。TemplateEngine にドット記法・フィルター構文を追加。contact エンドポイントを MailerEngine::sendContact() に変更。ロードマップ・ディレクトリ構成を更新 | Adlaire Group |
-| Ver.0.2-11 | 2026-03-09 | Ver.1.3系終了（Ver.1.3-29）を反映。バージョン参照を更新。次期バージョンへの引き継ぎ事項を整理 | Adlaire Group |
-| Ver.0.2-10 | 2026-03-09 | 全エンジン実装を反映（Ver.1.3-28）。セクション 8/9 を「計画」から「実装済み」に更新。StaticEngine・ApiEngine・CollectionEngine・MarkdownEngine・GitEngine・WebhookEngine・CacheEngine・ImageOptimizer を追記。ディレクトリ構成・テーマ構造を更新。theme.php 廃止を反映 | Adlaire Group |
-| Ver.0.2-9 | 2026-03-08 | AdminEngine・ダッシュボード化を反映（Ver.1.3-27）。セクション 4.2・5.7 追加。テーマ構造から settings.html 削除。ディレクトリ構成・関数リファレンス・セキュリティマトリクスを更新 | Adlaire Group |
-| Ver.0.2-8 | 2026-03-08 | Ver.1.3系ロードマップ追記。StaticEngine・ApiEngine の実装予定を「Ver.1.3系」に具体化。管理ツールのダッシュボード化・エンジン駆動モデル化を計画に追加 | Adlaire Group |
-| Ver.0.2-7 | 2026-03-08 | Ver.1.2系終了。ロードマップ・セクション8/9 のステータスを「次期バージョン以降で実装予定」に更新。ドキュメント全体に Ver.1.2系終了通知を追記 | Adlaire Group |
-| Ver.0.2-6 | 2026-03-08 | TemplateEngine 改良。パーシャル構文・ループメタ変数・未処理タグ検出を追加。管理者専用コンテキスト変数を追記 | Adlaire Group |
-| Ver.0.2-5 | 2026-03-08 | TemplateEngine 導入。テンプレート構文・コンテキスト変数を追加。テーマ構造に theme.html を追加 | Adlaire Group |
-| Ver.0.2-4 | 2026-03-08 | セクション8・9 のステータスを「設計確定（実装未着手）」に更新 | Adlaire Group |
-| Ver.0.2-3 | 2026-03-08 | Ver.1.2-20 対応。WYSIWYG・画像アップロード・レート制限・CSP を追加 | Adlaire Group |
-| Ver.0.1-2 | 2026-03-06 | ヘッドレス CMS 機能セクションを新規追加 | Adlaire Group |
-| Ver.0.1-1 | 2026-03-06 | 初版確定。技術スタック策定・アーキテクチャ変更・静的生成計画の記録 | Adlaire Group |
+| Ver.0.3-12 | 2026-03-10 | Ver.1.4-pre 更新。AppContext・Logger・MailerEngine の 3 エンジン追加（15 エンジン体制） | Adlaire Group |
+| Ver.0.2-11 | 2026-03-09 | Ver.1.3系終了（Ver.1.3-29）を反映 | Adlaire Group |
+| Ver.0.2-10 | 2026-03-09 | 全エンジン実装を反映（Ver.1.3-28） | Adlaire Group |
+| Ver.0.2-9 | 2026-03-08 | AdminEngine・ダッシュボード化を反映（Ver.1.3-27） | Adlaire Group |
+| Ver.0.1-1 | 2026-03-06 | 初版確定 | Adlaire Group |
 
 ---
 

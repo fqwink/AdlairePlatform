@@ -73,8 +73,7 @@ APは、デザインテンプレートエンジンを搭載したフラットフ
 |---|---|
 | [docs/features.md](docs/features.md) | 実装機能一覧 |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | アーキテクチャ・ファイル責務 |
-| [docs/AdlairePlatform_Design.md](docs/AdlairePlatform_Design.md) | 設計書・バージョン計画 |
-| [docs/SPEC.md](docs/SPEC.md) | 技術仕様書 |
+| [docs/AdlairePlatform_Design.md](docs/AdlairePlatform_Design.md) | 設計書・仕様書・バージョン計画 |
 | [RELEASE-NOTES.md](RELEASE-NOTES.md) | リリースノート・変更履歴 |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | コントリビューション・ガイド |
 
