@@ -496,4 +496,12 @@ AdminEngine::registerHooks();
 
 ---
 
+## 📝 変更履歴
+
+本ドキュメントの変更履歴は、以下のファイルで一元管理されています:
+
+👉 **[docs/DOCUMENT_CHANGELOG.md](./DOCUMENT_CHANGELOG.md#-architecturemd)** を参照してください。
+
+---
+
 *Adlaire License Ver.2.0 — 社内限り*

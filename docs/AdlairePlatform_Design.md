@@ -306,11 +306,9 @@ WYSIWYGエディタ（完了）      →    ─                                 
 
 ## 6. 変更履歴
 
-| バージョン | 日付 | 変更内容 | 担当 |
-|------------|------|----------|------|
-| Ver.0.5-1 | 2026-03-10 | 5文書構成整理。詳細仕様・セキュリティ・エンジン技術設計を分離。設計思想を追加 | Adlaire Group |
-| Ver.0.4-1 | 2026-03-10 | SPEC.md を統合。設計書・仕様書を単一ドキュメントに集約。ディレクトリ構成・ライセンス・機能リストなど他ドキュメントと重複するセクションを削除 | Adlaire Group |
-| Ver.0.3-12 | 2026-03-10 | Ver.1.4-pre 更新。AppContext・Logger・MailerEngine の 3 エンジン追加（15 エンジン体制）。TemplateEngine にドット記法・フィルター構文を追加。contact エンドポイントを MailerEngine::sendContact() に変更。ロードマップ・ディレクトリ構成を更新 | Adlaire Group |
+本ドキュメントの変更履歴は、以下のファイルで一元管理されています:
+
+👉 **[docs/DOCUMENT_CHANGELOG.md](./DOCUMENT_CHANGELOG.md#-adlaireplatform_designmd)** を参照してください。
 
 ---
 

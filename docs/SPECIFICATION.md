@@ -619,9 +619,9 @@ Phase 2 は起動時に毎回チェックするが、移行済みの場合は `f
 
 ## 12. 変更履歴
 
-| バージョン | 日付 | 変更内容 | 担当 |
-|------------|------|----------|------|
-| Ver.1.0-1 | 2026-03-10 | 新規作成。AdlairePlatform_Design.md から機能仕様セクション（5-13）を統合 | Adlaire Group |
+本ドキュメントの変更履歴は、以下のファイルで一元管理されています:
+
+👉 **[docs/DOCUMENT_CHANGELOG.md](./DOCUMENT_CHANGELOG.md#-specificationmd)** を参照してください。
 
 ---
 

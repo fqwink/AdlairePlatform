@@ -399,9 +399,9 @@ $subject = sanitizeHeader($subject);
 
 ## 11. 変更履歴
 
-| バージョン | 日付 | 変更内容 | 担当 |
-|------------|------|----------|------|
-| Ver.1.0-1 | 2026-03-10 | 新規作成。AdlairePlatform_Design.md と ARCHITECTURE.md からセキュリティ関連セクションを統合 | Adlaire Group |
+本ドキュメントの変更履歴は、以下のファイルで一元管理されています:
+
+👉 **[docs/DOCUMENT_CHANGELOG.md](./DOCUMENT_CHANGELOG.md#-security_policymd)** を参照してください。
 
 ---
 

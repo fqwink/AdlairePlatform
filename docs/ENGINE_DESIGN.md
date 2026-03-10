@@ -1114,9 +1114,9 @@ class WorkflowEngine {
 
 ## 変更履歴
 
-| バージョン | 日付 | 変更内容 |
-|------------|------|---------|
-| Ver.1.0-1 | 2026-03-10 | 初版。StaticEngine, ApiEngine, DiagnosticEngine, Git連携エンジン群の設計書を統合 |
+本ドキュメントの変更履歴は、以下のファイルで一元管理されています:
+
+👉 **[docs/DOCUMENT_CHANGELOG.md](./DOCUMENT_CHANGELOG.md#-engine_designmd)** を参照してください。
 
 ---
 
