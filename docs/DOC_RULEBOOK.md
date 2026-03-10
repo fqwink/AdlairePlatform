@@ -9,13 +9,15 @@
 | `README.md` | 可 | プロジェクト概要・導入案内 |
 | `CONTRIBUTING.md` | 可 | コントリビューションガイド |
 | `RELEASE-NOTES.md` | 可 | リリースノート |
-| `docs/AdlairePlatform_Design.md` | **🚫 禁止** | 基本設計・方針に関するドキュメント |
-| `docs/ARCHITECTURE.md` | **🚫 禁止** | アーキテクチャに関するドキュメント |
-| `docs/VERSIONING.md` | **🚫 禁止** | バージョニング規則に関するドキュメント |
-| `docs/features.md` | 可 | 実装・未実装・関数リファレンス・APIリファレンスに関するドキュメント |
-| `docs/ENGINE_DESIGN_INTEGRATED.md` | 可 | エンジン設計統合ドキュメント（旧HEADLESS_CMS.md等を統合） |
-| `docs/CONFIGURATION.md` | 可 | 設定リファレンスに関するドキュメント |
-| `docs/THEME_DEVELOPMENT.md` | 可 | テーマ開発リファレンスに関するドキュメント |
+| `docs/AdlairePlatform_Design.md` | **🚫 禁止** | 基本設計・設計方針・プロジェクト方針 |
+| `docs/ARCHITECTURE.md` | **🚫 禁止** | エンジン駆動モデルアーキテクチャ設計 |
+| `docs/SPECIFICATION.md` | 可 | 全機能仕様リファレンス（2026-03-10 新規作成） |
+| `docs/SECURITY_POLICY.md` | **🚫 禁止** | セキュリティ方針（機密レベル：社内限定、2026-03-10 新規作成） |
+| `docs/ENGINE_DESIGN.md` | 可 | 全エンジン技術設計書リファレンス（旧 ENGINE_DESIGN_INTEGRATED.md） |
+| `docs/VERSIONING.md` | **🚫 禁止** | バージョニング規則 |
+| `docs/features.md` | 可 | 実装機能一覧・関数リファレンス・APIリファレンス |
+| `docs/CONFIGURATION.md` | 可 | 設定リファレンス |
+| `docs/THEME_DEVELOPMENT.md` | 可 | テーマ開発リファレンス |
 | `docs/nginx.conf.example` | 可 | Nginx 設定サンプル |
 | `docs/Licenses/LICENSE_Ver.1.0.md` | 可 | Adlaire License Ver.1.0 |
 | `docs/Licenses/LICENSE_Ver.2.0.md` | 可 | Adlaire License Ver.2.0 |
@@ -71,6 +73,7 @@
 | `CHANGELOG.md` | **🚫 永久禁止** | **🚫 永久禁止** |
 | `docs/AdlairePlatform_Design.md` | — | **🚫 禁止** |
 | `docs/ARCHITECTURE.md` | — | **🚫 禁止** |
+| `docs/SECURITY_POLICY.md` | — | **🚫 禁止** |
 | `docs/VERSIONING.md` | — | **🚫 禁止** |
 
 - 作成禁止ファイルを誤って作成した場合は強制削除を義務とする

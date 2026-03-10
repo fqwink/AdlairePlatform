@@ -2,35 +2,48 @@
 
 <!-- ⚠️ 削除禁止: 本ドキュメントはプロジェクトの正式なアーキテクチャ設計書です -->
 
-> **Ver.1.4-pre**: 本ドキュメントは Ver.1.4-pre 時点のアーキテクチャを記録しています。
-> 全 15 エンジン実装完了。Ver.1.4-pre で AppContext・Logger・MailerEngine を追加。
+> **Ver.1.4-pre**: 本ドキュメントは Ver.1.4-pre 時点のアーキテクチャを記録しています。  
+> 全 15 エンジン実装完了。Ver.1.4-pre で AppContext・Logger・MailerEngine を追加。  
+> **最終更新**: 2026-03-10（5文書構成整理）  
+> **分類**: 社内限り
 
-> 分類: 社内限り
-
----
-
-## 1. 設計思想
-
-AdlairePlatform はデータベース不要・単一エントリーポイントの **エンジン駆動型 CMS** です。
-
-- **シンプル優先**: 依存ライブラリなし、フレームワークなし、composer 不要
-- **セルフホスト**: JSON ファイルをストレージとして使用
-- **エンジン分離**: 機能ごとに `engines/` ディレクトリ下の単一ファイルへ集約
-- **外部プラグイン廃止**: フック機構は内部コアフックのみ（`registerCoreHooks()`）
+> **関連ドキュメント**:  
+> - 設計方針・設計思想: [AdlairePlatform_Design.md](AdlairePlatform_Design.md)  
+> - 機能仕様: [SPECIFICATION.md](SPECIFICATION.md)  
+> - セキュリティ: [SECURITY_POLICY.md](SECURITY_POLICY.md)  
+> - エンジン技術設計: [ENGINE_DESIGN.md](ENGINE_DESIGN.md)
 
 ---
 
-## 2. ディレクトリ構成
+## 目次
+
+1. [ディレクトリ構成](#1-ディレクトリ構成)
+2. [ファイル責務](#2-ファイル責務)
+3. [リクエストフロー](#3-リクエストフロー)
+4. [データ層](#4-データ層)
+5. [フック機構](#5-フック機構)
+6. [定数](#6-定数)
+7. [エンジン一覧](#7-エンジン一覧)
+
+> **注**: 設計思想は [AdlairePlatform_Design.md](AdlairePlatform_Design.md#設計思想) を、  
+> セキュリティ方針は [SECURITY_POLICY.md](SECURITY_POLICY.md) を参照してください。
+
+---
+
+## 1. ディレクトリ構成
 
 ```
 AdlairePlatform/
 ├─ index.php                    # エントリーポイント（Router・ユーティリティ・レガシーラッパー）
 ├─ .htaccess                    # URL rewrite・セキュリティヘッダー・アクセス制限
 ├─ docs/
-│  ├─ ARCHITECTURE.md           # 本ドキュメント
+│  ├─ AdlairePlatform_Design.md # 基本設計・設計方針
+│  ├─ ARCHITECTURE.md           # 本ドキュメント（アーキテクチャ設計）
+│  ├─ SPECIFICATION.md          # 機能仕様リファレンス
+│  ├─ SECURITY_POLICY.md        # セキュリティ方針（社内限定）
+│  ├─ ENGINE_DESIGN.md          # エンジン技術設計書リファレンス
 │  ├─ VERSIONING.md             # バージョン規則
-│  ├─ STATIC_GENERATOR.md       # StaticEngine 設計草稿
-│  ├─ HEADLESS_CMS.md           # ApiEngine 設計草稿
+│  ├─ features.md               # 実装機能一覧
 │  ├─ nginx.conf.example        # Nginx 設定リファレンス
 │  └─ Licenses/
 │     └─ LICENSE_Ver.2.0.md
@@ -95,7 +108,7 @@ AdlairePlatform/
 
 ---
 
-## 3. ファイル責務
+## 2. ファイル責務
 
 ### index.php（エントリーポイント）
 
@@ -359,7 +372,7 @@ MailerEngine — メール送信の抽象化
 
 ---
 
-## 4. リクエストフロー
+## 3. リクエストフロー
 
 ```
 HTTP Request
@@ -410,7 +423,7 @@ ob_end_flush() ─ バッファ出力
 
 ---
 
-## 5. データ層
+## 4. データ層
 
 ### ファイルパスマッピング
 
@@ -435,23 +448,7 @@ Phase 2 は起動時に毎回チェックするが、移行済みの場合は `f
 
 ---
 
-## 6. セキュリティ
-
-| 機能 | 実装 |
-|-----|------|
-| パスワードハッシュ | bcrypt (`PASSWORD_BCRYPT`) |
-| セッション | HttpOnly + SameSite=Lax |
-| CSRF | `random_bytes(32)` トークン、POST と X-CSRF-TOKEN ヘッダーで検証 |
-| XSS | `h()` = `htmlspecialchars(ENT_QUOTES)` による出力エスケープ |
-| レート制限 | 5回失敗で15分ロックアウト（IP ベース、`login_attempts.json`） |
-| ディレクトリ保護 | `.htaccess` で `data/`, `backup/`, `files/`, `engines/*.php` を 403 |
-| 画像アップロード | MIME 検証（`finfo`）、2MB 制限、ランダムファイル名（`random_bytes(12)`）、`uploads/` 内 PHP 実行不可 |
-| CSP | `script-src 'self'` を含む包括的 Content-Security-Policy |
-| engines/ 保護 | `RedirectMatch 403 ^.*/engines/.*\.php$` で直接アクセス禁止 |
-
----
-
-## 7. フック機構
+## 5. フック機構
 
 ```php
 // AdminEngine::registerHooks() が admin-head フックに JsEngine スクリプトを登録
@@ -466,7 +463,7 @@ AdminEngine::registerHooks();
 
 ---
 
-## 8. 定数
+## 6. 定数
 
 | 定数 | 値 | 説明 |
 |-----|---|------|
@@ -477,7 +474,7 @@ AdminEngine::registerHooks();
 
 ---
 
-## 9. エンジン一覧
+## 7. エンジン一覧
 
 | エンジン | ファイル | ステータス | 説明 |
 |---------|---------|-----------|------|
