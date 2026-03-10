@@ -69,63 +69,7 @@ APは、デザインテンプレートエンジンを搭載したフラットフ
 
 ## ドキュメント
 
-| ファイル | 役割 | ステータス |
-|---------|------|-----------|
-| [README.md](README.md) | プロジェクト概要・導入案内 | 既存 |
-| [CONTRIBUTING.md](CONTRIBUTING.md) | コントリビューションガイド | 既存 |
-| [RELEASE-NOTES.md](RELEASE-NOTES.md) | リリースノート | 既存 |
-| [docs/AdlairePlatform_Design.md](docs/AdlairePlatform_Design.md) | 基本設計・方針に関するドキュメント | 既存 |
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | アーキテクチャに関するドキュメント | 既存 |
-| [docs/VERSIONING.md](docs/VERSIONING.md) | バージョニング規則に関するドキュメント | 既存 |
-| [docs/features.md](docs/features.md) | 実装・未実装・関数リファレンス・APIリファレンスに関するドキュメント | 既存 |
-| [docs/HEADLESS_CMS.md](docs/HEADLESS_CMS.md) | Headless CMS / REST API 仕様 | 既存 |
-| [docs/HEADLESS_CMS_ROADMAP.md](docs/HEADLESS_CMS_ROADMAP.md) | Headless CMS ロードマップ | 既存 |
-| [docs/STATIC_GENERATOR.md](docs/STATIC_GENERATOR.md) | 静的サイト生成仕様 | 既存 |
-| [docs/DIAGNOSTIC_ENGINE.md](docs/DIAGNOSTIC_ENGINE.md) | DiagnosticEngine 仕様 | 既存 |
-| [docs/CONFIGURATION.md](docs/CONFIGURATION.md) | 設定リファレンスに関するドキュメント | 未作成 |
-| [docs/THEME_DEVELOPMENT.md](docs/THEME_DEVELOPMENT.md) | テーマ開発リファレンスに関するドキュメント | 未作成 |
-| [docs/nginx.conf.example](docs/nginx.conf.example) | Nginx 設定サンプル | 既存 |
-| [docs/Licenses/LICENSE_Ver.1.0.md](docs/Licenses/LICENSE_Ver.1.0.md) | Adlaire License Ver.1.0 | 既存 |
-| [docs/Licenses/LICENSE_Ver.2.0.md](docs/Licenses/LICENSE_Ver.2.0.md) | Adlaire License Ver.2.0 | 既存 |
-
-### ドキュメント運用ルール
-
 ドキュメントの整備・更新は [DOC_RULEBOOK.md](DOC_RULEBOOK.md) に従う。
-
-**ファイル操作制限**
-
-| ファイル | 作成 | 削除 |
-|---------|------|------|
-| `CHANGELOG.md` | **🚫 永久禁止** | **🚫 永久禁止** |
-| `docs/AdlairePlatform_Design.md` | — | **🚫 禁止** |
-| `docs/ARCHITECTURE.md` | — | **🚫 禁止** |
-| `docs/VERSIONING.md` | — | **🚫 禁止** |
-
-- 作成禁止ファイルを誤って作成した場合は強制削除を義務とする
-
-**ドキュメント更新時のメタデータ**
-
-全ドキュメントのファイル先頭に以下を必ず記載する。
-
-| キー | 形式 | 例 |
-|-----|------|----|
-| ファイル名 | テキスト | `ARCHITECTURE.md` |
-| バージョン | `Ver.{メジャー}.{マイナー}-{ビルド}` | `Ver.1.0-1` |
-| 最終更新 | `YYYY-MM-DD` | `2026-03-10` |
-
-全ドキュメントのファイル末尾に以下の変更履歴テーブルを必ず記載する。
-
-```
-## 変更履歴
-
-| バージョン | 更新日 | 変更内容 |
-|-----------|--------|----------|
-| Ver.x.x-x | YYYY-MM-DD | 初版作成 |
-```
-
-- 更新のたびに行を追記する（既存行は削除しない）
-- 新しい行を先頭に追加する（降順）
-- バージョンは `VERSIONING.md` の累積バージョニング規則に従い、ビルド番号リセット禁止
 
 ---
 
