@@ -17,6 +17,8 @@ define('AP_UPDATE_URL', 'https://api.github.com/repos/win-k/AdlairePlatform/rele
 define('AP_BACKUP_GENERATIONS', 5);
 define('AP_REVISION_LIMIT', 30);
 
+require 'engines/AppContext.php';
+require 'engines/Logger.php';
 require 'engines/TemplateEngine.php';
 require 'engines/ThemeEngine.php';
 require 'engines/UpdateEngine.php';
@@ -29,6 +31,7 @@ require 'engines/GitEngine.php';
 require 'engines/WebhookEngine.php';
 require 'engines/CacheEngine.php';
 require 'engines/ImageOptimizer.php';
+require 'engines/MailerEngine.php';
 require 'engines/DiagnosticEngine.php';
 
 ini_set('session.cookie_httponly', 1);
@@ -38,6 +41,8 @@ if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') {
 }
 session_start();
 
+/* B-6 fix: 集中ログ管理の初期化 */
+Logger::init();
 /* 診断エンジン: エラーハンドラ登録（セッション開始後） */
 DiagnosticEngine::registerErrorHandler();
 DiagnosticEngine::startTimer('request_total');
@@ -116,6 +121,7 @@ foreach($c as $key => $val){
 				/* R2 fix: MD5ハッシュ検出 → デフォルトパスワード 'admin' で bcrypt 化（ログイン可能を維持） */
 				$c[$key] = AdminEngine::savePassword('admin');
 				$c['migrate_warning'] = true;
+				Logger::warning('MD5パスワードを検出。デフォルト "admin" で bcrypt 化しました。直ちにパスワードを変更してください。');
 				error_log('AdlairePlatform: MD5パスワードを検出。デフォルト "admin" で bcrypt 化しました。直ちにパスワードを変更してください。');
 				DiagnosticEngine::log('security', 'MD5パスワード検出・bcrypt移行実行');
 			} else {
@@ -177,6 +183,9 @@ foreach($c as $key => $val){
 			break;
 	}
 }
+
+/* B-3 fix: グローバル変数を AppContext に同期 */
+AppContext::syncFromGlobals($c, $d, $host, $lstatus, $apcredit, $hook);
 
 /* ダッシュボードルーティング: ?admin */
 if (isset($_GET['admin'])) {
@@ -253,24 +262,67 @@ function content_dir(): string {
 	return $dir;
 }
 
+/**
+ * E-1 fix: リクエスト内キャッシュ付き JSON I/O
+ * JsonCache クラスで共有キャッシュを管理し、重複I/Oを排除。
+ */
+class JsonCache {
+	/** @var array<string, array> パス → データの読み込みキャッシュ */
+	private static array $store = [];
+
+	public static function get(string $path): ?array {
+		return self::$store[$path] ?? null;
+	}
+
+	public static function set(string $path, array $data): void {
+		self::$store[$path] = $data;
+	}
+
+	public static function invalidate(string $path): void {
+		unset(self::$store[$path]);
+	}
+
+	public static function clear(): void {
+		self::$store = [];
+	}
+}
+
 function json_read(string $file, string $dir = ''): array {
 	$path = ($dir ?: data_dir()).'/'.$file;
+
+	/* キャッシュヒット */
+	$cached = JsonCache::get($path);
+	if ($cached !== null) {
+		return $cached;
+	}
+
 	if(!file_exists($path)) return [];
-	$decoded = json_decode(file_get_contents($path), true);
-	return is_array($decoded) ? $decoded : [];
+	$raw = file_get_contents($path);
+	if ($raw === false) return [];
+	$decoded = json_decode($raw, true);
+	$result = is_array($decoded) ? $decoded : [];
+
+	/* キャッシュに保存 */
+	JsonCache::set($path, $result);
+	return $result;
 }
 
 function json_write(string $file, array $data, string $dir = ''): void {
+	$path = ($dir ?: data_dir()).'/'.$file;
+
 	$result = file_put_contents(
-		($dir ?: data_dir()).'/'.$file,
+		$path,
 		json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT),
 		LOCK_EX
 	);
 	if($result === false){
-		error_log('json_write failed: '.$file);
+		Logger::error('JSON書き込み失敗', ['file' => $file]);
 		header('HTTP/1.1 500 Internal Server Error');
 		exit;
 	}
+
+	/* 書き込み成功時にキャッシュも更新（次の json_read で再読み込み不要） */
+	JsonCache::set($path, $data);
 }
 
 function host(){

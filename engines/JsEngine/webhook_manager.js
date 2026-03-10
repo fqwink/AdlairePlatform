@@ -6,6 +6,7 @@
 
 	var csrf = (document.querySelector('meta[name="csrf-token"]') || {}).content || '';
 
+	/* A-1 fix: X-CSRF-TOKEN ヘッダーを追加（apiPost() と統一） */
 	function post(action, params, callback) {
 		var fd = new FormData();
 		fd.append('ap_action', action);
@@ -13,7 +14,7 @@
 		for (var k in params) {
 			if (params.hasOwnProperty(k)) fd.append(k, params[k]);
 		}
-		fetch('./', { method: 'POST', body: fd })
+		fetch('./', { method: 'POST', headers: { 'X-CSRF-TOKEN': csrf }, body: fd })
 			.then(function(r) {
 				if (!r.ok) throw new Error('HTTP ' + r.status);
 				return r.json();
@@ -181,7 +182,7 @@
 				var fd = new FormData();
 				fd.append('ap_action', 'deploy_diff');
 				fd.append('csrf', csrf);
-				fetch('./', { method: 'POST', body: fd })
+				fetch('./', { method: 'POST', headers: { 'X-CSRF-TOKEN': csrf }, body: fd })
 					.then(function(r) {
 						if (r.headers.get('content-type') && r.headers.get('content-type').indexOf('application/zip') !== -1) {
 							return r.blob().then(function(blob) {
