@@ -167,17 +167,36 @@ class ApiEngine {
 		return false;
 	}
 
-	/** API キーを検証 */
+	/**
+	 * API キーを検証
+	 * A-2 fix: key_prefix による候補絞り込みで bcrypt 検証回数を削減（O(n) → O(1) 平均）
+	 */
 	private static function validateApiKey(string $key): bool {
 		$keys = json_read(self::API_KEYS_FILE, settings_dir());
+		$inputPrefix = substr($key, 0, 7) . '...';
+
+		/* Phase 1: prefix 一致のエントリのみ bcrypt 検証（通常1件） */
 		foreach ($keys as $entry) {
 			if (!is_array($entry)) continue;
 			if (!isset($entry['key_hash'])) continue;
 			if (!($entry['active'] ?? true)) continue;
+			if (($entry['key_prefix'] ?? '') !== $inputPrefix) continue;
 			if (password_verify($key, $entry['key_hash'])) {
 				return true;
 			}
 		}
+
+		/* Phase 2: prefix 未保存の旧エントリ用フォールバック（後方互換） */
+		foreach ($keys as $entry) {
+			if (!is_array($entry)) continue;
+			if (!isset($entry['key_hash'])) continue;
+			if (!($entry['active'] ?? true)) continue;
+			if (isset($entry['key_prefix']) && $entry['key_prefix'] !== '') continue;
+			if (password_verify($key, $entry['key_hash'])) {
+				return true;
+			}
+		}
+
 		return false;
 	}
 
@@ -388,24 +407,15 @@ class ApiEngine {
 		/* レート制限 */
 		self::checkContactRate();
 
-		/* メール送信 */
+		/* E-3 fix: MailerEngine 経由でメール送信（リトライ・ログ・モック対応） */
 		$settings = json_read('settings.json', settings_dir());
 		$to       = $settings['contact_email'] ?? '';
 		if ($to === '') {
 			self::jsonError('送信先が設定されていません', 500);
 		}
 
-		/* メールヘッダインジェクション対策 */
-		$safeName  = str_replace(["\r", "\n"], '', $name);
-		$safeEmail = str_replace(["\r", "\n"], '', $email);
-
-		/* R17 fix: サブジェクトのヘッダインジェクション対策 */
-		$safeTitle = str_replace(["\r", "\n"], '', $settings['title'] ?? 'AP');
-		$subject = '【' . $safeTitle . '】お問い合わせ: ' . $safeName;
-		$body    = "名前: {$safeName}\nメール: {$safeEmail}\n\n{$message}";
-		$headers = "From: {$safeEmail}\r\nReply-To: {$safeEmail}\r\nContent-Type: text/plain; charset=UTF-8";
-
-		if (!@mail($to, $subject, $body, $headers)) {
+		$siteTitle = $settings['title'] ?? 'AP';
+		if (!MailerEngine::sendContact($to, $name, $email, $message, $siteTitle)) {
 			self::jsonError('メール送信に失敗しました', 500);
 		}
 

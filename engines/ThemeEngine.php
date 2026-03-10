@@ -43,10 +43,12 @@ class ThemeEngine {
 	 * 動的 CMS 用のテンプレートコンテキストを構築
 	 */
 	public static function buildContext(): array {
-		global $c, $d, $host, $lstatus, $apcredit;
-
-		$menuItems = self::parseMenu($c['menu'] ?? '', $c['page'] ?? '');
-		$admin     = AdminEngine::isLoggedIn();
+		/* B-3 fix: AppContext 経由でアクセス（global 変数への直接依存を解消） */
+		$menuItems = self::parseMenu(
+			AppContext::config('menu', ''),
+			AppContext::config('page', '')
+		);
+		$admin = AdminEngine::isLoggedIn();
 
 		$adminScripts = '';
 		if ($admin) {
@@ -54,31 +56,31 @@ class ThemeEngine {
 		}
 
 		$contentHtml = AdminEngine::renderEditableContent(
-			$c['page'] ?? '',
-			$c['content'] ?? '',
-			$d['default']['content'] ?? 'Click to edit!'
+			AppContext::config('page', ''),
+			AppContext::config('content', ''),
+			AppContext::defaults('default', 'content', 'Click to edit!')
 		);
 		$subsideHtml = AdminEngine::renderEditableContent(
 			'subside',
-			$c['subside'] ?? '',
-			$d['default']['content'] ?? 'Click to edit!'
+			AppContext::config('subside', ''),
+			AppContext::defaults('default', 'content', 'Click to edit!')
 		);
 
 		return [
-			'title'          => $c['title'] ?? '',
-			'page'           => $c['page'] ?? '',
-			'host'           => $host ?? '',
-			'themeSelect'    => $c['themeSelect'] ?? 'AP-Default',
-			'description'    => $c['description'] ?? '',
-			'keywords'       => $c['keywords'] ?? '',
+			'title'          => AppContext::config('title', ''),
+			'page'           => AppContext::config('page', ''),
+			'host'           => AppContext::host(),
+			'themeSelect'    => AppContext::config('themeSelect', 'AP-Default'),
+			'description'    => AppContext::config('description', ''),
+			'keywords'       => AppContext::config('keywords', ''),
 			'admin'          => $admin,
 			'csrf_token'     => AdminEngine::csrfToken(),
 			'admin_scripts'  => $adminScripts,
 			'content'        => $contentHtml,
 			'subside'        => $subsideHtml,
-			'copyright'      => $c['copyright'] ?? '',
-			'login_status'   => $lstatus ?? '',
-			'credit'         => $apcredit ?? '',
+			'copyright'      => AppContext::config('copyright', ''),
+			'login_status'   => AppContext::loginStatus(),
+			'credit'         => AppContext::credit(),
 			'menu_items'     => $menuItems,
 		];
 	}

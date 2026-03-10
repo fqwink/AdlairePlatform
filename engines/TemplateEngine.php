@@ -5,6 +5,8 @@
  * 構文:
  *   {{variable}}              → htmlspecialchars でエスケープ出力
  *   {{{variable}}}            → 生 HTML 出力
+ *   {{user.name}}             → E-2: ネストプロパティアクセス
+ *   {{var|upper}}             → E-2: フィルター適用（upper, lower, truncate, default, nl2br）
  *   {{#if var}}...{{else}}...{{/if}}  → 条件分岐（!var で否定）
  *   {{#each items}}...{{/each}}       → ループ（@index, @first, @last 使用可）
  *   {{> partial}}             → 部分テンプレートの読み込み
@@ -51,19 +53,19 @@ class TemplateEngine {
 			function (array $m) use ($ctx): string {
 				$name = $m[1];
 				if (self::$partialDepth >= self::PARTIAL_MAX_DEPTH) {
-					error_log("TemplateEngine: パーシャルのネストが深すぎます（最大" . self::PARTIAL_MAX_DEPTH . "）: {$name}");
+					Logger::warning("TemplateEngine: パーシャルのネストが深すぎます（最大" . self::PARTIAL_MAX_DEPTH . "）: {$name}");
 					return '';
 				}
 				$path = self::$partialsDir . '/' . $name . '.html';
 				if (!file_exists($path)) {
-					error_log("TemplateEngine: パーシャルが見つかりません: {$path}");
+					Logger::warning("TemplateEngine: パーシャルが見つかりません: {$path}");
 					return '';
 				}
 				self::$partialDepth++;
 				$content = file_get_contents($path);
 				if ($content === false) {
 					self::$partialDepth--;
-					error_log("TemplateEngine: パーシャルの読み込みに失敗しました: {$path}");
+					Logger::warning("TemplateEngine: パーシャルの読み込みに失敗しました: {$path}");
 					return '';
 				}
 				$rendered = self::processPartials($content, $ctx);
@@ -144,12 +146,13 @@ class TemplateEngine {
 	private static function processIf(string $tpl, array $ctx): string
 	{
 		$offset = 0;
-		while (preg_match('/\{\{#if\s+(!?[\w@]+)\}\}/s', $tpl, $m, PREG_OFFSET_CAPTURE, $offset)) {
+		/* E-2 fix: ネストプロパティ対応 (!?[\w@.]+) */
+		while (preg_match('/\{\{#if\s+(!?[\w@][\w@.]*)\}\}/s', $tpl, $m, PREG_OFFSET_CAPTURE, $offset)) {
 			$tagStart = $m[0][1];
 			$tagEnd   = $tagStart + strlen($m[0][0]);
 			$key      = $m[1][0];
 
-			$closeEnd = self::findClosingTag($tpl, $tagEnd, '#if\s+!?[\w@]+', '/if');
+			$closeEnd = self::findClosingTag($tpl, $tagEnd, '#if\s+!?[\w@][\w@.]*', '/if');
 			if ($closeEnd === null) {
 				$offset = $tagEnd;
 				continue;
@@ -167,7 +170,8 @@ class TemplateEngine {
 				$negate = true;
 				$key = substr($key, 1);
 			}
-			$truthy = !empty($ctx[$key]);
+			/* E-2 fix: ネストプロパティ対応 */
+			$truthy = !empty(self::resolveValue($key, $ctx));
 			if ($negate) $truthy = !$truthy;
 
 			if ($elsePos !== null) {
@@ -220,7 +224,7 @@ class TemplateEngine {
 		$depth  = 0;
 		$pos    = 0;
 
-		while (preg_match('/\{\{(#if\s+!?[\w@]+|else|\/if)\}\}/s', $content, $m, PREG_OFFSET_CAPTURE, $pos)) {
+		while (preg_match('/\{\{(#if\s+!?[\w@][\w@.]*|else|\/if)\}\}/s', $content, $m, PREG_OFFSET_CAPTURE, $pos)) {
 			$tag = $m[1][0];
 			$tagPos = $m[0][1];
 			$pos = $tagPos + strlen($m[0][0]);
@@ -237,31 +241,112 @@ class TemplateEngine {
 	}
 
 	/**
-	 * {{{var}}} → エスケープなしの生出力
+	 * {{{var}}} / {{{user.name}}} → エスケープなしの生出力
+	 * E-2 fix: ネストプロパティ対応
 	 */
 	private static function processRawVars(string $tpl, array $ctx): string
 	{
 		return preg_replace_callback(
-			'/\{\{\{([\w@]+)\}\}\}/',
-			fn(array $m): string => (string)($ctx[$m[1]] ?? ''),
+			'/\{\{\{([\w@][\w@.]*)\}\}\}/',
+			fn(array $m): string => (string)(self::resolveValue($m[1], $ctx) ?? ''),
 			$tpl
 		) ?? $tpl;
 	}
 
 	/**
-	 * {{var}} → htmlspecialchars でエスケープ
+	 * {{var}} / {{user.name}} / {{var|filter}} → htmlspecialchars でエスケープ
+	 * E-2 fix: ネストプロパティ + フィルター対応
 	 */
 	private static function processVars(string $tpl, array $ctx): string
 	{
 		return preg_replace_callback(
-			'/\{\{([\w@]+)\}\}/',
-			fn(array $m): string => htmlspecialchars(
-				(string)($ctx[$m[1]] ?? ''),
-				ENT_QUOTES,
-				'UTF-8'
-			),
+			'/\{\{([\w@][\w@.]*(?:\|[\w:]+)*)\}\}/',
+			function (array $m) use ($ctx): string {
+				$expr = $m[1];
+
+				/* フィルターの分離: var|filter1|filter2:arg */
+				$parts = explode('|', $expr);
+				$key = array_shift($parts);
+				$value = (string)(self::resolveValue($key, $ctx) ?? '');
+
+				/* フィルター適用 */
+				foreach ($parts as $filter) {
+					$value = self::applyFilter($value, $filter);
+				}
+
+				return htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
+			},
 			$tpl
 		) ?? $tpl;
+	}
+
+	/* ══════════════════════════════════════════════
+	   E-2: ネストプロパティ解決
+	   ══════════════════════════════════════════════ */
+
+	/**
+	 * ドット記法でコンテキスト内の値を解決
+	 * 例: "user.name" → $ctx['user']['name']
+	 */
+	private static function resolveValue(string $key, array $ctx): mixed
+	{
+		/* 単純キー（ドットなし）: 高速パス */
+		if (!str_contains($key, '.')) {
+			return $ctx[$key] ?? null;
+		}
+
+		/* ドット記法: ネストされた配列を辿る */
+		$segments = explode('.', $key);
+		$current = $ctx;
+		foreach ($segments as $segment) {
+			if (!is_array($current) || !array_key_exists($segment, $current)) {
+				return null;
+			}
+			$current = $current[$segment];
+		}
+		return $current;
+	}
+
+	/* ══════════════════════════════════════════════
+	   E-2: フィルター処理
+	   ══════════════════════════════════════════════ */
+
+	/**
+	 * フィルターを適用
+	 * 対応フィルター: upper, lower, capitalize, truncate:N, default:value, nl2br, trim, length
+	 */
+	private static function applyFilter(string $value, string $filter): string
+	{
+		/* フィルター名と引数を分離: "truncate:100" → ["truncate", "100"] */
+		$colonPos = strpos($filter, ':');
+		if ($colonPos !== false) {
+			$name = substr($filter, 0, $colonPos);
+			$arg  = substr($filter, $colonPos + 1);
+		} else {
+			$name = $filter;
+			$arg  = '';
+		}
+
+		return match ($name) {
+			'upper'      => mb_strtoupper($value, 'UTF-8'),
+			'lower'      => mb_strtolower($value, 'UTF-8'),
+			'capitalize' => mb_convert_case($value, MB_CASE_TITLE, 'UTF-8'),
+			'trim'       => trim($value),
+			'nl2br'      => nl2br(htmlspecialchars($value, ENT_QUOTES, 'UTF-8')),
+			'length'     => (string) mb_strlen($value, 'UTF-8'),
+			'truncate'   => self::filterTruncate($value, (int)($arg ?: 100)),
+			'default'    => ($value === '') ? $arg : $value,
+			default      => $value, /* 未知のフィルターは無視 */
+		};
+	}
+
+	/**
+	 * truncate フィルター: 指定文字数で切り詰め + "..."
+	 */
+	private static function filterTruncate(string $value, int $length): string
+	{
+		if (mb_strlen($value, 'UTF-8') <= $length) return $value;
+		return mb_substr($value, 0, $length, 'UTF-8') . '...';
 	}
 
 	/**
@@ -271,7 +356,7 @@ class TemplateEngine {
 	{
 		if (preg_match_all('/\{\{[#\/!>]?\s*[\w@]+[^}]*\}\}/', $html, $matches)) {
 			foreach ($matches[0] as $tag) {
-				error_log("TemplateEngine: 未処理のテンプレートタグ: {$tag}");
+				Logger::warning("TemplateEngine: 未処理のテンプレートタグ: {$tag}");
 			}
 		}
 	}

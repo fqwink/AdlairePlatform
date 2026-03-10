@@ -762,7 +762,6 @@ class AdminEngine {
 	   ══════════════════════════════════════════════ */
 
 	public static function renderLogin(string $message = ''): string {
-		global $c;
 		$tplPath = __DIR__ . '/AdminEngine/login.html';
 		if (!file_exists($tplPath)) {
 			return '<h1>Login template not found</h1>';
@@ -771,8 +770,9 @@ class AdminEngine {
 		if ($tpl === false) {
 			return '<h1>Login template read error</h1>';
 		}
+		/* B-3 fix: AppContext 経由でアクセス */
 		$ctx = [
-			'title'         => $c['title'] ?? 'Login',
+			'title'         => AppContext::config('title', 'Login'),
 			'csrf_token'    => self::csrfToken(),
 			'login_message' => $message,
 		];
@@ -801,21 +801,20 @@ class AdminEngine {
 	/**
 	 * admin-head フックに JsEngine スクリプトを登録
 	 */
+	/* B-3 fix: AppContext 経由でフック管理 */
 	public static function registerHooks(): void {
-		global $hook;
-		$hook['admin-head'][] = "\n\t<script src='engines/JsEngine/autosize.js'></script>";
-		$hook['admin-head'][] = "\n\t<script src='engines/JsEngine/editInplace.js'></script>";
-		$hook['admin-head'][] = "\n\t<script src='engines/JsEngine/wysiwyg.js'></script>";
-		$hook['admin-head'][] = "\n\t<script src='engines/JsEngine/updater.js'></script>";
+		AppContext::addHook('admin-head', "\n\t<script src='engines/JsEngine/autosize.js'></script>");
+		AppContext::addHook('admin-head', "\n\t<script src='engines/JsEngine/editInplace.js'></script>");
+		AppContext::addHook('admin-head', "\n\t<script src='engines/JsEngine/wysiwyg.js'></script>");
+		AppContext::addHook('admin-head', "\n\t<script src='engines/JsEngine/updater.js'></script>");
 	}
 
 	/**
 	 * admin-head フック内容を文字列として返却
 	 */
 	public static function getAdminScripts(): string {
-		global $hook;
 		$scripts = '';
-		foreach (($hook['admin-head'] ?? []) as $o) {
+		foreach (AppContext::getHooks('admin-head') as $o) {
 			$scripts .= "\t" . $o . "\n";
 		}
 		return $scripts;
@@ -845,12 +844,12 @@ class AdminEngine {
 	 * ダッシュボード用コンテキスト変数を構築
 	 */
 	public static function buildDashboardContext(): array {
-		global $c, $d, $host;
+		/* B-3 fix: AppContext 経由でアクセス（global 変数への直接依存を解消） */
 
 		/* テーマ選択 HTML */
 		$selectHtml = "<select name='themeSelect' id='ap-theme-select'>";
 		foreach (ThemeEngine::listThemes() as $val) {
-			$selected = ($val == ($c['themeSelect'] ?? '')) ? ' selected' : '';
+			$selected = ($val == AppContext::config('themeSelect', '')) ? ' selected' : '';
 			$selectHtml .= '<option value="' . h($val) . '"' . $selected . '>' . h($val) . "</option>\n";
 		}
 		$selectHtml .= '</select>';
@@ -860,8 +859,8 @@ class AdminEngine {
 		foreach (['title', 'description', 'keywords', 'copyright'] as $key) {
 			$fields[] = [
 				'key'           => $key,
-				'default_value' => $d['default'][$key] ?? '',
-				'value'         => $c[$key] ?? '',
+				'default_value' => AppContext::defaults('default', $key, ''),
+				'value'         => AppContext::config($key, ''),
 			];
 		}
 
@@ -912,19 +911,19 @@ class AdminEngine {
 		}
 
 		return [
-			'title'                => $c['title'] ?? '',
-			'host'                 => $host ?? '',
+			'title'                => AppContext::config('title', ''),
+			'host'                 => AppContext::host(),
 			'ap_version'           => AP_VERSION,
 			'csrf_token'           => self::csrfToken(),
 			'theme_select_html'    => $selectHtml,
 			/* M25 fix: メニュー表示時に XSS 防止（br タグのみ許可） */
-			'menu_raw'             => strip_tags($c['menu'] ?? '', '<br>'),
+			'menu_raw'             => strip_tags(AppContext::config('menu', ''), '<br>'),
 			'settings_fields'      => $fields,
 			'pages'                => $pageList,
 			'has_pages'            => !empty($pageList),
 			'php_version'          => PHP_VERSION,
 			'disk_free'            => $diskFreeStr,
-			'migrate_warning'      => !empty($c['migrate_warning']),
+			'migrate_warning'      => (bool) AppContext::config('migrate_warning', false),
 			'contact_email'        => $contactEmail,
 			'activity_log'         => ($activityLog = self::getRecentActivity(20)),
 			'has_activity'         => !empty($activityLog),
