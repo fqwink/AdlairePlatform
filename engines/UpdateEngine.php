@@ -227,21 +227,70 @@ function backup_current(): string {
 }
 
 function apply_update(string $zip_url, string $new_version = ''): void {
+	/* ディスク容量チェック（最低 50MB 必要） */
+	$free = @disk_free_space('.');
+	if($free !== false && $free < 50 * 1024 * 1024){
+		header('HTTP/1.1 507 Insufficient Storage');
+		echo json_encode(['error' => 'ディスク容量が不足しています（空き: '.round($free / 1024 / 1024, 1).'MB）。']);
+		exit;
+	}
 	$backup = backup_current();
 	prune_old_backups();
 	/* M20 fix: 推測不可能なランダムファイル名を使用 */
 	$tmp = sys_get_temp_dir().'/ap_update_'.bin2hex(random_bytes(16)).'.zip';
 	$ctx = stream_context_create(['http' => [
-		'method'  => 'GET',
-		'header'  => "User-Agent: AdlairePlatform/".AP_VERSION."\r\n",
-		'timeout' => 60,
+		'method'           => 'GET',
+		'header'           => "User-Agent: AdlairePlatform/".AP_VERSION."\r\n",
+		'timeout'          => 60,
+		'follow_location'  => 0,
+		'max_redirects'    => 0,
 	]]);
-	/* C18 fix: ダウンロードサイズ上限チェック（100MB） */
-	$zip_data = @file_get_contents($zip_url, false, $ctx);
+	/* SSRF 防止: リダイレクトを手動で処理し、許可ドメインのみ追跡する */
+	$max_hops = 5;
+	$current_url = $zip_url;
+	$zip_data = false;
+	for($hop = 0; $hop < $max_hops; $hop++){
+		$zip_data = @file_get_contents($current_url, false, $ctx);
+		$status = 200;
+		$location = '';
+		if(isset($http_response_header)){
+			foreach($http_response_header as $hdr){
+				if(preg_match('#^HTTP/\S+\s+(\d+)#', $hdr, $m)) $status = (int)$m[1];
+				if(preg_match('#^Location:\s*(.+)$#i', $hdr, $m)) $location = trim($m[1]);
+			}
+		}
+		if($status >= 300 && $status < 400 && $location !== ''){
+			if(!preg_match('#^https://(api\.github\.com|github\.com|codeload\.github\.com|objects\.githubusercontent\.com)/#', $location)){
+				error_log('apply_update: redirect to disallowed domain: '.$location);
+				header('HTTP/1.1 400 Bad Request');
+				echo json_encode(['error' => 'リダイレクト先が許可ドメインではありません。']);
+				exit;
+			}
+			$current_url = $location;
+			$zip_data = false;
+			continue;
+		}
+		break;
+	}
 	if($zip_data === false){
 		error_log('apply_update: download failed: '.$zip_url);
 		header('HTTP/1.1 502 Bad Gateway');
 		echo json_encode(['error' => 'ダウンロードに失敗しました。']);
+		exit;
+	}
+	/* Content-Type 検証 */
+	$content_type = '';
+	if(isset($http_response_header)){
+		foreach($http_response_header as $hdr){
+			if(preg_match('#^Content-Type:\s*(.+)$#i', $hdr, $m)){
+				$content_type = strtolower(trim($m[1]));
+			}
+		}
+	}
+	if($content_type !== '' && !str_contains($content_type, 'zip') && !str_contains($content_type, 'octet-stream')){
+		error_log('apply_update: unexpected content-type: '.$content_type);
+		header('HTTP/1.1 502 Bad Gateway');
+		echo json_encode(['error' => 'ダウンロードしたファイルが ZIP ではありません。']);
 		exit;
 	}
 	if(strlen($zip_data) > 100 * 1024 * 1024){

@@ -2578,9 +2578,13 @@ function _computeSimpleDiff(oldLines, newLines) {
 }
 
 function _stripTags(html) {
-	const tmp = document.createElement('div');
-	tmp.innerHTML = html || '';
-	return (tmp.textContent || tmp.innerText || '').trim();
+	/* DOMParser を使用して外部リソース読み込みを防止（blind SSRF 対策） */
+	try {
+		const doc = new DOMParser().parseFromString(html || '', 'text/html');
+		return (doc.body.textContent || '').trim();
+	} catch (e) {
+		return (html || '').replace(/<[^>]*>/g, '').trim();
+	}
 }
 
 /* C2: 等行折りたたみ付き diff 表示 */
@@ -2823,16 +2827,24 @@ function _cleanHtml(html) {
 }
 
 function _sanitizeNode(node) {
-	const children = Array.from(node.childNodes);
-	children.forEach(child => {
-		if (child.nodeType !== 1) return; /* テキストノードはそのまま */
-		if (!_allowedTags[child.tagName]) {
-			const frag = document.createDocumentFragment();
-			Array.from(child.childNodes).forEach(c => frag.appendChild(c));
-			node.replaceChild(frag, child);
-			_sanitizeNode(node);
-			return;
+	/* 不許可タグをフラット化（O(n)化: 再帰リスタート回避） */
+	let changed = true;
+	while (changed) {
+		changed = false;
+		const children = Array.from(node.childNodes);
+		for (const child of children) {
+			if (child.nodeType !== 1) continue;
+			if (!_allowedTags[child.tagName]) {
+				const frag = document.createDocumentFragment();
+				Array.from(child.childNodes).forEach(c => frag.appendChild(c));
+				node.replaceChild(frag, child);
+				changed = true;
+				break;
+			}
 		}
+	}
+	Array.from(node.childNodes).forEach(child => {
+		if (child.nodeType !== 1) return;
 		/* 属性フィルタ */
 		Array.from(child.attributes).forEach(attr => {
 			const tag = child.tagName;
