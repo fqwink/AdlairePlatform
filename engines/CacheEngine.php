@@ -36,7 +36,9 @@ class CacheEngine {
 		$ttl = self::TTL[$endpoint] ?? 60;
 		$mtime = filemtime($path);
 		if ($mtime === false || (time() - $mtime) > $ttl) {
-			@unlink($path);
+			if (!@unlink($path) && class_exists('DiagnosticEngine')) {
+				DiagnosticEngine::log('engine', 'キャッシュ期限切れファイル削除失敗', ['endpoint' => $endpoint, 'path' => basename($path)]);
+			}
 			return false;
 		}
 
@@ -68,6 +70,7 @@ class CacheEngine {
 		header('Last-Modified: ' . $lastModified);
 		header('Cache-Control: max-age=' . $ttl . ', must-revalidate');
 		header('X-Cache: HIT');
+		if (class_exists('DiagnosticEngine')) DiagnosticEngine::log('performance', 'キャッシュヒット', ['endpoint' => $endpoint, 'age_sec' => time() - $mtime]);
 		echo $content;
 		exit;
 	}
@@ -80,7 +83,10 @@ class CacheEngine {
 		$path = self::cachePath($key);
 		$dir = dirname($path);
 		if (!is_dir($dir)) mkdir($dir, 0755, true);
-		file_put_contents($path, $content, LOCK_EX);
+		$result = file_put_contents($path, $content, LOCK_EX);
+		if ($result === false && class_exists('DiagnosticEngine')) {
+			DiagnosticEngine::log('engine', 'CacheEngine 書き込み失敗', ['endpoint' => $endpoint]);
+		}
 	}
 
 	/**
@@ -141,7 +147,11 @@ class CacheEngine {
 
 	private static function cacheKey(string $endpoint, array $params): string {
 		/* R18 fix: エンドポイント名をサニタイズ（パストラバーサル防止） */
-		$endpoint = preg_replace('/[^a-zA-Z0-9_\-]/', '', $endpoint);
+		$sanitized = preg_replace('/[^a-zA-Z0-9_\-]/', '', $endpoint);
+		if ($sanitized !== $endpoint && class_exists('DiagnosticEngine')) {
+			DiagnosticEngine::log('security', 'CacheEngine パストラバーサル試行検出', ['endpoint' => $sanitized]);
+		}
+		$endpoint = $sanitized;
 		ksort($params);
 		return $endpoint . '_' . md5(json_encode($params));
 	}

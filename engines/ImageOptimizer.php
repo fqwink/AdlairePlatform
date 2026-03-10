@@ -18,7 +18,12 @@ class ImageOptimizer {
 	 * 画像を最適化（リサイズ + サムネイル生成）
 	 */
 	public static function optimize(string $path): bool {
-		if (!extension_loaded('gd')) return false;
+		$_optimizeStart = hrtime(true);
+		$_memBefore = memory_get_usage(true);
+		if (!extension_loaded('gd')) {
+			if (class_exists('DiagnosticEngine')) DiagnosticEngine::logEnvironmentIssue('GD ライブラリ未対応', ['path' => basename($path)]);
+			return false;
+		}
 		if (!file_exists($path)) return false;
 
 		/* C12 fix: ファイルサイズ上限チェック（50MB） */
@@ -26,7 +31,10 @@ class ImageOptimizer {
 		if ($fileSize === false || $fileSize > 50 * 1024 * 1024) return false;
 
 		$info = @getimagesize($path);
-		if ($info === false) return false;
+		if ($info === false) {
+			if (class_exists('DiagnosticEngine')) DiagnosticEngine::log('engine', 'ImageOptimizer 不正な画像ファイル', ['path' => basename($path)]);
+			return false;
+		}
 
 		$mime = $info['mime'] ?? '';
 		$origWidth  = $info[0];
@@ -37,6 +45,7 @@ class ImageOptimizer {
 		$memoryLimit = self::getMemoryLimitBytes();
 		if ($memoryLimit > 0 && (memory_get_usage() + $requiredMemory) > $memoryLimit) {
 			error_log("ImageOptimizer: メモリ不足のためスキップ: {$path} ({$origWidth}x{$origHeight})");
+			if (class_exists('DiagnosticEngine')) DiagnosticEngine::log('engine', 'ImageOptimizer メモリ不足スキップ', ['dimensions' => "{$origWidth}x{$origHeight}", 'required_mb' => round($requiredMemory / 1048576, 1)]);
 			return false;
 		}
 
@@ -47,7 +56,10 @@ class ImageOptimizer {
 
 			list($newW, $newH) = self::fitDimensions($origWidth, $origHeight, self::MAX_WIDTH, self::MAX_HEIGHT);
 			$dst = imagecreatetruecolor($newW, $newH);
-			if ($dst === false) { imagedestroy($src); return false; }
+			if ($dst === false) {
+				if (class_exists('DiagnosticEngine')) DiagnosticEngine::log('engine', '画像リサイズ失敗: imagecreatetruecolor', ['path' => basename($path), 'target' => "{$newW}x{$newH}", 'memory_usage_mb' => round(memory_get_usage(true) / 1048576, 1)]);
+				imagedestroy($src); return false;
+			}
 
 			self::preserveTransparency($dst, $mime);
 			imagecopyresampled($dst, $src, 0, 0, 0, 0, $newW, $newH, $origWidth, $origHeight);
@@ -61,6 +73,16 @@ class ImageOptimizer {
 
 		/* WebP 変換（GD 対応時） */
 		self::generateWebP($path, $mime);
+
+		$_optimizeElapsed = (hrtime(true) - $_optimizeStart) / 1_000_000;
+		if ($_optimizeElapsed > 1000 && class_exists('DiagnosticEngine')) {
+			DiagnosticEngine::logSlowExecution('ImageOptimizer::optimize(' . basename($path) . ')', $_optimizeElapsed, 1000);
+		}
+		$_memAfter = memory_get_usage(true);
+		$_memDelta = $_memAfter - $_memBefore;
+		if ($_memDelta > 10 * 1024 * 1024 && class_exists('DiagnosticEngine')) {
+			DiagnosticEngine::log('memory', 'ImageOptimizer 高メモリ使用', ['file' => basename($path), 'delta_mb' => round($_memDelta / 1048576, 1)]);
+		}
 
 		return true;
 	}
@@ -134,13 +156,17 @@ class ImageOptimizer {
 	/* ── 内部ヘルパー ── */
 
 	private static function loadImage(string $path, string $mime): ?\GdImage {
-		return match ($mime) {
+		$result = match ($mime) {
 			'image/jpeg' => @imagecreatefromjpeg($path) ?: null,
 			'image/png'  => @imagecreatefrompng($path) ?: null,
 			'image/gif'  => @imagecreatefromgif($path) ?: null,
 			'image/webp' => @imagecreatefromwebp($path) ?: null,
 			default      => null,
 		};
+		if ($result === null && class_exists('DiagnosticEngine')) {
+			DiagnosticEngine::log('engine', '画像ロード失敗', ['path' => basename($path), 'mime' => $mime, 'error' => error_get_last()['message'] ?? '']);
+		}
+		return $result;
 	}
 
 	private static function saveImage(\GdImage $img, string $path, string $mime): void {
