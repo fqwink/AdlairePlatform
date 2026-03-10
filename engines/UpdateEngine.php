@@ -30,7 +30,15 @@ function prune_old_backups(): void {
 			RecursiveIteratorIterator::CHILD_FIRST
 		);
 		foreach($iter as $f){
-			$f->isDir() ? @rmdir($f->getRealPath()) : @unlink($f->getRealPath());
+			if ($f->isDir()) {
+				if (!@rmdir($f->getRealPath()) && class_exists('DiagnosticEngine')) {
+					DiagnosticEngine::log('engine', 'バックアップ削除失敗: rmdir', ['path' => DiagnosticEngine::isEnabled() ? basename($f->getRealPath()) : '']);
+				}
+			} else {
+				if (!@unlink($f->getRealPath()) && class_exists('DiagnosticEngine')) {
+					DiagnosticEngine::log('engine', 'バックアップ削除失敗: unlink', ['path' => DiagnosticEngine::isEnabled() ? basename($f->getRealPath()) : '']);
+				}
+			}
 		}
 		@rmdir($dir);
 	}
@@ -53,10 +61,18 @@ function delete_backup(string $name): void {
 		new RecursiveDirectoryIterator($dir, RecursiveDirectoryIterator::SKIP_DOTS),
 		RecursiveIteratorIterator::CHILD_FIRST
 	);
+	$deleteErrors = 0;
 	foreach($iter as $f){
-		$f->isDir() ? @rmdir($f->getRealPath()) : @unlink($f->getRealPath());
+		if ($f->isDir()) {
+			if (!@rmdir($f->getRealPath())) $deleteErrors++;
+		} else {
+			if (!@unlink($f->getRealPath())) $deleteErrors++;
+		}
 	}
-	@rmdir($dir);
+	if (!@rmdir($dir)) $deleteErrors++;
+	if ($deleteErrors > 0 && class_exists('DiagnosticEngine')) {
+		DiagnosticEngine::log('engine', 'バックアップ削除で一部失敗', ['backup' => $name, 'errors' => $deleteErrors]);
+	}
 }
 
 function handle_update_action(): void {
@@ -153,7 +169,12 @@ function check_update(): array {
 		'timeout'       => 10,
 		'ignore_errors' => true,
 	]]);
+	$_checkStart = hrtime(true);
 	$res    = @file_get_contents(AP_UPDATE_URL, false, $ctx);
+	$_checkElapsed = round((hrtime(true) - $_checkStart) / 1_000_000, 2);
+	if ($res === false && class_exists('DiagnosticEngine')) {
+		DiagnosticEngine::logIntegrationError('GitHub API', 0, 'アップデートチェック失敗: ' . AP_UPDATE_URL);
+	}
 	$status = 200;
 	if(isset($http_response_header)){
 		foreach($http_response_header as $h){
@@ -163,6 +184,7 @@ function check_update(): array {
 		}
 	}
 	if($status === 403 || $status === 429){
+		if (class_exists('DiagnosticEngine')) DiagnosticEngine::logIntegrationError('GitHub API', $status, 'レート制限');
 		return ['error' => 'GitHub API のレート制限に達しました。しばらく待ってから再試行してください。'];
 	}
 	if($res === false || $status !== 200){
@@ -188,6 +210,7 @@ function check_update(): array {
 		'update_available' => version_compare($latest, AP_VERSION, '>'),
 		'zip_url'          => $zip_url,
 	];
+	if (class_exists('DiagnosticEngine')) DiagnosticEngine::log('performance', 'アップデートチェック完了', ['response_time_ms' => $_checkElapsed, 'current' => AP_VERSION, 'latest' => $latest, 'update_available' => $result['update_available']]);
 	json_write('update_cache.json', ['result' => $result, 'expires_at' => time() + 3600], settings_dir());
 	return $result;
 }
@@ -214,15 +237,20 @@ function backup_current(): string {
 			if(@copy($item->getRealPath(), $dest.'/'.$path)){
 				$file_count++;
 				$size_bytes += $item->getSize();
+			} else {
+				if (class_exists('DiagnosticEngine')) DiagnosticEngine::log('engine', 'バックアップ ファイルコピー失敗', ['file' => basename($path), 'error' => error_get_last()['message'] ?? '']);
 			}
 		}
 	}
-	@file_put_contents($dest.'/meta.json', json_encode([
+	$metaResult = @file_put_contents($dest.'/meta.json', json_encode([
 		'version_before' => AP_VERSION,
 		'created_at'     => date('Y-m-d H:i:s'),
 		'file_count'     => $file_count,
 		'size_bytes'     => $size_bytes,
 	], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+	if ($metaResult === false && class_exists('DiagnosticEngine')) {
+		DiagnosticEngine::log('engine', 'バックアップ meta.json 書き込み失敗', ['backup' => $name]);
+	}
 	return $name;
 }
 
@@ -274,6 +302,7 @@ function apply_update(string $zip_url, string $new_version = ''): void {
 	}
 	if($zip_data === false){
 		error_log('apply_update: download failed: '.$zip_url);
+		if (class_exists('DiagnosticEngine')) DiagnosticEngine::log('engine', 'アップデートダウンロード失敗', ['url' => $zip_url]);
 		header('HTTP/1.1 502 Bad Gateway');
 		echo json_encode(['error' => 'ダウンロードに失敗しました。']);
 		exit;
@@ -311,6 +340,7 @@ function apply_update(string $zip_url, string $new_version = ''): void {
 	$zip->close();
 	unlink($tmp);
 	if(!$ok){
+		if (class_exists('DiagnosticEngine')) DiagnosticEngine::log('engine', 'ZIP 展開失敗', ['url' => $zip_url]);
 		header('HTTP/1.1 500 Internal Server Error');
 		echo json_encode(['error' => 'ZIP の展開に失敗しました。']);
 		exit;
@@ -332,7 +362,10 @@ function apply_update(string $zip_url, string $new_version = ''): void {
 	);
 	foreach($iter as $item){
 		$rel   = substr($item->getRealPath(), strlen($real_src) + 1);
-		if(str_contains($rel, '..')) continue; /* パストラバーサル防止 */
+		if(str_contains($rel, '..')) {
+			if (class_exists('DiagnosticEngine')) DiagnosticEngine::log('security', 'ZIP Slip パストラバーサル検出', ['rel' => $rel]);
+			continue;
+		}
 		$parts = explode(DIRECTORY_SEPARATOR, $rel);
 		if(in_array($parts[0], $exclude, true)) continue;
 		$dest = $app_root . DIRECTORY_SEPARATOR . $rel;
@@ -343,7 +376,9 @@ function apply_update(string $zip_url, string $new_version = ''): void {
 			$destDir = dirname($dest);
 			$realDestDir = realpath($destDir);
 			if($realDestDir === false || !str_starts_with($realDestDir, $app_root)) continue;
-			@copy($item->getRealPath(), $dest);
+			if (!@copy($item->getRealPath(), $dest) && class_exists('DiagnosticEngine')) {
+				DiagnosticEngine::log('engine', 'アップデート ファイルコピー失敗', ['rel' => $rel, 'error' => error_get_last()['message'] ?? '']);
+			}
 		}
 	}
 	$clean = new RecursiveIteratorIterator(
@@ -396,7 +431,10 @@ function rollback_to_backup(string $backup_name): void {
 	foreach($iter as $item){
 		$rel   = substr($item->getRealPath(), strlen($real_src) + 1);
 		if($rel === false || $rel === '' || $rel === 'meta.json') continue;
-		if(str_contains($rel, '..')) continue;
+		if(str_contains($rel, '..')) {
+			if (class_exists('DiagnosticEngine')) DiagnosticEngine::log('security', 'ロールバック パストラバーサル検出', ['rel' => $rel]);
+			continue;
+		}
 		$parts = explode(DIRECTORY_SEPARATOR, $rel);
 		if(in_array($parts[0], $exclude, true)) continue;
 		$dest = $app_root . DIRECTORY_SEPARATOR . $rel;
@@ -406,7 +444,9 @@ function rollback_to_backup(string $backup_name): void {
 			$destDir = dirname($dest);
 			$realDestDir = realpath($destDir);
 			if($realDestDir === false || !str_starts_with($realDestDir, $app_root)) continue;
-			@copy($item->getRealPath(), $dest);
+			if (!@copy($item->getRealPath(), $dest) && class_exists('DiagnosticEngine')) {
+				DiagnosticEngine::log('engine', 'ロールバック ファイルコピー失敗', ['rel' => $rel]);
+			}
 		}
 	}
 }
