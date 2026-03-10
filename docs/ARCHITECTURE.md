@@ -1,7 +1,9 @@
 # AdlairePlatform アーキテクチャ設計書
 
-> **Ver.1.3-29**: 本ドキュメントは Ver.1.3-29（Ver.1.3系最終リビジョン）時点のアーキテクチャを記録しています。
-> 全 12 エンジン実装完了・セキュリティ監査完了。theme.php レガシーフォールバックは廃止済み。
+<!-- ⚠️ 削除禁止: 本ドキュメントはプロジェクトの正式なアーキテクチャ設計書です -->
+
+> **Ver.1.4-pre**: 本ドキュメントは Ver.1.4-pre 時点のアーキテクチャを記録しています。
+> 全 15 エンジン実装完了。Ver.1.4-pre で AppContext・Logger・MailerEngine を追加。
 
 > 分類: 社内限り
 
@@ -37,7 +39,7 @@ AdlairePlatform/
 │  ├─ AdminEngine/
 │  │  ├─ dashboard.html         # ダッシュボードテンプレート（テーマ非依存）
 │  │  └─ dashboard.css          # ダッシュボード専用スタイル
-│  ├─ TemplateEngine.php        # 軽量テンプレートエンジン（{{var}}, {{{raw}}}, #if, #each）
+│  ├─ TemplateEngine.php        # 軽量テンプレートエンジン（{{var}}, {{{raw}}}, #if, #each, ネストプロパティ, フィルター）
 │  ├─ ThemeEngine.php           # テーマ検証・読み込み・コンテキスト構築
 │  ├─ UpdateEngine.php          # アップデート・バックアップ・ロールバック
 │  ├─ StaticEngine.php          # 静的書き出し・差分ビルド・アセット管理
@@ -48,6 +50,9 @@ AdlairePlatform/
 │  ├─ WebhookEngine.php         # Webhook 管理・送信（SSRF 防止付き）
 │  ├─ CacheEngine.php           # API レスポンスキャッシュ
 │  ├─ ImageOptimizer.php        # 画像最適化（リサイズ・品質調整）
+│  ├─ AppContext.php            # 集中状態管理（グローバル変数代替） ⭐ Ver.1.4-pre
+│  ├─ Logger.php                # 構造化ログ（PSR-3 互換・ファイルローテーション） ⭐ Ver.1.4-pre
+│  ├─ MailerEngine.php          # メール送信抽象化（リトライ・テストモード） ⭐ Ver.1.4-pre
 │  └─ JsEngine/
 │     ├─ autosize.js            # テキストエリア自動リサイズ
 │     ├─ editInplace.js         # インプレイス編集（バニラJS・plain text）
@@ -96,9 +101,10 @@ AdlairePlatform/
 
 | 機能グループ | 関数 | 説明 |
 |------------|------|------|
-| 起動制御 | ─ | PHP バージョン確認・定数定義・エンジン require（TemplateEngine, ThemeEngine, UpdateEngine, AdminEngine） |
+| 起動制御 | ─ | PHP バージョン確認・定数定義・全 15 エンジン require・Logger 初期化 |
 | ルーティング | `host()`, `getSlug()` | URL 解析・スラッグ生成・`?admin` ダッシュボードルーティング |
-| データ層 | `json_read()`, `json_write()`, `data_dir()`, `settings_dir()`, `content_dir()` | JSON ファイル読み書き |
+| データ層 | `json_read()`, `json_write()`, `data_dir()`, `settings_dir()`, `content_dir()` | JSON ファイル読み書き（JsonCache 付き） |
+| キャッシュ | `JsonCache::get/set/invalidate/clear()` | リクエスト内 JSON I/O キャッシュ ⭐ Ver.1.4-pre |
 | マイグレーション | `migrate_from_files()` | 旧データ構造からの自動移行 |
 | ユーティリティ | `h()` | HTMLエスケープ |
 | ラッパー | `is_loggedin()`, `csrf_token()`, `verify_csrf()` | AdminEngine に委譲 |
@@ -140,9 +146,11 @@ TemplateEngine::render(string $template, array $context, string $partialsDir = '
   ├─ processPartials() — {{> name}} 部分テンプレート読み込み（最大深度10・循環参照防止）
   ├─ processEach()     — {{#each items}}...{{/each}} ループ処理（@index, @first, @last 対応）
   ├─ processIf()       — {{#if var}}...{{else}}...{{/if}} 条件分岐（ネスト対応・@変数対応）
-  ├─ processRawVars()  — {{{var}}} 生 HTML 出力
-  ├─ processVars()     — {{var}} エスケープ出力（htmlspecialchars）
-  └─ warnUnprocessed() — 未処理テンプレートタグを error_log() で警告
+  ├─ processRawVars()  — {{{var}}} / {{{user.name}}} 生 HTML 出力（ネストプロパティ対応）
+  ├─ processVars()     — {{var}} / {{var|filter}} エスケープ出力（フィルター対応）
+  ├─ resolveValue()    — ドット記法でネスト配列を解決（例: "user.name" → $ctx['user']['name']） ⭐ Ver.1.4-pre
+  ├─ applyFilter()     — フィルター適用（upper, lower, capitalize, trim, nl2br, length, truncate:N, default:value） ⭐ Ver.1.4-pre
+  └─ warnUnprocessed() — 未処理テンプレートタグを Logger::warning() で警告
 ```
 
 ### engines/ThemeEngine.php
@@ -154,7 +162,7 @@ ThemeEngine::load(string $themeSelect): void
   └─ theme.html がなければ AP-Default にフォールバック
 
 ThemeEngine::buildContext(): array
-  ├─ 動的 CMS 用テンプレートコンテキストを構築（$c, $host 等からマッピング）
+  ├─ 動的 CMS 用テンプレートコンテキストを構築（AppContext から取得） ⭐ Ver.1.4-pre
   └─ AdminEngine::isLoggedIn() / AdminEngine::getAdminScripts() / AdminEngine::renderEditableContent() に委譲
 
 ThemeEngine::buildStaticContext(string $slug, string $content, array $settings): array
@@ -293,6 +301,43 @@ CacheEngine::clear(string $endpoint): void
 ```
 ImageOptimizer::optimize(string $path, array $options): bool
   └─ JPEG/PNG/WebP の品質調整・リサイズ（GD ライブラリ使用）
+```
+
+### engines/AppContext.php ⭐ Ver.1.4-pre
+
+```
+AppContext — グローバル変数（$c, $d, $host, $lstatus, $apcredit, $hook）を静的クラスに集約
+  ├─ syncFromGlobals() — 初期化完了後にグローバル変数から状態を取り込み（後方互換）
+  ├─ syncToGlobals()   — AppContext の変更をグローバル変数に書き戻し（後方互換）
+  ├─ config($key, $default) / setConfig($key, $value) — 設定値アクセサ
+  ├─ defaults()        — デフォルト値配列の取得
+  ├─ host()            — ホスト URL の取得
+  ├─ loginStatus()     — ログインステータス HTML の取得
+  ├─ credit()          — クレジット HTML の取得
+  └─ addHook($name, $content) / getHooks($name) — フック管理
+```
+
+### engines/Logger.php ⭐ Ver.1.4-pre
+
+```
+Logger — PSR-3 互換の集中ログ管理
+  ├─ init($minLevel, $logDir)  — ログ出力の初期化
+  ├─ debug() / info() / warning() / error() — レベル別ログ出力
+  ├─ log()          — コアログ処理（レベルフィルタ・JSON 構造化・リクエスト ID 付与）
+  ├─ writeToFile()  — 日別ファイルへの書き込み（data/logs/ap-YYYY-MM-DD.log）
+  ├─ rotate()       — サイズベースローテーション（5MB 上限・最大 5 世代）
+  └─ cleanup()      — 古いログの削除（30 日以上経過）
+```
+
+### engines/MailerEngine.php ⭐ Ver.1.4-pre
+
+```
+MailerEngine — メール送信の抽象化
+  ├─ send($to, $subject, $body, $replyTo, $extraHeaders) — リトライ付きメール送信（最大 2 回）
+  ├─ sendContact($to, $name, $email, $message, $siteTitle) — お問い合わせフォーム用ヘルパー
+  ├─ sanitizeHeader($value) — ヘッダインジェクション対策（CR/LF/ヌルバイト除去）
+  ├─ enableTestMode() / disableTestMode() — テストモード制御
+  └─ getSentMails() — テストモード時の送信メール一覧取得
 ```
 
 ### engines/JsEngine/
@@ -448,6 +493,9 @@ AdminEngine::registerHooks();
 | WebhookEngine | `engines/WebhookEngine.php` | ✅ 実装済み（Ver.1.3-28） | Webhook 管理・送信 |
 | CacheEngine | `engines/CacheEngine.php` | ✅ 実装済み（Ver.1.3-28） | API レスポンスキャッシュ |
 | ImageOptimizer | `engines/ImageOptimizer.php` | ✅ 実装済み（Ver.1.3-28） | 画像最適化 |
+| AppContext | `engines/AppContext.php` | ✅ 実装済み（Ver.1.4-pre） | 集中状態管理 ⭐ |
+| Logger | `engines/Logger.php` | ✅ 実装済み（Ver.1.4-pre） | 構造化ログ（PSR-3 互換） ⭐ |
+| MailerEngine | `engines/MailerEngine.php` | ✅ 実装済み（Ver.1.4-pre） | メール送信抽象化 ⭐ |
 
 ---
 
