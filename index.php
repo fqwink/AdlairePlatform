@@ -121,6 +121,10 @@ foreach($c as $key => $val){
 			} else {
 				$c[$key] = $_auth['password_hash'];
 			}
+			/* デフォルトパスワード 'admin' が有効な場合の警告 */
+			if (password_verify('admin', $c[$key])) {
+				DiagnosticEngine::log('security', 'デフォルトパスワード使用中');
+			}
 			break;
 		case 'loggedin':
 			if(AdminEngine::isLoggedIn())
@@ -311,13 +315,17 @@ function migrate_from_files(): void {
 		$old = data_dir().'/'.$f;
 		$new = $s_dir.'/'.$f;
 		if(file_exists($old) && !file_exists($new)){
-			rename($old, $new);
+			if (!@rename($old, $new) && class_exists('DiagnosticEngine')) {
+				DiagnosticEngine::log('engine', 'マイグレーション rename 失敗', ['file' => $f]);
+			}
 		}
 	}
 	$old_pages = data_dir().'/pages.json';
 	$new_pages = $c_dir.'/pages.json';
 	if(file_exists($old_pages) && !file_exists($new_pages)){
-		rename($old_pages, $new_pages);
+		if (!@rename($old_pages, $new_pages) && class_exists('DiagnosticEngine')) {
+			DiagnosticEngine::log('engine', 'マイグレーション pages.json rename 失敗');
+		}
 	}
 }
 ?>

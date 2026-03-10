@@ -18,7 +18,12 @@ class ImageOptimizer {
 	 * 画像を最適化（リサイズ + サムネイル生成）
 	 */
 	public static function optimize(string $path): bool {
-		if (!extension_loaded('gd')) return false;
+		$_optimizeStart = hrtime(true);
+		$_memBefore = memory_get_usage(true);
+		if (!extension_loaded('gd')) {
+			if (class_exists('DiagnosticEngine')) DiagnosticEngine::logEnvironmentIssue('GD ライブラリ未対応', ['path' => basename($path)]);
+			return false;
+		}
 		if (!file_exists($path)) return false;
 
 		/* C12 fix: ファイルサイズ上限チェック（50MB） */
@@ -26,7 +31,10 @@ class ImageOptimizer {
 		if ($fileSize === false || $fileSize > 50 * 1024 * 1024) return false;
 
 		$info = @getimagesize($path);
-		if ($info === false) return false;
+		if ($info === false) {
+			if (class_exists('DiagnosticEngine')) DiagnosticEngine::log('engine', 'ImageOptimizer 不正な画像ファイル', ['path' => basename($path)]);
+			return false;
+		}
 
 		$mime = $info['mime'] ?? '';
 		$origWidth  = $info[0];
@@ -62,6 +70,16 @@ class ImageOptimizer {
 
 		/* WebP 変換（GD 対応時） */
 		self::generateWebP($path, $mime);
+
+		$_optimizeElapsed = (hrtime(true) - $_optimizeStart) / 1_000_000;
+		if ($_optimizeElapsed > 1000 && class_exists('DiagnosticEngine')) {
+			DiagnosticEngine::logSlowExecution('ImageOptimizer::optimize(' . basename($path) . ')', $_optimizeElapsed, 1000);
+		}
+		$_memAfter = memory_get_usage(true);
+		$_memDelta = $_memAfter - $_memBefore;
+		if ($_memDelta > 10 * 1024 * 1024 && class_exists('DiagnosticEngine')) {
+			DiagnosticEngine::log('memory', 'ImageOptimizer 高メモリ使用', ['file' => basename($path), 'delta_mb' => round($_memDelta / 1048576, 1)]);
+		}
 
 		return true;
 	}

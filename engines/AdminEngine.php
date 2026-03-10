@@ -270,6 +270,7 @@ class AdminEngine {
 	public static function verifyCsrf(): void {
 		$token = $_POST['csrf'] ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? '');
 		if (empty($_SESSION['csrf']) || !hash_equals($_SESSION['csrf'], $token)) {
+			if (class_exists('DiagnosticEngine')) DiagnosticEngine::log('security', 'CSRF 検証失敗');
 			header('HTTP/1.1 403 Forbidden');
 			exit;
 		}
@@ -427,8 +428,15 @@ class AdminEngine {
 
 		$lockFile = $dir . '.lock';
 		$lf = fopen($lockFile, 'c');
-		if ($lf === false) return;
-		if (!flock($lf, LOCK_EX)) { fclose($lf); return; }
+		if ($lf === false) {
+			if (class_exists('DiagnosticEngine')) DiagnosticEngine::logRaceCondition('revisions/' . $fieldname, 'ロックファイルオープン失敗');
+			return;
+		}
+		if (!flock($lf, LOCK_EX)) {
+			if (class_exists('DiagnosticEngine')) DiagnosticEngine::logRaceCondition('revisions/' . $fieldname, 'ファイルロック取得失敗');
+			fclose($lf);
+			return;
+		}
 
 		/* R29 fix: 同一秒のリビジョン衝突を防止（ランダムサフィックス追加） */
 		$ts = date('Ymd_His') . '_' . bin2hex(random_bytes(2));
@@ -888,6 +896,9 @@ class AdminEngine {
 
 		/* ディスク空き容量 */
 		$diskFree = @disk_free_space('.');
+		if ($diskFree === false && class_exists('DiagnosticEngine')) {
+			DiagnosticEngine::logEnvironmentIssue('disk_free_space() 取得失敗');
+		}
 		$diskFreeStr = ($diskFree !== false)
 			? number_format($diskFree / 1024 / 1024, 0) . ' MB'
 			: '取得不可';

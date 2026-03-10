@@ -162,12 +162,18 @@ class WebhookEngine {
 
 		$result = curl_exec($ch);
 		$httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+		$curlError = curl_error($ch);
+		$totalTime = round(curl_getinfo($ch, CURLINFO_TOTAL_TIME) * 1000, 2);
 		curl_close($ch);
 
 		/* 配信ログ（デバッグ用） */
 		if ($httpCode < 200 || $httpCode >= 300) {
 			error_log("WebhookEngine: delivery failed to {$url} (HTTP {$httpCode})");
-			if (class_exists('DiagnosticEngine')) DiagnosticEngine::log('engine', 'Webhook 配信失敗', ['http_code' => $httpCode]);
+			if (class_exists('DiagnosticEngine')) {
+				DiagnosticEngine::logIntegrationError('Webhook', $httpCode, $curlError ?: ('配信失敗: ' . parse_url($url, PHP_URL_HOST)));
+			}
+		} elseif ($totalTime > 3000 && class_exists('DiagnosticEngine')) {
+			DiagnosticEngine::logSlowExecution('Webhook::sendAsync(' . parse_url($url, PHP_URL_HOST) . ')', $totalTime, 3000);
 		}
 	}
 

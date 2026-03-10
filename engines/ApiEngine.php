@@ -205,6 +205,7 @@ class ApiEngine {
 				return true;
 			}
 		}
+		if (class_exists('DiagnosticEngine')) DiagnosticEngine::log('security', 'API キー認証失敗', ['key_prefix' => substr($key, 0, 7) . '...']);
 		return false;
 	}
 
@@ -425,6 +426,9 @@ class ApiEngine {
 		/* メールヘッダインジェクション対策 */
 		$safeName  = str_replace(["\r", "\n"], '', $name);
 		$safeEmail = str_replace(["\r", "\n"], '', $email);
+		if (($safeName !== $name || $safeEmail !== $email) && class_exists('DiagnosticEngine')) {
+			DiagnosticEngine::log('security', 'メールヘッダインジェクション試行検出');
+		}
 
 		/* R17 fix: サブジェクトのヘッダインジェクション対策 */
 		$safeTitle = str_replace(["\r", "\n"], '', $settings['title'] ?? 'AP');
@@ -433,6 +437,7 @@ class ApiEngine {
 		$headers = "From: {$safeEmail}\r\nReply-To: {$safeEmail}\r\nContent-Type: text/plain; charset=UTF-8";
 
 		if (!@mail($to, $subject, $body, $headers)) {
+			if (class_exists('DiagnosticEngine')) DiagnosticEngine::logIntegrationError('mail()', 0, 'コンタクトフォームメール送信失敗');
 			self::jsonError('メール送信に失敗しました', 500);
 		}
 

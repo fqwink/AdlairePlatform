@@ -144,7 +144,11 @@ class CacheEngine {
 
 	private static function cacheKey(string $endpoint, array $params): string {
 		/* R18 fix: エンドポイント名をサニタイズ（パストラバーサル防止） */
-		$endpoint = preg_replace('/[^a-zA-Z0-9_\-]/', '', $endpoint);
+		$sanitized = preg_replace('/[^a-zA-Z0-9_\-]/', '', $endpoint);
+		if ($sanitized !== $endpoint && class_exists('DiagnosticEngine')) {
+			DiagnosticEngine::log('security', 'CacheEngine パストラバーサル試行検出', ['endpoint' => $sanitized]);
+		}
+		$endpoint = $sanitized;
 		ksort($params);
 		return $endpoint . '_' . md5(json_encode($params));
 	}

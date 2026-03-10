@@ -1135,7 +1135,36 @@ class DiagnosticEngine {
 			'display_errors'      => ini_get('display_errors'),
 			'error_reporting'     => error_reporting(),
 			'session.gc_maxlifetime' => ini_get('session.gc_maxlifetime'),
+			'file_uploads'        => ini_get('file_uploads'),
+			'open_basedir'        => ini_get('open_basedir') ?: '(none)',
+			'disable_functions'   => ini_get('disable_functions') ?: '(none)',
+			'allow_url_fopen'     => ini_get('allow_url_fopen'),
+			'realpath_cache_size' => ini_get('realpath_cache_size'),
 		];
+
+		/* OPcache 情報 */
+		$opcacheInfo = [];
+		if (function_exists('opcache_get_status')) {
+			$opcStatus = @opcache_get_status(false);
+			if (is_array($opcStatus)) {
+				$opcacheInfo = [
+					'enabled'         => $opcStatus['opcache_enabled'] ?? false,
+					'used_memory_mb'  => isset($opcStatus['memory_usage']['used_memory']) ? round($opcStatus['memory_usage']['used_memory'] / 1048576, 1) : null,
+					'free_memory_mb'  => isset($opcStatus['memory_usage']['free_memory']) ? round($opcStatus['memory_usage']['free_memory'] / 1048576, 1) : null,
+					'hit_rate'        => $opcStatus['opcache_statistics']['opcache_hit_rate'] ?? null,
+					'cached_scripts'  => $opcStatus['opcache_statistics']['num_cached_scripts'] ?? null,
+				];
+			}
+		}
+
+		/* 書き込み可能ディレクトリチェック */
+		$writableChecks = [];
+		foreach (['data', 'data/settings', 'data/content', 'uploads', 'backup'] as $dir) {
+			$writableChecks[$dir] = is_dir($dir) ? is_writable($dir) : null;
+		}
+
+		/* GD ライブラリ情報 */
+		$gdInfo = extension_loaded('gd') ? gd_info() : ['GD Version' => 'not installed'];
 
 		/* 環境依存情報 */
 		$envInfo = [
@@ -1147,6 +1176,9 @@ class DiagnosticEngine {
 			'extensions'      => get_loaded_extensions(),
 			'zend_version'    => zend_version(),
 			'server_software' => $_SERVER['SERVER_SOFTWARE'] ?? 'unknown',
+			'opcache'         => $opcacheInfo,
+			'gd'              => $gdInfo,
+			'writable_dirs'   => $writableChecks,
 		];
 
 		/* メモリ詳細 */

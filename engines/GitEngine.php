@@ -109,6 +109,7 @@ class GitEngine {
 			}
 
 			if ($error) {
+				if (class_exists('DiagnosticEngine')) DiagnosticEngine::logIntegrationError('GitHub API', 0, 'cURL エラー: ' . $error . ' (' . $method . ' ' . $endpoint . ')');
 				return ['ok' => false, 'error' => 'cURL エラー: ' . $error, 'status' => 0];
 			}
 
@@ -122,6 +123,7 @@ class GitEngine {
 			];
 		}
 
+		if (class_exists('DiagnosticEngine')) DiagnosticEngine::logIntegrationError('GitHub API', 0, 'リトライ上限到達 (' . $method . ' ' . $endpoint . ')');
 		return ['ok' => false, 'error' => 'リトライ上限に達しました', 'status' => 0];
 	}
 
@@ -323,6 +325,7 @@ class GitEngine {
 			$content = file_get_contents($localPath);
 			if ($content === false) {
 				$errors[] = "読み込み失敗: {$localPath}";
+				if (class_exists('DiagnosticEngine')) DiagnosticEngine::log('engine', 'Git Push ファイル読み込み失敗', ['path' => basename($localPath)]);
 				continue;
 			}
 
@@ -336,6 +339,7 @@ class GitEngine {
 
 			if (!$blobRes['ok']) {
 				$errors[] = "Blob 作成失敗: {$remotePath}";
+				if (class_exists('DiagnosticEngine')) DiagnosticEngine::logIntegrationError('GitHub API', $blobRes['status'] ?? 0, 'Blob 作成失敗: ' . $remotePath);
 				continue;
 			}
 

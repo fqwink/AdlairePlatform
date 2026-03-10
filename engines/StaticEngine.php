@@ -272,6 +272,7 @@ class StaticEngine {
 	   ══════════════════════════════════════════════ */
 
 	public function copyAssets(): void {
+		if (class_exists('DiagnosticEngine')) DiagnosticEngine::startTimer('StaticEngine::copyAssets');
 		$assetsDir = self::OUTPUT_DIR . '/assets';
 		$this->ensureDir($assetsDir);
 
@@ -316,6 +317,7 @@ class StaticEngine {
 		$this->runHook('after_asset_copy', ['assets_dir' => $assetsDir]);
 
 		$this->buildState['assets_copied_at'] = date('c');
+		if (class_exists('DiagnosticEngine')) DiagnosticEngine::stopTimer('StaticEngine::copyAssets');
 	}
 
 	/* ══════════════════════════════════════════════
@@ -380,7 +382,10 @@ class StaticEngine {
 		}
 		$this->ensureDir($dir);
 		$path = $dir . '/index.html';
-		file_put_contents($path, $html, LOCK_EX);
+		$writeResult = file_put_contents($path, $html, LOCK_EX);
+		if ($writeResult === false && class_exists('DiagnosticEngine')) {
+			DiagnosticEngine::log('engine', 'StaticEngine ページ書き込み失敗', ['slug' => $slug, 'path' => $path]);
+		}
 		$this->changedFiles[] = $path;
 	}
 
