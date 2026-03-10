@@ -1,5 +1,75 @@
 # RELEASE-NOTES — リリースノート
 
+<!-- ⚠️ 削除禁止: 本ドキュメントはプロジェクトの正式なリリースノートです -->
+
+> **本ドキュメントの役割:** 各バージョンの主要な成果・新機能・破壊的変更・個別の修正内容をまとめたリリースノートです。
+
+---
+
+## AdlairePlatform Ver.1.4-pre（2026-03-10）
+
+セキュリティ強化・アーキテクチャ改善・テンプレートエンジン拡張を実施。
+エンジン数を 12 → 15 に拡大し、プラットフォームの基盤を強化。
+
+### 新エンジン
+
+- **AppContext** — グローバル変数を静的クラスに集約（`engines/AppContext.php`）
+  - `$c`, `$d`, `$host` 等のグローバル変数を `AppContext::config()`, `AppContext::host()` 等の型安全なアクセサに置換
+  - `syncFromGlobals()` / `syncToGlobals()` で後方互換性を維持
+- **Logger** — PSR-3 互換の構造化ログエンジン（`engines/Logger.php`）
+  - JSON 構造化ログ・リクエスト ID 追跡・日別ファイルローテーション
+  - サイズベースローテーション（5MB 上限・最大 5 世代）
+  - ログディレクトリの自動保護（`.htaccess`）
+- **MailerEngine** — メール送信の抽象化（`engines/MailerEngine.php`）
+  - リトライ機能（最大 2 回）・ヘッダインジェクション対策
+  - テストモード（ユニットテスト用モック対応）
+
+### 新機能
+
+- **JsonCache** — リクエスト内 JSON I/O キャッシュ（`index.php` 内クラス）
+  - 同一リクエスト内の重複ファイル読み込みを排除
+- **TemplateEngine フィルター** — `{{var|upper}}`, `{{var|lower}}`, `{{var|capitalize}}`, `{{var|trim}}`, `{{var|nl2br}}`, `{{var|length}}`, `{{var|truncate:N}}`, `{{var|default:value}}`
+- **TemplateEngine ネストプロパティ** — `{{user.name}}` → `$ctx['user']['name']` のドット記法アクセス
+
+### セキュリティ修正
+
+- `webhook_manager.js` の `post()` に `X-CSRF-TOKEN` ヘッダーを追加（CSRF 保護の欠落修正）
+- `ApiEngine` の API キー検証を prefix ベースで最適化（bcrypt O(n) → O(1)）
+
+### アーキテクチャ改善
+
+- `AdminEngine` / `ThemeEngine` のグローバル変数依存を AppContext に移行
+- `ApiEngine` の `handleContact()` を MailerEngine に委譲
+- `error_log()` 直接呼び出しを Logger に統一
+
+### 新規ファイル
+
+| ファイル | 説明 |
+|---------|------|
+| `engines/AppContext.php` | 集中状態管理 |
+| `engines/Logger.php` | 構造化ログエンジン |
+| `engines/MailerEngine.php` | メール送信抽象化 |
+
+### 全エンジン一覧（15 エンジン）
+
+| エンジン | ファイル | 導入バージョン |
+|---------|---------|-------------|
+| AdminEngine | `engines/AdminEngine.php` | Ver.1.3-27 |
+| TemplateEngine | `engines/TemplateEngine.php` | Ver.1.2-26 |
+| ThemeEngine | `engines/ThemeEngine.php` | Ver.1.2-13 |
+| UpdateEngine | `engines/UpdateEngine.php` | Ver.1.0-11 |
+| StaticEngine | `engines/StaticEngine.php` | Ver.1.3-28 |
+| ApiEngine | `engines/ApiEngine.php` | Ver.1.3-28 |
+| CollectionEngine | `engines/CollectionEngine.php` | Ver.1.3-28 |
+| MarkdownEngine | `engines/MarkdownEngine.php` | Ver.1.3-28 |
+| GitEngine | `engines/GitEngine.php` | Ver.1.3-28 |
+| WebhookEngine | `engines/WebhookEngine.php` | Ver.1.3-28 |
+| CacheEngine | `engines/CacheEngine.php` | Ver.1.3-28 |
+| ImageOptimizer | `engines/ImageOptimizer.php` | Ver.1.3-28 |
+| AppContext | `engines/AppContext.php` | Ver.1.4-pre |
+| Logger | `engines/Logger.php` | Ver.1.4-pre |
+| MailerEngine | `engines/MailerEngine.php` | Ver.1.4-pre |
+
 ---
 
 ## AdlairePlatform Ver.1.3-29 — Ver.1.3系終了（2026-03-09）
