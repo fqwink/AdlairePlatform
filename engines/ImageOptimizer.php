@@ -56,7 +56,10 @@ class ImageOptimizer {
 
 			list($newW, $newH) = self::fitDimensions($origWidth, $origHeight, self::MAX_WIDTH, self::MAX_HEIGHT);
 			$dst = imagecreatetruecolor($newW, $newH);
-			if ($dst === false) { imagedestroy($src); return false; }
+			if ($dst === false) {
+				if (class_exists('DiagnosticEngine')) DiagnosticEngine::log('engine', '画像リサイズ失敗: imagecreatetruecolor', ['path' => basename($path), 'target' => "{$newW}x{$newH}", 'memory_usage_mb' => round(memory_get_usage(true) / 1048576, 1)]);
+				imagedestroy($src); return false;
+			}
 
 			self::preserveTransparency($dst, $mime);
 			imagecopyresampled($dst, $src, 0, 0, 0, 0, $newW, $newH, $origWidth, $origHeight);
@@ -153,13 +156,17 @@ class ImageOptimizer {
 	/* ── 内部ヘルパー ── */
 
 	private static function loadImage(string $path, string $mime): ?\GdImage {
-		return match ($mime) {
+		$result = match ($mime) {
 			'image/jpeg' => @imagecreatefromjpeg($path) ?: null,
 			'image/png'  => @imagecreatefrompng($path) ?: null,
 			'image/gif'  => @imagecreatefromgif($path) ?: null,
 			'image/webp' => @imagecreatefromwebp($path) ?: null,
 			default      => null,
 		};
+		if ($result === null && class_exists('DiagnosticEngine')) {
+			DiagnosticEngine::log('engine', '画像ロード失敗', ['path' => basename($path), 'mime' => $mime, 'error' => error_get_last()['message'] ?? '']);
+		}
+		return $result;
 	}
 
 	private static function saveImage(\GdImage $img, string $path, string $mime): void {

@@ -180,6 +180,7 @@ class AdminEngine {
 				$_SESSION['ap_username'] = $multiUser['username'];
 				$_SESSION['ap_role'] = $multiUser['role'];
 				self::logActivity('ログイン: ' . $multiUser['username'] . ' (' . $multiUser['role'] . ')');
+				if (class_exists('DiagnosticEngine')) DiagnosticEngine::log('security', 'ログイン成功', ['username' => $multiUser['username'], 'role' => $multiUser['role']]);
 				header('Location: ./');
 				exit;
 			}
@@ -204,6 +205,7 @@ class AdminEngine {
 		$_SESSION['l'] = true;
 		$_SESSION['ap_username'] = 'admin';
 		$_SESSION['ap_role'] = 'admin';
+		if (class_exists('DiagnosticEngine')) DiagnosticEngine::log('security', 'ログイン成功', ['username' => 'admin', 'role' => 'admin']);
 		header('Location: ./');
 		exit;
 	}
@@ -270,7 +272,8 @@ class AdminEngine {
 	public static function verifyCsrf(): void {
 		$token = $_POST['csrf'] ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? '');
 		if (empty($_SESSION['csrf']) || !hash_equals($_SESSION['csrf'], $token)) {
-			if (class_exists('DiagnosticEngine')) DiagnosticEngine::log('security', 'CSRF 検証失敗');
+			$reason = empty($_SESSION['csrf']) ? 'session_empty' : (empty($token) ? 'token_missing' : 'token_mismatch');
+			if (class_exists('DiagnosticEngine')) DiagnosticEngine::log('security', 'CSRF 検証失敗', ['reason' => $reason]);
 			header('HTTP/1.1 403 Forbidden');
 			exit;
 		}
@@ -339,12 +342,14 @@ class AdminEngine {
 		}
 		$dir = 'uploads/';
 		if (!is_dir($dir) && !mkdir($dir, 0755, true)) {
+			if (class_exists('DiagnosticEngine')) DiagnosticEngine::logEnvironmentIssue('アップロードディレクトリ作成失敗', ['dir' => $dir, 'disk_free' => @disk_free_space('.'), 'error' => error_get_last()['message'] ?? '']);
 			http_response_code(500);
 			echo json_encode(['error' => 'アップロードディレクトリを作成できません']);
 			exit;
 		}
 		$filename = bin2hex(random_bytes(12)) . '.' . $ext_map[$mime];
 		if (!move_uploaded_file($file['tmp_name'], $dir . $filename)) {
+			if (class_exists('DiagnosticEngine')) DiagnosticEngine::logEnvironmentIssue('画像アップロード move_uploaded_file 失敗', ['filename' => $filename, 'size' => $file['size'], 'tmp_dir' => ini_get('upload_tmp_dir') ?: sys_get_temp_dir(), 'disk_free' => @disk_free_space('.'), 'error' => error_get_last()['message'] ?? '']);
 			http_response_code(500);
 			echo json_encode(['error' => 'ファイル保存に失敗しました']);
 			exit;
@@ -353,6 +358,7 @@ class AdminEngine {
 		if (class_exists('ImageOptimizer')) {
 			ImageOptimizer::optimize($dir . $filename);
 		}
+		if (class_exists('DiagnosticEngine')) DiagnosticEngine::log('performance', '画像アップロード完了', ['filename' => $filename, 'size_kb' => round($file['size'] / 1024, 1), 'mime' => $mime]);
 		self::logActivity('画像アップロード: ' . $filename);
 		echo json_encode(['url' => $dir . $filename]);
 		exit;
@@ -424,7 +430,11 @@ class AdminEngine {
 	public static function saveRevision(string $fieldname, string $content, bool $restored = false): void {
 		if (!preg_match('/^[a-zA-Z0-9_\-]+$/', $fieldname)) return;
 		$dir = content_dir() . '/revisions/' . $fieldname . '/';
-		if (!is_dir($dir)) mkdir($dir, 0755, true);
+		if (!is_dir($dir)) {
+			if (!@mkdir($dir, 0755, true) && class_exists('DiagnosticEngine')) {
+				DiagnosticEngine::logEnvironmentIssue('リビジョンディレクトリ作成失敗', ['dir' => $fieldname, 'error' => error_get_last()['message'] ?? '']);
+			}
+		}
 
 		$lockFile = $dir . '.lock';
 		$lf = fopen($lockFile, 'c');
@@ -463,12 +473,22 @@ class AdminEngine {
 		sort($files);
 		$unpinned = [];
 		foreach ($files as $f) {
-			$data = json_decode(file_get_contents($f), true);
+			$raw = file_get_contents($f);
+			if ($raw === false) {
+				if (class_exists('DiagnosticEngine')) DiagnosticEngine::log('engine', 'リビジョンファイル読み込み失敗', ['file' => basename($f)]);
+				continue;
+			}
+			$data = json_decode($raw, true);
 			if (is_array($data) && !empty($data['pinned'])) continue;
 			$unpinned[] = $f;
 		}
+		$pruned = 0;
 		while (count($unpinned) > AP_REVISION_LIMIT) {
 			unlink(array_shift($unpinned));
+			$pruned++;
+		}
+		if ($pruned > 0 && class_exists('DiagnosticEngine')) {
+			DiagnosticEngine::log('debug', 'リビジョンクリーンアップ', ['pruned' => $pruned, 'remaining' => count($files) - $pruned]);
 		}
 	}
 

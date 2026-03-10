@@ -418,6 +418,7 @@ class MarkdownEngine {
 			return $url;
 		}
 		/* それ以外（javascript:, data:, vbscript: 等）はブロック */
+		if (class_exists('DiagnosticEngine')) DiagnosticEngine::log('security', 'Markdown 不正 URL 除外', ['url_prefix' => substr($url, 0, 50), 'reason' => 'blocked_scheme']);
 		return null;
 	}
 

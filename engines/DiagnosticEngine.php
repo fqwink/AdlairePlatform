@@ -1046,6 +1046,26 @@ class DiagnosticEngine {
 			'debug_category_summary' => $debugCategorySummary,
 			'custom_log_count'       => $customLogCount,
 			'security_summary'       => self::getSecuritySummary(),
+			'collections_summary'    => self::collectCollectionsSummary(),
+		];
+	}
+
+	/**
+	 * コレクション統計を収集
+	 */
+	private static function collectCollectionsSummary(): array {
+		if (!class_exists('CollectionEngine') || !CollectionEngine::isEnabled()) {
+			return ['enabled' => false];
+		}
+		$collections = CollectionEngine::listCollections();
+		$totalItems = 0;
+		foreach ($collections as $col) {
+			$totalItems += $col['count'] ?? 0;
+		}
+		return [
+			'enabled'          => true,
+			'collection_count' => count($collections),
+			'total_items'      => $totalItems,
 		];
 	}
 
@@ -1140,6 +1160,10 @@ class DiagnosticEngine {
 			'disable_functions'   => ini_get('disable_functions') ?: '(none)',
 			'allow_url_fopen'     => ini_get('allow_url_fopen'),
 			'realpath_cache_size' => ini_get('realpath_cache_size'),
+			'session.save_handler'    => ini_get('session.save_handler'),
+			'session.save_path'       => ini_get('session.save_path') ? '(set)' : '(default)',
+			'session.gc_probability'  => ini_get('session.gc_probability'),
+			'session.gc_divisor'      => ini_get('session.gc_divisor'),
 		];
 
 		/* OPcache 情報 */
@@ -1221,6 +1245,65 @@ class DiagnosticEngine {
 			'environment'          => $envInfo,
 			'memory_detail'        => $memoryInfo,
 			'debug_categories'     => self::DEBUG_CATEGORIES,
+			'data_storage'         => self::collectDataStorageInfo(),
+		];
+	}
+
+	/**
+	 * data/ 配下のストレージ情報を収集
+	 */
+	private static function collectDataStorageInfo(): array {
+		$dataDir = 'data';
+		if (!is_dir($dataDir)) return ['error' => 'data/ ディレクトリなし'];
+
+		$totalSize = 0;
+		$fileCount = 0;
+		$dirCount = 0;
+		$jsonSizes = [];
+
+		$iter = new \RecursiveIteratorIterator(
+			new \RecursiveDirectoryIterator($dataDir, \RecursiveDirectoryIterator::SKIP_DOTS),
+			\RecursiveIteratorIterator::SELF_FIRST
+		);
+		foreach ($iter as $item) {
+			if ($item->isDir()) {
+				$dirCount++;
+			} else {
+				$fileCount++;
+				$size = $item->getSize();
+				$totalSize += $size;
+				if ($item->getExtension() === 'json') {
+					$jsonSizes[basename($item->getPathname())] = $size;
+				}
+			}
+		}
+
+		/* PHP エラーログ情報 */
+		$errorLogInfo = [];
+		$errorLogPath = ini_get('error_log');
+		if ($errorLogPath && file_exists($errorLogPath)) {
+			$errorLogInfo = [
+				'size'       => @filesize($errorLogPath),
+				'size_human' => self::humanSize(@filesize($errorLogPath) ?: 0),
+				'modified'   => date('c', @filemtime($errorLogPath) ?: 0),
+			];
+		}
+
+		/* ディスク使用量 */
+		$diskFree = @disk_free_space('.');
+		$diskTotal = @disk_total_space('.');
+
+		return [
+			'total_size'       => $totalSize,
+			'total_size_human' => self::humanSize($totalSize),
+			'file_count'       => $fileCount,
+			'dir_count'        => $dirCount,
+			'json_files'       => $jsonSizes,
+			'disk_free'        => $diskFree !== false ? $diskFree : null,
+			'disk_free_human'  => $diskFree !== false ? self::humanSize((int)$diskFree) : 'unknown',
+			'disk_total'       => $diskTotal !== false ? $diskTotal : null,
+			'disk_usage_ratio' => ($diskFree !== false && $diskTotal !== false && $diskTotal > 0) ? round(1 - ($diskFree / $diskTotal), 3) : null,
+			'php_error_log'    => $errorLogInfo,
 		];
 	}
 

@@ -286,6 +286,7 @@ class StaticEngine {
 			if ($cssContent !== false) {
 				file_put_contents($assetsDir . '/style.css', $cssContent, LOCK_EX);
 			} else {
+				if (class_exists('DiagnosticEngine')) DiagnosticEngine::log('engine', 'CSS 読み込みフォールバック（copy使用）', ['file' => basename($css)]);
 				copy($css, $assetsDir . '/style.css');
 			}
 		}
@@ -1254,7 +1255,15 @@ class StaticEngine {
 			RecursiveIteratorIterator::CHILD_FIRST
 		);
 		foreach ($iter as $f) {
-			$f->isDir() ? @rmdir($f->getRealPath()) : @unlink($f->getRealPath());
+			if ($f->isDir()) {
+				if (!@rmdir($f->getRealPath()) && class_exists('DiagnosticEngine')) {
+					DiagnosticEngine::log('engine', 'StaticEngine ディレクトリ削除失敗', ['path' => basename($f->getRealPath())]);
+				}
+			} else {
+				if (!@unlink($f->getRealPath()) && class_exists('DiagnosticEngine')) {
+					DiagnosticEngine::log('engine', 'StaticEngine ファイル削除失敗', ['path' => basename($f->getRealPath())]);
+				}
+			}
 		}
 		@rmdir($real);
 	}

@@ -104,7 +104,9 @@ class GitEngine {
 				|| $httpCode === 503;
 
 			if ($shouldRetry && $attempt < self::MAX_RETRIES) {
-				usleep((int)(pow(2, $attempt) * 500000)); /* 0.5s, 1s, 2s */
+				$backoffMs = (int)(pow(2, $attempt) * 500);
+				if (class_exists('DiagnosticEngine')) DiagnosticEngine::log('integration', 'GitHub API リトライ', ['attempt' => $attempt + 1, 'method' => $method, 'endpoint' => $endpoint, 'http_code' => $httpCode, 'curl_error' => $error, 'backoff_ms' => $backoffMs]);
+				usleep($backoffMs * 1000);
 				continue;
 			}
 
@@ -115,6 +117,21 @@ class GitEngine {
 
 			$data = json_decode($response, true);
 			if (!is_array($data)) $data = [];
+
+			/* GitHub API レート制限ヘッダー監視 */
+			if (class_exists('DiagnosticEngine') && is_array($data)) {
+				$rateLimitRemaining = $data['resources']['core']['remaining'] ?? null;
+				if ($rateLimitRemaining === null && isset($http_response_header)) {
+					foreach ($http_response_header ?? [] as $_rh) {
+						if (stripos($_rh, 'x-ratelimit-remaining:') === 0) {
+							$rateLimitRemaining = (int)trim(substr($_rh, 22));
+						}
+					}
+				}
+				if ($rateLimitRemaining !== null && $rateLimitRemaining < 10) {
+					DiagnosticEngine::log('integration', 'GitHub API レート制限残量低下', ['remaining' => $rateLimitRemaining, 'endpoint' => $endpoint]);
+				}
+			}
 
 			return [
 				'ok'     => $httpCode >= 200 && $httpCode < 300,
@@ -202,7 +219,11 @@ class GitEngine {
 
 			/* ディレクトリ作成 */
 			$localDir = dirname($localPath);
-			if (!is_dir($localDir)) mkdir($localDir, 0755, true);
+			if (!is_dir($localDir)) {
+				if (!@mkdir($localDir, 0755, true) && class_exists('DiagnosticEngine')) {
+					DiagnosticEngine::logEnvironmentIssue('Git Pull ディレクトリ作成失敗', ['dir' => basename($localDir), 'error' => error_get_last()['message'] ?? '']);
+				}
+			}
 			$realContentDir = realpath(content_dir());
 			$realLocalDir = realpath($localDir);
 			if ($realLocalDir === false || $realContentDir === false || !str_starts_with($realLocalDir, $realContentDir)) {
@@ -251,6 +272,11 @@ class GitEngine {
 
 			file_put_contents($localPath, $decoded, LOCK_EX);
 			$downloaded++;
+		}
+
+		/* 診断: Pull 処理サマリー */
+		if (class_exists('DiagnosticEngine')) {
+			DiagnosticEngine::log('debug', 'Git Pull 処理サマリー', ['downloaded' => $downloaded, 'skipped' => $skipped, 'errors' => count($errors), 'tree_items' => count($tree)]);
 		}
 
 		/* 最終同期時刻を記録 */

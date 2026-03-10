@@ -110,7 +110,11 @@ class CollectionEngine {
 
 		/* ディレクトリ作成 */
 		$dir = content_dir() . '/' . $def['directory'];
-		if (!is_dir($dir)) mkdir($dir, 0755, true);
+		if (!is_dir($dir)) {
+			if (!@mkdir($dir, 0755, true) && class_exists('DiagnosticEngine')) {
+				DiagnosticEngine::logEnvironmentIssue('コレクションディレクトリ作成失敗', ['collection' => $name, 'error' => error_get_last()['message'] ?? '']);
+			}
+		}
 		return true;
 	}
 
@@ -160,6 +164,12 @@ class CollectionEngine {
 			if ($pd !== '' && ($ts = strtotime($pd)) !== false && $ts > $now) return false;
 			return true;
 		});
+
+		/* 診断: フィルタリング結果 */
+		if (class_exists('DiagnosticEngine') && count(MarkdownEngine::loadDirectory($dir)) !== count($items)) {
+			$allCount = count(MarkdownEngine::loadDirectory($dir));
+			DiagnosticEngine::log('debug', 'コレクションフィルタリング', ['collection' => $collection, 'total' => $allCount, 'public' => count($items), 'excluded' => $allCount - count($items)]);
+		}
 
 		/* ソート */
 		$sortBy = $def['sortBy'] ?? null;
@@ -236,7 +246,11 @@ class CollectionEngine {
 		if ($def === null) return false;
 
 		$dir = content_dir() . '/' . ($def['directory'] ?? $collection);
-		if (!is_dir($dir)) mkdir($dir, 0755, true);
+		if (!is_dir($dir)) {
+			if (!@mkdir($dir, 0755, true) && class_exists('DiagnosticEngine')) {
+				DiagnosticEngine::logEnvironmentIssue('コレクションアイテムディレクトリ作成失敗', ['collection' => $collection, 'error' => error_get_last()['message'] ?? '']);
+			}
+		}
 
 		$path = $dir . '/' . $slug . '.md';
 
@@ -318,7 +332,11 @@ class CollectionEngine {
 		$dir = content_dir() . '/' . ($def['directory'] ?? $collection);
 		$path = $dir . '/' . $slug . '.md';
 		if (!file_exists($path)) return false;
-		return unlink($path);
+		$result = unlink($path);
+		if (!$result && class_exists('DiagnosticEngine')) {
+			DiagnosticEngine::log('engine', 'コレクションアイテム削除失敗', ['collection' => $collection, 'slug' => $slug, 'error' => error_get_last()['message'] ?? '']);
+		}
+		return $result;
 	}
 
 	/* ══════════════════════════════════════════════
@@ -382,7 +400,10 @@ class CollectionEngine {
 			];
 			/* HTML をそのまま本文として保存（Markdown 変換はしない） */
 			$content = self::buildMarkdown($meta, $html);
-			file_put_contents($path, $content, LOCK_EX);
+			$writeResult = file_put_contents($path, $content, LOCK_EX);
+			if ($writeResult === false && class_exists('DiagnosticEngine')) {
+				DiagnosticEngine::log('engine', 'ページ移行書き込み失敗', ['slug' => $slug, 'error' => error_get_last()['message'] ?? '']);
+			}
 			$count++;
 		}
 

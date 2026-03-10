@@ -36,7 +36,9 @@ class CacheEngine {
 		$ttl = self::TTL[$endpoint] ?? 60;
 		$mtime = filemtime($path);
 		if ($mtime === false || (time() - $mtime) > $ttl) {
-			@unlink($path);
+			if (!@unlink($path) && class_exists('DiagnosticEngine')) {
+				DiagnosticEngine::log('engine', 'キャッシュ期限切れファイル削除失敗', ['endpoint' => $endpoint, 'path' => basename($path)]);
+			}
 			return false;
 		}
 
@@ -68,6 +70,7 @@ class CacheEngine {
 		header('Last-Modified: ' . $lastModified);
 		header('Cache-Control: max-age=' . $ttl . ', must-revalidate');
 		header('X-Cache: HIT');
+		if (class_exists('DiagnosticEngine')) DiagnosticEngine::log('performance', 'キャッシュヒット', ['endpoint' => $endpoint, 'age_sec' => time() - $mtime]);
 		echo $content;
 		exit;
 	}

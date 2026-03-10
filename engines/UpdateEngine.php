@@ -169,7 +169,9 @@ function check_update(): array {
 		'timeout'       => 10,
 		'ignore_errors' => true,
 	]]);
+	$_checkStart = hrtime(true);
 	$res    = @file_get_contents(AP_UPDATE_URL, false, $ctx);
+	$_checkElapsed = round((hrtime(true) - $_checkStart) / 1_000_000, 2);
 	if ($res === false && class_exists('DiagnosticEngine')) {
 		DiagnosticEngine::logIntegrationError('GitHub API', 0, 'アップデートチェック失敗: ' . AP_UPDATE_URL);
 	}
@@ -208,6 +210,7 @@ function check_update(): array {
 		'update_available' => version_compare($latest, AP_VERSION, '>'),
 		'zip_url'          => $zip_url,
 	];
+	if (class_exists('DiagnosticEngine')) DiagnosticEngine::log('performance', 'アップデートチェック完了', ['response_time_ms' => $_checkElapsed, 'current' => AP_VERSION, 'latest' => $latest, 'update_available' => $result['update_available']]);
 	json_write('update_cache.json', ['result' => $result, 'expires_at' => time() + 3600], settings_dir());
 	return $result;
 }
@@ -234,6 +237,8 @@ function backup_current(): string {
 			if(@copy($item->getRealPath(), $dest.'/'.$path)){
 				$file_count++;
 				$size_bytes += $item->getSize();
+			} else {
+				if (class_exists('DiagnosticEngine')) DiagnosticEngine::log('engine', 'バックアップ ファイルコピー失敗', ['file' => basename($path), 'error' => error_get_last()['message'] ?? '']);
 			}
 		}
 	}
@@ -322,7 +327,9 @@ function apply_update(string $zip_url, string $new_version = ''): void {
 			$destDir = dirname($dest);
 			$realDestDir = realpath($destDir);
 			if($realDestDir === false || !str_starts_with($realDestDir, $app_root)) continue;
-			@copy($item->getRealPath(), $dest);
+			if (!@copy($item->getRealPath(), $dest) && class_exists('DiagnosticEngine')) {
+				DiagnosticEngine::log('engine', 'アップデート ファイルコピー失敗', ['rel' => $rel, 'error' => error_get_last()['message'] ?? '']);
+			}
 		}
 	}
 	$clean = new RecursiveIteratorIterator(

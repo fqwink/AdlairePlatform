@@ -110,9 +110,15 @@ class WebhookEngine {
 		], JSON_UNESCAPED_UNICODE);
 
 		foreach ($config['webhooks'] as $wh) {
-			if (!($wh['active'] ?? true)) continue;
+			if (!($wh['active'] ?? true)) {
+				if (class_exists('DiagnosticEngine')) DiagnosticEngine::log('debug', 'Webhook スキップ（非アクティブ）', ['label' => $wh['label'] ?? '', 'event' => $event]);
+				continue;
+			}
 			$events = $wh['events'] ?? [];
-			if (!empty($events) && !in_array($event, $events, true)) continue;
+			if (!empty($events) && !in_array($event, $events, true)) {
+				if (class_exists('DiagnosticEngine')) DiagnosticEngine::log('debug', 'Webhook スキップ（イベント不一致）', ['label' => $wh['label'] ?? '', 'event' => $event, 'subscribed' => implode(',', $events)]);
+				continue;
+			}
 
 			$url = $wh['url'] ?? '';
 			if ($url === '') continue;
@@ -167,6 +173,9 @@ class WebhookEngine {
 		curl_close($ch);
 
 		/* 配信ログ（デバッグ用） */
+		if (class_exists('DiagnosticEngine')) {
+			DiagnosticEngine::log('debug', 'Webhook 配信完了', ['url_host' => parse_url($url, PHP_URL_HOST) ?? '', 'http_code' => $httpCode, 'payload_bytes' => strlen($body), 'total_time_ms' => $totalTime]);
+		}
 		if ($httpCode < 200 || $httpCode >= 300) {
 			error_log("WebhookEngine: delivery failed to {$url} (HTTP {$httpCode})");
 			if (class_exists('DiagnosticEngine')) {

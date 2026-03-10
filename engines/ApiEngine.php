@@ -365,6 +365,13 @@ class ApiEngine {
 			}
 		}
 
+		/* 診断: 検索実行サマリー */
+		if (class_exists('DiagnosticEngine')) {
+			$pageResults = count(array_filter($results, fn($r) => ($r['type'] ?? '') === 'page'));
+			$colResults = count(array_filter($results, fn($r) => ($r['type'] ?? '') === 'collection'));
+			DiagnosticEngine::log('debug', '検索実行サマリー', ['query_length' => mb_strlen($q, 'UTF-8'), 'total_results' => count($results), 'page_results' => $pageResults, 'collection_results' => $colResults]);
+		}
+
 		$p = self::getPagination();
 		$total = count($results);
 		$paged = array_slice($results, $p['offset'], $p['limit']);
@@ -395,6 +402,7 @@ class ApiEngine {
 
 		/* ハニーポット検出（ボットには成功を装う） */
 		if (!empty($_POST['website'])) {
+			if (class_exists('DiagnosticEngine')) DiagnosticEngine::log('security', 'ハニーポット検知（ボット疑い）');
 			self::jsonResponse(true, ['message' => '送信しました。']);
 		}
 
@@ -750,6 +758,7 @@ class ApiEngine {
 
 		$payload = file_get_contents('php://input');
 		if ($payload === false || $payload === '') {
+			if (class_exists('DiagnosticEngine')) DiagnosticEngine::log('engine', 'Webhook ペイロード読み込み失敗', ['method' => $_SERVER['REQUEST_METHOD'] ?? '', 'content_length' => $_SERVER['CONTENT_LENGTH'] ?? 'unknown']);
 			self::jsonError('ペイロードが空です', 400);
 		}
 
@@ -1188,7 +1197,7 @@ class ApiEngine {
 		json_write('login_attempts.json', $data, settings_dir());
 
 		if ($entry['count'] > self::API_RATE_MAX) {
-			if (class_exists('DiagnosticEngine')) DiagnosticEngine::log('security', 'API レート制限発動', ['endpoint' => $_GET['ap_api'] ?? '']);
+			if (class_exists('DiagnosticEngine')) DiagnosticEngine::log('security', 'API レート制限発動', ['endpoint' => $_GET['ap_api'] ?? '', 'count' => $entry['count'], 'window_start' => date('c', (int)$entry['window_start'])]);
 			http_response_code(429);
 			echo json_encode([
 				'ok'    => false,
