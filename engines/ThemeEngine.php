@@ -22,6 +22,7 @@ class ThemeEngine {
 		$htmlPath = $themeDir . '/theme.html';
 
 		if (!file_exists($htmlPath)) {
+			if (class_exists('DiagnosticEngine')) DiagnosticEngine::log('engine', 'テーマフォールバック', ['requested' => $themeSelect, 'fallback' => self::FALLBACK, 'missing' => $htmlPath]);
 			$themeDir = self::THEMES_DIR . '/' . self::FALLBACK;
 			$htmlPath = $themeDir . '/theme.html';
 		}
@@ -30,6 +31,7 @@ class ThemeEngine {
 		if ($tpl !== false) {
 			echo TemplateEngine::render($tpl, self::buildContext(), $themeDir);
 		} else {
+			if (class_exists('DiagnosticEngine')) DiagnosticEngine::log('engine', 'テーマテンプレート読み込み失敗', ['path' => $htmlPath]);
 			echo '<!-- ThemeEngine: テンプレート読み込みエラー -->';
 		}
 	}

@@ -472,6 +472,131 @@ button:disabled {
 	background: rgba(192, 57, 43, 0.08) !important;
 }
 
+/* ── 診断データ ── */
+
+.ap-diag-badge {
+	display: inline-block;
+	padding: 2px 8px;
+	margin: 2px;
+	border-radius: 4px;
+	font-size: 12px;
+	background: #fed7d7;
+	color: #c53030;
+	font-weight: 600;
+}
+
+.ap-diag-table {
+	width: 100%;
+	border-collapse: collapse;
+	margin-top: 4px;
+}
+
+.ap-diag-table th,
+.ap-diag-table td {
+	padding: 4px 8px;
+	border-bottom: 1px solid #e2e8f0;
+	text-align: left;
+	font-size: 12px;
+	word-break: break-all;
+}
+
+.ap-diag-table th {
+	background: #f7fafc;
+	font-weight: 600;
+	color: #4a5568;
+}
+
+.ap-diag-table tr:hover {
+	background: #f7fafc;
+}
+
+/* ── 診断: プロファイラバー ── */
+
+.ap-diag-timing-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-bottom: 4px;
+}
+
+.ap-diag-timing-label {
+	width: 140px;
+	flex-shrink: 0;
+	font-size: 12px;
+	color: #4a5568;
+	text-align: right;
+}
+
+.ap-diag-timing-bar-bg {
+	flex: 1;
+	height: 14px;
+	background: #edf2f7;
+	border-radius: 3px;
+	overflow: hidden;
+}
+
+.ap-diag-timing-bar {
+	height: 100%;
+	background: #3182ce;
+	border-radius: 3px;
+	min-width: 2px;
+	transition: width 0.3s ease;
+}
+
+.ap-diag-timing-value {
+	width: 70px;
+	flex-shrink: 0;
+	font-size: 12px;
+	color: #2d3748;
+	font-weight: 600;
+}
+
+/* ── エラートレンドバー ── */
+
+.ap-diag-trend-chart {
+	display: flex;
+	align-items: flex-end;
+	gap: 4px;
+	height: 60px;
+	padding: 4px 0;
+}
+
+.ap-diag-trend-bar-wrap {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	height: 100%;
+}
+
+.ap-diag-trend-bar {
+	width: 100%;
+	min-width: 20px;
+	border-radius: 3px 3px 0 0;
+	transition: height 0.3s ease;
+}
+
+.ap-diag-trend-date {
+	font-size: 10px;
+	color: #718096;
+	margin-top: 2px;
+}
+
+.ap-diag-trend-count {
+	font-size: 10px;
+	color: #2d3748;
+	font-weight: 600;
+}
+
+.ap-diag-trend-info {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-top: 4px;
+	font-size: 12px;
+	color: #4a5568;
+}
+
 /* ── レスポンシブ ── */
 
 @media (max-width: 640px) {

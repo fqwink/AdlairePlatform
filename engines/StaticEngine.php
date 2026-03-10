@@ -150,6 +150,7 @@ class StaticEngine {
 		}
 
 		$elapsed = (int)((hrtime(true) - $start) / 1_000_000);
+		if (class_exists('DiagnosticEngine')) DiagnosticEngine::log('performance', 'StaticEngine 差分ビルド完了', ['built' => $built, 'skipped' => $skipped, 'deleted' => $deleted, 'elapsed_ms' => $elapsed]);
 		$result = ['ok' => true, 'built' => $built, 'skipped' => $skipped, 'deleted' => $deleted, 'elapsed_ms' => $elapsed];
 		if ($this->warnings) $result['warnings'] = $this->warnings;
 		return $result;
@@ -209,6 +210,7 @@ class StaticEngine {
 		}
 
 		$elapsed = (int)((hrtime(true) - $start) / 1_000_000);
+		if (class_exists('DiagnosticEngine')) DiagnosticEngine::log('performance', 'StaticEngine フルビルド完了', ['built' => $built, 'deleted' => $deleted, 'elapsed_ms' => $elapsed]);
 		$result = ['ok' => true, 'built' => $built, 'skipped' => 0, 'deleted' => $deleted, 'elapsed_ms' => $elapsed];
 		if ($this->warnings) $result['warnings'] = $this->warnings;
 		return $result;
@@ -270,6 +272,7 @@ class StaticEngine {
 	   ══════════════════════════════════════════════ */
 
 	public function copyAssets(): void {
+		if (class_exists('DiagnosticEngine')) DiagnosticEngine::startTimer('StaticEngine::copyAssets');
 		$assetsDir = self::OUTPUT_DIR . '/assets';
 		$this->ensureDir($assetsDir);
 
@@ -283,6 +286,7 @@ class StaticEngine {
 			if ($cssContent !== false) {
 				file_put_contents($assetsDir . '/style.css', $cssContent, LOCK_EX);
 			} else {
+				if (class_exists('DiagnosticEngine')) DiagnosticEngine::log('engine', 'CSS 読み込みフォールバック（copy使用）', ['file' => basename($css)]);
 				copy($css, $assetsDir . '/style.css');
 			}
 		}
@@ -314,6 +318,7 @@ class StaticEngine {
 		$this->runHook('after_asset_copy', ['assets_dir' => $assetsDir]);
 
 		$this->buildState['assets_copied_at'] = date('c');
+		if (class_exists('DiagnosticEngine')) DiagnosticEngine::stopTimer('StaticEngine::copyAssets');
 	}
 
 	/* ══════════════════════════════════════════════
@@ -378,7 +383,10 @@ class StaticEngine {
 		}
 		$this->ensureDir($dir);
 		$path = $dir . '/index.html';
-		file_put_contents($path, $html, LOCK_EX);
+		$writeResult = file_put_contents($path, $html, LOCK_EX);
+		if ($writeResult === false && class_exists('DiagnosticEngine')) {
+			DiagnosticEngine::log('engine', 'StaticEngine ページ書き込み失敗', ['slug' => $slug, 'path' => $path]);
+		}
 		$this->changedFiles[] = $path;
 	}
 
@@ -391,6 +399,7 @@ class StaticEngine {
 		if ($tpl === false) {
 			$msg = "テンプレート読み込みエラー: {$tplPath}";
 			error_log("StaticEngine: {$msg}");
+			if (class_exists('DiagnosticEngine')) DiagnosticEngine::log('engine', $msg, ['template' => $tplPath]);
 			$this->warnings[] = $msg;
 			return '<!-- StaticEngine: ' . htmlspecialchars($msg, ENT_QUOTES, 'UTF-8') . ' -->';
 		}
@@ -1246,7 +1255,15 @@ class StaticEngine {
 			RecursiveIteratorIterator::CHILD_FIRST
 		);
 		foreach ($iter as $f) {
-			$f->isDir() ? @rmdir($f->getRealPath()) : @unlink($f->getRealPath());
+			if ($f->isDir()) {
+				if (!@rmdir($f->getRealPath()) && class_exists('DiagnosticEngine')) {
+					DiagnosticEngine::log('engine', 'StaticEngine ディレクトリ削除失敗', ['path' => basename($f->getRealPath())]);
+				}
+			} else {
+				if (!@unlink($f->getRealPath()) && class_exists('DiagnosticEngine')) {
+					DiagnosticEngine::log('engine', 'StaticEngine ファイル削除失敗', ['path' => basename($f->getRealPath())]);
+				}
+			}
 		}
 		@rmdir($real);
 	}
