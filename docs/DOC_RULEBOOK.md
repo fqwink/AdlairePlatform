@@ -13,10 +13,7 @@
 | `docs/ARCHITECTURE.md` | **🚫 禁止** | アーキテクチャに関するドキュメント |
 | `docs/VERSIONING.md` | **🚫 禁止** | バージョニング規則に関するドキュメント |
 | `docs/features.md` | 可 | 実装・未実装・関数リファレンス・APIリファレンスに関するドキュメント |
-| `docs/HEADLESS_CMS.md` | 可 | Headless CMS / REST API 仕様 |
-| `docs/HEADLESS_CMS_ROADMAP.md` | 可 | Headless CMS ロードマップ |
-| `docs/STATIC_GENERATOR.md` | 可 | 静的サイト生成仕様 |
-| `docs/DIAGNOSTIC_ENGINE.md` | 可 | DiagnosticEngine 仕様 |
+| `docs/ENGINE_DESIGN_INTEGRATED.md` | 可 | エンジン設計統合ドキュメント（旧HEADLESS_CMS.md等を統合） |
 | `docs/CONFIGURATION.md` | 可 | 設定リファレンスに関するドキュメント |
 | `docs/THEME_DEVELOPMENT.md` | 可 | テーマ開発リファレンスに関するドキュメント |
 | `docs/nginx.conf.example` | 可 | Nginx 設定サンプル |
