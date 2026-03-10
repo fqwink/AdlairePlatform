@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -r -i \"dev\\\\|server\\\\|port\\\\|start\\\\|serve\\\\|localhost\\\\|php -S\" /c/Users/user/Desktop/Locale_Rpository_DATA/AdlairePlatform/*.md)",
+      "Bash(grep -r \"listen\\\\|port\\\\|localhost\\\\|127.0.0.1\\\\|0.0.0.0\\\\|:80\\\\|:8080\\\\|:3000\\\\|:5000\" /c/Users/user/Desktop/Locale_Rpository_DATA/AdlairePlatform/docs/*.md)",
+      "Bash(xargs grep -l \"server\\\\|port\\\\|localhost\")",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(powershell -Command \"Get-ChildItem -Path ''C:\\\\'' -Filter ''php.exe'' -Recurse -Depth 5 -ErrorAction SilentlyContinue | Select-Object -First 5 -ExpandProperty FullName\")",
+      "Bash(powershell -Command \"Start-Process ''C:\\\\Program Files\\\\Docker\\\\Docker\\\\Docker Desktop.exe'' -ErrorAction SilentlyContinue\")",
+      "Bash(for i in 1 2 3 4 5)",
+      "Bash(do docker info)",
+      "Bash(break)",
+      "Bash(echo \"Attempt $i...\")",
+      "Bash(done)",
+      "Bash(docker info)"
+    ]
+  }
+}
