@@ -1,11 +1,18 @@
-# AdlairePlatform エンジン設計統合ドキュメント
+# AdlairePlatform — エンジン技術設計書リファレンス
 
-> **ドキュメントバージョン**: Ver.1.0-1  
+> **ドキュメントバージョン**: Ver.1.0-2  
 > **作成日**: 2026-03-10  
-> **最終更新**: 2026-03-10  
+> **最終更新**: 2026-03-10（改名・相互参照追加）  
 > **所有者**: Adlaire Group  
 > **分類**: 社内限り  
-> **対象バージョン**: Ver.1.4-pre
+> **対象バージョン**: Ver.1.4-pre  
+> **バージョニング規則**: [AFE/VERSIONING.md](https://github.com/fqwink/AdlaireGroup-Documents-Repository/blob/main/AFE/VERSIONING.md)
+
+> **関連ドキュメント**:  
+> - 設計方針: [AdlairePlatform_Design.md](AdlairePlatform_Design.md)  
+> - アーキテクチャ: [ARCHITECTURE.md](ARCHITECTURE.md)  
+> - 機能仕様: [SPECIFICATION.md](SPECIFICATION.md)  
+> - セキュリティ: [SECURITY_POLICY.md](SECURITY_POLICY.md)
 
 ---
 
