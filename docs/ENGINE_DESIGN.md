@@ -1,11 +1,14 @@
 # AdlairePlatform — エンジン技術設計書リファレンス
 
-> **ドキュメントバージョン**: Ver.1.0-2  
-> **作成日**: 2026-03-10  
-> **最終更新**: 2026-03-10（改名・相互参照追加）  
-> **所有者**: Adlaire Group  
-> **分類**: 社内限り  
-> **対象バージョン**: Ver.1.4-pre  
+---
+ファイル名: docs/ENGINE_DESIGN.md
+バージョン: Ver.1.0-3
+作成日: 2026-03-10
+最終更新日: 2026-03-12
+ステータス: 🔧 策定中
+分類: 社内限り
+---
+
 > **バージョニング規則**: [AFE/VERSIONING.md](https://github.com/fqwink/AdlaireGroup-Documents-Repository/blob/main/AFE/VERSIONING.md)
 
 > **関連ドキュメント**:  
@@ -21,7 +24,7 @@
 本ドキュメントは、AdlairePlatform の既存エンジン設計書を1つのファイルに統合したものです。
 実装済みで専用設計書が存在するエンジンのみを収録しています。
 
-**統合対象エンジン**:
+**統合対象エンジン（全17エンジン）**:
 1. StaticEngine（静的サイト生成）
 2. ApiEngine（ヘッドレスCMS / REST API）
 3. DiagnosticEngine（診断・テレメトリ）
@@ -29,8 +32,16 @@
 5. CollectionEngine（コレクション管理）
 6. MarkdownEngine（Markdown処理）
 7. WorkflowEngine（レビューワークフロー）
-
-**除外エンジン**: AdminEngine, TemplateEngine, ThemeEngine, UpdateEngine, WebhookEngine, CacheEngine, ImageOptimizer, AppContext, Logger, MailerEngine（実装済みだが専用設計書なし）
+8. AdminEngine（管理画面バックエンド）
+9. TemplateEngine（テンプレートエンジン）
+10. ThemeEngine（テーマ管理）
+11. UpdateEngine（更新・バックアップ管理）
+12. WebhookEngine（Webhook管理）
+13. CacheEngine（APIキャッシュ）
+14. ImageOptimizer（画像最適化）
+15. AppContext（アプリケーション状態管理）
+16. Logger（ログ管理）
+17. MailerEngine（メール送信）
 
 ---
 
@@ -44,6 +55,16 @@
    - 4.2 CollectionEngine
    - 4.3 MarkdownEngine
    - 4.4 WorkflowEngine
+5. [AdminEngine 設計書](#5-adminengine-設計書)
+6. [TemplateEngine 設計書](#6-templateengine-設計書)
+7. [ThemeEngine 設計書](#7-themeengine-設計書)
+8. [UpdateEngine 設計書](#8-updateengine-設計書)
+9. [WebhookEngine 設計書](#9-webhookengine-設計書)
+10. [CacheEngine 設計書](#10-cacheengine-設計書)
+11. [ImageOptimizer 設計書](#11-imageoptimizer-設計書)
+12. [AppContext 設計書](#12-appcontext-設計書)
+13. [Logger 設計書](#13-logger-設計書)
+14. [MailerEngine 設計書](#14-mailerengine-設計書)
 
 ---
 
@@ -1109,6 +1130,571 @@ class WorkflowEngine {
 ### 実装状態
 
 🚧 **未実装（Phase 3 計画）**
+
+---
+
+# 5. AdminEngine 設計書
+
+> **実装状態**: ✅ Ver.1.3-27  
+> **ファイルパス**: `engines/AdminEngine.php`
+
+## 5.1 概要
+
+管理画面のバックエンドを実装。POST アクションのルーティング、認証、CSRF 検証、フィールド編集、画像アップロード、リビジョン管理、ユーザー管理、リダイレクト管理を担当。
+
+## 5.2 主要機能
+
+- **POST アクション処理**: `handle()` メソッドが `ap_action` パラメータでディスパッチ
+- **認証・権限管理**: セッションベース、ロールチェック（`hasRole()`）、マルチユーザー対応（`data/settings/users.json`）
+- **CSRF 保護**: トークン生成（`csrfToken()`）と検証（`verifyCsrf()`）
+- **フィールド編集**: 設定/ページコンテンツ更新、リビジョン保存、アクティビティログ、キャッシュ無効化
+- **画像アップロード**: サイズ制限 2MB、MIME 検証、オプション最適化、アクティビティログ
+- **ページ削除**: 管理者専用、削除前にリビジョンを保存
+- **リビジョン管理**: 保存、枝刈り、一覧、取得、復元、ピン留め、検索（レート制限: 30 req/min/session）
+- **ユーザー管理**: ユーザー追加・削除（管理者専用）
+- **リダイレクト管理**: リダイレクト追加・削除、検証、重複チェック（管理者専用）
+- **ログイン画面レンダリング**: `themes/AP-Default/login.html` テンプレート使用
+- **ダッシュボードレンダリング**: テーマ一覧、設定フィールド、ページ、ディスク空き容量、コレクション、Git 情報、ユーザー、Webhook、キャッシュ統計、リダイレクト、診断通知を集約し、`TemplateEngine` で描画
+
+## 5.3 API/メソッド一覧
+
+```php
+AdminEngine::handle()                    // POSTアクション処理
+AdminEngine::isLoggedIn()                // ログイン状態確認
+AdminEngine::hasRole(string $role)       // ロール確認
+AdminEngine::csrfToken()                 // CSRFトークン生成
+AdminEngine::verifyCsrf()                // CSRF検証
+AdminEngine::renderLogin()               // ログイン画面描画
+AdminEngine::renderDashboard()           // ダッシュボード描画
+AdminEngine::registerHooks()             // フック登録（JsEngine スクリプト注入）
+AdminEngine::getAdminScripts()           // 管理画面用スクリプト集約
+AdminEngine::renderEditableContent()     // 編集可能コンテンツHTML生成
+
+// 内部ハンドラ
+handleEditField()                        // フィールド編集
+handleUploadImage()                      // 画像アップロード
+handleDeletePage()                       // ページ削除
+handleRevisionAction()                   // リビジョン操作
+handleAddUser()                          // ユーザー追加
+handleDeleteUser()                       // ユーザー削除
+handleAddRedirect()                      // リダイレクト追加
+handleDeleteRedirect()                   // リダイレクト削除
+```
+
+## 5.4 設定ファイル
+
+- `data/settings/users.json` – ユーザー情報（ユーザー名、bcrypt パスワードハッシュ、ロール）
+- `data/settings/settings.json` – サイト設定
+- `data/content/pages.json` – ページコンテンツ
+- `data/settings/redirects.json` – リダイレクトルール
+- `data/revisions/` – リビジョン保存ディレクトリ
+
+## 5.5 セキュリティ考慮事項
+
+- セッションベース認証、ロール制御
+- CSRF トークン必須
+- XSS 対策: `htmlspecialchars()` によるエスケープ
+- レート制限: リビジョン操作 30 req/min/session
+- 画像アップロード: MIME 検証、サイズ制限 2MB
+- ファイルシステム安全性: パストラバーサル防止
+
+## 5.6 連携エンジン
+
+- `TemplateEngine` – ダッシュボードレンダリング
+- `AppContext` – 設定・状態管理
+- `Logger` – アクティビティログ
+- `DiagnosticEngine` – エラー通知
+- `CacheEngine` – キャッシュ無効化
+- `ImageOptimizer` – 画像最適化（オプション）
+
+---
+
+# 6. TemplateEngine 設計書
+
+> **実装状態**: ✅ Ver.1.2-26（Ver.1.4-pre でドット記法・フィルタ構文拡張）  
+> **ファイルパス**: `engines/TemplateEngine.php`
+
+## 6.1 概要
+
+軽量 PHP テンプレートエンジン。変数展開、フィルタ、条件分岐、ループ、パーシャル読み込みをサポート。
+
+## 6.2 主要機能
+
+### 変数展開
+- `{{variable}}` – エスケープ出力
+- `{{{variable}}}` – 生出力
+- ネストプロパティアクセス: `{{user.name}}`
+
+### フィルタ
+`upper`, `lower`, `capitalize`, `truncate:N`, `default:value`, `nl2br`, `trim`, `length`
+
+### 条件分岐
+`{{#if var}}...{{else}}...{{/if}}`
+
+### ループ
+`{{#each items}}` – 特殊変数 `@index`, `@first`, `@last`
+
+### パーシャル読み込み
+`{{> partial}}` – 最大ネスト深度 10
+
+### 診断
+未処理タグの警告を `Logger` と `DiagnosticEngine` に記録
+
+## 6.3 API/メソッド一覧
+
+```php
+TemplateEngine::render(string $template, array $context) : string
+
+// 内部メソッド
+TemplateEngine::processPartials()        // パーシャル処理
+TemplateEngine::processEach()            // ループ処理
+TemplateEngine::processIf()              // 条件分岐処理
+TemplateEngine::processRawVars()         // 生変数処理
+TemplateEngine::processVars()            // エスケープ変数処理
+TemplateEngine::resolveValue()           // ドット記法解決
+TemplateEngine::applyFilter()            // フィルタ適用
+TemplateEngine::warnUnprocessed()        // 未処理タグ警告
+```
+
+## 6.4 設定
+
+- パーシャルディレクトリ: `themes/{themeSelect}/partials/`
+- 最大ネスト深度: 10
+
+## 6.5 セキュリティ考慮事項
+
+- デフォルトで `htmlspecialchars()` によるエスケープ
+- 生出力 `{{{...}}}` 使用時は XSS リスクに注意
+- ネスト深度制限によるスタックオーバーフロー防止
+
+## 6.6 連携エンジン
+
+- `Logger` – 警告ログ
+- `DiagnosticEngine` – 未処理タグ通知
+
+---
+
+# 7. ThemeEngine 設計書
+
+> **実装状態**: ✅ Ver.1.2-13  
+> **ファイルパス**: `engines/ThemeEngine.php`
+
+## 7.1 概要
+
+テーマの読み込みと描画を担当。CMS コンテキストと静的ページコンテキストの構築、SEO/OGP タグ生成、メニューパース機能を提供。
+
+## 7.2 主要機能
+
+- **テーマ読み込み**: `load(string $themeSelect)` – テーマ名検証、フォールバック（AP-Default）、`theme.html` 読み込み、`TemplateEngine` で描画
+- **テーマ一覧**: `listThemes()` – 利用可能テーマディレクトリを取得
+- **CMS コンテキスト構築**: `buildContext()` – `AppContext` から設定取得、管理画面状態、CSRF トークン、編集可能コンテンツ、メニューパースを統合
+- **静的ページコンテキスト構築**: `buildStaticContext(string $slug, string $content, array $settings, array $meta = [])` – 管理 UI なし、OGP メタタグ、Twitter Card、JSON-LD 構造化データ（記事/Web ページ）、パンくず JSON-LD、カノニカル URL、画像 URL 処理
+- **メニューパース**: `parseMenu(string $menuStr, string $currentPage)` – `<br />\n` 区切りメニュー文字列を配列化（slug, label, active フラグ）
+
+## 7.3 API/メソッド一覧
+
+```php
+ThemeEngine::load(string $themeSelect) : void
+ThemeEngine::listThemes() : array
+ThemeEngine::buildContext() : array
+ThemeEngine::buildStaticContext(string $slug, string $content, array $settings, array $meta = []) : array
+ThemeEngine::parseMenu(string $menuStr, string $currentPage) : array
+```
+
+## 7.4 定数
+
+- `FALLBACK_THEME = 'AP-Default'`
+- `THEMES_DIR = 'themes'`
+
+## 7.5 設定ファイル
+
+- `themes/{themeSelect}/theme.html` – テーマテンプレート
+- `themes/{themeSelect}/partials/` – パーシャルテンプレート
+
+## 7.6 セキュリティ考慮事項
+
+- テーマ名検証: ディレクトリトラバーサル防止
+- フォールバック機構: 無効テーマ時の安全性
+- JSON-LD 構造化データ: XSS 対策のためエスケープ必須
+
+## 7.7 連携エンジン
+
+- `TemplateEngine` – テンプレート描画
+- `AppContext` – 設定取得
+- `AdminEngine` – CSRF トークン、編集可能コンテンツ生成
+- `DiagnosticEngine` – エラー通知
+
+---
+
+# 8. UpdateEngine 設計書
+
+> **実装状態**: ✅ Ver.1.0-11  
+> **ファイルパス**: `engines/UpdateEngine.php`
+
+## 8.1 概要
+
+プラットフォームの自動更新とバックアップ管理を実装。環境チェック、バックアップ枝刈り、ロールバック、削除機能を提供。
+
+## 8.2 主要機能
+
+- **環境チェック**: `check_environment()` – ZipArchive クラス存在、`allow_url_fopen` 設定、ディレクトリ書き込み可否、空きディスク容量、総合 OK フラグ
+- **バックアップ枝刈り**: `prune_old_backups()` – `backup/` ディレクトリをスキャン、最新 `AP_BACKUP_GENERATIONS` 件のみ保持、古いバックアップを再帰的削除、失敗時は `DiagnosticEngine` にログ
+- **バックアップ削除**: `delete_backup(string $name)` – バックアップ名検証、ディレクトリ存在確認、再帰的削除、削除エラーカウントと `DiagnosticEngine` ログ
+- **更新アクション処理**: `handle_update_action()` – POST `ap_action` ルーティング（check, check_env, apply, list_backups, rollback, delete_backup）、`AdminEngine` ログイン確認、CSRF 検証、JSON レスポンス
+
+## 8.3 API/メソッド一覧
+
+```php
+check_environment() : array              // 環境チェック
+prune_old_backups() : void               // バックアップ枝刈り
+delete_backup(string $name) : array      // バックアップ削除
+handle_update_action() : void            // 更新アクション処理
+
+// 想定される他のメソッド（ソースに未記載）
+check_update() : array                   // 更新確認
+apply_update() : array                   // 更新適用
+list_backups() : array                   // バックアップ一覧
+rollback(string $name) : array           // ロールバック
+```
+
+## 8.4 定数
+
+- `AP_BACKUP_GENERATIONS = 5` – 保持するバックアップ世代数
+
+## 8.5 設定ファイル
+
+- `backup/` – バックアップディレクトリ
+- `data/settings/update_cache.json` – 更新キャッシュ（想定）
+
+## 8.6 セキュリティ考慮事項
+
+- ログイン状態確認必須
+- CSRF トークン検証
+- バックアップ名検証: ディレクトリトラバーサル防止
+- ファイル削除エラー処理とログ記録
+
+## 8.7 連携エンジン
+
+- `AdminEngine` – 認証、CSRF 検証
+- `DiagnosticEngine` – エラーログ
+
+---
+
+# 9. WebhookEngine 設計書
+
+> **実装状態**: ✅ Ver.1.3-28（イベント発火・非同期通知は実装途中）  
+> **ファイルパス**: `engines/WebhookEngine.php`
+
+## 9.1 概要
+
+外向き Webhook の管理を実装。URL 検証、Webhook 追加・削除・有効/無効切替、一覧取得、イベント発火・非同期通知送信（計画中）を提供。
+
+## 9.2 主要機能
+
+- **設定読み込み**: `loadConfig()` – `data/settings/webhooks.json` を読み込み
+- **設定保存**: `saveConfig($config)` – JSON 書き込み
+- **Webhook 追加**: `addWebhook($url, $label, $events, $secret)` – URL 検証（HTTP/HTTPS、プライベート IP ブロック）、デフォルトイベント（item.created, item.updated, item.deleted, page.updated, build.completed）、タイムスタンプ付与
+- **Webhook 削除**: `deleteWebhook($index)` – インデックス指定で削除
+- **Webhook 有効/無効切替**: `toggleWebhook($index)` – enabled フラグ切替
+- **Webhook 一覧**: `listWebhooks()` – シークレットをマスク（最初4文字のみ表示）
+- **イベント発火・通知送信**: 計画中（コード部分実装）
+
+## 9.3 API/メソッド一覧
+
+```php
+WebhookEngine::loadConfig() : array
+WebhookEngine::saveConfig(array $config) : void
+WebhookEngine::addWebhook(string $url, string $label, array $events, string $secret) : bool
+WebhookEngine::deleteWebhook(int $index) : bool
+WebhookEngine::toggleWebhook(int $index) : bool
+WebhookEngine::listWebhooks() : array
+
+// 計画中
+WebhookEngine::fire(string $event, array $payload) : void
+WebhookEngine::send(string $url, string $secret, array $payload) : void
+```
+
+## 9.4 設定ファイル
+
+- `data/settings/webhooks.json` – Webhook 設定（URL, ラベル, イベント, シークレット, enabled, created_at）
+
+## 9.5 セキュリティ考慮事項
+
+- URL スキーム検証: HTTP/HTTPS のみ許可
+- プライベート IP ブロック: SSRF 防止
+- シークレットマスキング: 一覧取得時に最初4文字のみ表示
+- イベント検証: 許可されたイベントのみ
+
+## 9.6 連携エンジン
+
+なし（独立動作）
+
+---
+
+# 10. CacheEngine 設計書
+
+> **実装状態**: ✅ Ver.1.3-28  
+> **ファイルパス**: `engines/CacheEngine.php`
+
+## 10.1 概要
+
+ファイルベースの API レスポンスキャッシュを実装。エンドポイント別 TTL 管理、ETag 生成、条件付きリクエスト（304 Not Modified）、キャッシュ無効化を提供。
+
+## 10.2 主要機能
+
+- **キャッシュディレクトリ**: `CACHE_DIR = 'data/cache/api'`
+- **TTL 管理**: エンドポイント別（pages, page: 300s; settings: 3600s; collections, collection, item: 60s; search: 120s; デフォルト: 60s）
+- **キャッシュ配信**: `serve($endpoint, $key = '')` – キャッシュキー生成、ファイル読み込み、TTL チェック、期限切れ処理、ETag 生成（`hash('xxh128', $content)`）、`Last-Modified` 設定、304 レスポンス対応、キャッシュヒットログ（`DiagnosticEngine`）、適切なキャッシングヘッダー出力
+- **キャッシュ保存**: `store($endpoint, $key, $content)` – ディレクトリ作成、アトミック書き込み
+- **キャッシュ無効化**: `invalidate($endpoint = null)` – 全キャッシュまたは特定エンドポイントのキャッシュクリア
+
+## 10.3 API/メソッド一覧
+
+```php
+CacheEngine::serve(string $endpoint, string $key = '') : bool
+CacheEngine::store(string $endpoint, string $key, string $content) : void
+CacheEngine::invalidate(?string $endpoint = null) : void
+```
+
+## 10.4 定数
+
+- `CACHE_DIR = 'data/cache/api'`
+- `TTL` 配列（エンドポイント別秒数）
+
+## 10.5 設定ファイル
+
+- `data/cache/api/{endpoint}/{key}.cache` – キャッシュファイル
+
+## 10.6 セキュリティ考慮事項
+
+- ディレクトリトラバーサル防止: キャッシュキー検証
+- アトミック書き込み: 部分的キャッシュファイル防止
+- TTL 管理: 古いデータの自動削除
+
+## 10.7 連携エンジン
+
+- `DiagnosticEngine` – キャッシュヒットログ
+
+---
+
+# 11. ImageOptimizer 設計書
+
+> **実装状態**: ✅ Ver.1.3-28  
+> **ファイルパス**: `engines/ImageOptimizer.php`
+
+## 11.1 概要
+
+画像最適化エンジン。GD 拡張を使用して画像リサイズ、サムネイル生成、WebP 変換、メモリ使用量チェック、パフォーマンス診断を実装。
+
+## 11.2 主要機能
+
+- **画像リサイズ**: 最大幅 1920px、最大高さ 1920px
+- **サムネイル生成**: 幅 400px、高さ 400px、`dirname($path)/thumb/` に保存
+- **WebP 変換**: GD サポート時に WebP バージョンを生成
+- **メモリチェック**: 必要メモリ = 幅 × 高さ × 4 × 2 バイト、PHP `memory_limit` と比較
+- **パフォーマンス診断**: 実行時間 > 1000ms、メモリ使用量 > 10MB 時に `DiagnosticEngine` へログ
+- **品質設定**: JPEG 品質 85、WebP 品質 80
+
+## 11.3 API/メソッド一覧
+
+```php
+ImageOptimizer::optimize(string $path) : bool
+
+// 内部メソッド（ソースに参照あり、実装未表示）
+ImageOptimizer::loadImage(string $path, string $mime)
+ImageOptimizer::fitDimensions(int $width, int $height) : array
+ImageOptimizer::preserveTransparency($image)
+ImageOptimizer::saveImage($image, string $path, string $mime)
+ImageOptimizer::generateThumbnail(string $path, string $mime)
+ImageOptimizer::generateWebP(string $path, string $mime)
+```
+
+## 11.4 定数
+
+- `MAX_WIDTH = 1920`
+- `MAX_HEIGHT = 1920`
+- `THUMB_WIDTH = 400`
+- `THUMB_HEIGHT = 400`
+- `JPEG_QUALITY = 85`
+- `WEBP_QUALITY = 80`
+
+## 11.5 制限
+
+- GD 拡張必須
+- ファイルサイズ上限: 50MB
+- サポートされる形式: JPEG, PNG, GIF, WEBP
+
+## 11.6 セキュリティ考慮事項
+
+- ファイル存在確認
+- `getimagesize()` による画像検証
+- メモリ使用量事前チェック
+- ファイルサイズ制限（50MB）
+
+## 11.7 連携エンジン
+
+- `DiagnosticEngine` – パフォーマンスログ、エラー通知
+
+---
+
+# 12. AppContext 設計書
+
+> **実装状態**: ✅ Ver.1.4-pre  
+> **ファイルパス**: `engines/AppContext.php`
+
+## 12.1 概要
+
+アプリケーション状態を一元管理するクラス。従来のグローバル変数（`$c`, `$d`, `$host`, `$rp`, `$lstatus`, `$apcredit`, `$hook`）をクラスベースの静的プロパティに置き換え、全エンジンからアクセス可能にする。
+
+## 12.2 主要機能
+
+- **設定管理**: `$config` 配列、`config($key, $default)`, `setConfig($key, $value)`, `getAllConfig()`, `setAllConfig($config)`
+- **デフォルト値管理**: `$defaults` 配列、`defaults($section, $key, $default)`, `setDefaults($section, $key, $value)`, `getAllDefaults()`, `setAllDefaults($defaults)`
+- **ホスト名**: `$host` 文字列、`host()`, `setHost($host)`
+- **リクエストパス**: `$requestPath` 文字列、`requestPath()`, `setRequestPath($path)`
+- **ログイン状態**: `$loginStatus` 文字列、`loginStatus()`, `setLoginStatus($status)`
+- **クレジット**: `$credit` 文字列、`credit()`, `setCredit($credit)`
+- **フック**: `$hooks` 配列（将来拡張用）
+
+## 12.3 API/メソッド一覧
+
+```php
+AppContext::config(string $key, $default = null)
+AppContext::setConfig(string $key, $value) : void
+AppContext::getAllConfig() : array
+AppContext::setAllConfig(array $config) : void
+
+AppContext::defaults(string $section, string $key, $default = null)
+AppContext::setDefaults(string $section, string $key, $value) : void
+AppContext::getAllDefaults() : array
+AppContext::setAllDefaults(array $defaults) : void
+
+AppContext::host() : string
+AppContext::setHost(string $host) : void
+
+AppContext::requestPath() : string
+AppContext::setRequestPath(string $path) : void
+
+AppContext::loginStatus() : string
+AppContext::setLoginStatus(string $status) : void
+
+AppContext::credit() : string
+AppContext::setCredit(string $credit) : void
+```
+
+## 12.4 設定ファイル
+
+なし（メモリ内状態管理）
+
+## 12.5 セキュリティ考慮事項
+
+- グローバル状態の制御: アクセサメソッド経由で管理
+- タイプセーフ: 型ヒント付きメソッド
+
+## 12.6 連携エンジン
+
+全エンジン（`ThemeEngine`, `AdminEngine`, `TemplateEngine` など）
+
+---
+
+# 13. Logger 設計書
+
+> **実装状態**: ✅ Ver.1.4-pre  
+> **ファイルパス**: `engines/Logger.php`
+
+## 13.1 概要
+
+PSR-3 互換の集中ログ管理クラス。ログレベル（DEBUG, INFO, WARNING, ERROR）、リクエストスコープ ID、ログローテーション（最大 5MB、5 世代）を実装。
+
+## 13.2 主要機能
+
+- **ログレベル**: DEBUG, INFO, WARNING, ERROR（優先度順）
+- **最小ログレベル**: 設定可能（デフォルト INFO）
+- **リクエスト ID**: トレーサビリティのためリクエスト単位で自動生成
+- **ログローテーション**: ファイルサイズ上限 5MB、最大 5 世代
+- **ログディレクトリ**: デフォルト `data/logs`
+- **ログエントリ**: タイムスタンプ、ログレベル、リクエスト ID、メッセージ、オプションのコンテキスト配列
+
+## 13.3 API/メソッド一覧
+
+```php
+Logger::init(string $minLevel = 'INFO', string $logDir = 'data/logs') : void
+Logger::debug(string $message, array $context = []) : void
+Logger::info(string $message, array $context = []) : void
+Logger::warning(string $message, array $context = []) : void
+Logger::error(string $message, array $context = []) : void
+
+// 内部メソッド
+Logger::log(string $level, string $message, array $context = []) : void
+Logger::rotate(string $logFile) : void
+```
+
+## 13.4 定数
+
+- `LEVELS = ['DEBUG' => 10, 'INFO' => 20, 'WARNING' => 30, 'ERROR' => 40]`
+- デフォルト最小レベル: `INFO`
+- デフォルトログディレクトリ: `data/logs`
+- ローテーション: 最大ファイルサイズ 5MB、最大世代数 5
+
+## 13.5 設定ファイル
+
+- `data/logs/app.log` – メインログファイル
+- `data/logs/app.log.1` ～ `app.log.5` – ローテーションファイル
+
+## 13.6 セキュリティ考慮事項
+
+- ログファイルアクセス制限: `.htaccess` で保護推奨
+- 機密情報のログ記録禁止: パスワード、トークン等
+- ログローテーション: ディスク容量管理
+
+## 13.7 連携エンジン
+
+全エンジン（`TemplateEngine`, `ImageOptimizer`, `AdminEngine` など）
+
+---
+
+# 14. MailerEngine 設計書
+
+> **実装状態**: ✅ Ver.1.4-pre  
+> **ファイルパス**: `engines/MailerEngine.php`
+
+## 14.1 概要
+
+メール送信を抽象化するクラス。ヘッダーサニタイゼーション、リトライ機能、テストモードを実装。
+
+## 14.2 主要機能
+
+- **メール送信**: `send($to, $subject, $message, $from, $replyTo = '', $extraHeaders = [])` – ヘッダーサニタイゼーション、ヘッダー構築、リトライ（最大 2 回、1 秒遅延）、成功/失敗ログ
+- **テストモード**: `enableTestMode()`, `disableTestMode()`, `getTestEmails()` – テスト時にメール実送信せず、配列に保存
+- **ヘッダーインジェクション対策**: 改行文字除去
+
+## 14.3 API/メソッド一覧
+
+```php
+MailerEngine::send(string $to, string $subject, string $message, string $from, string $replyTo = '', array $extraHeaders = []) : bool
+MailerEngine::enableTestMode() : void
+MailerEngine::disableTestMode() : void
+MailerEngine::getTestEmails() : array
+```
+
+## 14.4 定数
+
+- `MAX_RETRIES = 2`
+- `RETRY_DELAY = 1` (秒)
+
+## 14.5 設定ファイル
+
+なし（メモリ内状態管理）
+
+## 14.6 セキュリティ考慮事項
+
+- ヘッダーインジェクション対策: `\r\n` 除去
+- 入力検証: メールアドレス形式チェック推奨
+- SMTP 認証: PHP `mail()` 関数の制限に注意
+
+## 14.7 連携エンジン
+
+- `AdminEngine` – お問い合わせフォーム、通知メール送信
 
 ---
 

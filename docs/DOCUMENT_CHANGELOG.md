@@ -88,6 +88,7 @@
 
 | バージョン | 更新日 | 変更内容 | 変更者 |
 |-----------|--------|----------|--------|
+| Ver.1.0-3 | 2026-03-12 | AdminEngine, TemplateEngine, ThemeEngine, UpdateEngine, WebhookEngine, CacheEngine, ImageOptimizer, AppContext, Logger, MailerEngine の設計書を追加（ソースコード解析に基づく）、統合エンジン数を7→17に拡大 | fqwink |
 | Ver.1.0-2 | 2026-03-10 | ENGINE_DESIGN_INTEGRATED.md からリネーム、タイトルを「エンジン技術設計書リファレンス」に変更、相互参照リンク追加 | fqwink |
 | Ver.1.0-1 | 2026-03-08 | ENGINE_DESIGN_INTEGRATED.md として初版作成、StaticEngine・ApiEngine・DiagnosticEngine・Git連携エンジン群の設計書を統合 | fqwink |
 
