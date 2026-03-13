@@ -6,7 +6,7 @@
  * 最小限のメソッドのみを定義し、柔軟性を確保します。
  *
  * @package Adlaire Framework Ecosystem
- * @version 2.0.0
+ * @version 2.1.0
  * @since   2026-03-13
  */
 

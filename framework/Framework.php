@@ -7,13 +7,14 @@
  * 1つのクラスに統合した軽量フレームワーク。
  *
  * @package Adlaire Framework Ecosystem
- * @version 2.0.0
+ * @version 2.1.0
  * @since   2026-03-13
  * @link    https://github.com/fqwink/AdlairePlatform (current)
  * @link    TBD - 将来的に独立リポジトリ化予定
  */
 
 require_once __DIR__ . '/EngineInterface.php';
+require_once __DIR__ . '/exceptions/Exceptions.php';
 
 class Framework
 {
@@ -64,6 +65,26 @@ class Framework
      */
     private static ?self $instance = null;
 
+    /**
+     * @var array<string, callable> エラーハンドラー
+     */
+    private array $errorHandlers = [];
+
+    /**
+     * @var array<string, callable> 遅延ロードサービス
+     */
+    private array $lazyServices = [];
+
+    /**
+     * @var array 設定スキーマ（バリデーション用）
+     */
+    private array $configSchema = [
+        'debug' => 'boolean',
+        'engines' => 'array',
+        'cache_enabled' => 'boolean',
+        'test_mode' => 'boolean',
+    ];
+
     // ==================== Kernel機能 ====================
 
     /**
@@ -73,8 +94,10 @@ class Framework
      */
     private function __construct(array $config = [])
     {
+        $this->validateConfig($config);
         $this->config = $config;
         $this->registerCoreServices();
+        $this->registerDefaultErrorHandlers();
     }
 
     /**
@@ -239,6 +262,18 @@ class Framework
     }
 
     /**
+     * サービスを遅延ロード登録
+     *
+     * @param string $id サービスID
+     * @param callable $factory ファクトリー関数
+     * @return void
+     */
+    public function lazy(string $id, callable $factory): void
+    {
+        $this->lazyServices[$id] = $factory;
+    }
+
+    /**
      * インスタンスを直接登録
      *
      * @param string $id サービスID
@@ -256,28 +291,39 @@ class Framework
      *
      * @param string $id サービスID
      * @return mixed サービスインスタンス
-     * @throws RuntimeException サービスが見つからない場合
+     * @throws ServiceNotFoundException サービスが見つからない場合
      */
     public function get(string $id)
     {
-        // 既にインスタンス化されている場合
-        if (isset($this->services[$id])) {
-            return $this->services[$id];
-        }
-
-        // ファクトリーが登録されている場合
-        if (isset($this->factories[$id])) {
-            $instance = $this->factories[$id]($this);
-
-            // シングルトンの場合はキャッシュ
-            if ($this->singletons[$id] ?? false) {
-                $this->services[$id] = $instance;
+        try {
+            // 既にインスタンス化されている場合
+            if (isset($this->services[$id])) {
+                return $this->services[$id];
             }
 
-            return $instance;
-        }
+            // 遅延ロードサービス
+            if (isset($this->lazyServices[$id])) {
+                $this->services[$id] = $this->lazyServices[$id]($this);
+                unset($this->lazyServices[$id]);
+                return $this->services[$id];
+            }
 
-        throw new RuntimeException("Service not found: {$id}");
+            // ファクトリーが登録されている場合
+            if (isset($this->factories[$id])) {
+                $instance = $this->factories[$id]($this);
+
+                // シングルトンの場合はキャッシュ
+                if ($this->singletons[$id] ?? false) {
+                    $this->services[$id] = $instance;
+                }
+
+                return $instance;
+            }
+
+            throw new ServiceNotFoundException($id);
+        } catch (Throwable $e) {
+            return $this->handleException($e);
+        }
     }
 
     /**
@@ -288,7 +334,9 @@ class Framework
      */
     public function has(string $id): bool
     {
-        return isset($this->services[$id]) || isset($this->factories[$id]);
+        return isset($this->services[$id]) 
+            || isset($this->factories[$id])
+            || isset($this->lazyServices[$id]);
     }
 
     // ==================== EngineManager機能 ====================
@@ -298,20 +346,46 @@ class Framework
      *
      * @param EngineInterface $engine エンジンインスタンス
      * @return self
+     * @throws InvalidEngineException エンジンが無効な場合
      */
     public function register(EngineInterface $engine): self
     {
-        $name = $engine->getName();
-        
-        if (isset($this->engines[$name])) {
-            throw new RuntimeException("Engine already registered: {$name}");
+        try {
+            $this->validateEngine($engine);
+            
+            $name = $engine->getName();
+            
+            if (isset($this->engines[$name])) {
+                throw new InvalidEngineException(
+                    "Engine already registered",
+                    ['engine_name' => $name]
+                );
+            }
+
+            $this->engines[$name] = $engine;
+            $this->instance($name, $engine);
+
+            $this->emit('engine.registered', ['engine' => $name]);
+
+            return $this;
+        } catch (Throwable $e) {
+            $this->handleException($e);
+            return $this;
         }
+    }
 
-        $this->engines[$name] = $engine;
-        $this->instance($name, $engine);
-
-        $this->emit('engine.registered', ['engine' => $name]);
-
+    /**
+     * エンジンを条件付きで登録
+     *
+     * @param EngineInterface $engine エンジンインスタンス
+     * @param callable $condition 条件関数
+     * @return self
+     */
+    public function registerIf(EngineInterface $engine, callable $condition): self
+    {
+        if ($condition($this)) {
+            $this->register($engine);
+        }
         return $this;
     }
 
@@ -396,7 +470,9 @@ class Framework
 
         // 循環依存チェック
         if (count($result) !== count($engines)) {
-            throw new RuntimeException('Circular dependency detected in engines');
+            // 循環を特定
+            $remaining = array_diff(array_keys($engines), $result);
+            throw new CircularDependencyException(array_values($remaining));
         }
 
         return $result;
@@ -486,6 +562,152 @@ class Framework
     {
         if ($this->booted) {
             $this->shutdown();
+        }
+    }
+
+    // ==================== エラーハンドリング ====================
+
+    /**
+     * エラーハンドラーを登録
+     *
+     * @param string $exceptionClass 例外クラス名
+     * @param callable $handler ハンドラー関数
+     * @return void
+     */
+    public function onError(string $exceptionClass, callable $handler): void
+    {
+        $this->errorHandlers[$exceptionClass] = $handler;
+    }
+
+    /**
+     * デフォルトエラーハンドラーを登録
+     *
+     * @return void
+     */
+    private function registerDefaultErrorHandlers(): void
+    {
+        // FrameworkExceptionのデフォルトハンドラー
+        $this->onError(FrameworkException::class, function(FrameworkException $e) {
+            $this->logError($e);
+            
+            if ($this->config('debug', false)) {
+                echo $e->toJson() . PHP_EOL;
+            }
+        });
+    }
+
+    /**
+     * 例外を処理
+     *
+     * @param Throwable $e 例外
+     * @return mixed
+     * @throws Throwable 処理できない例外の場合
+     */
+    private function handleException(Throwable $e)
+    {
+        $class = get_class($e);
+        
+        // 登録されたハンドラーを実行
+        if (isset($this->errorHandlers[$class])) {
+            return $this->errorHandlers[$class]($e, $this);
+        }
+        
+        // 親クラスのハンドラーを探す
+        foreach ($this->errorHandlers as $exceptionClass => $handler) {
+            if ($e instanceof $exceptionClass) {
+                return $handler($e, $this);
+            }
+        }
+        
+        // ハンドラーが見つからない場合は再スロー
+        throw $e;
+    }
+
+    /**
+     * エラーログを記録
+     *
+     * @param FrameworkException $e 例外
+     * @return void
+     */
+    private function logError(FrameworkException $e): void
+    {
+        error_log(sprintf(
+            "[AFE Error] %s: %s (Context: %s) in %s:%d",
+            get_class($e),
+            $e->getMessage(),
+            json_encode($e->getContext()),
+            $e->getFile(),
+            $e->getLine()
+        ));
+    }
+
+    // ==================== バリデーション ====================
+
+    /**
+     * 設定をバリデーション
+     *
+     * @param array $config 設定配列
+     * @return void
+     * @throws InvalidConfigException 設定が無効な場合
+     */
+    private function validateConfig(array $config): void
+    {
+        foreach ($config as $key => $value) {
+            if (isset($this->configSchema[$key])) {
+                $expectedType = $this->configSchema[$key];
+                $actualType = gettype($value);
+                
+                if ($actualType !== $expectedType) {
+                    throw new InvalidConfigException($key, $expectedType, $actualType);
+                }
+            }
+        }
+    }
+
+    /**
+     * エンジンをバリデーション
+     *
+     * @param EngineInterface $engine エンジン
+     * @return void
+     * @throws InvalidEngineException エンジンが無効な場合
+     */
+    private function validateEngine(EngineInterface $engine): void
+    {
+        $name = $engine->getName();
+        
+        // エンジン名のバリデーション
+        if (empty($name)) {
+            throw new InvalidEngineException(
+                "Engine name cannot be empty",
+                ['engine' => get_class($engine)]
+            );
+        }
+        
+        if (!preg_match('/^[a-z_]+$/', $name)) {
+            throw new InvalidEngineException(
+                "Engine name must be lowercase with underscores only",
+                ['engine_name' => $name]
+            );
+        }
+        
+        // 優先度のバリデーション
+        $priority = $engine->getPriority();
+        if ($priority < 0 || $priority > 1000) {
+            throw new InvalidEngineException(
+                "Engine priority must be between 0 and 1000",
+                ['engine' => $name, 'priority' => $priority]
+            );
+        }
+        
+        // 依存関係のバリデーション
+        $dependencies = $engine->getDependencies();
+        foreach ($dependencies as $dep) {
+            if (!is_string($dep) || empty($dep)) {
+                throw new InvalidEngineException(
+                    "Invalid dependency specification",
+                    ['engine' => $name, 'invalid_dependency' => $dep]
+                );
+            }
         }
     }
 }
