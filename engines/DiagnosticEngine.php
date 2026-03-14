@@ -1397,8 +1397,9 @@ class DiagnosticEngine {
 
 	/**
 	 * 未送信分を含むデータを収集
+	 * @since Ver.1.7-37 private → public（DiagnosticController から参照）
 	 */
-	private static function collectWithUnsent(string $lastSent): array {
+	public static function collectWithUnsent(string $lastSent): array {
 		$data = self::collect();
 		$log = self::safeJsonRead(self::LOG_FILE, settings_dir());
 

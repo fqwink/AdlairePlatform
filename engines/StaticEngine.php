@@ -69,7 +69,8 @@ class StaticEngine {
 	   初期化
 	   ══════════════════════════════════════════════ */
 
-	private function init(): void {
+	/** @since Ver.1.7-37 public 化（StaticController から参照） */
+	public function init(): void {
 		$this->settings = json_read('settings.json', settings_dir());
 
 		/* コレクションモードか従来モードかを判定 */
@@ -336,6 +337,57 @@ class StaticEngine {
 	/* ══════════════════════════════════════════════
 	   ZIP ダウンロード
 	   ══════════════════════════════════════════════ */
+
+	/**
+	 * 静的ファイル全体の ZIP を temp に作成しパスを返す
+	 * @since Ver.1.7-37
+	 * @throws \RuntimeException エラー時
+	 */
+	public function buildZipFile(): string {
+		if (!is_dir(self::OUTPUT_DIR)) {
+			throw new \RuntimeException('静的ファイルが生成されていません。先にビルドを実行してください。');
+		}
+		if (!class_exists('ZipArchive')) {
+			throw new \RuntimeException('ZipArchive 拡張が利用できません。');
+		}
+		$tmpFile = sys_get_temp_dir() . '/ap_static_' . date('Ymd_His') . '.zip';
+		$zip = new ZipArchive();
+		if ($zip->open($tmpFile, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
+			throw new \RuntimeException('ZIP ファイルの作成に失敗しました。');
+		}
+		$this->addDirToZip($zip, self::OUTPUT_DIR, self::OUTPUT_DIR);
+		$zip->close();
+		return $tmpFile;
+	}
+
+	/**
+	 * 差分ビルドの変更ファイルのみ ZIP を temp に作成しパスを返す
+	 * @since Ver.1.7-37
+	 * @throws \RuntimeException エラー時
+	 */
+	public function buildDiffZipFile(): string {
+		$changedFiles = $this->buildState['changed_files'] ?? [];
+		if (empty($changedFiles)) {
+			throw new \RuntimeException('変更ファイルがありません。先にビルドを実行してください。');
+		}
+		if (!class_exists('ZipArchive')) {
+			throw new \RuntimeException('ZipArchive 拡張が利用できません。');
+		}
+		$tmpFile = sys_get_temp_dir() . '/ap_deploy_diff_' . date('Ymd_His') . '.zip';
+		$zip = new ZipArchive();
+		if ($zip->open($tmpFile, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
+			throw new \RuntimeException('ZIP ファイルの作成に失敗しました。');
+		}
+		$prefix = self::OUTPUT_DIR . '/';
+		foreach ($changedFiles as $file) {
+			if (file_exists($file) && str_starts_with($file, $prefix)) {
+				$rel = substr($file, strlen($prefix));
+				$zip->addFile($file, $rel);
+			}
+		}
+		$zip->close();
+		return $tmpFile;
+	}
 
 	private function serveZip(): never {
 		if (!is_dir(self::OUTPUT_DIR)) {

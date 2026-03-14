@@ -21,6 +21,7 @@ spl_autoload_register(function (string $class): void {
     static $map = [
         /* APF - Adlaire Platform Foundation */
         'APF\\Core\\'       => 'Framework/APF/APF.Core.php',
+        'APF\\Middleware\\'  => 'Framework/APF/APF.Middleware.php',
         'APF\\Database\\'   => 'Framework/APF/APF.Database.php',
         'APF\\Utilities\\'  => 'Framework/APF/APF.Utilities.php',
 
@@ -42,6 +43,15 @@ spl_autoload_register(function (string $class): void {
 
     /* 読み込み済みファイルの追跡（同一ファイルの二重 require を防止） */
     static $loaded = [];
+
+    /* Ver.1.7: Controller PSR-4 オートロード（1クラス = 1ファイル） */
+    if (str_starts_with($class, 'AP\\Controllers\\')) {
+        $file = __DIR__ . '/controllers/' . substr($class, strlen('AP\\Controllers\\')) . '.php';
+        if (is_file($file)) {
+            require $file;
+        }
+        return;
+    }
 
     foreach ($map as $prefix => $file) {
         if (str_starts_with($class, $prefix)) {

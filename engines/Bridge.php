@@ -139,55 +139,16 @@ function host(): void {
 	$host = strip_tags(str_replace($strip, '', $host));
 }
 
-/** @deprecated Ver.1.4 で削除予定。AdminEngine::isLoggedIn() を直接使用してください */
-function is_loggedin(): bool {
-	return AdminEngine::isLoggedIn();
-}
-
 /* ══════════════════════════════════════════════
    データマイグレーション
    ══════════════════════════════════════════════ */
 
-function migrate_from_files(): void {
-	/* Phase 1: files/ フラット構造 → data/ への旧来マイグレーション */
-	if (!file_exists(data_dir() . '/settings.json') && !file_exists(settings_dir() . '/settings.json')) {
-		$settings_keys = ['title', 'description', 'keywords', 'copyright', 'themeSelect', 'menu', 'subside'];
-		$settings = [];
-		foreach ($settings_keys as $key) {
-			$v = file_exists('files/' . $key) ? file_get_contents('files/' . $key) : false;
-			if ($v !== false) $settings[$key] = $v;
-		}
-		if ($settings) json_write('settings.json', $settings, settings_dir());
-		$pw = file_exists('files/password') ? file_get_contents('files/password') : false;
-		if ($pw) json_write('auth.json', ['password_hash' => trim($pw)], settings_dir());
-		$skip = array_merge($settings_keys, ['password', 'loggedin']);
-		$pages = [];
-		foreach (glob('files/*') ?: [] as $f) {
-			$slug = basename($f);
-			if (!in_array($slug, $skip, true)) {
-				$v = file_get_contents($f);
-				if ($v !== false) $pages[$slug] = $v;
-			}
-		}
-		if ($pages) json_write('pages.json', $pages, content_dir());
-	}
-	/* Phase 2: data/*.json → data/settings/ & data/content/ への移行 */
-	$s_dir = settings_dir();
-	$c_dir = content_dir();
-	foreach (['settings.json', 'auth.json', 'update_cache.json', 'login_attempts.json', 'version.json'] as $f) {
-		$old = data_dir() . '/' . $f;
-		$new = $s_dir . '/' . $f;
-		if (file_exists($old) && !file_exists($new)) {
-			if (!@rename($old, $new) && class_exists('DiagnosticEngine')) {
-				DiagnosticEngine::log('engine', 'マイグレーション rename 失敗', ['file' => $f]);
-			}
-		}
-	}
-	$old_pages = data_dir() . '/pages.json';
-	$new_pages = $c_dir . '/pages.json';
-	if (file_exists($old_pages) && !file_exists($new_pages)) {
-		if (!@rename($old_pages, $new_pages) && class_exists('DiagnosticEngine')) {
-			DiagnosticEngine::log('engine', 'マイグレーション pages.json rename 失敗');
-		}
-	}
-}
+/**
+ * Ver.1.7-36: Phase 1（files/ → data/）マイグレーションを削除。
+ * Ver.1.7-37: Phase 2（data/*.json → data/settings/ & data/content/）を削除。
+ *   Ver.1.4 → Ver.1.5 移行期間は十分経過。新規インストールは
+ *   data/settings/ & data/content/ を直接使用。
+ *
+ * is_loggedin() は Ver.1.4 非推奨 → Ver.1.7 で削除。
+ * AdminEngine::isLoggedIn() を使用してください。
+ */

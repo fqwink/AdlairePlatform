@@ -12,7 +12,7 @@ if (PHP_VERSION_ID < 80200) {
 	exit('AdlairePlatform requires PHP 8.2 or later. Current version: ' . PHP_VERSION);
 }
 
-define('AP_VERSION', '1.6.0');
+define('AP_VERSION', '1.7.37');
 define('AP_UPDATE_URL', 'https://api.github.com/repos/win-k/AdlairePlatform/releases/latest');
 define('AP_BACKUP_GENERATIONS', 5);
 define('AP_REVISION_LIMIT', 30);
@@ -23,6 +23,9 @@ require __DIR__ . '/bootstrap.php';
 
 /* ── ユーティリティ関数（Bridge.php に集約） ── */
 require __DIR__ . '/engines/Bridge.php';
+
+/* ── Ver.1.7: ルート定義（Router にルートとミドルウェアを登録） ── */
+require __DIR__ . '/routes.php';
 
 /* ── エンジン読み込み ── */
 require 'engines/EngineTrait.php';
@@ -84,30 +87,29 @@ DiagnosticEngine::startTimer('request_total');
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: SAMEORIGIN');
 header('Referrer-Policy: strict-origin-when-cross-origin');
-migrate_from_files();
 host();
-DiagnosticEngine::startTimer('AdminEngine');
-AdminEngine::handle();       /* edit_field, upload_image, revision 等 */
-DiagnosticEngine::stopTimer('AdminEngine');
-DiagnosticEngine::startTimer('ApiEngine');
-ApiEngine::handle();         /* ?ap_api= 公開REST API（認証不要） */
-DiagnosticEngine::stopTimer('ApiEngine');
-DiagnosticEngine::startTimer('CollectionEngine');
-CollectionEngine::handle();  /* collection_create, collection_item_save 等 */
-DiagnosticEngine::stopTimer('CollectionEngine');
-DiagnosticEngine::startTimer('GitEngine');
-GitEngine::handle();         /* git_configure, git_pull, git_push 等 */
-DiagnosticEngine::stopTimer('GitEngine');
-DiagnosticEngine::startTimer('WebhookEngine');
-WebhookEngine::handle();     /* webhook_add, webhook_delete, webhook_toggle 等 */
-DiagnosticEngine::stopTimer('WebhookEngine');
-DiagnosticEngine::startTimer('StaticEngine');
-StaticEngine::handle();      /* generate_static_*, clean_static, build_zip 等 */
-DiagnosticEngine::stopTimer('StaticEngine');
-DiagnosticEngine::startTimer('UpdateEngine');
-UpdateEngine::handle();      /* update, backup, rollback 等 */
-DiagnosticEngine::stopTimer('UpdateEngine');
-DiagnosticEngine::handle();  /* diag_set_enabled, diag_preview, diag_send_now 等 */
+
+/* ══════════════════════════════════════════════════
+ * Ver.1.7: Router ディスパッチ
+ *
+ * 全ルート対象: ?login, ?admin, POST ap_action=*, ?ap_api=*
+ * 404（ルート未登録）の場合はページレンダリングにフォールスルー。
+ * ══════════════════════════════════════════════════ */
+$_ap_request  = Application::make(\APF\Core\Request::class);
+$_ap_router   = Application::make(\APF\Core\Router::class);
+$_ap_response = $_ap_router->dispatch($_ap_request);
+
+if ($_ap_response->getStatusCode() !== 404) {
+	DiagnosticEngine::stopTimer('request_total');
+	DiagnosticEngine::maybeSend();
+	$_ap_response->send();
+	exit;
+}
+unset($_ap_request, $_ap_router, $_ap_response);
+
+/* ══════════════════════════════════════════════════
+ * ページレンダリング（Router 未処理 = 通常ページ表示）
+ * ══════════════════════════════════════════════════ */
 
 $c['password'] = 'admin';
 $c['loggedin'] = false;
@@ -166,30 +168,10 @@ foreach($c as $key => $val){
 			}
 			break;
 		case 'loggedin':
+			/* Ver.1.7-37: ログイン/ログアウト/ダッシュボードは Router が処理。
+			   ここではテンプレート変数 $lstatus の組み立てのみ実施。 */
 			if(AdminEngine::isLoggedIn())
 				$c[$key] = true;
-			if(isset($_POST['logout'])){
-				AdminEngine::verifyCsrf();
-				$_SESSION = [];
-				if(ini_get('session.use_cookies')){
-					$p = session_get_cookie_params();
-					setcookie(session_name(), '', time() - 42000, $p['path'], $p['domain'], $p['secure'], $p['httponly']);
-				}
-				session_destroy();
-				header('Location: ./');
-				exit;
-			}
-			if(isset($_GET['login'])){
-				if(AdminEngine::isLoggedIn()){
-					header('Location: ./');
-					exit;
-				}
-				$msg = '';
-				if(isset($_POST['sub']))
-					$msg = AdminEngine::login($c['password']);
-				echo AdminEngine::renderLogin($msg);
-				exit;
-			}
 			$logout_form = "<form method='POST' style='display:inline'>"
 				."<input type='hidden' name='csrf' value='".AdminEngine::csrfToken()."'>"
 				."<button type='submit' name='logout' value='1' style='background:none;border:none;cursor:pointer;padding:0;color:inherit;text-decoration:underline;font:inherit'>Logout</button>"
@@ -201,7 +183,6 @@ foreach($c as $key => $val){
 			if($rp)
 				$c[$key] = $rp;
 			$c[$key] = getSlug($c[$key]);
-			if(isset($_GET['login'])) continue 2;
 			$c['content'] = $_pages[$c[$key]] ?? null;
 			if($c['content'] === null){
 				if(!isset($d['page'][$c[$key]])){
@@ -219,16 +200,6 @@ foreach($c as $key => $val){
 
 /* B-3 fix: グローバル変数を AppContext に同期 */
 AppContext::syncFromGlobals($c, $d, $host, $lstatus, $apcredit, $hook);
-
-/* ダッシュボードルーティング: ?admin */
-if (isset($_GET['admin'])) {
-	if (!AdminEngine::isLoggedIn()) {
-		header('Location: ./?login');
-		exit;
-	}
-	echo AdminEngine::renderDashboard();
-	exit;
-}
 
 AdminEngine::registerHooks();
 

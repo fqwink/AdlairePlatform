@@ -2,6 +2,7 @@ RedirectMatch 403 ^.*/files/
 RedirectMatch 403 ^.*/data/
 RedirectMatch 403 ^.*/backup/
 RedirectMatch 403 ^.*/engines/.*\.php$
+RedirectMatch 403 ^.*/controllers/.*\.php$
 RedirectMatch 403 ^.*/Framework/.*\.php$
 ErrorDocument 403 &nbsp;
 <IfModule mod_headers.c>
@@ -22,9 +23,10 @@ RewriteCond %{QUERY_STRING} !(?:^|&)(ap_action|ap_api|admin|login)
 RewriteRule ^$ static/index.html [L]
 
 # /slug → static/slug/index.html が存在すれば静的配信
+# Ver.1.7: Router パス（login, admin, logout, dispatch）は静的配信をスキップ
 RewriteCond static/%1/index.html -f
 RewriteCond %{QUERY_STRING} !(?:^|&)(ap_action|ap_api|admin|login)
-RewriteRule ^([a-zA-Z0-9_-]+)/?$ static/$1/index.html [L]
+RewriteRule ^(?!login|admin|logout|dispatch|api/)([a-zA-Z0-9_-]+)/?$ static/$1/index.html [L]
 
 # static/ 内の既存ファイルへの直接アクセスはそのまま通す
 RewriteRule ^static/ - [L]

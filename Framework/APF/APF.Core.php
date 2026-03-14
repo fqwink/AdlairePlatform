@@ -172,6 +172,8 @@ class Router {
     private array $routes = [];
     private array $middlewares = [];
     private array $groupStack = [];
+    private array $queryMappings = [];
+    private array $postMappings = [];
     private Container $container;
 
     public function __construct(Container $container) {
@@ -222,6 +224,25 @@ class Router {
         return $this;
     }
 
+    /**
+     * Ver.1.7: クエリパラメータ → URI パスのマッピングを登録
+     * 例: mapQuery('login', '/login') → ?login を /login としてルーティング
+     * 例: mapQuery('ap_api', '/api/{endpoint}', 'endpoint') → ?ap_api=pages を /api/pages に
+     */
+    public function mapQuery(string $key, string $path, ?string $pathParam = null): self {
+        $this->queryMappings[] = compact('key', 'path', 'pathParam');
+        return $this;
+    }
+
+    /**
+     * Ver.1.7: POST ボディパラメータ → URI パスのマッピングを登録
+     * 例: mapPost('ap_action', '/dispatch') → POST ap_action=* を /dispatch にルーティング
+     */
+    public function mapPost(string $key, string $path, ?string $pathParam = null): self {
+        $this->postMappings[] = compact('key', 'path', 'pathParam');
+        return $this;
+    }
+
     private function addRoute(string $method, string $uri, $action): self {
         $uri = $this->applyGroupPrefix($uri);
         $middleware = $this->getGroupMiddleware();
@@ -264,7 +285,7 @@ class Router {
 
     public function dispatch(Request $request): Response {
         $method = $request->method();
-        $uri = $request->uri();
+        $uri = $this->resolveUri($request);
 
         foreach ($this->routes as $route) {
             if ($route['method'] !== $method) {
@@ -280,6 +301,33 @@ class Router {
         }
 
         return new Response('Not Found', 404);
+    }
+
+    /**
+     * Ver.1.7: クエリ/POSTパラメータを URI パスに解決する
+     */
+    private function resolveUri(Request $request): string {
+        /* クエリパラメータマッピング（?login → /login, ?ap_api=pages → /api/pages） */
+        foreach ($this->queryMappings as $m) {
+            if ($request->query($m['key']) !== null) {
+                return $m['pathParam']
+                    ? str_replace('{' . $m['pathParam'] . '}', $request->query($m['key'], ''), $m['path'])
+                    : $m['path'];
+            }
+        }
+
+        /* POST ボディマッピング（ap_action=edit_field → /dispatch） */
+        if ($request->method() === 'POST') {
+            foreach ($this->postMappings as $m) {
+                if ($request->post($m['key']) !== null) {
+                    return $m['pathParam']
+                        ? str_replace('{' . $m['pathParam'] . '}', $request->post($m['key'], ''), $m['path'])
+                        : $m['path'];
+                }
+            }
+        }
+
+        return $request->uri();
     }
 
     private function runRoute(array $route, Request $request): Response {
@@ -441,6 +489,35 @@ class Request {
     public function param(string $key, $default = null) {
         return $this->params[$key] ?? $default;
     }
+
+    /** Ver.1.7: サーバー変数アクセス */
+    public function server(?string $key = null, $default = null) {
+        if (is_null($key)) return $this->server;
+        return $this->server[$key] ?? $default;
+    }
+
+    /** Ver.1.7: ベースURL取得（スキーム + ホスト） */
+    public function baseUrl(): string {
+        $scheme = (!empty($this->server['HTTPS']) && $this->server['HTTPS'] !== 'off') ? 'https' : 'http';
+        $host = $this->server['HTTP_HOST'] ?? 'localhost';
+        $host = preg_replace('/[^a-zA-Z0-9.\-:\[\]]/', '', $host);
+        return $scheme . '://' . $host;
+    }
+
+    /** Ver.1.7: ページスラッグ取得 */
+    public function slug(): string {
+        return $this->query('page', '');
+    }
+
+    /** Ver.1.7: 全ヘッダー取得 */
+    public function headers(): array {
+        return $this->headers;
+    }
+
+    /** Ver.1.7: POST リクエストか */
+    public function isPost(): bool {
+        return $this->method() === 'POST';
+    }
 }
 
 // ============================================================================
@@ -451,6 +528,8 @@ class Response {
     private $content;
     private int $statusCode;
     private array $headers = [];
+    /** @since Ver.1.7-37 ファイルストリーミング用パス */
+    private ?string $filePath = null;
 
     public function __construct($content = '', int $statusCode = 200, array $headers = []) {
         $this->content = $content;
@@ -472,6 +551,20 @@ class Response {
         return new self('', $statusCode, ['Location' => $url]);
     }
 
+    /**
+     * ファイルダウンロードレスポンスを生成
+     * @since Ver.1.7-37
+     */
+    public static function file(string $path, string $filename, string $contentType = 'application/octet-stream'): self {
+        $response = new self('', 200, [
+            'Content-Type' => $contentType,
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+            'Content-Length' => (string)filesize($path),
+        ]);
+        $response->filePath = $path;
+        return $response;
+    }
+
     public function withHeader(string $key, string $value): self {
         $this->headers[$key] = $value;
         return $this;
@@ -489,7 +582,10 @@ class Response {
             header("{$key}: {$value}");
         }
 
-        if (is_array($this->content) || is_object($this->content)) {
+        if ($this->filePath !== null) {
+            readfile($this->filePath);
+            @unlink($this->filePath);
+        } elseif (is_array($this->content) || is_object($this->content)) {
             echo json_encode($this->content);
         } else {
             echo $this->content;

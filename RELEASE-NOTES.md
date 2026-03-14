@@ -6,6 +6,96 @@
 
 ---
 
+## AdlairePlatform Ver.1.7-37（2026-03-14）— Stage 2
+
+Engine 脱 exit・Controller 完全実装・API ルート統合・レガシーエンジンチェーン除去。
+全リクエストを Router 経由に統一し、index.php を大幅に簡素化。
+
+### Engine 脱 exit（Controller 完全実装）
+
+- **Response::file()** — バイナリファイルストリーミング用の Response ファクトリメソッド。`send()` で `readfile()` + 自動クリーンアップ
+- **EngineTrait `$throwOnError`** — `jsonError()` が exit の代わりに `RuntimeException` を投げるフラグ。Controller ラッパーから Engine の private メソッドを安全に呼び出し可能に
+- **StaticController** — `buildZip()` / `deployDiff()` を `Response::file()` で完全実装。Engine の echo+exit パターンを除去
+- **UpdateController** — `apply()` / `rollback()` / `deleteBackup()` を `$throwOnError` パターンで完全実装
+- **DiagnosticController** — `sendNow()` / `clearLogs()` を公開メソッド組み合わせで完全実装
+
+### Engine メソッド公開化
+
+- **StaticEngine** — `init()` を public 化、`buildZipFile()` / `buildDiffZipFile()` 追加（temp ファイルパスを返す）
+- **UpdateEngine** — `executeApplyUpdate()` / `executeRollback()` / `executeDeleteBackup()` 追加
+- **DiagnosticEngine** — `collectWithUnsent()` を public 化
+
+### API ルート統合
+
+- **routes.php** — `$router->mapQuery('ap_api', '/api/{endpoint}', 'endpoint')` + `$router->any('/api/{endpoint}', ...)` 追加
+- **ApiController** — `dispatch()` メソッドが `$_GET['ap_api']` を復元し `ApiEngine::handle()` に委譲
+- **注意**: ApiEngine の 22+ ハンドラの echo+exit 変換は Ver.1.8 以降に延期
+
+### レガシーチェーン除去
+
+- **index.php** — Engine `handle()` の順次呼出チェーン（AdminEngine → ApiEngine → CollectionEngine → ... → DiagnosticEngine）を完全除去
+- **index.php** — `case 'loggedin'` のインラインログイン/ログアウト処理を除去（Router が処理）
+- **index.php** — `?admin` ダッシュボード分岐を除去（Router が処理）
+- **index.php** — `migrate_from_files()` 呼出を除去
+
+### Bridge.php クリーンアップ
+
+- **migrate_from_files()** — Phase 2（`data/*.json` → `data/settings/` & `data/content/`）マイグレーションコードを削除。Ver.1.4 → Ver.1.5 移行期間は十分経過
+
+### テスト
+
+- **ControllerTest.php** — Response::file() / EngineTrait throwOnError / DiagnosticController / UpdateController / StaticController の 17 テスト
+- **RoutingTest.php** — API ルートクエリマッピング・POST メソッドの 2 テスト追加（計 14 テスト）
+- tests/bootstrap.php バージョン同期
+
+### バージョニング
+
+- AP_VERSION: `'1.7.37'`（コード内ドット区切り）
+- ドキュメント表記: Ver.1.7-37（VERSIONING.md 準拠）
+
+---
+
+## AdlairePlatform Ver.1.7-36（2026-03-14）— Stage 1
+
+Controller ルーティングアーキテクチャの導入。APF Router を中心に、Middleware パイプラインと Controller 層を構築。
+Ver.1.3 互換コードを廃止。
+
+### Controller アーキテクチャ（Stage 1）
+
+- **APF Router 拡張** — `mapQuery()` / `mapPost()` によるクエリパラメータ・POST ボディの URI パスマッピング。`?login` → `/login`、`ap_action=*` → `/dispatch` のレガシー URL 互換を実現
+- **Middleware パイプライン** — `AuthMiddleware`（認証）、`CsrfMiddleware`（CSRF 検証）、`RateLimitMiddleware`（レート制限）、`SecurityHeadersMiddleware`（セキュリティヘッダー）の 4 ミドルウェアを追加
+- **Controller 層** — `BaseController`（抽象基底）、`AuthController`（ログイン/ログアウト）、`DashboardController`（ダッシュボード）、`AdminController`（12 管理アクション）、`CollectionController`（コレクション CRUD）、`GitController`（Git 連携）、`WebhookController`（Webhook 管理）、`StaticController`（静的生成）、`UpdateController`（アップデート）、`DiagnosticController`（診断）、`ApiController`（API ラッパー）
+- **ActionDispatcher** — 全 `ap_action` POST 値を対応する Controller メソッドに明示的にルーティング。旧 Engine `handle()` チェーンの置き換え
+- **routes.php** — Router へのルート定義・ミドルウェア登録を集約
+- **bootstrap.php** — Router / Request を DI コンテナにシングルトン登録
+
+### インフラ改善
+
+- **index.php Router 統合** — Router ディスパッチを最優先で実行。ルート一致時は Response を送信して終了、404 時はレガシーエンジンチェーンにフォールスルー
+- **autoload.php** — `APF\Middleware` 名前空間マッピング、`AP\Controllers` PSR-4 オートロード追加
+- **.htaccess** — `controllers/` ディレクトリへの直接アクセスを 403 ブロック。Router パス（login, admin, logout, dispatch, api/）の静的配信スキップルール追加
+- **AdminEngine::USERS_FILE** — `private const` → `public const` 化（AuthController からの参照用）
+
+### 破壊的変更
+
+- **Ver.1.3 互換コード廃止** — `is_loggedin()` 関数を削除（`AdminEngine::isLoggedIn()` を使用）
+- **files/ マイグレーション廃止** — `migrate_from_files()` Phase 1（files/ → data/ 変換）を削除。Ver.1.3 の files/ フラット構造はサポート終了
+- **Phase 2 マイグレーション維持** — `data/*.json` → `data/settings/` & `data/content/` への移行は引き続き動作
+
+### テスト
+
+- **RoutingTest.php** — Router ルートマッチング、クエリ/POST マッピング、ルートグループ、ActionDispatcher テスト
+- **MiddlewareTest.php** — AuthMiddleware, CsrfMiddleware, RateLimitMiddleware, SecurityHeadersMiddleware, パイプライン実行順テスト
+- tests/bootstrap.php バージョン同期
+
+### バージョニング
+
+- AP_VERSION: `'1.7.36'`（コード内ドット区切り）
+- ドキュメント表記: Ver.1.7-36（VERSIONING.md 準拠）
+- 累積ビルド番号: 36（Ver.1.3-29 以降の main ブランチコミット数に基づく）
+
+---
+
 ## AdlairePlatform Ver.1.6.0（2026-03-14）
 
 セキュリティ強化・Framework 機能の本格活用・API 近代化・フロントエンド ES6 移行。
