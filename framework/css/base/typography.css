@@ -1,0 +1,177 @@
+/**
+ * ACF - Typography
+ * 
+ * Base typography styles for headings, paragraphs, and text elements
+ */
+
+/* ===== Headings ===== */
+h1, h2, h3, h4, h5, h6 {
+  font-weight: var(--acf-font-weight-bold);
+  line-height: var(--acf-line-height-tight);
+  color: var(--acf-text);
+  margin-bottom: var(--acf-space-4);
+}
+
+h1 {
+  font-size: var(--acf-font-size-4xl);
+  margin-bottom: var(--acf-space-6);
+}
+
+h2 {
+  font-size: var(--acf-font-size-3xl);
+}
+
+h3 {
+  font-size: var(--acf-font-size-2xl);
+}
+
+h4 {
+  font-size: var(--acf-font-size-xl);
+}
+
+h5 {
+  font-size: var(--acf-font-size-lg);
+}
+
+h6 {
+  font-size: var(--acf-font-size-base);
+}
+
+/* ===== Paragraphs ===== */
+p {
+  margin-bottom: var(--acf-space-4);
+  line-height: var(--acf-line-height-normal);
+  color: var(--acf-text);
+}
+
+p:last-child {
+  margin-bottom: 0;
+}
+
+/* ===== Links ===== */
+a {
+  color: var(--acf-primary);
+  text-decoration: underline;
+  transition: color var(--acf-transition-fast);
+}
+
+a:hover {
+  color: var(--acf-primary-hover);
+}
+
+a:focus-visible {
+  outline: 2px solid var(--acf-border-focus);
+  outline-offset: 2px;
+  border-radius: var(--acf-radius-sm);
+}
+
+/* ===== Lists ===== */
+ul, ol {
+  margin-bottom: var(--acf-space-4);
+  padding-left: var(--acf-space-6);
+}
+
+ul {
+  list-style-type: disc;
+}
+
+ol {
+  list-style-type: decimal;
+}
+
+li {
+  margin-bottom: var(--acf-space-2);
+}
+
+li:last-child {
+  margin-bottom: 0;
+}
+
+/* ===== Code ===== */
+code {
+  font-family: var(--acf-font-family-mono);
+  font-size: 0.875em;
+  background-color: var(--acf-bg-tertiary);
+  padding: var(--acf-space-1) var(--acf-space-2);
+  border-radius: var(--acf-radius-sm);
+  color: var(--acf-text);
+}
+
+pre {
+  font-family: var(--acf-font-family-mono);
+  font-size: var(--acf-font-size-sm);
+  background-color: var(--acf-bg-tertiary);
+  padding: var(--acf-space-4);
+  border-radius: var(--acf-radius-md);
+  overflow-x: auto;
+  margin-bottom: var(--acf-space-4);
+}
+
+pre code {
+  background-color: transparent;
+  padding: 0;
+  border-radius: 0;
+}
+
+/* ===== Blockquote ===== */
+blockquote {
+  border-left: 4px solid var(--acf-primary);
+  padding-left: var(--acf-space-4);
+  margin: var(--acf-space-6) 0;
+  font-style: italic;
+  color: var(--acf-text-secondary);
+}
+
+/* ===== Horizontal Rule ===== */
+hr {
+  border: 0;
+  border-top: 1px solid var(--acf-border);
+  margin: var(--acf-space-8) 0;
+}
+
+/* ===== Mark ===== */
+mark {
+  background-color: #fef08a;
+  color: var(--acf-text);
+  padding: 0.125em 0.25em;
+  border-radius: var(--acf-radius-sm);
+}
+
+/* ===== Strong / Bold ===== */
+strong, b {
+  font-weight: var(--acf-font-weight-bold);
+}
+
+/* ===== Emphasis / Italic ===== */
+em, i {
+  font-style: italic;
+}
+
+/* ===== Small Text ===== */
+small {
+  font-size: var(--acf-font-size-sm);
+  color: var(--acf-text-secondary);
+}
+
+/* ===== Subscript / Superscript ===== */
+sub, sup {
+  font-size: 0.75em;
+  line-height: 0;
+  position: relative;
+  vertical-align: baseline;
+}
+
+sub {
+  bottom: -0.25em;
+}
+
+sup {
+  top: -0.5em;
+}
+
+/* ===== Abbreviation ===== */
+abbr[title] {
+  text-decoration: underline dotted;
+  cursor: help;
+  border-bottom: 1px dotted var(--acf-text-secondary);
+}
