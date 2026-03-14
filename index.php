@@ -12,7 +12,7 @@ if (PHP_VERSION_ID < 80200) {
 	exit('AdlairePlatform requires PHP 8.2 or later. Current version: ' . PHP_VERSION);
 }
 
-define('AP_VERSION', '1.6.0');
+define('AP_VERSION', '1.7.36');
 define('AP_UPDATE_URL', 'https://api.github.com/repos/win-k/AdlairePlatform/releases/latest');
 define('AP_BACKUP_GENERATIONS', 5);
 define('AP_REVISION_LIMIT', 30);
@@ -23,6 +23,9 @@ require __DIR__ . '/bootstrap.php';
 
 /* ── ユーティリティ関数（Bridge.php に集約） ── */
 require __DIR__ . '/engines/Bridge.php';
+
+/* ── Ver.1.7: ルート定義（Router にルートとミドルウェアを登録） ── */
+require __DIR__ . '/routes.php';
 
 /* ── エンジン読み込み ── */
 require 'engines/EngineTrait.php';
@@ -86,28 +89,55 @@ header('X-Frame-Options: SAMEORIGIN');
 header('Referrer-Policy: strict-origin-when-cross-origin');
 migrate_from_files();
 host();
+
+/* ══════════════════════════════════════════════════
+ * Ver.1.7: Router ディスパッチ
+ *
+ * ルート一致時（非 404）は Response を送信して終了。
+ * 404（ルート未登録）の場合はレガシーエンジンチェーンにフォールスルー。
+ *
+ * 対象: ?login, ?admin, POST ap_action=*
+ * 非対象: ?ap_api=*（レガシー ApiEngine が処理）, ページ表示
+ * ══════════════════════════════════════════════════ */
+$_ap_request  = Application::make(\APF\Core\Request::class);
+$_ap_router   = Application::make(\APF\Core\Router::class);
+$_ap_response = $_ap_router->dispatch($_ap_request);
+
+if ($_ap_response->getStatusCode() !== 404) {
+	DiagnosticEngine::stopTimer('request_total');
+	DiagnosticEngine::maybeSend();
+	$_ap_response->send();
+	exit;
+}
+unset($_ap_request, $_ap_router, $_ap_response);
+
+/* ══════════════════════════════════════════════════
+ * レガシーエンジンチェーン（Router 未処理リクエスト用）
+ * @deprecated Ver.1.7-36 Stage 2 で Router に完全移行予定
+ * ══════════════════════════════════════════════════ */
 DiagnosticEngine::startTimer('AdminEngine');
 AdminEngine::handle();       /* edit_field, upload_image, revision 等 */
 DiagnosticEngine::stopTimer('AdminEngine');
 DiagnosticEngine::startTimer('ApiEngine');
-ApiEngine::handle();         /* ?ap_api= 公開REST API（認証不要） */
+ApiEngine::handle();         /* ?ap_api= 公開REST API — Stage 2 で ApiController に移行予定 */
 DiagnosticEngine::stopTimer('ApiEngine');
+/* 以下は Router の ActionDispatcher がカバー済み（フォールバック用に残存） */
 DiagnosticEngine::startTimer('CollectionEngine');
-CollectionEngine::handle();  /* collection_create, collection_item_save 等 */
+CollectionEngine::handle();
 DiagnosticEngine::stopTimer('CollectionEngine');
 DiagnosticEngine::startTimer('GitEngine');
-GitEngine::handle();         /* git_configure, git_pull, git_push 等 */
+GitEngine::handle();
 DiagnosticEngine::stopTimer('GitEngine');
 DiagnosticEngine::startTimer('WebhookEngine');
-WebhookEngine::handle();     /* webhook_add, webhook_delete, webhook_toggle 等 */
+WebhookEngine::handle();
 DiagnosticEngine::stopTimer('WebhookEngine');
 DiagnosticEngine::startTimer('StaticEngine');
-StaticEngine::handle();      /* generate_static_*, clean_static, build_zip 等 */
+StaticEngine::handle();
 DiagnosticEngine::stopTimer('StaticEngine');
 DiagnosticEngine::startTimer('UpdateEngine');
-UpdateEngine::handle();      /* update, backup, rollback 等 */
+UpdateEngine::handle();
 DiagnosticEngine::stopTimer('UpdateEngine');
-DiagnosticEngine::handle();  /* diag_set_enabled, diag_preview, diag_send_now 等 */
+DiagnosticEngine::handle();
 
 $c['password'] = 'admin';
 $c['loggedin'] = false;

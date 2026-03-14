@@ -109,12 +109,22 @@ class Application {
 Application::boot();
 
 /**
+ * Ver.1.7: Router / Request を DI コンテナにシングルトン登録
+ *
+ * Router は routes.php でルート定義後、index.php で dispatch() する。
+ * Request は全 Controller / Middleware で共有する。
+ */
+$container = Application::container();
+
+$container->singleton(\APF\Core\Router::class, fn() => new \APF\Core\Router($container));
+$container->singleton(\APF\Core\Request::class, fn() => new \APF\Core\Request());
+
+/**
  * Ver.1.6: コアサービスを DI コンテナに遅延登録
  *
  * エンジンが必要とする Framework サービスを Application::make() で取得可能にする。
  * 遅延ロードにより、使用されないサービスのインスタンス化コストを回避。
  */
-$container = Application::container();
 
 /* セッション管理 */
 $container->lazy(\APF\Utilities\Session::class, fn() => new \APF\Utilities\Session());

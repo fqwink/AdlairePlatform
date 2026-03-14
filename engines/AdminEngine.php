@@ -72,7 +72,8 @@ class AdminEngine {
 	   認証
 	   ══════════════════════════════════════════════ */
 
-	private const USERS_FILE = 'users.json';
+	/** @since Ver.1.7-36 public 化（AuthController から参照） */
+	public const USERS_FILE = 'users.json';
 
 	public static function isLoggedIn(): bool {
 		return isset($_SESSION['l']) && $_SESSION['l'] === true;
