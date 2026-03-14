@@ -77,6 +77,7 @@ APは、デザインテンプレートエンジンを搭載したフラットフ
 | [docs/AdlairePlatform_Design.md](docs/AdlairePlatform_Design.md) | 設計書・仕様書・バージョン計画 |
 | [RELEASE-NOTES.md](RELEASE-NOTES.md) | リリースノート・変更履歴 |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | コントリビューション・ガイド |
+ドキュメントの整備・更新は [DOC_RULEBOOK.md](DOC_RULEBOOK.md) に従う。
 
 ---
 

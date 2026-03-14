@@ -4,8 +4,16 @@
 
 > **Ver.1.4-pre**: 本ドキュメントは Ver.1.4-pre 時点のアーキテクチャを記録しています。
 > 全 16 エンジン実装完了。Ver.1.4-pre で AppContext・Logger・MailerEngine・DiagnosticEngine を追加。
+> **Ver.1.4-pre**: 本ドキュメントは Ver.1.4-pre 時点のアーキテクチャを記録しています。  
+> 全 15 エンジン実装完了。Ver.1.4-pre で AppContext・Logger・MailerEngine を追加。  
+> **最終更新**: 2026-03-10（5文書構成整理）  
+> **分類**: 社内限り
 
-> 分類: 社内限り
+> **関連ドキュメント**:  
+> - 設計方針・設計思想: [AdlairePlatform_Design.md](AdlairePlatform_Design.md)  
+> - 機能仕様: [SPECIFICATION.md](SPECIFICATION.md)  
+> - セキュリティ: [SECURITY_POLICY.md](SECURITY_POLICY.md)  
+> - エンジン技術設計: [ENGINE_DESIGN.md](ENGINE_DESIGN.md)
 
 > **関連ドキュメント**:
 > - 基本設計書・基本方針 → [AdlairePlatform_Design.md](AdlairePlatform_Design.md)（最上位ドキュメント）
@@ -28,30 +36,37 @@
 
 ---
 
-## 1. 設計思想
+## 目次
 
-AdlairePlatform はデータベース不要・単一エントリーポイントの **エンジン駆動型 CMS** です。
+1. [ディレクトリ構成](#1-ディレクトリ構成)
+2. [ファイル責務](#2-ファイル責務)
+3. [リクエストフロー](#3-リクエストフロー)
+4. [データ層](#4-データ層)
+5. [フック機構](#5-フック機構)
+6. [定数](#6-定数)
+7. [エンジン一覧](#7-エンジン一覧)
 
-- **シンプル優先**: 依存ライブラリなし、フレームワークなし、composer 不要
-- **セルフホスト**: JSON ファイルをストレージとして使用
-- **エンジン分離**: 機能ごとに `engines/` ディレクトリ下の単一ファイルへ集約
-- **外部プラグイン廃止**: フック機構は内部コアフックのみ（`registerCoreHooks()`）
+> **注**: 設計思想は [AdlairePlatform_Design.md](AdlairePlatform_Design.md#設計思想) を、  
+> セキュリティ方針は [SECURITY_POLICY.md](SECURITY_POLICY.md) を参照してください。
 
 > プロジェクト全体の基本設計・基本方針は [AdlairePlatform_Design.md](AdlairePlatform_Design.md) を参照してください。
 
 ---
 
-## 2. ディレクトリ構成
+## 1. ディレクトリ構成
 
 ```
 AdlairePlatform/
 ├─ index.php                    # エントリーポイント（Router・ユーティリティ・レガシーラッパー）
 ├─ .htaccess                    # URL rewrite・セキュリティヘッダー・アクセス制限
 ├─ docs/
-│  ├─ ARCHITECTURE.md           # 本ドキュメント
+│  ├─ AdlairePlatform_Design.md # 基本設計・設計方針
+│  ├─ ARCHITECTURE.md           # 本ドキュメント（アーキテクチャ設計）
+│  ├─ SPECIFICATION.md          # 機能仕様リファレンス
+│  ├─ SECURITY_POLICY.md        # セキュリティ方針（社内限定）
+│  ├─ ENGINE_DESIGN.md          # エンジン技術設計書リファレンス
 │  ├─ VERSIONING.md             # バージョン規則
-│  ├─ STATIC_GENERATOR.md       # StaticEngine 設計草稿
-│  ├─ HEADLESS_CMS.md           # ApiEngine 設計草稿
+│  ├─ features.md               # 実装機能一覧
 │  ├─ nginx.conf.example        # Nginx 設定リファレンス
 │  └─ Licenses/
 │     └─ LICENSE_Ver.2.0.md
@@ -120,6 +135,7 @@ AdlairePlatform/
 
 > 本セクションは各エンジンの**アーキテクチャレベルの設計・方針**を記録します。
 > 関数シグネチャ・内部フローなどの実装仕様は [DETAILED_DESIGN.md §2](DETAILED_DESIGN.md) を参照してください。
+## 2. ファイル責務
 
 ### index.php（エントリーポイント）
 
@@ -277,7 +293,7 @@ PSR-3 互換の集中ログ管理。
 
 ---
 
-## 4. リクエストフロー
+## 3. リクエストフロー
 
 ```
 HTTP Request
@@ -314,6 +330,7 @@ ob_end_flush()
 ---
 
 ## 5. データ層設計方針
+## 4. データ層
 
 - `data/settings/`（設定系）と `data/content/`（コンテンツ系）に分離
 - JSON ファイルをストレージとして使用（データベース不要）
@@ -332,6 +349,7 @@ ob_end_flush()
 - `.htaccess` / Nginx server block による HTTP レイヤーのセキュリティヘッダー付与
 - `engines/*.php` への直接アクセス禁止
 - `data/` / `backup/` への HTTP アクセス拒否
+## 5. フック機構
 
 > セキュリティ設計原則（5 原則）は [AdlairePlatform_Design.md §6](AdlairePlatform_Design.md) を参照してください。
 > 脅威対策マトリクス（実装仕様）は [DETAILED_DESIGN.md §4](DETAILED_DESIGN.md) を参照してください。
@@ -344,12 +362,14 @@ ob_end_flush()
 - 内部コアフックのみに限定
 - `admin-head` フックで JsEngine スクリプトを登録
 - `AdminEngine::registerHooks()` → `AdminEngine::getAdminScripts()` パターン
+## 6. 定数
 
 > フック機構の実装コードは [DETAILED_DESIGN.md §5](DETAILED_DESIGN.md) を参照してください。
 
 ---
 
 ## 8. エンジン一覧
+## 7. エンジン一覧
 
 | エンジン | ファイル | ステータス | 説明 |
 |---------|---------|-----------|------|
@@ -369,6 +389,14 @@ ob_end_flush()
 | Logger | `engines/Logger.php` | ✅ 実装済み（Ver.1.4-pre） | 構造化ログ（PSR-3 互換） ⭐ |
 | MailerEngine | `engines/MailerEngine.php` | ✅ 実装済み（Ver.1.4-pre） | メール送信抽象化 ⭐ |
 | DiagnosticEngine | `engines/DiagnosticEngine.php` | ✅ 実装済み（Ver.1.4-pre） | リアルタイム診断・テレメトリ ⭐ |
+
+---
+
+## 📝 変更履歴
+
+本ドキュメントの変更履歴は、以下のファイルで一元管理されています:
+
+👉 **[docs/DOCUMENT_CHANGELOG.md](./DOCUMENT_CHANGELOG.md#-architecturemd)** を参照してください。
 
 ---
 
