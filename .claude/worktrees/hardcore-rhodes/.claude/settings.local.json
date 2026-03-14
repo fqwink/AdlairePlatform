@@ -34,7 +34,8 @@
       "Bash(grep -n \"namespace ACE\\\\\\\\Api\" Framework/ACE/ACE.Api.php)",
       "Bash(grep -n \"namespace AIS\\\\\\\\Core\" Framework/AIS/AIS.Core.php)",
       "Bash(grep \"new \\\\\\\\ASG\\\\\\\\Utilities\\\\\\\\ImageOptimizer\" engines/ImageOptimizer.php)",
-      "Bash(grep \"ASG\\\\\\\\Utilities\\\\\\\\ImageOptimizer\" engines/ImageOptimizer.php)"
+      "Bash(grep \"ASG\\\\\\\\Utilities\\\\\\\\ImageOptimizer\" engines/ImageOptimizer.php)",
+      "Bash(find \"C:\\\\Users\\\\user\\\\Desktop\\\\Locale_Rpository_DATA\\\\AdlairePlatform\\\\engines\" -name \"*.php\" -exec wc -l {} +)"
     ]
   }
 }
