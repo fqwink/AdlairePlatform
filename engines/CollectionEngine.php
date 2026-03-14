@@ -64,21 +64,24 @@ class CollectionEngine {
 
 	/** コレクション定義一覧を取得 */
 	public static function listCollections(): array {
-		$schema = self::loadSchema();
-		$collections = $schema['collections'] ?? [];
-		$result = [];
-		foreach ($collections as $name => $def) {
-			$dir = content_dir() . '/' . ($def['directory'] ?? $name);
-			$count = is_dir($dir) ? count(glob($dir . '/*.md') ?: []) : 0;
-			$result[] = [
-				'name'      => $name,
-				'label'     => $def['label'] ?? $name,
-				'directory' => $def['directory'] ?? $name,
-				'format'    => $def['format'] ?? 'markdown',
-				'count'     => $count,
-			];
-		}
-		return $result;
+		/* Ver.1.6: CacheEngine::remember で N+1 glob() を解消（TTL: 60秒） */
+		return CacheEngine::remember('collection_list', 60, function () {
+			$schema = self::loadSchema();
+			$collections = $schema['collections'] ?? [];
+			$result = [];
+			foreach ($collections as $name => $def) {
+				$dir = content_dir() . '/' . ($def['directory'] ?? $name);
+				$count = is_dir($dir) ? count(glob($dir . '/*.md') ?: []) : 0;
+				$result[] = [
+					'name'      => $name,
+					'label'     => $def['label'] ?? $name,
+					'directory' => $def['directory'] ?? $name,
+					'format'    => $def['format'] ?? 'markdown',
+					'count'     => $count,
+				];
+			}
+			return $result;
+		});
 	}
 
 	/** 特定コレクションの定義を取得 */

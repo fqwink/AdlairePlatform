@@ -279,6 +279,20 @@ class WebhookEngine {
 	}
 
 	/**
+	 * Ver.1.6: 受信 Webhook の HMAC-SHA256 署名を検証する。
+	 *
+	 * @param string $payload    リクエストボディ
+	 * @param string $signature  受信した署名ヘッダー値（"sha256=..." 形式）
+	 * @param string $secret     共有シークレット
+	 * @return bool 署名が有効なら true
+	 */
+	public static function verifySignature(string $payload, string $signature, string $secret): bool {
+		if ($secret === '' || $signature === '') return false;
+		$expected = 'sha256=' . hash_hmac('sha256', $payload, $secret);
+		return hash_equals($expected, $signature);
+	}
+
+	/**
 	 * ホストがプライベート/内部 IP かどうかチェック（SSRF 防止）
 	 */
 	private static function isPrivateHost(string $host): bool {

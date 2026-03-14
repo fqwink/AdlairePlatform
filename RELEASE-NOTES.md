@@ -6,6 +6,44 @@
 
 ---
 
+## AdlairePlatform Ver.1.6.0（2026-03-14）
+
+セキュリティ強化・Framework 機能の本格活用・API 近代化・フロントエンド ES6 移行。
+
+### セキュリティ強化（Phase A）
+
+- **セッションタイムアウト** — 30分のアイドルタイムアウト自動ログアウト、`gc_maxlifetime` 設定
+- **Argon2id パスワード** — 新規ハッシュは Argon2id 優先（非対応環境は bcrypt フォールバック）、ログイン時に旧ハッシュを自動リハッシュ
+- **Write API レート制限** — 認証済み書き込みエンドポイントに 30req/min のレート制限追加
+- **API キー検証強化** — プレフィックス照合を 7→12 文字に拡張、旧キーとの後方互換維持
+- **Webhook 署名検証ヘルパー** — `WebhookEngine::verifySignature()` HMAC-SHA256 検証メソッド追加
+
+### Framework 機能活用（Phase B）
+
+- **EventDispatcher 統合** — `Application::events()` でコンテンツ変更・ログイン・キャッシュ無効化イベントを配信
+- **DI コンテナ遅延登録** — Session, HealthMonitor, RateLimiter を `Application::container()` に lazy 登録
+- **HealthMonitor 統合** — `DiagnosticEngine::healthCheck(detailed)` にシステム診断（ディスク・メモリ・PHP・権限）を追加
+- **CacheEngine::remember()** — TTL 付きキャッシュ remember パターン。CollectionEngine の N+1 glob() 解消
+
+### API 近代化（Phase C）
+
+- **X-RateLimit-\* ヘッダー** — `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset` を全 API レスポンスに追加
+- **Retry-After ヘッダー** — 429 レスポンスに `Retry-After` ヘッダーを含める
+- **handleEditField JSON 統一** — `text/plain` レスポンスを `application/json` に統一（Content-Type 混在リスク排除）
+
+### テスト強化（Phase D）
+
+- **SecurityTest.php 新規追加** — Argon2id, Webhook 署名検証, API キープレフィックス, CacheEngine::remember, EventDispatcher のテスト
+- tests/bootstrap.php に Application ブートストラップ追加
+
+### フロントエンド近代化（Phase E）
+
+- **editInplace.js** — ES6 完全移行（const/let, arrow functions, template literals, spread, includes）
+- **ap-utils.js** — ES6 完全移行（Object.entries, spread operator, nullish coalescing）
+- **ap-events.js** — ES6 完全移行（for...of, spread, template literals）
+
+---
+
 ## AdlairePlatform Ver.1.5.0（2026-03-14）
 
 エンジン駆動モデルの Framework 化。engines/ の static ファサードを維持しつつ、

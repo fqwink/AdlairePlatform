@@ -150,6 +150,33 @@ class CacheEngine {
 	}
 
 	/**
+	 * Ver.1.6: remember パターン — キャッシュがあればそれを返し、
+	 * なければ $callback を実行して結果をキャッシュする。
+	 *
+	 * @param string   $key      キャッシュキー
+	 * @param int      $ttl      TTL（秒）
+	 * @param callable $callback キャッシュミス時に実行する関数
+	 * @return mixed キャッシュまたは callback の戻り値
+	 */
+	public static function remember(string $key, int $ttl, callable $callback): mixed {
+		$safeKey = preg_replace('/[^a-zA-Z0-9_\-]/', '_', $key);
+		$path = self::CACHE_DIR . '/mem_' . $safeKey . '.json';
+		$content = FileSystem::read($path);
+		if ($content !== false) {
+			$mtime = filemtime($path);
+			if ($mtime !== false && (time() - $mtime) <= $ttl) {
+				$decoded = json_decode($content, true);
+				if ($decoded !== null) return $decoded;
+			}
+			@unlink($path);
+		}
+		$result = $callback();
+		FileSystem::ensureDir(self::CACHE_DIR);
+		FileSystem::write($path, json_encode($result, JSON_UNESCAPED_UNICODE));
+		return $result;
+	}
+
+	/**
 	 * Ver.1.5: Framework CacheStore インスタンスを取得する
 	 *
 	 * API キャッシュ以外の汎用キャッシュに使用可能。

@@ -12,7 +12,7 @@ if (PHP_VERSION_ID < 80200) {
 	exit('AdlairePlatform requires PHP 8.2 or later. Current version: ' . PHP_VERSION);
 }
 
-define('AP_VERSION', '1.5.0');
+define('AP_VERSION', '1.6.0');
 define('AP_UPDATE_URL', 'https://api.github.com/repos/win-k/AdlairePlatform/releases/latest');
 define('AP_BACKUP_GENERATIONS', 5);
 define('AP_REVISION_LIMIT', 30);
@@ -47,10 +47,29 @@ require 'engines/DiagnosticEngine.php';
 
 ini_set('session.cookie_httponly', 1);
 ini_set('session.cookie_samesite', 'Lax');
+/* Ver.1.6: セッションタイムアウト（30分） */
+ini_set('session.gc_maxlifetime', 1800);
+ini_set('session.cookie_lifetime', 0); /* ブラウザ閉じで消去 */
 if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') {
 	ini_set('session.cookie_secure', 1);
 }
 session_start();
+
+/* Ver.1.6: アイドルタイムアウト検証（30分非操作で自動ログアウト） */
+if (isset($_SESSION['l']) && $_SESSION['l'] === true) {
+	$_SESSION['ap_last_activity'] = $_SESSION['ap_last_activity'] ?? time();
+	if (time() - $_SESSION['ap_last_activity'] > 1800) {
+		$_SESSION = [];
+		if (ini_get('session.use_cookies')) {
+			$p = session_get_cookie_params();
+			setcookie(session_name(), '', time() - 42000, $p['path'], $p['domain'], $p['secure'], $p['httponly']);
+		}
+		session_destroy();
+		session_start();
+	} else {
+		$_SESSION['ap_last_activity'] = time();
+	}
+}
 
 /* i18n 初期化（セッション開始後） */
 I18n::init();

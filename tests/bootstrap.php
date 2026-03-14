@@ -9,7 +9,7 @@
  */
 
 define('AP_TESTING', true);
-define('AP_VERSION', '1.5.0-test');
+define('AP_VERSION', '1.6.0-test');
 define('AP_UPDATE_URL', 'https://api.github.com/repos/test/test/releases/latest');
 define('AP_BACKUP_GENERATIONS', 5);
 define('AP_REVISION_LIMIT', 30);
@@ -48,6 +48,9 @@ chdir($_AP_TEST_DIR);
 
 /* ── Ver.1.5: Framework オートローダー ── */
 require dirname(__DIR__) . '/autoload.php';
+
+/* ── Ver.1.6: Application ブートストラップ（DI コンテナ・イベントシステム） ── */
+require dirname(__DIR__) . '/bootstrap.php';
 
 /* ── Bridge.php からユーティリティ関数を読み込み ── */
 require dirname(__DIR__) . '/engines/Bridge.php';

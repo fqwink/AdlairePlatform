@@ -126,7 +126,7 @@ class AdminEngine {
 		if (isset($users[$username])) return false;
 
 		$users[$username] = [
-			'password_hash' => password_hash($password, PASSWORD_BCRYPT),
+			'password_hash' => password_hash($password, self::preferredHashAlgo()),
 			'role'          => $role,
 			'created_at'    => date('c'),
 			'active'        => true,
@@ -155,6 +155,12 @@ class AdminEngine {
 		$user = $users[$username];
 		if (!($user['active'] ?? true)) return null;
 		if (!password_verify($password, $user['password_hash'] ?? '')) return null;
+		/* Ver.1.6: マルチユーザーもリハッシュ対応 */
+		if (password_needs_rehash($user['password_hash'] ?? '', self::preferredHashAlgo())) {
+			$users[$username]['password_hash'] = password_hash($password, self::preferredHashAlgo());
+			json_write(self::USERS_FILE, $users, settings_dir());
+			Logger::info('ユーザー "' . $username . '" のパスワードハッシュを Argon2id へアップグレードしました');
+		}
 		return [
 			'username' => $username,
 			'role'     => $user['role'] ?? 'editor',
@@ -202,6 +208,11 @@ class AdminEngine {
 			return I18n::t('auth.wrong_password_final');
 		}
 		self::clearLoginRate($ip);
+		/* Ver.1.6: ログイン成功時に旧ハッシュを Argon2id へ自動リハッシュ */
+		if (password_needs_rehash($passwordHash, self::preferredHashAlgo())) {
+			self::savePassword($password);
+			Logger::info('パスワードハッシュを Argon2id へアップグレードしました');
+		}
 		if (!empty($_POST['new'])) {
 			self::savePassword($_POST['new']);
 			return I18n::t('auth.password_changed');
@@ -215,8 +226,15 @@ class AdminEngine {
 		exit;
 	}
 
+	/**
+	 * Ver.1.6: Argon2id 優先、非対応環境では bcrypt にフォールバック
+	 */
+	private static function preferredHashAlgo(): string|int {
+		return defined('PASSWORD_ARGON2ID') ? PASSWORD_ARGON2ID : PASSWORD_BCRYPT;
+	}
+
 	public static function savePassword(string $p): string {
-		$hash = password_hash($p, PASSWORD_BCRYPT);
+		$hash = password_hash($p, self::preferredHashAlgo());
 		json_write('auth.json', ['password_hash' => $hash], settings_dir());
 		return $hash;
 	}
@@ -321,9 +339,9 @@ class AdminEngine {
 			}
 		}
 		if (class_exists('CacheEngine')) CacheEngine::invalidateContent();
-		/* M19 fix: レスポンスの Content-Type を明示（XSS 防止） */
-		header('Content-Type: text/plain; charset=UTF-8');
-		echo $content;
+		/* Ver.1.6: レスポンスを JSON 統一（Content-Type 混在による XSS リスク排除） */
+		header('Content-Type: application/json; charset=UTF-8');
+		echo json_encode(['ok' => true, 'content' => $content], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP);
 		exit;
 	}
 

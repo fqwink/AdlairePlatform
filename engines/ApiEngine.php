@@ -67,6 +67,9 @@ class ApiEngine {
 	private const CONTACT_LOCKOUT_SEC  = 900; /* 15分 */
 	private const API_RATE_MAX         = 60;  /* 公開API: 60リクエスト/分 */
 	private const API_RATE_WINDOW      = 60;  /* 秒 */
+	/* Ver.1.6: Write API レート制限（認証済みエンドポイント用） */
+	private const WRITE_RATE_MAX       = 30;  /* 書き込みAPI: 30リクエスト/分 */
+	private const WRITE_RATE_WINDOW    = 60;  /* 秒 */
 	private static bool $authenticatedViaApiKey = false;
 
 	/* ══════════════════════════════════════════════
@@ -181,6 +184,8 @@ class ApiEngine {
 		if (!self::isAuthenticated()) {
 			self::jsonError(I18n::t('api.error.auth_required'), 401);
 		}
+		/* Ver.1.6: Write API レート制限（認証済みでも制限を適用） */
+		self::checkWriteApiRate();
 		/* C17 fix: セッション認証時は CSRF 検証を要求（APIキー認証時は不要） */
 		if (class_exists('AdminEngine') && AdminEngine::isLoggedIn() && !self::$authenticatedViaApiKey) {
 			AdminEngine::verifyCsrf();
@@ -213,30 +218,44 @@ class ApiEngine {
 	 * API キーを検証
 	 * A-2 fix: key_prefix による候補絞り込みで bcrypt 検証回数を削減（O(n) → O(1) 平均）
 	 */
+	/**
+	 * API キーを検証
+	 * Ver.1.6: プレフィックス長を 7→12 文字に拡張し、照合精度を向上。
+	 * 旧 7 文字プレフィックスとの後方互換を維持。
+	 */
 	private static function validateApiKey(string $key): bool {
 		$keys = json_read(self::API_KEYS_FILE, settings_dir());
-		$inputPrefix = substr($key, 0, 7) . '...';
+		$inputPrefix12 = substr($key, 0, 12) . '...';
+		$inputPrefix7  = substr($key, 0, 7) . '...';
 
-		/* Phase 1: prefix 一致のエントリのみ bcrypt 検証（通常1件） */
+		/* Phase 1: 12文字プレフィックス一致のエントリ（Ver.1.6 以降の新キー） */
 		foreach ($keys as $entry) {
 			if (!is_array($entry)) continue;
 			if (!isset($entry['key_hash'])) continue;
 			if (!($entry['active'] ?? true)) continue;
-			if (($entry['key_prefix'] ?? '') !== $inputPrefix) continue;
-			if (password_verify($key, $entry['key_hash'])) {
-				return true;
+			if (($entry['key_prefix'] ?? '') === $inputPrefix12) {
+				if (password_verify($key, $entry['key_hash'])) return true;
 			}
 		}
 
-		/* Phase 2: prefix 未保存の旧エントリ用フォールバック（後方互換） */
+		/* Phase 2: 7文字プレフィックス一致のエントリ（Ver.1.5 以前の旧キー: 後方互換） */
+		foreach ($keys as $entry) {
+			if (!is_array($entry)) continue;
+			if (!isset($entry['key_hash'])) continue;
+			if (!($entry['active'] ?? true)) continue;
+			$prefix = $entry['key_prefix'] ?? '';
+			if ($prefix === $inputPrefix7 && $prefix !== $inputPrefix12) {
+				if (password_verify($key, $entry['key_hash'])) return true;
+			}
+		}
+
+		/* Phase 3: prefix 未保存の最古エントリ用フォールバック */
 		foreach ($keys as $entry) {
 			if (!is_array($entry)) continue;
 			if (!isset($entry['key_hash'])) continue;
 			if (!($entry['active'] ?? true)) continue;
 			if (isset($entry['key_prefix']) && $entry['key_prefix'] !== '') continue;
-			if (password_verify($key, $entry['key_hash'])) {
-				return true;
-			}
+			if (password_verify($key, $entry['key_hash'])) return true;
 		}
 
 		return false;
@@ -253,7 +272,7 @@ class ApiEngine {
 		$keys[] = [
 			'label'      => $label ?: 'API Key ' . (count($keys) + 1),
 			'key_hash'   => password_hash($key, PASSWORD_BCRYPT),
-			'key_prefix' => substr($key, 0, 7) . '...',
+			'key_prefix' => substr($key, 0, 12) . '...',  /* Ver.1.6: 12文字に拡張 */
 			'created_at' => date('c'),
 			'active'     => true,
 		];
@@ -1259,12 +1278,52 @@ class ApiEngine {
 		$data[$key] = $entry;
 		json_write('login_attempts.json', $data, settings_dir());
 
+		/* Ver.1.6: X-RateLimit-* ヘッダーで残りリクエスト数を通知 */
+		$remaining = max(0, self::API_RATE_MAX - $entry['count']);
+		$reset = (int)$entry['window_start'] + self::API_RATE_WINDOW;
+		header('X-RateLimit-Limit: ' . self::API_RATE_MAX);
+		header('X-RateLimit-Remaining: ' . $remaining);
+		header('X-RateLimit-Reset: ' . $reset);
+
 		if ($entry['count'] > self::API_RATE_MAX) {
 			if (class_exists('DiagnosticEngine')) DiagnosticEngine::log('security', 'API レート制限発動', ['endpoint' => $_GET['ap_api'] ?? '', 'count' => $entry['count'], 'window_start' => date('c', (int)$entry['window_start'])]);
 			http_response_code(429);
+			header('Retry-After: ' . self::API_RATE_WINDOW);
 			echo json_encode([
 				'ok'    => false,
 				'error' => 'リクエスト制限を超えました。しばらくしてから再度お試しください。',
+			], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP);
+			exit;
+		}
+	}
+
+	/**
+	 * Ver.1.6: 認証済み Write API レート制限チェック。
+	 * IP あたり WRITE_RATE_MAX リクエスト/WRITE_RATE_WINDOW 秒。
+	 */
+	private static function checkWriteApiRate(): void {
+		$ip   = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+		$key  = 'write_rate_' . $ip;
+		$data = json_read('login_attempts.json', settings_dir());
+
+		$entry = $data[$key] ?? ['count' => 0, 'window_start' => 0];
+		$now   = time();
+
+		if ($now - (int)$entry['window_start'] > self::WRITE_RATE_WINDOW) {
+			$entry = ['count' => 0, 'window_start' => $now];
+		}
+
+		$entry['count']++;
+		$data[$key] = $entry;
+		json_write('login_attempts.json', $data, settings_dir());
+
+		if ($entry['count'] > self::WRITE_RATE_MAX) {
+			if (class_exists('DiagnosticEngine')) DiagnosticEngine::log('security', 'Write API レート制限発動', ['endpoint' => $_GET['ap_api'] ?? '', 'ip' => $ip, 'count' => $entry['count']]);
+			http_response_code(429);
+			header('Retry-After: ' . self::WRITE_RATE_WINDOW);
+			echo json_encode([
+				'ok'    => false,
+				'error' => '書き込みリクエスト制限を超えました。しばらくしてから再度お試しください。',
 			], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP);
 			exit;
 		}

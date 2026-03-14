@@ -2,22 +2,24 @@
 /**
  * ap-events.js — AdlairePlatform イベントバス
  *
- * AEF.Core.js の EventBus を AP エンジンパターンに適応。
+ * Ver.1.6: ES6 モダン構文に移行
+ *
+ * AEB.Core.js の EventBus を AP エンジンパターンに適応。
  * モジュール間通信を統一する軽量イベントシステム。
  *
  * 使用例:
- *   AP.on('collection:saved', function(data) { ... });
+ *   AP.on('collection:saved', (data) => { ... });
  *   AP.emit('collection:saved', { slug: 'my-page' });
- *   var off = AP.on('cache:cleared', handler);
+ *   const off = AP.on('cache:cleared', handler);
  *   off(); // リスナー解除
  *
  * ap-utils.js の後に読み込むこと。
  *
  * @requires AP (ap-utils.js)
  */
-(function () {
+(() => {
 
-	var listeners = {};
+	let listeners = {};
 
 	/**
 	 * イベントリスナーを登録
@@ -25,65 +27,59 @@
 	 * @param {Function} callback コールバック
 	 * @returns {Function} リスナー解除関数
 	 */
-	function on(event, callback) {
-		if (!listeners[event]) {
-			listeners[event] = [];
-		}
+	const on = (event, callback) => {
+		if (!listeners[event]) listeners[event] = [];
 		listeners[event].push(callback);
-		return function () { off(event, callback); };
-	}
+		return () => off(event, callback);
+	};
 
 	/**
 	 * 一度だけ実行されるリスナーを登録
 	 */
-	function once(event, callback) {
-		function wrapper(data) {
+	const once = (event, callback) => {
+		const wrapper = (data) => {
 			callback(data);
 			off(event, wrapper);
-		}
+		};
 		on(event, wrapper);
-	}
+	};
 
 	/**
 	 * イベントリスナーを解除
 	 */
-	function off(event, callback) {
+	const off = (event, callback) => {
 		if (!listeners[event]) return;
-		listeners[event] = listeners[event].filter(function (cb) {
-			return cb !== callback;
-		});
-		if (listeners[event].length === 0) {
-			delete listeners[event];
-		}
-	}
+		listeners[event] = listeners[event].filter(cb => cb !== callback);
+		if (listeners[event].length === 0) delete listeners[event];
+	};
 
 	/**
 	 * イベントを発火
 	 * @param {string} event イベント名
 	 * @param {*} data イベントデータ
 	 */
-	function emit(event, data) {
+	const emit = (event, data) => {
 		if (!listeners[event]) return;
-		var cbs = listeners[event].slice(); /* コピーして安全にイテレート */
-		for (var i = 0; i < cbs.length; i++) {
+		const cbs = [...listeners[event]]; /* コピーして安全にイテレート */
+		for (const cb of cbs) {
 			try {
-				cbs[i](data);
+				cb(data);
 			} catch (e) {
-				console.error('[AP.events] Error in "' + event + '":', e);
+				console.error(`[AP.events] Error in "${event}":`, e);
 			}
 		}
-	}
+	};
 
 	/**
 	 * 指定イベントまたは全リスナーをクリア
 	 */
-	function clear(event) {
+	const clear = (event) => {
 		if (event) {
 			delete listeners[event];
 		} else {
 			listeners = {};
 		}
-	}
+	};
 
 	/* AP オブジェクトに統合 */
 	if (typeof AP !== 'undefined') {

@@ -1619,6 +1619,15 @@ class DiagnosticEngine {
 			$result['timings']  = self::getTimings();
 			$result['diagnostics']['error_count'] = count($log['errors'] ?? []);
 			$result['diagnostics']['log_count']   = count($log['custom'] ?? []);
+			/* Ver.1.6: Framework HealthMonitor によるシステム診断 */
+			$result['system'] = [
+				'disk'        => \AIS\System\HealthMonitor::checkDisk(),
+				'memory'      => \AIS\System\HealthMonitor::checkMemory(),
+				'php'         => \AIS\System\HealthMonitor::checkPhp(),
+				'permissions' => \AIS\System\HealthMonitor::checkPermissions([
+					'data', 'data/settings', 'data/content', 'data/logs', 'uploads',
+				]),
+			];
 		}
 
 		return $result;

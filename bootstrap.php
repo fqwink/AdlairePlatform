@@ -107,3 +107,52 @@ class Application {
 
 /* ブートストラップ読み込み時に自動初期化 */
 Application::boot();
+
+/**
+ * Ver.1.6: コアサービスを DI コンテナに遅延登録
+ *
+ * エンジンが必要とする Framework サービスを Application::make() で取得可能にする。
+ * 遅延ロードにより、使用されないサービスのインスタンス化コストを回避。
+ */
+$container = Application::container();
+
+/* セッション管理 */
+$container->lazy(\APF\Utilities\Session::class, fn() => new \APF\Utilities\Session());
+
+/* HealthMonitor — ダッシュボードの診断ウィジェットで使用 */
+$container->lazy(\AIS\System\HealthMonitor::class, fn() => new \AIS\System\HealthMonitor());
+
+/* RateLimiter — API レート制限で使用 */
+$container->lazy(\ACE\Api\RateLimiter::class, fn() => new \ACE\Api\RateLimiter(
+    function_exists('settings_dir') ? settings_dir() : 'data/settings'
+));
+
+/**
+ * Ver.1.6: コアイベントリスナー登録
+ *
+ * エンジンの WebhookEngine::dispatch() をイベントシステムに接続。
+ * コンテンツ変更時にイベントを発火 → Webhook 配信を自動トリガー。
+ */
+$events = Application::events();
+
+/* コンテンツ変更イベント → Webhook 自動配信 */
+$events->listen('content.changed', function (array $data) {
+    if (class_exists('WebhookEngine')) {
+        $event = $data['event'] ?? 'page.updated';
+        WebhookEngine::dispatch($event, $data['payload'] ?? []);
+    }
+});
+
+/* ログインイベント → 診断ログ */
+$events->listen('auth.login', function (array $data) {
+    if (class_exists('DiagnosticEngine')) {
+        DiagnosticEngine::log('security', 'イベント: ログイン', $data);
+    }
+});
+
+/* キャッシュ無効化イベント */
+$events->listen('cache.invalidate', function (array $data) {
+    if (class_exists('CacheEngine')) {
+        CacheEngine::invalidateContent();
+    }
+});
