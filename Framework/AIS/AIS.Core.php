@@ -155,6 +155,65 @@ class AppContext {
         $this->data = array_replace_recursive($this->data, $decoded);
     }
 
+    // ========================================================================
+    // ディレクトリパス解決（Ver.1.8: Bridge.php から移植）
+    // ========================================================================
+
+    /**
+     * データディレクトリパスを返す（存在しなければ作成）。
+     * Bridge.php の data_dir() 相当。
+     * @since Ver.1.8
+     */
+    public static function dataDir(): string {
+        $dir = 'data';
+        if (!is_dir($dir)) mkdir($dir, 0755, true);
+        return $dir;
+    }
+
+    /**
+     * 設定ディレクトリパスを返す（存在しなければ作成）。
+     * Bridge.php の settings_dir() 相当。
+     * @since Ver.1.8
+     */
+    public static function settingsDir(): string {
+        $dir = 'data/settings';
+        if (!is_dir($dir)) mkdir($dir, 0755, true);
+        return $dir;
+    }
+
+    /**
+     * コンテンツディレクトリパスを返す（存在しなければ作成）。
+     * Bridge.php の content_dir() 相当。
+     * @since Ver.1.8
+     */
+    public static function contentDir(): string {
+        $dir = 'data/content';
+        if (!is_dir($dir)) mkdir($dir, 0755, true);
+        return $dir;
+    }
+
+    /**
+     * ホスト解決と URL 初期化。
+     * Bridge.php の host() 相当。グローバル変数 $host, $rp を設定する。
+     * @since Ver.1.8
+     */
+    public static function resolveHost(): array {
+        $rp = preg_replace('#/+#', '/', (isset($_GET['page'])) ? urldecode($_GET['page']) : '');
+        $rawHost = $_SERVER['HTTP_HOST'] ?? 'localhost';
+        $rawHost = preg_replace('/[^a-zA-Z0-9.\-:\[\]]/', '', $rawHost);
+        $host = $rawHost;
+        $uri = preg_replace('#/+#', '/', urldecode($_SERVER['REQUEST_URI']));
+        $host = ($rp !== '' && strrpos($uri, $rp) !== false)
+            ? $host . '/' . substr($uri, 0, strlen($uri) - strlen($rp))
+            : $host . '/' . $uri;
+        $host = explode('?', $host);
+        $host = '//' . str_replace('//', '/', $host[0]);
+        $strip = ['index.php', '?', '"', '\'', '>', '<', '=', '(', ')', '\\'];
+        $rp = strip_tags(str_replace($strip, '', $rp));
+        $host = strip_tags(str_replace($strip, '', $host));
+        return ['host' => $host, 'rp' => $rp];
+    }
+
     /**
      * 現在の設定値をJSONファイルに保存する
      *
@@ -172,6 +231,155 @@ class AppContext {
         if (file_put_contents($path, $json, LOCK_EX) === false) {
             throw new \RuntimeException("設定ファイルの書き込みに失敗しました: {$path}");
         }
+    }
+}
+
+// ============================================================================
+// I18n - 多言語化ヘルパー
+// ============================================================================
+
+/**
+ * 多言語化（国際化）を管理するクラス。
+ * engines/I18n.php のロジックを Framework に移植。
+ *
+ * 対応言語: ja（デフォルト）, en
+ * 翻訳ファイル: lang/ja.json, lang/en.json
+ *
+ * @since Ver.1.8
+ */
+class I18n {
+
+    /** @var string 現在のロケール */
+    private static string $locale = 'ja';
+
+    /** @var array<string, string> 翻訳データ */
+    private static array $translations = [];
+
+    /** @var array<string, string> フォールバック翻訳データ（日本語） */
+    private static array $fallback = [];
+
+    /** @var bool 翻訳ファイル読み込み済みフラグ */
+    private static bool $loaded = false;
+
+    /** @var string 言語ファイルのベースパス */
+    private static string $basePath = '';
+
+    /**
+     * ロケールを設定し、翻訳ファイルを読み込む
+     */
+    public static function init(?string $basePath = null): void {
+        self::$basePath = $basePath ?? (dirname(__DIR__, 2) . '/lang/');
+
+        /* 優先順位: GET > SESSION > settings.json > 'ja' */
+        $locale = $_GET['lang'] ?? $_SESSION['ap_locale'] ?? null;
+        if ($locale === null) {
+            $settings = \APF\Utilities\JsonStorage::read('settings.json', AppContext::settingsDir());
+            $locale = $settings['admin_locale'] ?? 'ja';
+        }
+        $locale = in_array($locale, ['ja', 'en'], true) ? $locale : 'ja';
+
+        /* セッションに保存 */
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            $_SESSION['ap_locale'] = $locale;
+        }
+
+        self::$locale = $locale;
+        self::load();
+    }
+
+    /**
+     * 翻訳ファイルを読み込み
+     */
+    private static function load(): void {
+        $basePath = self::$basePath;
+
+        /* フォールバック（日本語）を常に読み込み */
+        $jaPath = $basePath . 'ja.json';
+        if (file_exists($jaPath)) {
+            $data = json_decode(file_get_contents($jaPath), true);
+            self::$fallback = is_array($data) ? $data : [];
+        }
+
+        /* 現在のロケール */
+        if (self::$locale === 'ja') {
+            self::$translations = self::$fallback;
+        } else {
+            $path = $basePath . self::$locale . '.json';
+            if (file_exists($path)) {
+                $data = json_decode(file_get_contents($path), true);
+                self::$translations = is_array($data) ? $data : [];
+            }
+        }
+
+        self::$loaded = true;
+    }
+
+    /**
+     * 現在のロケールを取得
+     */
+    public static function getLocale(): string {
+        return self::$locale;
+    }
+
+    /**
+     * 翻訳を取得
+     *
+     * @param string $key    ドット記法キー（例: "login.submit"）
+     * @param array  $params プレースホルダ（例: ['count' => 5]）
+     */
+    public static function t(string $key, array $params = []): string {
+        if (!self::$loaded) self::load();
+
+        $text = self::$translations[$key]
+            ?? self::$fallback[$key]
+            ?? $key;
+
+        if (!empty($params)) {
+            foreach ($params as $k => $v) {
+                $text = str_replace('{' . $k . '}', (string)$v, $text);
+            }
+        }
+
+        return $text;
+    }
+
+    /**
+     * 全翻訳データをフラットな配列で返す
+     */
+    public static function all(): array {
+        if (!self::$loaded) self::load();
+        return array_merge(self::$fallback, self::$translations);
+    }
+
+    /**
+     * 全翻訳データをネスト配列で返す（テンプレートエンジン用）
+     */
+    public static function allNested(): array {
+        $flat = self::all();
+        $nested = [];
+        foreach ($flat as $key => $value) {
+            $parts = explode('.', $key);
+            $ref = &$nested;
+            foreach ($parts as $i => $part) {
+                if ($i === count($parts) - 1) {
+                    $ref[$part] = $value;
+                } else {
+                    if (!isset($ref[$part]) || !is_array($ref[$part])) {
+                        $ref[$part] = [];
+                    }
+                    $ref = &$ref[$part];
+                }
+            }
+            unset($ref);
+        }
+        return $nested;
+    }
+
+    /**
+     * HTML lang 属性用の値を返す
+     */
+    public static function htmlLang(): string {
+        return self::$locale;
     }
 }
 

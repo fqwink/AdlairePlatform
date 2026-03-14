@@ -1,12 +1,11 @@
 <?php
 /**
- * AppContext - アプリケーション状態の集中管理
+ * AppContext - アプリケーション状態の集中管理（後方互換シム）
  *
- * B-3 fix: グローバル変数 ($c, $d, $host 等) をクラスベースの状態管理に移行。
- * 全エンジンから AppContext::config() / AppContext::defaults() 等でアクセス。
+ * Ver.1.8: AIS\Core\AppContext インスタンスに内部委譲。
+ * Stage 8 で削除予定。
  *
- * Ver.1.5: AIS\Core\AppContext インスタンスに内部委譲。
- *          既存の static API は完全に維持。
+ * @deprecated Ver.1.8 — AIS\Core\AppContext を使用してください
  */
 class AppContext {
 

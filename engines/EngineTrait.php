@@ -1,11 +1,12 @@
 <?php
 /**
- * EngineTrait - エンジン共通処理
+ * EngineTrait - エンジン共通処理（後方互換シム）
  *
- * JSON エラーレスポンスを統合。
- * 使用: use EngineTrait; （static メソッドとして提供）
+ * Ver.1.8: jsonError() は APF\Core\Response::jsonError() に移植。
+ * $throwOnError パターンは引き続き維持（ApiEngine/UpdateEngine が使用）。
+ * Stage 8 で削除予定。
  *
- * Ver.1.7-37: $throwOnError フラグ追加。true 時は exit の代わりに例外を投げる。
+ * @deprecated Ver.1.8 — APF\Core\Response::jsonError() を使用してください
  */
 trait EngineTrait {
 

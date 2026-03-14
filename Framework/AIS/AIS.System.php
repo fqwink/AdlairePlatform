@@ -864,3 +864,1252 @@ class HealthMonitor {
         };
     }
 }
+
+// ============================================================================
+// ApiCache - API レスポンスキャッシュ
+// ============================================================================
+
+/**
+ * ファイルベースの API レスポンスキャッシュ。
+ *
+ * ETag / Last-Modified / 304 Not Modified 対応。
+ * CacheEngine のロジックを Framework 化したもの。
+ *
+ * @since Ver.1.8
+ */
+class ApiCache {
+
+    private const CACHE_DIR = 'data/cache/api';
+
+    private const TTL = [
+        'pages'       => 300,
+        'page'        => 300,
+        'settings'    => 3600,
+        'collections' => 60,
+        'collection'  => 60,
+        'item'        => 60,
+        'search'      => 120,
+    ];
+
+    /**
+     * キャッシュからレスポンスを返す。ヒットすれば Response、ミスなら null。
+     */
+    public static function serve(string $endpoint, array $params = []): ?\APF\Core\Response {
+        $key = self::cacheKey($endpoint, $params);
+        $path = self::cachePath($key);
+
+        $content = \APF\Utilities\FileSystem::read($path);
+        if ($content === false) return null;
+
+        $ttl = self::TTL[$endpoint] ?? 60;
+        $mtime = filemtime($path);
+        if ($mtime === false || (time() - $mtime) > $ttl) {
+            @unlink($path);
+            return null;
+        }
+
+        $etag = '"' . hash('xxh128', $content) . '"';
+        $lastModified = gmdate('D, d M Y H:i:s', $mtime) . ' GMT';
+
+        $ifNoneMatch = $_SERVER['HTTP_IF_NONE_MATCH'] ?? '';
+        $ifModifiedSince = $_SERVER['HTTP_IF_MODIFIED_SINCE'] ?? '';
+
+        /* 304 Not Modified (ETag) */
+        if ($ifNoneMatch !== '' && $ifNoneMatch === $etag) {
+            return (new \APF\Core\Response('', 304))
+                ->withHeader('ETag', $etag)
+                ->withHeader('Cache-Control', 'max-age=' . $ttl . ', must-revalidate');
+        }
+        /* 304 Not Modified (Last-Modified) */
+        if ($ifModifiedSince !== '' && strtotime($ifModifiedSince) >= $mtime) {
+            return (new \APF\Core\Response('', 304))
+                ->withHeader('ETag', $etag)
+                ->withHeader('Last-Modified', $lastModified)
+                ->withHeader('Cache-Control', 'max-age=' . $ttl . ', must-revalidate');
+        }
+
+        return (new \APF\Core\Response($content, 200))
+            ->withHeader('Content-Type', 'application/json; charset=UTF-8')
+            ->withHeader('ETag', $etag)
+            ->withHeader('Last-Modified', $lastModified)
+            ->withHeader('Cache-Control', 'max-age=' . $ttl . ', must-revalidate')
+            ->withHeader('X-Cache', 'HIT');
+    }
+
+    /**
+     * レスポンスをキャッシュに保存
+     */
+    public static function store(string $endpoint, array $params, string $content): void {
+        $key = self::cacheKey($endpoint, $params);
+        $path = self::cachePath($key);
+        \APF\Utilities\FileSystem::write($path, $content);
+    }
+
+    /**
+     * 指定エンドポイントのキャッシュを無効化（空文字で全クリア）
+     */
+    public static function invalidate(string $endpoint = ''): void {
+        $dir = self::CACHE_DIR;
+        if (!is_dir($dir)) return;
+        if ($endpoint === '') {
+            self::clearDir($dir);
+            return;
+        }
+        $files = glob($dir . '/' . $endpoint . '_*.json') ?: [];
+        foreach ($files as $f) { @unlink($f); }
+    }
+
+    /**
+     * コンテンツ変更時に関連キャッシュを一括無効化
+     */
+    public static function invalidateContent(): void {
+        foreach (['pages', 'page', 'collections', 'collection', 'item', 'search'] as $ep) {
+            self::invalidate($ep);
+        }
+    }
+
+    /**
+     * キャッシュ統計情報を取得
+     */
+    public static function getStats(): array {
+        $dir = self::CACHE_DIR;
+        if (!is_dir($dir)) return ['files' => 0, 'size' => 0, 'size_human' => '0 B'];
+        $files = glob($dir . '/*.json') ?: [];
+        $size = 0;
+        foreach ($files as $f) { $size += filesize($f) ?: 0; }
+        return ['files' => count($files), 'size' => $size, 'size_human' => self::humanSize($size)];
+    }
+
+    /** 全キャッシュクリア */
+    public static function clear(): void { self::invalidate(''); }
+
+    /**
+     * remember パターン — キャッシュがあれば返し、なければ callback 実行してキャッシュ
+     */
+    public static function remember(string $key, int $ttl, callable $callback): mixed {
+        $safeKey = preg_replace('/[^a-zA-Z0-9_\-]/', '_', $key);
+        $path = self::CACHE_DIR . '/mem_' . $safeKey . '.json';
+        $content = \APF\Utilities\FileSystem::read($path);
+        if ($content !== false) {
+            $mtime = filemtime($path);
+            if ($mtime !== false && (time() - $mtime) <= $ttl) {
+                $decoded = json_decode($content, true);
+                if ($decoded !== null) return $decoded;
+            }
+            @unlink($path);
+        }
+        $result = $callback();
+        \APF\Utilities\FileSystem::ensureDir(self::CACHE_DIR);
+        \APF\Utilities\FileSystem::write($path, json_encode($result, JSON_UNESCAPED_UNICODE));
+        return $result;
+    }
+
+    private static function cacheKey(string $endpoint, array $params): string {
+        $sanitized = preg_replace('/[^a-zA-Z0-9_\-]/', '', $endpoint);
+        ksort($params);
+        return $sanitized . '_' . md5(json_encode($params));
+    }
+
+    private static function cachePath(string $key): string {
+        return self::CACHE_DIR . '/' . $key . '.json';
+    }
+
+    private static function clearDir(string $dir): void {
+        foreach (glob($dir . '/*.json') ?: [] as $f) { @unlink($f); }
+    }
+
+    private static function humanSize(int $bytes): string {
+        if ($bytes < 1024) return $bytes . ' B';
+        if ($bytes < 1_048_576) return round($bytes / 1024, 1) . ' KB';
+        return round($bytes / 1_048_576, 1) . ' MB';
+    }
+}
+
+// ============================================================================
+// DiagnosticsManager - 診断・テレメトリ管理
+// ============================================================================
+
+/**
+ * リアルタイム診断・テレメトリ管理。
+ *
+ * DiagnosticEngine のロジックを Framework 化したもの。
+ * 12カテゴリ別エラー分類、パフォーマンスプロファイラ、
+ * テレメトリ送信（サーキットブレーカー付き）に対応。
+ *
+ * @since Ver.1.8
+ */
+class DiagnosticsManager {
+
+    private const CONFIG_FILE = 'diagnostics.json';
+    private const LOG_FILE    = 'diagnostics_log.json';
+    private const ENDPOINT    = 'https://telemetry.adlaire.com/v1/report';
+    private const INTERVAL    = 0;
+    private const LOG_RETENTION_DAYS = 14;
+    private const MAX_BUFFER_ITEMS   = 100;
+    private const VALID_LEVELS = ['basic', 'extended', 'debug'];
+    private const RETRY_MAX        = 3;
+    private const RETRY_BACKOFF    = [1, 2, 4];
+    private const RETRYABLE_CODES  = [429, 502, 503];
+    private const CIRCUIT_BREAKER_THRESHOLD = 5;
+    private const CIRCUIT_BREAKER_DURATION  = 86400;
+    private const MAX_LOG_SIZE_BYTES       = 524288;
+    private const LOG_ARCHIVE_GENERATIONS  = 3;
+
+    private const DEBUG_CATEGORIES = [
+        'syntax', 'runtime', 'logic', 'semantic', 'off_by_one', 'race_condition',
+        'memory', 'performance', 'security', 'environment', 'timing', 'integration',
+    ];
+
+    private const ENGINE_CLASSES = [
+        'AdminEngine', 'TemplateEngine', 'ThemeEngine', 'UpdateEngine',
+        'StaticEngine', 'ApiEngine', 'CollectionEngine', 'MarkdownEngine',
+        'GitEngine', 'WebhookEngine', 'CacheEngine', 'ImageOptimizer',
+        'DiagnosticEngine',
+    ];
+
+    private const SENSITIVE_KEYS = [
+        'password', 'password_hash', 'token', 'secret',
+        'api_key', 'apikey', 'authorization', 'cookie',
+        'session', 'csrf', 'private_key', 'credentials',
+    ];
+
+    /* パフォーマンスプロファイラ */
+    private static array $timers = [];
+    private static array $timings = [];
+    private static int $memoryStart = 0;
+
+    /* エンジン別実行時間トラッカー */
+    private static array $engineTimers = [];
+    private static array $engineTimings = [];
+    private static array $engineMemoryBefore = [];
+    private static array $engineCallCounts = [];
+
+    /* スタックトレース蓄積 */
+    private static array $capturedTraces = [];
+
+    /* ── 設定管理 ── */
+
+    private static function defaults(): array {
+        return [
+            'enabled' => true, 'level' => 'basic', 'install_id' => '',
+            'last_sent' => '', 'last_env_sent' => '',
+            'first_run_notice_shown' => false, 'send_interval' => self::INTERVAL,
+        ];
+    }
+
+    public static function loadConfig(): array {
+        $dir = \AIS\Core\AppContext::settingsDir();
+        $config = \APF\Utilities\JsonStorage::read(self::CONFIG_FILE, $dir);
+        $defaults = self::defaults();
+        foreach ($defaults as $k => $v) {
+            if (!array_key_exists($k, $config)) $config[$k] = $v;
+        }
+        if ($config['install_id'] === '') {
+            $config['install_id'] = self::generateUuid();
+            self::saveConfig($config);
+        }
+        return $config;
+    }
+
+    public static function saveConfig(array $config): void {
+        \APF\Utilities\JsonStorage::write(self::CONFIG_FILE, $config, \AIS\Core\AppContext::settingsDir());
+    }
+
+    public static function isEnabled(): bool {
+        return !empty(self::loadConfig()['enabled']);
+    }
+
+    public static function getLevel(): string {
+        $level = self::loadConfig()['level'] ?? 'basic';
+        return in_array($level, self::VALID_LEVELS, true) ? $level : 'basic';
+    }
+
+    public static function setEnabled(bool $enabled): void {
+        $config = self::loadConfig();
+        $config['enabled'] = $enabled;
+        self::saveConfig($config);
+    }
+
+    public static function setLevel(string $level): void {
+        if (!in_array($level, self::VALID_LEVELS, true)) return;
+        $config = self::loadConfig();
+        $config['level'] = $level;
+        self::saveConfig($config);
+    }
+
+    public static function getInstallId(): string {
+        return self::loadConfig()['install_id'];
+    }
+
+    /* ── パフォーマンスプロファイラ ── */
+
+    public static function startTimer(string $label): void {
+        self::$timers[$label] = hrtime(true);
+        if ($label === 'request_total') {
+            self::$memoryStart = memory_get_usage(true);
+        }
+    }
+
+    public static function stopTimer(string $label): void {
+        if (!isset(self::$timers[$label])) return;
+        self::$timings[$label] = round((hrtime(true) - self::$timers[$label]) / 1_000_000, 2);
+        unset(self::$timers[$label]);
+    }
+
+    public static function getTimings(): array {
+        return [
+            'timings_ms'        => self::$timings,
+            'memory_start'      => self::$memoryStart,
+            'memory_peak'       => memory_get_peak_usage(true),
+            'memory_peak_human' => self::humanSize(memory_get_peak_usage(true)),
+        ];
+    }
+
+    /* ── エンジン別実行時間トラッカー ── */
+
+    public static function startEngineTimer(string $engine, string $method = ''): void {
+        $key = $method !== '' ? "{$engine}::{$method}" : $engine;
+        self::$engineTimers[$key] = hrtime(true);
+        self::$engineMemoryBefore[$key] = memory_get_usage(true);
+    }
+
+    public static function stopEngineTimer(string $engine, string $method = ''): ?float {
+        $key = $method !== '' ? "{$engine}::{$method}" : $engine;
+        if (!isset(self::$engineTimers[$key])) return null;
+
+        $elapsed = round((hrtime(true) - self::$engineTimers[$key]) / 1_000_000, 2);
+        $memoryDelta = memory_get_usage(true) - (self::$engineMemoryBefore[$key] ?? 0);
+
+        if (!isset(self::$engineTimings[$key])) {
+            self::$engineTimings[$key] = [
+                'total_ms' => 0.0, 'calls' => 0, 'max_ms' => 0.0,
+                'min_ms' => PHP_FLOAT_MAX, 'memory_delta_total' => 0,
+            ];
+        }
+        self::$engineTimings[$key]['total_ms'] += $elapsed;
+        self::$engineTimings[$key]['calls']++;
+        self::$engineTimings[$key]['max_ms'] = max(self::$engineTimings[$key]['max_ms'], $elapsed);
+        self::$engineTimings[$key]['min_ms'] = min(self::$engineTimings[$key]['min_ms'], $elapsed);
+        self::$engineTimings[$key]['memory_delta_total'] += $memoryDelta;
+
+        self::$timings[$key] = $elapsed;
+        $engineName = explode('::', $key)[0];
+        self::$engineCallCounts[$engineName] = (self::$engineCallCounts[$engineName] ?? 0) + 1;
+        unset(self::$engineTimers[$key], self::$engineMemoryBefore[$key]);
+        return $elapsed;
+    }
+
+    public static function getEngineTimings(): array {
+        $result = [];
+        foreach (self::$engineTimings as $key => $data) {
+            $result[$key] = [
+                'total_ms'     => round($data['total_ms'], 2),
+                'calls'        => $data['calls'],
+                'avg_ms'       => $data['calls'] > 0 ? round($data['total_ms'] / $data['calls'], 2) : 0,
+                'max_ms'       => round($data['max_ms'], 2),
+                'min_ms'       => $data['min_ms'] === PHP_FLOAT_MAX ? 0 : round($data['min_ms'], 2),
+                'memory_delta' => $data['memory_delta_total'],
+                'memory_delta_human' => self::humanSize(abs($data['memory_delta_total'])),
+            ];
+        }
+
+        $engineTotals = [];
+        foreach ($result as $key => $data) {
+            $engineName = explode('::', $key)[0];
+            if (!isset($engineTotals[$engineName])) {
+                $engineTotals[$engineName] = ['total_ms' => 0.0, 'calls' => 0, 'methods' => []];
+            }
+            $engineTotals[$engineName]['total_ms'] += $data['total_ms'];
+            $engineTotals[$engineName]['calls'] += $data['calls'];
+            $engineTotals[$engineName]['methods'][$key] = $data;
+        }
+
+        return [
+            'detail'  => $result,
+            'engines' => $engineTotals,
+            'summary' => [
+                'total_engines_tracked' => count($engineTotals),
+                'total_calls'           => array_sum(self::$engineCallCounts),
+                'engine_call_counts'    => self::$engineCallCounts,
+            ],
+        ];
+    }
+
+    /* ── スタックトレース収集 ── */
+
+    public static function captureTrace(string $label, int $depth = 15): void {
+        if (!self::isEnabled()) return;
+        $level = self::getLevel();
+        if ($level !== 'debug' && $level !== 'extended') return;
+
+        $trace = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, $depth);
+        self::$capturedTraces[] = [
+            'label' => $label, 'trace' => self::sanitizeStackTrace($trace),
+            'timestamp' => date('c'), 'memory' => memory_get_usage(true),
+        ];
+        if (count(self::$capturedTraces) > 50) {
+            self::$capturedTraces = array_slice(self::$capturedTraces, -50);
+        }
+    }
+
+    public static function getCapturedTraces(): array {
+        return self::$capturedTraces;
+    }
+
+    /* ── エラー・ログ収集 ── */
+
+    public static function registerErrorHandler(): void {
+        if (!self::isEnabled()) return;
+
+        set_error_handler(function (int $errno, string $errstr, string $errfile, string $errline) {
+            $level = self::getLevel();
+            if ($level === 'basic' && in_array($errno, [E_NOTICE, E_DEPRECATED, E_USER_NOTICE, E_USER_DEPRECATED], true)) {
+                return false;
+            }
+            $entry = [
+                'type'           => self::errorTypeString($errno),
+                'debug_category' => self::classifyError($errno, $errstr),
+                'message'        => self::sanitizeMessage($errstr),
+                'file'           => self::sanitizePath($errfile),
+                'line'           => $errline,
+                'timestamp'      => date('c'),
+            ];
+            if ($level === 'debug' || $level === 'extended') {
+                $depth = $level === 'debug' ? 20 : 10;
+                $entry['stack_trace'] = self::sanitizeStackTrace(debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, $depth));
+            }
+            self::logError($entry);
+            return false;
+        });
+
+        $previousHandler = set_exception_handler(function (\Throwable $exception) use (&$previousHandler) {
+            $entry = [
+                'type'           => 'EXCEPTION: ' . get_class($exception),
+                'debug_category' => self::classifyException($exception),
+                'message'        => self::sanitizeMessage($exception->getMessage()),
+                'file'           => self::sanitizePath($exception->getFile()),
+                'line'           => $exception->getLine(),
+                'code'           => $exception->getCode(),
+                'timestamp'      => date('c'),
+                'stack_trace'    => self::sanitizeExceptionTrace($exception),
+            ];
+            $previous = $exception->getPrevious();
+            if ($previous !== null) {
+                $entry['previous_exception'] = [
+                    'type'        => get_class($previous),
+                    'message'     => self::sanitizeMessage($previous->getMessage()),
+                    'file'        => self::sanitizePath($previous->getFile()),
+                    'line'        => $previous->getLine(),
+                    'stack_trace' => self::sanitizeExceptionTrace($previous),
+                ];
+            }
+            self::logError($entry);
+            if ($previousHandler !== null) ($previousHandler)($exception);
+        });
+
+        register_shutdown_function(function () {
+            $error = error_get_last();
+            if ($error !== null && in_array($error['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR], true)) {
+                self::logError([
+                    'type'           => 'FATAL: ' . self::errorTypeString($error['type']),
+                    'debug_category' => self::classifyError($error['type'], $error['message']),
+                    'message'        => self::sanitizeMessage($error['message']),
+                    'file'           => self::sanitizePath($error['file']),
+                    'line'           => $error['line'],
+                    'timestamp'      => date('c'),
+                ]);
+            }
+            self::captureRuntimeSnapshot();
+        });
+    }
+
+    /* ── エラー分類 ── */
+
+    private static function classifyError(int $errno, string $message): string {
+        $msg = strtolower($message);
+        if (in_array($errno, [E_PARSE, E_COMPILE_ERROR, E_COMPILE_WARNING], true)) return 'syntax';
+        if (str_contains($msg, 'allowed memory size') || str_contains($msg, 'out of memory')) return 'memory';
+        if (str_contains($msg, 'maximum execution time') || str_contains($msg, 'timed out')) return 'timing';
+        if (str_contains($msg, 'undefined offset') || str_contains($msg, 'undefined index')
+            || str_contains($msg, 'out of range') || str_contains($msg, 'undefined array key')) return 'off_by_one';
+        if (str_contains($msg, 'type error') || str_contains($msg, 'must be of type')
+            || str_contains($msg, 'undefined variable') || str_contains($msg, 'undefined property')) return 'semantic';
+        if (str_contains($msg, 'lock') || str_contains($msg, 'deadlock')
+            || str_contains($msg, 'resource temporarily unavailable') || str_contains($msg, 'flock')) return 'race_condition';
+        if (str_contains($msg, 'permission denied') || str_contains($msg, 'access denied')
+            || str_contains($msg, 'csrf') || str_contains($msg, 'unauthorized')) return 'security';
+        if (str_contains($msg, 'curl') || str_contains($msg, 'connection refused')
+            || str_contains($msg, 'name resolution') || str_contains($msg, 'webhook')) return 'integration';
+        if (str_contains($msg, 'extension') || str_contains($msg, 'function not found')
+            || str_contains($msg, 'class not found') || str_contains($msg, 'call to undefined function')) return 'environment';
+        if ($errno === E_USER_ERROR || str_contains($msg, 'assertion')
+            || str_contains($msg, 'invalid argument') || str_contains($msg, 'logic error')) return 'logic';
+        return 'runtime';
+    }
+
+    private static function classifyException(\Throwable $e): string {
+        $msg = strtolower($e->getMessage());
+        if ($e instanceof \TypeError) return 'semantic';
+        if ($e instanceof \ParseError) return 'syntax';
+        if ($e instanceof \LogicException || $e instanceof \DomainException
+            || $e instanceof \InvalidArgumentException || $e instanceof \LengthException) return 'logic';
+        if ($e instanceof \OutOfRangeException || $e instanceof \OutOfBoundsException) return 'off_by_one';
+        if ($e instanceof \OverflowException || str_contains($msg, 'memory')) return 'memory';
+        if (str_contains($msg, 'timeout') || str_contains($msg, 'timed out')) return 'timing';
+        if (str_contains($msg, 'lock') || str_contains($msg, 'deadlock')) return 'race_condition';
+        if (str_contains($msg, 'curl') || str_contains($msg, 'connection') || str_contains($msg, 'webhook')) return 'integration';
+        if (str_contains($msg, 'permission') || str_contains($msg, 'unauthorized')) return 'security';
+        if (str_contains($msg, 'extension') || str_contains($msg, 'class not found')) return 'environment';
+        return 'runtime';
+    }
+
+    private static function sanitizeExceptionTrace(\Throwable $e): array {
+        $result = [];
+        foreach ($e->getTrace() as $i => $frame) {
+            if ($i >= 20) break;
+            $entry = [];
+            if (isset($frame['file'])) $entry['file'] = self::sanitizePath($frame['file']);
+            if (isset($frame['line'])) $entry['line'] = $frame['line'];
+            if (isset($frame['class'])) $entry['class'] = $frame['class'];
+            if (isset($frame['function'])) $entry['function'] = $frame['function'];
+            if (isset($frame['type'])) $entry['type'] = $frame['type'];
+            $result[] = $entry;
+        }
+        return $result;
+    }
+
+    /* ── デバッグイベント ── */
+
+    public static function logDebugEvent(string $category, string $message, array $context = []): void {
+        if (!self::isEnabled()) return;
+        if (!in_array($category, self::DEBUG_CATEGORIES, true)) $category = 'runtime';
+        $entry = [
+            'debug_category' => $category,
+            'message' => self::sanitizeMessage($message),
+            'timestamp' => date('c'),
+        ];
+        if (!empty($context)) $entry['context'] = self::stripSensitiveKeys($context);
+        if (self::getLevel() === 'debug') {
+            $entry['stack_trace'] = self::sanitizeStackTrace(debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 8));
+        }
+        self::log($category, $message, array_merge($context, ['debug_category' => $category]));
+    }
+
+    public static function logSlowExecution(string $label, float $elapsed, float $threshold = 1000.0): void {
+        if ($elapsed < $threshold) return;
+        self::logDebugEvent('performance', "低速処理検知: {$label} ({$elapsed}ms > {$threshold}ms)", [
+            'label' => $label, 'elapsed_ms' => $elapsed, 'threshold_ms' => $threshold,
+        ]);
+    }
+
+    public static function checkMemoryUsage(): void {
+        $limit = self::parseMemoryLimit(ini_get('memory_limit'));
+        if ($limit <= 0) return;
+        $usage = memory_get_usage(true);
+        $ratio = $usage / $limit;
+        if ($ratio > 0.85) {
+            self::logDebugEvent('memory', 'メモリ使用量が上限の' . round($ratio * 100) . '%に到達', [
+                'usage_bytes' => $usage, 'limit_bytes' => $limit, 'ratio' => round($ratio, 3),
+            ]);
+        }
+    }
+
+    public static function logRaceCondition(string $resource, string $detail = ''): void {
+        self::logDebugEvent('race_condition', "競合状態検知: {$resource}" . ($detail !== '' ? " — {$detail}" : ''), [
+            'resource' => $resource, 'detail' => $detail, 'pid' => getmypid(),
+        ]);
+    }
+
+    public static function logIntegrationError(string $service, int $httpCode = 0, string $detail = ''): void {
+        self::logDebugEvent('integration', "外部連携エラー: {$service} (HTTP {$httpCode})" . ($detail !== '' ? " — {$detail}" : ''), [
+            'service' => $service, 'http_code' => $httpCode, 'detail' => $detail,
+        ]);
+    }
+
+    public static function logEnvironmentIssue(string $issue, array $context = []): void {
+        self::logDebugEvent('environment', "環境依存: {$issue}", $context);
+    }
+
+    public static function logTimingIssue(string $operation, float $elapsed, float $limit): void {
+        self::logDebugEvent('timing', "タイミング異常: {$operation} ({$elapsed}s / 上限{$limit}s)", [
+            'operation' => $operation, 'elapsed_s' => $elapsed, 'limit_s' => $limit,
+        ]);
+    }
+
+    private static function captureRuntimeSnapshot(): void {
+        $engineTimings = self::getEngineTimings();
+        self::log('runtime_snapshot', 'シャットダウン時スナップショット', [
+            'memory_usage' => memory_get_usage(true),
+            'memory_peak'  => memory_get_peak_usage(true),
+            'timings'      => self::$timings,
+            'engine_timings' => $engineTimings['engines'] ?? [],
+            'engine_summary' => $engineTimings['summary'] ?? [],
+            'traced_count'   => count(self::$capturedTraces),
+        ]);
+    }
+
+    private static function sanitizeStackTrace(array $trace): array {
+        $result = [];
+        foreach ($trace as $frame) {
+            $entry = [];
+            if (isset($frame['file'])) $entry['file'] = self::sanitizePath($frame['file']);
+            if (isset($frame['line'])) $entry['line'] = $frame['line'];
+            if (isset($frame['function'])) $entry['function'] = $frame['function'];
+            if (isset($frame['class'])) $entry['class'] = $frame['class'];
+            $result[] = $entry;
+        }
+        return $result;
+    }
+
+    private static function parseMemoryLimit(string $limit): int {
+        $limit = trim($limit);
+        if ($limit === '-1') return 0;
+        $last = strtolower(substr($limit, -1));
+        $value = (int)$limit;
+        return match ($last) {
+            'g' => $value * 1024 * 1024 * 1024,
+            'm' => $value * 1024 * 1024,
+            'k' => $value * 1024,
+            default => $value,
+        };
+    }
+
+    /* ── ログ管理 ── */
+
+    public static function logError(array $entry): void {
+        self::rotateIfNeeded();
+        $dir = \AIS\Core\AppContext::settingsDir();
+        $log = self::safeJsonRead(self::LOG_FILE, $dir);
+        if (!isset($log['errors'])) $log['errors'] = [];
+        $log['errors'][] = $entry;
+        self::purgeExpiredEntries($log['errors']);
+        self::recordDailySummary($log, 'errors');
+        \APF\Utilities\JsonStorage::write(self::LOG_FILE, $log, $dir);
+    }
+
+    public static function log(string $category, string $message, array $context = []): void {
+        if (!self::isEnabled()) return;
+        self::rotateIfNeeded();
+        $dir = \AIS\Core\AppContext::settingsDir();
+        $log = self::safeJsonRead(self::LOG_FILE, $dir);
+        if (!isset($log['custom'])) $log['custom'] = [];
+        $entry = [
+            'category' => $category,
+            'message'  => self::sanitizeMessage($message),
+            'timestamp' => date('c'),
+        ];
+        if (!empty($context)) $entry['context'] = self::stripSensitiveKeys($context);
+        $log['custom'][] = $entry;
+        self::purgeExpiredEntries($log['custom']);
+        self::recordDailySummary($log, $category);
+        \APF\Utilities\JsonStorage::write(self::LOG_FILE, $log, $dir);
+    }
+
+    private static function safeJsonRead(string $file, string $dir): array {
+        $path = $dir . '/' . $file;
+        if (!file_exists($path)) return ['errors' => [], 'custom' => []];
+        $content = @file_get_contents($path);
+        if ($content === false) return ['errors' => [], 'custom' => []];
+        $data = json_decode($content, true);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            error_log('DiagnosticsManager: JSON parse error in ' . $file . ': ' . json_last_error_msg());
+            @rename($path, $path . '.corrupt.' . time());
+            return ['errors' => [], 'custom' => []];
+        }
+        return is_array($data) ? $data : ['errors' => [], 'custom' => []];
+    }
+
+    /* ── ログローテーション・保持ポリシー ── */
+
+    public static function rotateIfNeeded(): void {
+        $path = \AIS\Core\AppContext::settingsDir() . '/' . self::LOG_FILE;
+        if (!file_exists($path)) return;
+        $size = @filesize($path);
+        if ($size === false || $size < self::MAX_LOG_SIZE_BYTES) return;
+
+        for ($i = self::LOG_ARCHIVE_GENERATIONS; $i >= 1; $i--) {
+            $dst = $path . '.' . $i;
+            if ($i === self::LOG_ARCHIVE_GENERATIONS && file_exists($dst)) @unlink($dst);
+            $src = ($i === 1) ? $path : $path . '.' . ($i - 1);
+            if (file_exists($src)) rename($src, $dst);
+        }
+
+        $oldLog = self::safeJsonRead(self::LOG_FILE . '.1', \AIS\Core\AppContext::settingsDir());
+        $newLog = ['errors' => [], 'custom' => []];
+        if (!empty($oldLog['daily_summary'])) $newLog['daily_summary'] = $oldLog['daily_summary'];
+        \APF\Utilities\FileSystem::writeJson($path, $newLog);
+    }
+
+    private static function purgeExpiredEntries(array &$entries): void {
+        $cutoff = date('c', time() - self::LOG_RETENTION_DAYS * 86400);
+        $entries = array_values(array_filter($entries, fn(array $e) => ($e['timestamp'] ?? '') >= $cutoff));
+    }
+
+    public static function purgeExpiredLogs(): void {
+        $dir = \AIS\Core\AppContext::settingsDir();
+        $log = self::safeJsonRead(self::LOG_FILE, $dir);
+        $changed = false;
+        if (!empty($log['errors'])) {
+            $before = count($log['errors']);
+            self::purgeExpiredEntries($log['errors']);
+            if (count($log['errors']) !== $before) $changed = true;
+        }
+        if (!empty($log['custom'])) {
+            $before = count($log['custom']);
+            self::purgeExpiredEntries($log['custom']);
+            if (count($log['custom']) !== $before) $changed = true;
+        }
+        if ($changed) \APF\Utilities\JsonStorage::write(self::LOG_FILE, $log, $dir);
+    }
+
+    /* ── 日別サマリー ── */
+
+    private static function recordDailySummary(array &$log, string $type): void {
+        $today = date('Y-m-d');
+        if (!isset($log['daily_summary'])) $log['daily_summary'] = [];
+        if (!isset($log['daily_summary'][$today])) {
+            $defaults = ['errors' => 0, 'security' => 0, 'engine' => 0, 'other' => 0];
+            foreach (self::DEBUG_CATEGORIES as $cat) $defaults['debug_' . $cat] = 0;
+            $log['daily_summary'][$today] = $defaults;
+        }
+        $key = match ($type) {
+            'errors' => 'errors', 'security' => 'security', 'engine' => 'engine', default => 'other',
+        };
+        $log['daily_summary'][$today][$key] = ($log['daily_summary'][$today][$key] ?? 0) + 1;
+        if (in_array($type, self::DEBUG_CATEGORIES, true)) {
+            $debugKey = 'debug_' . $type;
+            $log['daily_summary'][$today][$debugKey] = ($log['daily_summary'][$today][$debugKey] ?? 0) + 1;
+        }
+        $cutoff = date('Y-m-d', strtotime('-30 days'));
+        foreach (array_keys($log['daily_summary']) as $date) {
+            if ($date < $cutoff) unset($log['daily_summary'][$date]);
+        }
+    }
+
+    /* ── トレンド分析 ── */
+
+    public static function getTrends(int $days = 7): array {
+        $dir = \AIS\Core\AppContext::settingsDir();
+        $log = self::safeJsonRead(self::LOG_FILE, $dir);
+        $summary = $log['daily_summary'] ?? [];
+        $result = [];
+        for ($i = $days - 1; $i >= 0; $i--) {
+            $date = date('Y-m-d', strtotime("-{$i} days"));
+            $result[] = [
+                'date' => $date,
+                'errors' => $summary[$date]['errors'] ?? 0,
+                'security' => $summary[$date]['security'] ?? 0,
+                'engine' => $summary[$date]['engine'] ?? 0,
+                'other' => $summary[$date]['other'] ?? 0,
+                'total' => ($summary[$date]['errors'] ?? 0) + ($summary[$date]['security'] ?? 0)
+                         + ($summary[$date]['engine'] ?? 0) + ($summary[$date]['other'] ?? 0),
+            ];
+        }
+        $recent = array_slice($result, -3);
+        $older = array_slice($result, 0, max($days - 3, 1));
+        $recentAvg = count($recent) > 0 ? array_sum(array_column($recent, 'total')) / count($recent) : 0;
+        $olderAvg = count($older) > 0 ? array_sum(array_column($older, 'total')) / count($older) : 0;
+        $direction = 'stable';
+        if ($olderAvg > 0 && $recentAvg > $olderAvg * 1.5) $direction = 'increasing';
+        elseif ($recentAvg > 0 && $olderAvg > $recentAvg * 1.5) $direction = 'decreasing';
+
+        return [
+            'days' => $result, 'trend_direction' => $direction,
+            'spike_detected' => self::detectSpike($summary),
+        ];
+    }
+
+    private static function detectSpike(array $summary = []): bool {
+        if (empty($summary)) {
+            $dir = \AIS\Core\AppContext::settingsDir();
+            $log = self::safeJsonRead(self::LOG_FILE, $dir);
+            $summary = $log['daily_summary'] ?? [];
+        }
+        $today = date('Y-m-d');
+        $todayTotal = ($summary[$today]['errors'] ?? 0) + ($summary[$today]['security'] ?? 0)
+                    + ($summary[$today]['engine'] ?? 0) + ($summary[$today]['other'] ?? 0);
+        if ($todayTotal === 0) return false;
+        $sum = 0; $count = 0;
+        for ($i = 1; $i <= 7; $i++) {
+            $date = date('Y-m-d', strtotime("-{$i} days"));
+            if (isset($summary[$date])) {
+                $sum += ($summary[$date]['errors'] ?? 0) + ($summary[$date]['security'] ?? 0)
+                      + ($summary[$date]['engine'] ?? 0) + ($summary[$date]['other'] ?? 0);
+                $count++;
+            }
+        }
+        $avg = $count > 0 ? $sum / $count : 0;
+        return $avg > 0 && $todayTotal > $avg * 3;
+    }
+
+    /* ── データ収集 ── */
+
+    public static function collect(): array {
+        $level = self::getLevel();
+        $data = self::collectBasic();
+        if ($level === 'extended' || $level === 'debug') $data = array_merge($data, self::collectExtended());
+        if ($level === 'debug') $data = array_merge($data, self::collectDebug());
+        $data['collect_level'] = $level;
+        $data['collected_at'] = date('c');
+        return $data;
+    }
+
+    public static function collectBasic(): array {
+        $dir = \AIS\Core\AppContext::settingsDir();
+        $log = \APF\Utilities\JsonStorage::read(self::LOG_FILE, $dir);
+        $errorCount = count($log['errors'] ?? []);
+        $errorSummary = [];
+        $debugCategorySummary = array_fill_keys(self::DEBUG_CATEGORIES, 0);
+        foreach (($log['errors'] ?? []) as $e) {
+            $type = $e['type'] ?? 'unknown';
+            $errorSummary[$type] = ($errorSummary[$type] ?? 0) + 1;
+            $cat = $e['debug_category'] ?? 'runtime';
+            if (isset($debugCategorySummary[$cat])) $debugCategorySummary[$cat]++;
+        }
+        $engines = [];
+        foreach (self::ENGINE_CLASSES as $cls) {
+            if (class_exists($cls)) $engines[] = $cls;
+        }
+        return [
+            'install_id' => self::getInstallId(),
+            'ap_version' => defined('AP_VERSION') ? AP_VERSION : 'unknown',
+            'php_version' => PHP_VERSION, 'os' => PHP_OS_FAMILY, 'sapi' => PHP_SAPI,
+            'engines' => $engines, 'error_count' => $errorCount,
+            'error_summary' => $errorSummary,
+            'debug_category_summary' => $debugCategorySummary,
+            'custom_log_count' => count($log['custom'] ?? []),
+            'security_summary' => self::getSecuritySummary(),
+            'collections_summary' => self::collectCollectionsSummary(),
+        ];
+    }
+
+    private static function collectCollectionsSummary(): array {
+        if (!class_exists('CollectionEngine') || !\CollectionEngine::isEnabled()) {
+            return ['enabled' => false];
+        }
+        $collections = \CollectionEngine::listCollections();
+        $totalItems = 0;
+        foreach ($collections as $col) $totalItems += $col['count'] ?? 0;
+        return ['enabled' => true, 'collection_count' => count($collections), 'total_items' => $totalItems];
+    }
+
+    public static function collectExtended(): array {
+        $dir = \AIS\Core\AppContext::settingsDir();
+        $log = \APF\Utilities\JsonStorage::read(self::LOG_FILE, $dir);
+        $recentErrors = array_slice($log['errors'] ?? [], -50);
+        foreach ($recentErrors as &$e) {
+            $e['message'] = self::sanitizeMessage($e['message'] ?? '');
+            unset($e['file']);
+        }
+        unset($e);
+        return [
+            'recent_errors'  => $recentErrors,
+            'recent_logs'    => array_slice($log['custom'] ?? [], -30),
+            'performance'    => [
+                'memory_peak' => memory_get_peak_usage(true),
+                'memory_peak_human' => self::humanSize(memory_get_peak_usage(true)),
+                'disk_free' => @disk_free_space('.') ?: 0,
+            ],
+            'timings' => self::getTimings(),
+            'engine_timings' => (self::getEngineTimings())['engines'] ?? [],
+            'security' => self::getSecuritySummary(),
+        ];
+    }
+
+    public static function collectDebug(): array {
+        $dir = \AIS\Core\AppContext::settingsDir();
+        $log = \APF\Utilities\JsonStorage::read(self::LOG_FILE, $dir);
+        $fullErrors = array_slice($log['errors'] ?? [], -20);
+
+        $categoryBreakdown = array_fill_keys(self::DEBUG_CATEGORIES, 0);
+        foreach (($log['errors'] ?? []) as $e) {
+            $cat = $e['debug_category'] ?? 'runtime';
+            $categoryBreakdown[$cat] = ($categoryBreakdown[$cat] ?? 0) + 1;
+        }
+        foreach (($log['custom'] ?? []) as $c) {
+            $cat = $c['context']['debug_category'] ?? ($c['category'] ?? 'runtime');
+            if (isset($categoryBreakdown[$cat])) $categoryBreakdown[$cat]++;
+        }
+
+        $categoryRecent = array_fill_keys(self::DEBUG_CATEGORIES, []);
+        foreach (array_reverse($log['errors'] ?? []) as $e) {
+            $cat = $e['debug_category'] ?? 'runtime';
+            if (isset($categoryRecent[$cat]) && count($categoryRecent[$cat]) < 5) $categoryRecent[$cat][] = $e;
+        }
+
+        $phpConfig = [
+            'max_execution_time' => ini_get('max_execution_time'),
+            'memory_limit' => ini_get('memory_limit'),
+            'upload_max_filesize' => ini_get('upload_max_filesize'),
+            'post_max_size' => ini_get('post_max_size'),
+            'display_errors' => ini_get('display_errors'),
+            'error_reporting' => error_reporting(),
+            'session.gc_maxlifetime' => ini_get('session.gc_maxlifetime'),
+            'file_uploads' => ini_get('file_uploads'),
+            'open_basedir' => ini_get('open_basedir') ?: '(none)',
+            'disable_functions' => ini_get('disable_functions') ?: '(none)',
+            'allow_url_fopen' => ini_get('allow_url_fopen'),
+        ];
+
+        $opcacheInfo = [];
+        if (function_exists('opcache_get_status')) {
+            $opcStatus = @opcache_get_status(false);
+            if (is_array($opcStatus)) {
+                $opcacheInfo = [
+                    'enabled' => $opcStatus['opcache_enabled'] ?? false,
+                    'used_memory_mb' => isset($opcStatus['memory_usage']['used_memory']) ? round($opcStatus['memory_usage']['used_memory'] / 1048576, 1) : null,
+                    'hit_rate' => $opcStatus['opcache_statistics']['opcache_hit_rate'] ?? null,
+                ];
+            }
+        }
+
+        $writableChecks = [];
+        foreach (['data', 'data/settings', 'data/content', 'uploads', 'backup'] as $d) {
+            $writableChecks[$d] = is_dir($d) ? is_writable($d) : null;
+        }
+
+        $envInfo = [
+            'php_version' => PHP_VERSION, 'php_version_id' => PHP_VERSION_ID,
+            'os' => PHP_OS, 'os_family' => PHP_OS_FAMILY, 'sapi' => PHP_SAPI,
+            'extensions' => get_loaded_extensions(), 'zend_version' => zend_version(),
+            'server_software' => $_SERVER['SERVER_SOFTWARE'] ?? 'unknown',
+            'opcache' => $opcacheInfo,
+            'gd' => extension_loaded('gd') ? gd_info() : ['GD Version' => 'not installed'],
+            'writable_dirs' => $writableChecks,
+        ];
+
+        $memoryInfo = [
+            'current' => memory_get_usage(true),
+            'current_human' => self::humanSize(memory_get_usage(true)),
+            'peak' => memory_get_peak_usage(true),
+            'peak_human' => self::humanSize(memory_get_peak_usage(true)),
+            'limit' => ini_get('memory_limit'),
+            'limit_bytes' => self::parseMemoryLimit(ini_get('memory_limit')),
+        ];
+        if ($memoryInfo['limit_bytes'] > 0) {
+            $memoryInfo['usage_ratio'] = round(memory_get_usage(true) / $memoryInfo['limit_bytes'], 3);
+        }
+
+        $tracedErrors = [];
+        foreach (array_reverse($log['errors'] ?? []) as $e) {
+            if (!empty($e['stack_trace'])) {
+                $tracedErrors[] = $e;
+                if (count($tracedErrors) >= 20) break;
+            }
+        }
+
+        return [
+            'full_errors' => $fullErrors, 'category_breakdown' => $categoryBreakdown,
+            'category_recent' => $categoryRecent, 'traced_errors' => $tracedErrors,
+            'captured_traces' => self::getCapturedTraces(),
+            'engine_timings' => self::getEngineTimings(),
+            'php_config' => $phpConfig, 'environment' => $envInfo,
+            'memory_detail' => $memoryInfo, 'debug_categories' => self::DEBUG_CATEGORIES,
+            'data_storage' => self::collectDataStorageInfo(),
+        ];
+    }
+
+    private static function collectDataStorageInfo(): array {
+        $dataDir = 'data';
+        if (!is_dir($dataDir)) return ['error' => 'data/ ディレクトリなし'];
+        $totalSize = 0; $fileCount = 0; $dirCount = 0; $jsonSizes = [];
+        $iter = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($dataDir, \RecursiveDirectoryIterator::SKIP_DOTS),
+            \RecursiveIteratorIterator::SELF_FIRST
+        );
+        foreach ($iter as $item) {
+            if ($item->isDir()) { $dirCount++; } else {
+                $fileCount++;
+                $size = $item->getSize();
+                $totalSize += $size;
+                if ($item->getExtension() === 'json') $jsonSizes[basename($item->getPathname())] = $size;
+            }
+        }
+        $diskFree = @disk_free_space('.');
+        $diskTotal = @disk_total_space('.');
+        return [
+            'total_size' => $totalSize, 'total_size_human' => self::humanSize($totalSize),
+            'file_count' => $fileCount, 'dir_count' => $dirCount, 'json_files' => $jsonSizes,
+            'disk_free' => $diskFree !== false ? $diskFree : null,
+            'disk_free_human' => $diskFree !== false ? self::humanSize((int)$diskFree) : 'unknown',
+            'disk_total' => $diskTotal !== false ? $diskTotal : null,
+            'disk_usage_ratio' => ($diskFree !== false && $diskTotal !== false && $diskTotal > 0)
+                ? round(1 - ($diskFree / $diskTotal), 3) : null,
+        ];
+    }
+
+    public static function collectWithUnsent(string $lastSent): array {
+        $data = self::collect();
+        $dir = \AIS\Core\AppContext::settingsDir();
+        $log = self::safeJsonRead(self::LOG_FILE, $dir);
+        $unsentErrors = []; $unsentLogs = [];
+        if ($lastSent !== '') {
+            foreach (($log['errors'] ?? []) as $e) {
+                if (($e['timestamp'] ?? '') > $lastSent) $unsentErrors[] = $e;
+            }
+            foreach (($log['custom'] ?? []) as $c) {
+                if (($c['timestamp'] ?? '') > $lastSent) $unsentLogs[] = $c;
+            }
+        } else {
+            $unsentErrors = $log['errors'] ?? [];
+            $unsentLogs = $log['custom'] ?? [];
+        }
+        $data['unsent_errors'] = $unsentErrors;
+        $data['unsent_logs'] = $unsentLogs;
+        $data['total_errors_held'] = count($log['errors'] ?? []);
+        $data['total_logs_held'] = count($log['custom'] ?? []);
+        $data['retention_days'] = self::LOG_RETENTION_DAYS;
+        return $data;
+    }
+
+    /* ── 送信 ── */
+
+    public static function maybeSend(): void {
+        if (!self::isEnabled()) return;
+        self::purgeExpiredLogs();
+        $config = self::loadConfig();
+        $breakerUntil = $config['circuit_breaker_until'] ?? 0;
+        if ($breakerUntil > 0 && time() < $breakerUntil) return;
+        $lastSent = $config['last_sent'] ?? '';
+        $interval = $config['send_interval'] ?? self::INTERVAL;
+        if ($interval > 0 && $lastSent !== '') {
+            $lastTime = strtotime($lastSent);
+            if ($lastTime !== false && (time() - $lastTime) < $interval) return;
+        }
+        $data = self::collectWithUnsent($lastSent);
+        $hasNewLogs = !empty($data['unsent_errors']) || !empty($data['unsent_logs']);
+        if (!$hasNewLogs) {
+            $lastEnv = $config['last_env_sent'] ?? '';
+            if ($lastEnv !== '') {
+                $lastEnvTime = strtotime($lastEnv);
+                if ($lastEnvTime !== false && (time() - $lastEnvTime) < 86400) return;
+            }
+        }
+        if (self::send($data)) {
+            $config = self::loadConfig();
+            $config['last_sent'] = date('c');
+            $config['consecutive_failures'] = 0;
+            $config['circuit_breaker_until'] = 0;
+            if (!$hasNewLogs) $config['last_env_sent'] = date('c');
+            self::saveConfig($config);
+        } else {
+            $config = self::loadConfig();
+            $failures = ($config['consecutive_failures'] ?? 0) + 1;
+            $config['consecutive_failures'] = $failures;
+            if ($failures >= self::CIRCUIT_BREAKER_THRESHOLD) {
+                $config['circuit_breaker_until'] = time() + self::CIRCUIT_BREAKER_DURATION;
+                error_log('DiagnosticsManager: サーキットブレーカー発動（' . $failures . '回連続失敗）。24時間送信停止。');
+            }
+            self::saveConfig($config);
+        }
+    }
+
+    public static function send(array $data): bool {
+        if (!function_exists('curl_init')) return false;
+        $body = json_encode($data, JSON_UNESCAPED_UNICODE);
+        if ($body === false) return false;
+        $headers = [
+            'Content-Type: application/json',
+            'User-Agent: AdlairePlatform/' . (defined('AP_VERSION') ? AP_VERSION : '1.0'),
+            'X-AP-Install-ID: ' . ($data['install_id'] ?? ''),
+        ];
+        for ($attempt = 0; $attempt <= self::RETRY_MAX; $attempt++) {
+            if ($attempt > 0) sleep(self::RETRY_BACKOFF[$attempt - 1] ?? 4);
+            $ch = curl_init(self::ENDPOINT);
+            if ($ch === false) return false;
+            curl_setopt_array($ch, [
+                CURLOPT_POST => true, CURLOPT_POSTFIELDS => $body,
+                CURLOPT_HTTPHEADER => $headers, CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_TIMEOUT => 5, CURLOPT_CONNECTTIMEOUT => 3,
+                CURLOPT_FOLLOWLOCATION => false,
+            ]);
+            $result = curl_exec($ch);
+            $httpCode = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+            if ($httpCode >= 200 && $httpCode < 300) return true;
+            if (!in_array($httpCode, self::RETRYABLE_CODES, true)) return false;
+        }
+        return false;
+    }
+
+    /* ── UI / 統計 ── */
+
+    public static function preview(): array { return self::collect(); }
+
+    public static function getLogSummary(): array {
+        $dir = \AIS\Core\AppContext::settingsDir();
+        $log = \APF\Utilities\JsonStorage::read(self::LOG_FILE, $dir);
+        $errors = $log['errors'] ?? [];
+        $custom = $log['custom'] ?? [];
+        $errorTypes = []; $logCategories = [];
+        foreach ($errors as $e) {
+            $type = $e['type'] ?? 'unknown';
+            $errorTypes[$type] = ($errorTypes[$type] ?? 0) + 1;
+        }
+        foreach ($custom as $c) {
+            $cat = $c['category'] ?? 'other';
+            $logCategories[$cat] = ($logCategories[$cat] ?? 0) + 1;
+        }
+        return [
+            'error_count' => count($errors), 'log_count' => count($custom),
+            'error_types' => $errorTypes, 'log_categories' => $logCategories,
+            'recent_errors' => array_slice($errors, -10),
+            'recent_logs' => array_slice($custom, -10),
+            'trends' => self::getTrends(7),
+        ];
+    }
+
+    public static function getSecuritySummary(): array {
+        $dir = \AIS\Core\AppContext::settingsDir();
+        $log = \APF\Utilities\JsonStorage::read(self::LOG_FILE, $dir);
+        $summary = ['login_failure' => 0, 'lockout' => 0, 'rate_limit' => 0, 'ssrf_blocked' => 0];
+        foreach (($log['custom'] ?? []) as $entry) {
+            if (($entry['category'] ?? '') !== 'security') continue;
+            $msg = $entry['message'] ?? '';
+            if (str_contains($msg, 'ログイン失敗')) $summary['login_failure']++;
+            elseif (str_contains($msg, 'ロックアウト')) $summary['lockout']++;
+            elseif (str_contains($msg, 'レート制限')) $summary['rate_limit']++;
+            elseif (str_contains($msg, 'SSRF')) $summary['ssrf_blocked']++;
+        }
+        return $summary;
+    }
+
+    public static function healthCheck(bool $detailed = false): array {
+        $config = self::loadConfig();
+        $dir = \AIS\Core\AppContext::settingsDir();
+        $log = \APF\Utilities\JsonStorage::read(self::LOG_FILE, $dir);
+        $errors24h = 0;
+        $cutoff = date('c', time() - 86400);
+        foreach (($log['errors'] ?? []) as $e) {
+            if (($e['timestamp'] ?? '') >= $cutoff) $errors24h++;
+        }
+        $diskFree = @disk_free_space('.');
+        $status = 'ok';
+        if ($errors24h > 50) $status = 'critical';
+        elseif ($errors24h > 10) $status = 'warning';
+        if ($diskFree !== false && $diskFree < 100 * 1024 * 1024) $status = 'critical';
+        if ($status !== 'critical' && self::detectSpike($log['daily_summary'] ?? [])) $status = 'warning';
+
+        $logPath = $dir . '/' . self::LOG_FILE;
+        $logSize = file_exists($logPath) ? @filesize($logPath) : 0;
+
+        $result = [
+            'status' => $status,
+            'version' => defined('AP_VERSION') ? AP_VERSION : 'unknown',
+            'php' => PHP_VERSION, 'uptime_check' => true,
+            'diagnostics' => [
+                'errors_24h' => $errors24h,
+                'disk_free_mb' => $diskFree !== false ? round($diskFree / 1024 / 1024) : null,
+                'memory_peak_mb' => round(memory_get_peak_usage(true) / 1024 / 1024, 1),
+                'last_diagnostic_sent' => $config['last_sent'] ?? '',
+                'log_file_size_kb' => $logSize !== false ? round($logSize / 1024, 1) : 0,
+            ],
+        ];
+        if ($detailed) {
+            $result['security'] = self::getSecuritySummary();
+            $result['timings'] = self::getTimings();
+            $result['diagnostics']['error_count'] = count($log['errors'] ?? []);
+            $result['diagnostics']['log_count'] = count($log['custom'] ?? []);
+            $result['system'] = [
+                'disk'        => HealthMonitor::checkDisk(),
+                'memory'      => HealthMonitor::checkMemory(),
+                'php'         => HealthMonitor::checkPhp(),
+                'permissions' => HealthMonitor::checkPermissions([
+                    'data', 'data/settings', 'data/content', 'data/logs', 'uploads',
+                ]),
+            ];
+        }
+        return $result;
+    }
+
+    public static function getAllLogs(): array {
+        $dir = \AIS\Core\AppContext::settingsDir();
+        return \APF\Utilities\JsonStorage::read(self::LOG_FILE, $dir);
+    }
+
+    public static function clearLogs(): void {
+        $dir = \AIS\Core\AppContext::settingsDir();
+        $log = self::safeJsonRead(self::LOG_FILE, $dir);
+        $newLog = ['errors' => [], 'custom' => []];
+        if (!empty($log['daily_summary'])) $newLog['daily_summary'] = $log['daily_summary'];
+        \APF\Utilities\JsonStorage::write(self::LOG_FILE, $newLog, $dir);
+    }
+
+    /* ── 通知 ── */
+
+    public static function shouldShowNotice(): bool {
+        $config = self::loadConfig();
+        return $config['enabled'] && !$config['first_run_notice_shown'];
+    }
+
+    public static function markNoticeShown(): void {
+        $config = self::loadConfig();
+        $config['first_run_notice_shown'] = true;
+        self::saveConfig($config);
+    }
+
+    /* ── プライバシー・サニタイズ ── */
+
+    private static function sanitizeMessage(string $msg): string {
+        $msg = preg_replace('/[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/', '[EMAIL]', $msg);
+        $msg = preg_replace('/\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/', '[IP]', $msg);
+        $msg = preg_replace('#/home/[^/]+/#', '/home/[USER]/', $msg);
+        $msg = preg_replace('#C:\\\\Users\\\\[^\\\\]+\\\\#i', 'C:\\Users\\[USER]\\', $msg);
+        return $msg;
+    }
+
+    private static function sanitizePath(string $path): string {
+        $docRoot = $_SERVER['DOCUMENT_ROOT'] ?? '';
+        if ($docRoot !== '' && str_starts_with($path, $docRoot)) {
+            return substr($path, strlen($docRoot));
+        }
+        $path = preg_replace('#/home/[^/]+/#', '/home/[USER]/', $path);
+        $path = preg_replace('#C:\\\\Users\\\\[^\\\\]+\\\\#i', 'C:\\Users\\[USER]\\', $path);
+        return $path;
+    }
+
+    private static function stripSensitiveKeys(array $data): array {
+        $result = [];
+        foreach ($data as $key => $value) {
+            $lowerKey = strtolower((string)$key);
+            $isSensitive = false;
+            foreach (self::SENSITIVE_KEYS as $sk) {
+                if (str_contains($lowerKey, $sk)) { $isSensitive = true; break; }
+            }
+            if ($isSensitive) $result[$key] = '[REDACTED]';
+            elseif (is_array($value)) $result[$key] = self::stripSensitiveKeys($value);
+            else $result[$key] = $value;
+        }
+        return $result;
+    }
+
+    /* ── ユーティリティ ── */
+
+    private static function generateUuid(): string {
+        $bytes = random_bytes(16);
+        $bytes[6] = chr((ord($bytes[6]) & 0x0f) | 0x40);
+        $bytes[8] = chr((ord($bytes[8]) & 0x3f) | 0x80);
+        return sprintf('%s-%s-%s-%s-%s',
+            bin2hex(substr($bytes, 0, 4)), bin2hex(substr($bytes, 4, 2)),
+            bin2hex(substr($bytes, 6, 2)), bin2hex(substr($bytes, 8, 2)),
+            bin2hex(substr($bytes, 10, 6)));
+    }
+
+    private static function errorTypeString(int $type): string {
+        return match ($type) {
+            E_ERROR => 'E_ERROR', E_WARNING => 'E_WARNING', E_PARSE => 'E_PARSE',
+            E_NOTICE => 'E_NOTICE', E_CORE_ERROR => 'E_CORE_ERROR',
+            E_COMPILE_ERROR => 'E_COMPILE_ERROR', E_USER_ERROR => 'E_USER_ERROR',
+            E_USER_WARNING => 'E_USER_WARNING', E_USER_NOTICE => 'E_USER_NOTICE',
+            E_STRICT => 'E_STRICT', E_RECOVERABLE_ERROR => 'E_RECOVERABLE_ERROR',
+            E_DEPRECATED => 'E_DEPRECATED', E_USER_DEPRECATED => 'E_USER_DEPRECATED',
+            default => 'E_UNKNOWN(' . $type . ')',
+        };
+    }
+
+    private static function humanSize(int $bytes): string {
+        if ($bytes < 1024) return $bytes . ' B';
+        if ($bytes < 1_048_576) return round($bytes / 1024, 1) . ' KB';
+        return round($bytes / 1_048_576, 1) . ' MB';
+    }
+}

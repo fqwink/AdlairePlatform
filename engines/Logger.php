@@ -1,16 +1,11 @@
 <?php
 /**
- * Logger - 集中ログ管理エンジン
+ * Logger - 集中ログ管理エンジン（後方互換シム）
  *
- * B-6 fix: error_log() のみに依存していたログ出力を構造化ログに統一。
- * ファイルベースのログ出力 + PSR-3 互換のログレベルをサポート。
+ * Ver.1.8: AIS\System\AppLogger に内部委譲。既存 static API は完全維持。
+ * Stage 8 で削除予定。
  *
- * Ver.1.5: AIS\System\AppLogger に内部委譲。既存 static API は完全維持。
- *
- * 使用例:
- *   Logger::info('ページ保存', ['slug' => 'home']);
- *   Logger::error('JSON書き込み失敗', ['file' => 'settings.json']);
- *   Logger::warning('レガシー API 使用検出');
+ * @deprecated Ver.1.8 — AIS\System\AppLogger を使用してください
  */
 class Logger {
 
