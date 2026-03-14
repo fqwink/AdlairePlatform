@@ -47,7 +47,14 @@
       "Bash(powershell.exe -Command \"docker run --rm -v ''C:\\\\Users\\\\user\\\\Desktop\\\\Locale_Rpository_DATA\\\\AdlairePlatform\\\\.claude\\\\worktrees\\\\jolly-matsumoto:/var/www/html'' -w /var/www/html php:8.2-cli php tests/run.php\")",
       "Bash(wc -l engines/*.php)",
       "Bash(ls -1 engines/*.php)",
-      "Bash(ls -1 tests/*Test.php)"
+      "Bash(ls -1 tests/*Test.php)",
+      "Bash(for file in ap-api-client ap-events ap-search ap-utils api_keys autosize collection_manager dashboard diagnostics editInplace git_manager static_builder updater webhook_manager wysiwyg)",
+      "Bash(do echo \"=== $file.js ===\" grep -r \"$file\" /c/Users/user/Desktop/Locale_Rpository_DATA/AdlairePlatform/.claude/worktrees/jolly-matsumoto --include=\"*.php\" --include=\"*.html\")",
+      "Bash(grep -r \"Undefined variable\\\\|return.*;\\\\|function.*{\\\\|function.*\\(\" /c/Users/user/Desktop/Locale_Rpository_DATA/AdlairePlatform/.claude/worktrees/jolly-matsumoto/engines/*.php)",
+      "Bash(grep -c \"try\\\\|catch\" /c/Users/user/Desktop/Locale_Rpository_DATA/AdlairePlatform/.claude/worktrees/jolly-matsumoto/engines/*.php)",
+      "Bash(grep -n \"class_exists\\\\|require\\\\|include\" /c/Users/user/Desktop/Locale_Rpository_DATA/AdlairePlatform/.claude/worktrees/jolly-matsumoto/engines/*.php)",
+      "Bash(grep -n \"$GLOBALS\\\\|global $\" /c/Users/user/Desktop/Locale_Rpository_DATA/AdlairePlatform/.claude/worktrees/jolly-matsumoto/engines/*.php)",
+      "Bash(grep -n \"file_exists\\\\|is_file\\\\|is_dir\\\\|glob\\\\|scandir\" /c/Users/user/Desktop/Locale_Rpository_DATA/AdlairePlatform/.claude/worktrees/jolly-matsumoto/engines/*.php)"
     ]
   }
 }
