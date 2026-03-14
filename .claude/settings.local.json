@@ -54,7 +54,19 @@
       "Bash(grep -c \"try\\\\|catch\" /c/Users/user/Desktop/Locale_Rpository_DATA/AdlairePlatform/.claude/worktrees/jolly-matsumoto/engines/*.php)",
       "Bash(grep -n \"class_exists\\\\|require\\\\|include\" /c/Users/user/Desktop/Locale_Rpository_DATA/AdlairePlatform/.claude/worktrees/jolly-matsumoto/engines/*.php)",
       "Bash(grep -n \"$GLOBALS\\\\|global $\" /c/Users/user/Desktop/Locale_Rpository_DATA/AdlairePlatform/.claude/worktrees/jolly-matsumoto/engines/*.php)",
-      "Bash(grep -n \"file_exists\\\\|is_file\\\\|is_dir\\\\|glob\\\\|scandir\" /c/Users/user/Desktop/Locale_Rpository_DATA/AdlairePlatform/.claude/worktrees/jolly-matsumoto/engines/*.php)"
+      "Bash(grep -n \"file_exists\\\\|is_file\\\\|is_dir\\\\|glob\\\\|scandir\" /c/Users/user/Desktop/Locale_Rpository_DATA/AdlairePlatform/.claude/worktrees/jolly-matsumoto/engines/*.php)",
+      "Bash(wc -l /c/Users/user/Desktop/Locale_Rpository_DATA/AdlairePlatform/.claude/worktrees/jolly-matsumoto/Framework/AFE/*.php /c/Users/user/Desktop/Locale_Rpository_DATA/AdlairePlatform/.claude/worktrees/jolly-matsumoto/Framework/AEF/*.js /c/Users/user/Desktop/Locale_Rpository_DATA/AdlairePlatform/.claude/worktrees/jolly-matsumoto/Framework/ACF/*.css)",
+      "Bash(wc -l tests/*.php)",
+      "Bash(ls engines/*.php)",
+      "Bash(xargs -I {} basename {} .php)",
+      "Bash(ls tests/*Test.php)",
+      "Bash(xargs -I {} basename {} Test.php)",
+      "Bash(grep -c \"try\\\\|catch\\\\|throw\\\\|Exception\" engines/*.php)",
+      "Bash(du -sh *)",
+      "Bash(cp Framework/AFE/AFE.Core.php Framework/APF/APF.Core.php)",
+      "Bash(cp Framework/AFE/AFE.Database.php Framework/APF/APF.Database.php)",
+      "Bash(cp Framework/AFE/AFE.Utilities.php Framework/APF/APF.Utilities.php)",
+      "Bash(wc -l Framework/APF/APF.*.php)"
     ]
   }
 }

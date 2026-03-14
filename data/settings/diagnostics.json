@@ -6,5 +6,6 @@
     "last_env_sent": "",
     "first_run_notice_shown": false,
     "send_interval": 0,
-    "consecutive_failures": 3
+    "consecutive_failures": 5,
+    "circuit_breaker_until": 1773558567
 }

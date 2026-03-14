@@ -4,8 +4,9 @@
     {
       "name": "php-dev-server",
       "runtimeExecutable": "docker",
-      "runtimeArgs": ["run", "--rm", "-p", "8000:8000", "-v", ".:/var/www/html", "-w", "/var/www/html", "php:8.2-cli", "php", "-S", "0.0.0.0:8000"],
-      "port": 8000
+      "runtimeArgs": ["run", "--rm", "-p", "8080:8080", "-v", ".:/var/www/html", "-w", "/var/www/html", "php:8.2-cli", "php", "-S", "0.0.0.0:8080"],
+      "port": 8080,
+      "autoPort": true
     }
   ]
 }

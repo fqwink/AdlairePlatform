@@ -1,10 +1,10 @@
 <?php
 /**
- * Adlaire Framework Ecosystem (AFE) - Core Module
- * 
- * AFE = Adlaire Framework Ecosystem
- * 
- * @package AFE
+ * Adlaire Platform Foundation (APF) - Core Module
+ *
+ * APF = Adlaire Platform Foundation
+ *
+ * @package APF
  * @version 1.0.0
  * @license Adlaire License Ver.2.0
  */
