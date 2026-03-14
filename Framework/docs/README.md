@@ -1,246 +1,229 @@
-# AFE Framework Documentation
+# Adlaire Framework Ecosystem Documentation
 
-**Adlaire Framework Ecosystem (AFE) - Official Documentation**
+**3ファイルのエンジン駆動モデル - 公式ドキュメント**
+
+**Version**: 1.0.0  
+**Last Updated**: 2026-03-14
 
 ---
 
-## 📚 ドキュメント一覧
+## 📚 概要
 
-### 📖 主要ドキュメント
+Adlaire Framework Ecosystem は **3ファイルのエンジン駆動モデル** で構成された統合フレームワーク群です。
 
-#### 1. [AFE_ENGINE_DRIVEN_MODEL.md](./AFE_ENGINE_DRIVEN_MODEL.md)
-**エンジン駆動モデル完全解説**（約12,000文字）
+### フレームワーク構成
 
-AFEの中核概念である「エンジン駆動モデル」を詳細に解説。
+- **AFE** (Adlaire Framework Ecosystem) - PHP製コアフレームワーク・エンジン (本体)
+- **AEF** (Adlaire Editor Framework) - JavaScript製エディタフレームワーク・エンジン
+- **ACF** (Adlaire CSS Framework) - CSSフレームワーク・エンジン
+
+**合計**: 9エンジンファイル (~128KB)
+
+---
+
+## 📖 主要ドキュメント
+
+### 1. [EDITOR_CSS_FRAMEWORK_DESIGN.md](./EDITOR_CSS_FRAMEWORK_DESIGN.md)
+**AEF & ACF 設計書**
+
+JavaScript エディタフレームワーク (AEF) と CSS フレームワーク (ACF) の設計詳細。
 
 **内容**:
-- AFEとは（概要・設計哲学）
-- エンジン駆動モデルの概念
-- コアアーキテクチャ（3ファイル構成）
-- エンジンライフサイクル（Register → Initialize → Boot → Runtime → Shutdown）
-- 依存性注入（DI）システム
-- イベント駆動アーキテクチャ
-- 依存関係解決メカニズム（トポロジカルソート）
-- エンジン開発ガイド（最小限～実用的）
-- ベストプラクティス
-- 将来の展望（独立リポジトリ化計画）
+- AEF アーキテクチャ (3エンジン構成)
+  - AEF.Core.js - Editor, EventBus, BlockRegistry, StateManager, HistoryManager
+  - AEF.Blocks.js - 10種類のブロック実装
+  - AEF.Utils.js - sanitizer, dom, selection, keyboard
+- ACF アーキテクチャ (3エンジン構成)
+  - ACF.Base.css - variables, reset, typography, utilities
+  - ACF.Components.css - buttons, forms, cards, modals, alerts
+  - ACF.Editor.css - editor-base, blocks, toolbar
+- 使用方法とサンプルコード
+- パフォーマンス最適化
 
-**対象**: AFE初学者～中級者
+**対象**: AEF/ACF 開発者
 
 ---
 
-#### 2. [ENGINE_FRAMEWORK_3FILES_PROPOSAL.md](./ENGINE_FRAMEWORK_3FILES_PROPOSAL.md)
-**3ファイル構成フレームワーク提案書**（約22KB）
+### 2. [WYSIWYG_EDITOR_IMPROVEMENT_PROPOSAL.md](./WYSIWYG_EDITOR_IMPROVEMENT_PROPOSAL.md)
+**WYSIWYG エディタ改良提案書**
 
-AFEの3ファイル構成設計の全体像と実装詳細。
+既存エディタからAEFへの移行計画と改善提案。
 
 **内容**:
-- エグゼクティブサマリー
-- 設計目標（最小性・拡張性・後方互換性）
-- ファイル構成（Framework.php, EngineInterface.php, BaseEngine.php）
-- コンポーネント詳細
-- 使用方法（基本～高度）
-- 既存エンジンの移行ガイド
-- メリット・デメリット比較
-- 期待効果
-- 実装スケジュール
-- テスト戦略
+- 現状分析 (2,889行のモノリシック構造)
+- AEF 移行による改善効果
+  - コードサイズ 90% 削減
+  - 機能追加時間 75% 削減
+  - CSS 完全分離
+- 段階的移行戦略
+- テスト計画
 
-**対象**: AFE導入検討者、アーキテクト
+**対象**: 既存プロジェクト移行担当者
 
 ---
 
-#### 3. [AFE_IMPROVEMENT_ROADMAP_V2.md](./AFE_IMPROVEMENT_ROADMAP_V2.md) ⭐ **最新**
-**改良ロードマップ Ver.2**（Ver 2.2.0 - 2.5.0）
+### 3. [AFE_IMPROVEMENT_ROADMAP_V2.md](./AFE_IMPROVEMENT_ROADMAP_V2.md) ⭐
+**AFE 改良ロードマップ Ver.2**
 
-実践的なAFE改良計画（AI/JIT除外、JavaScript フレームワーク化含む）。
+AFE (PHP本体エンジン) の将来計画。
 
 **内容**:
 - Phase 2 (Ver 2.2.0): 実用的強化
-  - 構造化ロギング
-  - 依存グラフキャッシング
-  - イベントトレーシング
-  - ミドルウェアパイプライン
-- Phase 3 (Ver 2.3.0): **JavaScript フレームワーク化（AFE-JS）**
-  - 現状JavaScript分析（~4,910行）
-  - AFE-JSコアフレームワーク設計
-  - 共通コンポーネント（HttpService, UIService）
-  - モジュール化リファクタリング
-  - テスタブルなコード
+- Phase 3 (Ver 2.3.0): JavaScript統合
 - Phase 4 (Ver 2.4.0): 高度な最適化
-  - APCuキャッシング
-  - プリロード機能
-  - 非同期処理サポート
-  - パフォーマンスプロファイラー
 - Phase 5 (Ver 2.5.0): エンタープライズ対応
-  - セキュリティ強化
-  - 国際化 (i18n)
-  - CLIツール
-- 実装計画（121時間、11週間）
-- ROI分析（194%、投資回収期間4ヶ月）
+- ROI分析
 
-**対象**: 開発チーム、プロジェクトマネージャー
+**対象**: AFE 開発チーム
 
 ---
 
-#### 3-2. [AFE_IMPROVEMENT_PLAN.md](./AFE_IMPROVEMENT_PLAN.md)
-**改良計画書 Ver.1**（Ver 2.1.0）
+## 📁 ドキュメント一覧
 
-AFEの初期改良計画（実装済み）。
+### エンジン駆動モデル関連
 
-**内容**:
-- エラーハンドリング強化
-- バリデーション機構
-- 遅延ロード
-- テストヘルパー
+| ドキュメント | サイズ | 説明 |
+|------------|-------|------|
+| **AFE_ENGINE_DRIVEN_MODEL.md** | 36KB | エンジン駆動モデル完全解説 |
+| **ENGINE_FRAMEWORK_3FILES_PROPOSAL.md** | 30KB | 3ファイル構成提案書 |
+| **ENGINE_DESIGN.md** | 68KB | エンジン設計書 (Adlaire Platform本体) |
+| **ENGINE_DRIVEN_FRAMEWORK_PROPOSAL.md** | 64KB | エンジン駆動フレームワーク提案書 (初版) |
+| **ENGINE_DRIVEN_FRAMEWORK_PROPOSAL_REVISED.md** | 55KB | 提案書改訂版 |
+| **ENGINE_FRAMEWORK_CORE_PROPOSAL.md** | 13KB | コア提案書 |
+| **ENGINE_FRAMEWORK_PROJECT_SUMMARY.md** | 12KB | プロジェクトサマリー |
 
-**対象**: 参考資料
+### フレームワーク関連
 
----
+| ドキュメント | サイズ | 説明 |
+|------------|-------|------|
+| **EDITOR_CSS_FRAMEWORK_DESIGN.md** | 31KB | AEF & ACF 設計書 |
+| **WYSIWYG_EDITOR_IMPROVEMENT_PROPOSAL.md** | 42KB | エディタ改良提案書 |
+| **AFE_IMPROVEMENT_PLAN.md** | 13KB | AFE改良計画 Ver.1 |
+| **AFE_IMPROVEMENT_ROADMAP_V2.md** | 49KB | AFE改良ロードマップ Ver.2 ⭐ |
 
-### 📋 参考ドキュメント
-
-#### 4. [ENGINE_DRIVEN_FRAMEWORK_PROPOSAL.md](./ENGINE_DRIVEN_FRAMEWORK_PROPOSAL.md)
-**エンジン駆動フレームワーク提案書（初版）**
-
-AFE構想の原点となった提案書。
-
----
-
-#### 5. [ENGINE_DRIVEN_FRAMEWORK_PROPOSAL_REVISED.md](./ENGINE_DRIVEN_FRAMEWORK_PROPOSAL_REVISED.md)
-**エンジン駆動フレームワーク提案書（改訂版）**
-
-プラグインシステムを含む拡張版提案書。
-
----
-
-#### 6. [ENGINE_FRAMEWORK_CORE_PROPOSAL.md](./ENGINE_FRAMEWORK_CORE_PROPOSAL.md)
-**フレームワークコア提案書**
-
-コア機能に絞った簡潔版提案書。
-
----
-
-#### 7. [ENGINE_FRAMEWORK_PROJECT_SUMMARY.md](./ENGINE_FRAMEWORK_PROJECT_SUMMARY.md)
-**プロジェクトサマリー**
-
-AFEプロジェクト全体の概要。
-
----
-
-#### 8. [ENGINE_DESIGN.md](./ENGINE_DESIGN.md)
-**エンジン設計書**
-
-既存エンジン（16種類）の詳細設計。
+**合計**: 約412KB、約137,000文字
 
 ---
 
 ## 🎯 推奨読書順序
 
-### 初めてAFEに触れる方
+### 初めて Adlaire Framework Ecosystem に触れる方
 
-1. **AFE_ENGINE_DRIVEN_MODEL.md** - エンジン駆動モデルの理解
-2. **ENGINE_FRAMEWORK_3FILES_PROPOSAL.md** - 3ファイル構成の詳細
-3. **AFE_IMPROVEMENT_ROADMAP_V2.md** ⭐ - 最新改良ロードマップの確認
+1. **Framework/README.md** (親ディレクトリ) - 全体概要の理解
+2. **EDITOR_CSS_FRAMEWORK_DESIGN.md** - AEF/ACF の詳細
+3. **AFE_ENGINE_DRIVEN_MODEL.md** - エンジン駆動モデルの理解
+
+**所要時間**: 約2時間
+
+---
+
+### AFE (PHP本体エンジン) 開発者
+
+1. **AFE_ENGINE_DRIVEN_MODEL.md** - エンジン駆動アーキテクチャ
+2. **ENGINE_FRAMEWORK_3FILES_PROPOSAL.md** - 3ファイル構成詳細
+3. **AFE_IMPROVEMENT_ROADMAP_V2.md** ⭐ - 最新ロードマップ
 
 **所要時間**: 約3時間
 
 ---
 
-### AFE導入を検討している方
+### AEF/ACF (JavaScript/CSS) 開発者
 
-1. **ENGINE_FRAMEWORK_3FILES_PROPOSAL.md** - 提案書の精読
-2. **AFE_ENGINE_DRIVEN_MODEL.md** - 技術詳細の理解
-3. **ENGINE_FRAMEWORK_PROJECT_SUMMARY.md** - プロジェクト概要
-4. **AFE_IMPROVEMENT_PLAN.md** - 改良ロードマップの確認
+1. **EDITOR_CSS_FRAMEWORK_DESIGN.md** - 設計詳細
+2. **WYSIWYG_EDITOR_IMPROVEMENT_PROPOSAL.md** - 改良提案
+3. **Framework/README.md** - 使用方法
 
-**所要時間**: 約3時間
-
----
-
-### AFE開発に参加する方
-
-すべてのドキュメントを読むことを推奨。
-
-**所要時間**: 約5時間
+**所要時間**: 約2時間
 
 ---
 
-## 📊 ドキュメント統計
+## 📊 統計
 
-| ドキュメント | サイズ | 文字数（推定） | 対象読者 |
-|------------|-------|--------------|---------|
-| AFE_ENGINE_DRIVEN_MODEL.md | 36KB | 12,000 | 初学者～中級者 |
-| ENGINE_FRAMEWORK_3FILES_PROPOSAL.md | 30KB | 10,000 | 導入検討者 |
-| AFE_IMPROVEMENT_PLAN.md | 13KB | 4,500 | 開発チーム |
-| ENGINE_DRIVEN_FRAMEWORK_PROPOSAL.md | 64KB | 21,000 | 参考資料 |
-| ENGINE_DRIVEN_FRAMEWORK_PROPOSAL_REVISED.md | 55KB | 18,000 | 参考資料 |
-| ENGINE_FRAMEWORK_CORE_PROPOSAL.md | 13KB | 4,500 | 参考資料 |
-| ENGINE_FRAMEWORK_PROJECT_SUMMARY.md | 12KB | 4,000 | 概要理解 |
-| ENGINE_DESIGN.md | 68KB | 22,000 | 上級者 |
+### エンジン構成
 
-**合計**: 約291KB、約96,000文字
+| フレームワーク | エンジン数 | サイズ | 言語 |
+|--------------|-----------|-------|------|
+| **AFE** | 3 engines | ~52KB | PHP 8.2+ |
+| **AEF** | 3 engines | ~41KB | JavaScript ES6+ |
+| **ACF** | 3 engines | ~35KB | CSS3 |
+| **合計** | **9 engines** | **~128KB** | - |
+
+### 改善指標
+
+| 指標 | Before | After | 改善 |
+|------|--------|-------|------|
+| エンジンファイル数 | 24+ files | 9 engines | **62%削減** |
+| メインJSサイズ | 2,889行 | ~300行 | **90%削減** |
+| CSS整理 | JS内散在 | エンジン分離 | **100%** |
+| 機能追加時間 | 4-8時間 | 1-2時間 | **75%削減** |
 
 ---
 
 ## 🔗 関連リンク
 
 - **GitHubリポジトリ**: https://github.com/fqwink/AdlairePlatform
-- **プルリクエスト**: https://github.com/fqwink/AdlairePlatform/pull/34
-- **将来の独立リポジトリ**: TBD（時期未定）
+- **メインREADME**: [Framework/README.md](../README.md)
+- **将来の独立Public化**: 時期未定
 
 ---
 
 ## 📝 ドキュメント更新履歴
 
-| 日付 | ドキュメント | 変更内容 |
-|-----|------------|---------|
-| 2026-03-13 | AFE_ENGINE_DRIVEN_MODEL.md | 新規作成（12,000文字） |
-| 2026-03-13 | AFE_IMPROVEMENT_PLAN.md | Ver 2.1.0 改良計画作成 |
-| 2026-03-13 | ENGINE_FRAMEWORK_3FILES_PROPOSAL.md | AFEブランディング適用 |
-| 2026-03-13 | 全ドキュメント | framework/docs/へ集約 |
+| 日付 | 変更内容 |
+|-----|---------|
+| 2026-03-14 | **3ファイルのエンジン駆動モデル実装完了** - AFE/AEF/ACF統合 (9 engines) |
+| 2026-03-13 | EDITOR_CSS_FRAMEWORK_DESIGN.md 作成 |
+| 2026-03-13 | WYSIWYG_EDITOR_IMPROVEMENT_PROPOSAL.md 作成 |
+| 2026-03-13 | AFE_ENGINE_DRIVEN_MODEL.md 作成 |
+| 2026-03-13 | 全ドキュメント Framework/docs/ へ集約 |
 
 ---
 
 ## 🛠️ ドキュメント貢献ガイドライン
 
-### ドキュメント作成・更新時のルール
+### ドキュメント作成ルール
 
-1. **Markdown形式**: すべてのドキュメントはMarkdown (.md) で作成
-2. **日本語**: 主要ドキュメントは日本語で記述
-3. **コード例**: 必ずシンタックスハイライト付きで記載
-4. **目次**: 長いドキュメント（3,000文字以上）は目次を含める
+1. **Markdown形式**: すべて `.md` 形式
+2. **日本語**: 主要ドキュメントは日本語
+3. **コード例**: シンタックスハイライト必須
+4. **目次**: 3,000文字以上のドキュメントには必須
 5. **更新履歴**: 大きな変更は本READMEに記録
 
 ### 命名規則
 
-- **大文字スネークケース**: `AFE_FEATURE_NAME.md`
-- **明確なプレフィックス**: `AFE_`, `ENGINE_`
-- **簡潔な名前**: 30文字以内
+- **大文字スネークケース**: `FRAMEWORK_FEATURE.md`
+- **プレフィックス**: `AFE_`, `AEF_`, `ACF_`, `ENGINE_`
+- **簡潔**: 30文字以内
 
 ---
 
-## 📞 サポート・フィードバック
+## 📞 サポート
 
-ドキュメントに関する質問・改善提案は以下へ：
+ドキュメントに関する質問・改善提案:
 
 - **GitHub Issues**: [AdlairePlatform/issues](https://github.com/fqwink/AdlairePlatform/issues)
-- **Pull Request**: ドキュメント改善のPR歓迎
-
----
-
-**AFE Framework Documentation**  
-**Version**: 2.1.0 (Next: 2.2.0 - 2.5.0 ロードマップ策定済)  
-**Last Updated**: 2026-03-13
+- **Pull Request**: ドキュメント改善PR歓迎
 
 ---
 
 ## 🚀 次のステップ
 
-現在策定されている改良ロードマップ:
-- **Phase 2 (Ver 2.2.0)**: 実用的強化（構造化ロギング、キャッシング等）- 2026年4月4日リリース予定
-- **Phase 3 (Ver 2.3.0)**: JavaScript フレームワーク化（AFE-JS）- 2026年5月2日リリース予定
-- **Phase 4 (Ver 2.4.0)**: 高度な最適化 - 2026年5月16日リリース予定
-- **Phase 5 (Ver 2.5.0)**: エンタープライズ対応 - 2026年5月30日リリース予定
+### 現在の状態
+- ✅ **AFE** (PHP本体) - 3エンジン実装完了
+- ✅ **AEF** (JavaScript) - 3エンジン実装完了
+- ✅ **ACF** (CSS) - 3エンジン実装完了
 
-詳細は [AFE_IMPROVEMENT_ROADMAP_V2.md](./AFE_IMPROVEMENT_ROADMAP_V2.md) を参照してください。
+### 将来計画
+1. 独立Public化 (時期未定)
+2. npm/CDN公開
+3. 包括的ドキュメントサイト
+4. コミュニティ貢献ガイドライン
+
+詳細は [AFE_IMPROVEMENT_ROADMAP_V2.md](./AFE_IMPROVEMENT_ROADMAP_V2.md) を参照。
+
+---
+
+**Adlaire Framework Ecosystem Documentation**  
+**Version**: 1.0.0  
+**Status**: ✅ Production Ready (9 Engines)  
+**Last Updated**: 2026-03-14
