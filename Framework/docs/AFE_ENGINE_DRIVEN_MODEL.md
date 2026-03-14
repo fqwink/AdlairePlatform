@@ -8,7 +8,7 @@
 
 ## 📋 目次
 
-1. [APFとは](#afeとは)
+1. [APFとは](#apfとは)
 2. [エンジン駆動モデルの概念](#エンジン駆動モデルの概念)
 3. [コアアーキテクチャ](#コアアーキテクチャ)
 4. [エンジンライフサイクル](#エンジンライフサイクル)
@@ -25,7 +25,7 @@
 
 ### 概要
 
-**Adlaire Platform Foundation（AFE）** は、PHP製の軽量かつ拡張性に優れたエンジン駆動フレームワークです。わずか3ファイル（約820行）で構成され、外部依存ゼロで動作します。
+**Adlaire Platform Foundation（APF）** は、PHP製の軽量かつ拡張性に優れたエンジン駆動フレームワークです。わずか3ファイル（約820行）で構成され、外部依存ゼロで動作します。
 
 ### 設計哲学
 
@@ -133,7 +133,7 @@ class Application {
     }
 }
 
-// ✅ AFE: 疎結合・変更の影響が限定的
+// ✅ APF: 疎結合・変更の影響が限定的
 class DataEngine extends BaseEngine {
     protected array $dependencies = ['logger', 'cache', 'database'];
     
@@ -170,7 +170,7 @@ class UserService {
     }
 }
 
-// ✅ AFE: テストが容易
+// ✅ APF: テストが容易
 class UserEngine extends BaseEngine {
     public function createUser($data) {
         $user = $this->get('user_repository')->create($data);  // DI

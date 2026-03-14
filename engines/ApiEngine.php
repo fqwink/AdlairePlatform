@@ -126,7 +126,7 @@ class ApiEngine {
 			'cache_clear'  => self::requireAuth('handleCacheClear'),
 			'cache_stats'  => self::requireAuth('handleCacheStats'),
 			'webhooks'     => self::requireAuth('handleWebhooks'),
-			default        => self::jsonError('不明な API エンドポイントです', 400),
+			default        => self::jsonError(I18n::t('api.error.unknown_endpoint'), 400),
 		};
 	}
 
@@ -166,7 +166,7 @@ class ApiEngine {
 	 */
 	private static function requireAuth(string $method): void {
 		if (!self::isAuthenticated()) {
-			self::jsonError('認証が必要です。Authorization ヘッダーに Bearer <API_KEY> を設定するか、セッションでログインしてください。', 401);
+			self::jsonError(I18n::t('api.error.auth_required'), 401);
 		}
 		/* C17 fix: セッション認証時は CSRF 検証を要求（APIキー認証時は不要） */
 		if (class_exists('AdminEngine') && AdminEngine::isLoggedIn() && !self::$authenticatedViaApiKey) {
@@ -299,11 +299,11 @@ class ApiEngine {
 	private static function handleGetPage(): void {
 		$slug = $_GET['slug'] ?? '';
 		if (!preg_match(self::SLUG_PATTERN, $slug)) {
-			self::jsonError('不正な slug パラメータです', 400);
+			self::jsonError(I18n::t('api.error.invalid_slug'), 400);
 		}
 		$pages = json_read('pages.json', content_dir());
 		if (!isset($pages[$slug])) {
-			self::jsonError('ページが見つかりません', 404);
+			self::jsonError(I18n::t('api.error.page_not_found'), 404);
 		}
 		self::jsonResponse(true, [
 			'slug'    => $slug,
@@ -332,7 +332,7 @@ class ApiEngine {
 	private static function handleSearch(): void {
 		$q = trim($_GET['q'] ?? '');
 		if ($q === '' || mb_strlen($q, 'UTF-8') > self::SEARCH_MAX_LEN) {
-			self::jsonError('検索クエリを入力してください（' . self::SEARCH_MAX_LEN . '文字以内）', 400);
+			self::jsonError(I18n::t('api.error.search_query', ['max' => self::SEARCH_MAX_LEN]), 400);
 		}
 
 		$results = [];
@@ -432,13 +432,13 @@ class ApiEngine {
 		$message = trim($_POST['message'] ?? '');
 
 		if ($name === '' || mb_strlen($name, 'UTF-8') > self::NAME_MAX_LEN) {
-			self::jsonError('名前を入力してください（' . self::NAME_MAX_LEN . '文字以内）');
+			self::jsonError(I18n::t('api.error.name_required', ['max' => self::NAME_MAX_LEN]));
 		}
 		if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-			self::jsonError('有効なメールアドレスを入力してください');
+			self::jsonError(I18n::t('api.error.invalid_email'));
 		}
 		if ($message === '' || mb_strlen($message, 'UTF-8') > self::MSG_MAX_LEN) {
-			self::jsonError('メッセージを入力してください（' . self::MSG_MAX_LEN . '文字以内）');
+			self::jsonError(I18n::t('api.error.message_required', ['max' => self::MSG_MAX_LEN]));
 		}
 
 		/* レート制限 */
@@ -448,7 +448,7 @@ class ApiEngine {
 		$settings = json_read('settings.json', settings_dir());
 		$to       = $settings['contact_email'] ?? '';
 		if ($to === '') {
-			self::jsonError('送信先が設定されていません', 500);
+			self::jsonError(I18n::t('api.error.no_contact_email'), 500);
 		}
 
 		$siteTitle = $settings['title'] ?? 'AP';
@@ -472,7 +472,7 @@ class ApiEngine {
 
 				if (!@mail($to, $subject, $body, $headers)) {
 					if (class_exists('DiagnosticEngine')) DiagnosticEngine::logIntegrationError('mail()', 0, 'コンタクトフォームメール送信失敗');
-					self::jsonError('メール送信に失敗しました', 500);
+					self::jsonError(I18n::t('api.error.mail_failed'), 500);
 				}
 			}
 		} catch (\Throwable $e) {

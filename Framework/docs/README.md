@@ -54,7 +54,7 @@ Adlaire Platform Foundation は **3ファイルのエンジン駆動モデル** 
 #### 2. **[FUTURE_ROADMAP.md](./FUTURE_ROADMAP.md)** ⭐ 最重要
 **Version 2.0.0 将来計画書** (7KB)
 
-将来追加予定の3フレームワーク (ASF/ACM/AIF) の完全設計。
+将来追加予定の3フレームワーク (ASG/ACE/AIS) の完全設計。
 
 **内容**:
 - **ASG** (Adlaire Static Generator) - 静的ジェネレーター
@@ -77,7 +77,7 @@ Adlaire Platform Foundation は **3ファイルのエンジン駆動モデル** 
 ---
 
 #### 3. **[EDITOR_CSS_FRAMEWORK_DESIGN.md](./EDITOR_CSS_FRAMEWORK_DESIGN.md)**
-**AEB AEF & ACF 完全設計書** (31KB)
+**AEB AEB & ADS 完全設計書** (31KB)
 
 JavaScript エディタフレームワーク (AEB) と CSS フレームワーク (ADS) の技術詳細。
 
@@ -107,7 +107,7 @@ JavaScript エディタフレームワーク (AEB) と CSS フレームワーク
 #### 4. **[WYSIWYG_EDITOR_IMPROVEMENT_PROPOSAL.md](./WYSIWYG_EDITOR_IMPROVEMENT_PROPOSAL.md)**
 **WYSIWYG エディタ改良提案書** (42KB)
 
-既存エディタ (wysiwyg.js) から AEF への移行計画。
+既存エディタ (wysiwyg.js) から AEB への移行計画。
 
 **内容**:
 - 現状分析 (2,889行のモノリシック構造)
@@ -115,7 +115,7 @@ JavaScript エディタフレームワーク (AEB) と CSS フレームワーク
   - CSS散在 (JS内200行 + テンプレート977行)
   - テストの欠如
   - 拡張困難
-- AEF 移行による改善効果
+- AEB 移行による改善効果
   - コードサイズ 90% 削減 (2,889行 → ~300行)
   - 機能追加時間 75% 削減 (4-8時間 → 1-2時間)
   - CSS 100% 分離
@@ -194,7 +194,7 @@ Adlaire Platform 本体 (15エンジン) の詳細設計。
 ### 🗺️ ロードマップ・改良計画
 
 #### 8. **[AFE_IMPROVEMENT_ROADMAP_V2.md](./AFE_IMPROVEMENT_ROADMAP_V2.md)**
-**AFE 改良ロードマップ Ver.2** (49KB)
+**APF 改良ロードマップ Ver.2** (49KB)
 
 APF (PHP本体) の将来改良計画 (Ver 2.2.0 - 2.5.0)。
 
@@ -214,12 +214,12 @@ APF (PHP本体) の将来改良計画 (Ver 2.2.0 - 2.5.0)。
 - 実装計画 (121時間、11週間)
 - ROI分析 (194%、投資回収期間4ヶ月)
 
-**対象**: AFE 開発チーム、プロジェクトマネージャー
+**対象**: APF 開発チーム、プロジェクトマネージャー
 
 ---
 
 #### 9. **[AFE_IMPROVEMENT_PLAN.md](./AFE_IMPROVEMENT_PLAN.md)**
-**AFE 改良計画 Ver.1** (14KB)
+**APF 改良計画 Ver.1** (14KB)
 
 APF の初期改良計画 (Ver 2.1.0、実装済み)。
 
@@ -276,7 +276,7 @@ APF の初期改良計画 (Ver 2.1.0、実装済み)。
 **推奨ドキュメント**:
 1. **[EDITOR_CSS_FRAMEWORK_DESIGN.md](./EDITOR_CSS_FRAMEWORK_DESIGN.md)** - 設計詳細 (1時間)
 2. **[WYSIWYG_EDITOR_IMPROVEMENT_PROPOSAL.md](./WYSIWYG_EDITOR_IMPROVEMENT_PROPOSAL.md)** - 移行計画 (1時間)
-3. **[../AEF/](../AEF/)** および **[../ACF/](../ACF/)** - ソースコード確認 (30分)
+3. **[../AEB/](../AEB/)** および **[../ADS/](../ADS/)** - ソースコード確認 (30分)
 
 **所要時間**: 約2.5時間
 
@@ -293,14 +293,14 @@ APF の初期改良計画 (Ver 2.1.0、実装済み)。
 1. **[AFE_ENGINE_DRIVEN_MODEL.md](./AFE_ENGINE_DRIVEN_MODEL.md)** - エンジン駆動モデル (1.5時間)
 2. **[ENGINE_FRAMEWORK_3FILES_PROPOSAL.md](./ENGINE_FRAMEWORK_3FILES_PROPOSAL.md)** - 3ファイル構成 (1時間)
 3. **[AFE_IMPROVEMENT_ROADMAP_V2.md](./AFE_IMPROVEMENT_ROADMAP_V2.md)** - 改良ロードマップ (1時間)
-4. **[../AFE/](../AFE/)** - ソースコード確認 (30分)
+4. **[../APF/](../APF/)** - ソースコード確認 (30分)
 
 **所要時間**: 約4時間
 
 **得られる知識**:
 - エンジン駆動アーキテクチャ
 - 依存性注入システム
-- AFE API完全理解
+- APF API完全理解
 
 ---
 
@@ -317,7 +317,7 @@ APF の初期改良計画 (Ver 2.1.0、実装済み)。
 **所要時間**: 約5時間
 
 **得られる知識**:
-- ASF/ACM/AIF の設計方針
+- ASG/ACE/AIS の設計方針
 - Platformからの抽出戦略
 - 後方互換性の維持方法
 - リスク管理
@@ -359,8 +359,8 @@ APF の初期改良計画 (Ver 2.1.0、実装済み)。
 
 | 状態 | フレームワーク数 | エンジン数 | サイズ |
 |------|----------------|-----------|-------|
-| ✅ 実装済み | 3 (AFE, AEF, ACF) | 9 | ~128KB |
-| 📋 計画中 | 3 (ASF, ACM, AIF) | 9 | ~150KB |
+| ✅ 実装済み | 3 (APF, AEB, ADS) | 9 | ~128KB |
+| 📋 計画中 | 3 (ASG, ACE, AIS) | 9 | ~150KB |
 | **合計** | **6** | **18** | **~278KB** |
 
 ### 改善指標
@@ -388,12 +388,12 @@ APF の初期改良計画 (Ver 2.1.0、実装済み)。
 
 - **大文字スネークケース**: `FRAMEWORK_FEATURE_NAME.md`
 - **プレフィックス**:
-  - `AFE_` - PHP Framework 関連
-  - `AEF_` - JavaScript Editor 関連
-  - `ACF_` - CSS Framework 関連
-  - `ASF_` - Static Generator 関連（将来）
-  - `ACM_` - CMS Framework 関連（将来）
-  - `AIF_` - Infrastructure 関連（将来）
+  - `APF_` - PHP Framework 関連
+  - `AEB_` - JavaScript Editor 関連
+  - `ADS_` - CSS Framework 関連
+  - `ASG_` - Static Generator 関連（将来）
+  - `ACE_` - CMS Framework 関連（将来）
+  - `AIS_` - Infrastructure 関連（将来）
   - `ENGINE_` - エンジン駆動モデル一般
 - **簡潔**: 30文字以内
 
@@ -446,8 +446,8 @@ APF の初期改良計画 (Ver 2.1.0、実装済み)。
 | 日付 | 変更内容 |
 |-----|---------|
 | 2026-03-14 | **ドキュメント全体を再整備** - 統合インデックス作成、古い提案書をarchive化 |
-| 2026-03-14 | **FUTURE_ROADMAP.md 作成** - ASF/ACM/AIF 将来計画 (18エンジン構想) |
-| 2026-03-14 | **3ファイルのエンジン駆動モデル実装完了** - AFE/AEB/ADS (9エンジン) |
+| 2026-03-14 | **FUTURE_ROADMAP.md 作成** - ASG/ACE/AIS 将来計画 (18エンジン構想) |
+| 2026-03-14 | **3ファイルのエンジン駆動モデル実装完了** - APF/AEB/ADS (9エンジン) |
 | 2026-03-13 | EDITOR_CSS_FRAMEWORK_DESIGN.md 作成 |
 | 2026-03-13 | WYSIWYG_EDITOR_IMPROVEMENT_PROPOSAL.md 作成 |
 | 2026-03-13 | AFE_ENGINE_DRIVEN_MODEL.md 作成 |

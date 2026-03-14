@@ -92,7 +92,7 @@ CSS散在状況:
 
 ---
 
-## AEF設計
+## AEB設計
 
 ### Adlaire Editor & Blocks (AEB)
 
@@ -145,7 +145,7 @@ framework/editor/
 
 ```javascript
 // framework/editor/core/Editor.js
-export class AEFEditor {
+export class AEBEditor {
     constructor(container, options = {}) {
         this.container = container;
         this.options = this.mergeOptions(options);
@@ -668,14 +668,14 @@ const myPlugin = {
 };
 
 // プラグイン使用例
-const editor = new AEFEditor('#editor', {
+const editor = new AEBEditor('#editor', {
     plugins: [myPlugin]
 });
 ```
 
 ---
 
-## ACF設計
+## ADS設計
 
 ### Adlaire Design System (ADS)
 
@@ -1049,13 +1049,13 @@ framework/css/
 
 ### Phase 1: 基盤構築（4週間、48時間）
 
-**Week 1-2: AEF コア実装**
+**Week 1-2: AEB コア実装**
 - エディタコアクラス（Editor, BlockRegistry, EventBus）
 - BaseBlock 実装
 - 基本3ブロック（Paragraph, Heading, List）
 - 工数: 24時間
 
-**Week 3-4: ACF 基盤実装**
+**Week 3-4: ADS 基盤実装**
 - CSS変数システム
 - リセットCSS、ユーティリティクラス
 - エディタベーススタイル
@@ -1063,13 +1063,13 @@ framework/css/
 
 ### Phase 2: 機能拡張（3週間、36時間）
 
-**Week 5-6: AEF ブロック拡張**
+**Week 5-6: AEB ブロック拡張**
 - 残り6ブロック実装（Code, Quote, Table, Image, Checklist, Delimiter）
 - InlineToolbar実装
 - SlashCommands実装
 - 工数: 24時間
 
-**Week 7: ACF コンポーネント**
+**Week 7: ADS コンポーネント**
 - ボタン、フォーム、カード、モーダル
 - グリッドシステム
 - 工数: 12時間
@@ -1077,7 +1077,7 @@ framework/css/
 ### Phase 3: 統合・テスト（2週間、24時間）
 
 **Week 8: 統合**
-- AEF + ACF 統合
+- AEB + ADS 統合
 - 既存wysiwyg.jsからの移行
 - 工数: 12時間
 
@@ -1146,7 +1146,7 @@ framework/css/
 1. **この設計書のレビュー**
 2. **Phase 1 実装開始承認**
 3. **開発環境セットアップ**
-4. **AEF コア実装開始** (2026年3月中旬予定)
+4. **AEB コア実装開始** (2026年3月中旬予定)
 
 ---
 

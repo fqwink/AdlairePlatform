@@ -9,7 +9,7 @@
 分類: 社内限り
 ---
 
-> **バージョニング規則**: [AFE/VERSIONING.md](https://github.com/fqwink/AdlaireGroup-Documents-Repository/blob/main/AFE/VERSIONING.md)
+> **バージョニング規則**: [APF/VERSIONING.md](https://github.com/fqwink/AdlaireGroup-Documents-Repository/blob/main/APF/VERSIONING.md)
 
 > **関連ドキュメント**:  
 > - 設計方針: [AdlairePlatform_Design.md](AdlairePlatform_Design.md)  
