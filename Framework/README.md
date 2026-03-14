@@ -264,7 +264,24 @@ editor.events.on('save', ({ blocks }) => {
 
 ---
 
-## 📊 統計
+## Adlaire Platform への統合状況
+
+以下のFrameworkコンポーネントは、APエンジンパターン（staticメソッド、名前空間なし、IIFE）に適応済みです。
+
+| Framework 元 | AP 統合先 | 状態 |
+|-------------|----------|------|
+| ACF.Base.css (CSS変数・リセット) | `dashboard.html` で直接リンク | 統合済み |
+| AFE.Utilities.php Validator | `engines/Validator.php` として抽出 | 統合済み |
+| AEF.Core.js EventBus | `engines/JsEngine/ap-events.js` として実装 | 統合済み |
+| AEF.Utils.js 共通処理 | `engines/JsEngine/ap-utils.js` として実装 | 統合済み |
+
+**削除済み**: `BaseEngine.php` — 存在しないFramework名前空間を参照していたため削除。APエンジンは `EngineTrait` を使用。
+
+**未統合（保留）**: AFE.Core.php (DI Container/Router), AFE.Database.php (ORM), AEF.Blocks.js, ACF.Components.css, ACF.Editor.css — APはフラットファイルCMSのため現時点では不要。将来のPublic独立化時に活用。
+
+---
+
+## 統計
 
 | フレームワーク | エンジン数 | 総サイズ | アーキテクチャ |
 |--------------|-----------|---------|--------------|

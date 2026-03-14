@@ -70,10 +70,12 @@ class ApiEngine {
 
 		/* CORS ヘッダー（ヘッドレス CMS: 外部フロントエンドからの API 呼び出し対応） */
 		$allowedOrigin = self::getCorsOrigin();
-		header('Access-Control-Allow-Origin: ' . $allowedOrigin);
-		/* R16 fix: オリジン別レスポンスのキャッシュ分離（CORS キャッシュポイズニング防止） */
-		if ($allowedOrigin !== '*') {
-			header('Vary: Origin');
+		if ($allowedOrigin !== '') {
+			header('Access-Control-Allow-Origin: ' . $allowedOrigin);
+			/* R16 fix: オリジン別レスポンスのキャッシュ分離（CORS キャッシュポイズニング防止） */
+			if ($allowedOrigin !== '*') {
+				header('Vary: Origin');
+			}
 		}
 		header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
 		header('Access-Control-Allow-Headers: Content-Type, Authorization');
@@ -142,7 +144,7 @@ class ApiEngine {
 		if (preg_match('/^Bearer\s+(.+)$/i', $authHeader, $m)) {
 			$keys = json_read('api_keys.json', settings_dir());
 			foreach ($keys as $k) {
-				if (password_verify($m[1], $k['hash'] ?? '')) {
+				if (password_verify($m[1], $k['key_hash'] ?? '')) {
 					$detailed = true;
 					break;
 				}
@@ -1219,8 +1221,8 @@ class ApiEngine {
 		if ($origin !== '' && in_array($origin, $allowed, true)) {
 			return $origin;
 		}
-		/* BUG#9 fix: マッチしないオリジンに対して allowed[0] を返すと不正な CORS ポリシーになる */
-		return 'null';
+		/* ホワイトリストに含まれないオリジンはヘッダー自体を出力しない */
+		return '';
 	}
 
 	/**
