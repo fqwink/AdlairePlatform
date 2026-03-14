@@ -410,7 +410,7 @@ class MarkdownEngine {
 		/* R4 fix: 制御文字・空白を除去（スキームチェックバイパス防止） */
 		$url = preg_replace('/[\x00-\x1f\x7f\s]/', '', $url);
 		/* 許可リスト方式: 安全なスキーム / 相対パスのみ許可 */
-		if (preg_match('#^https?://#i', $url) || preg_match('#^(mailto:|/|#|\?)#', $url)) {
+		if (preg_match('#^https?://#i', $url) || preg_match('/^(mailto:|\/|\#|\?)/', $url)) {
 			return $url;
 		}
 		/* 相対パス（スキームなし・コロンなし） */
