@@ -1,10 +1,12 @@
-# Adlaire Framework Ecosystem (AFE) - Complete Implementation
+# Adlaire Framework Ecosystem (AFE)
 
 **Version 1.0.0** | 将来的に独立Public化予定
 
 ## 📖 概要
 
-Adlaire Framework Ecosystem は、モジュール化された高品質フレームワーク群です。各フレームワークは **3ファイル構成** で、完全実装されています。
+Adlaire Framework Ecosystem は、Adlaire Platform から独立したフロントエンド専用フレームワーク群です。各フレームワークは **3ファイル構成** で完全実装されています。
+
+**注意**: Adlaire Platform 本体はエンジン駆動モデルであり、フレームワーク化されていません。
 
 ### フレームワーク一覧
 
