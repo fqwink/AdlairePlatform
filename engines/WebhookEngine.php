@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /**
  * WebhookEngine - Outgoing Webhook 配信エンジン
  *
@@ -199,84 +199,6 @@ class WebhookEngine {
 		}
 	}
 
-	/* ══════════════════════════════════════════════
-	   POST アクションハンドラ
-	   ══════════════════════════════════════════════ */
-
-	public static function handle(): void {
-		$action = $_POST['ap_action'] ?? '';
-		$valid = ['webhook_add', 'webhook_delete', 'webhook_toggle', 'webhook_test'];
-		if (!in_array($action, $valid, true)) return;
-
-		self::requireLogin();
-
-		match ($action) {
-			'webhook_add'    => self::handleAdd(),
-			'webhook_delete' => self::handleDelete(),
-			'webhook_toggle' => self::handleToggle(),
-			'webhook_test'   => self::handleTest(),
-		};
-	}
-
-	private static function handleAdd(): never {
-		$url    = trim($_POST['url'] ?? '');
-		$label  = trim($_POST['label'] ?? '');
-		$events = !empty($_POST['events']) ? json_decode($_POST['events'], true) : [];
-		$secret = trim($_POST['secret'] ?? '');
-
-		if (!self::addWebhook($url, $label, is_array($events) ? $events : [], $secret)) {
-			self::jsonError('不正な URL です');
-		}
-		AdminEngine::logActivity('Webhook 追加: ' . $url);
-		self::jsonOk(self::listWebhooks());
-	}
-
-	private static function handleDelete(): never {
-		$index = (int)($_POST['index'] ?? -1);
-		if (!self::deleteWebhook($index)) {
-			self::jsonError('Webhook の削除に失敗しました');
-		}
-		AdminEngine::logActivity('Webhook 削除');
-		self::jsonOk(self::listWebhooks());
-	}
-
-	private static function handleToggle(): never {
-		$index = (int)($_POST['index'] ?? -1);
-		if (!self::toggleWebhook($index)) {
-			self::jsonError('切り替えに失敗しました');
-		}
-		self::jsonOk(self::listWebhooks());
-	}
-
-	private static function handleTest(): never {
-		$index = (int)($_POST['index'] ?? -1);
-		$config = self::loadConfig();
-		if (!isset($config['webhooks'][$index])) {
-			self::jsonError('Webhook が見つかりません');
-		}
-		/* BUG#19 fix: dispatch() は全 Webhook に送信してしまうため、指定 Webhook のみに直接送信 */
-		$wh = $config['webhooks'][$index];
-		$url = $wh['url'] ?? '';
-		if ($url === '') {
-			self::jsonError('Webhook URL が未設定です');
-		}
-		$body = json_encode([
-			'event'     => 'webhook.test',
-			'timestamp' => date('c'),
-			'data'      => ['message' => 'テスト配信', 'index' => $index],
-		], JSON_UNESCAPED_UNICODE);
-		$headers = [
-			'Content-Type: application/json',
-			'User-Agent: AdlairePlatform/' . (defined('AP_VERSION') ? AP_VERSION : '1.0'),
-			'X-AP-Event: webhook.test',
-		];
-		$secret = $wh['secret'] ?? '';
-		if ($secret !== '') {
-			$headers[] = 'X-AP-Signature: sha256=' . hash_hmac('sha256', $body, $secret);
-		}
-		self::sendAsync($url, $body, $headers);
-		self::jsonOk(['message' => 'テスト送信しました']);
-	}
 
 	/**
 	 * Ver.1.6: 受信 Webhook の HMAC-SHA256 署名を検証する。

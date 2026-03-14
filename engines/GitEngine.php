@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /**
  * GitEngine - Git/GitHub 連携エンジン
  *
@@ -636,87 +636,4 @@ class GitEngine {
 		return $files;
 	}
 
-	/* ══════════════════════════════════════════════
-	   POST アクションハンドラ
-	   ══════════════════════════════════════════════ */
-
-	public static function handle(): void {
-		$action = $_POST['ap_action'] ?? '';
-		$valid = [
-			'git_configure', 'git_test', 'git_pull', 'git_push',
-			'git_log', 'git_status', 'git_preview_branch',
-		];
-		if (!in_array($action, $valid, true)) return;
-
-		self::requireLogin();
-
-		$result = match ($action) {
-			'git_configure'      => self::handleConfigure(),
-			'git_test'           => self::testConnection(),
-			'git_pull'           => self::pull(),
-			'git_push'           => self::push(trim($_POST['message'] ?? '')),
-			/* M24 fix: limit のバウンドチェック */
-			'git_log'            => self::log(max(1, min(100, (int)($_POST['limit'] ?? 20)))),
-			'git_status'         => self::status(),
-			'git_preview_branch' => self::createPreviewBranch(trim($_POST['name'] ?? 'draft')),
-		};
-
-		echo json_encode($result, JSON_UNESCAPED_UNICODE);
-		exit;
-	}
-
-	private static function handleConfigure(): array {
-		$repository = trim($_POST['repository'] ?? '');
-		$token = trim($_POST['token'] ?? '');
-		$branch = trim($_POST['branch'] ?? '') ?: 'main';
-		$contentDir = trim($_POST['content_dir'] ?? '') ?: 'content';
-		$enabled = !empty($_POST['enabled']);
-		$issuesEnabled = !empty($_POST['issues_enabled']);
-		$webhookSecret = trim($_POST['webhook_secret'] ?? '');
-
-		if ($enabled && ($repository === '' || $token === '')) {
-			return ['ok' => false, 'error' => 'リポジトリとトークンは必須です'];
-		}
-		/* C21 fix: リポジトリ名の形式を厳密に検証（owner/repo） */
-		if ($repository !== '' && !preg_match('#^[a-zA-Z0-9_.\-]+/[a-zA-Z0-9_.\-]+$#', $repository)) {
-			return ['ok' => false, 'error' => 'リポジトリは owner/repo 形式で入力してください'];
-		}
-		/* C22 fix: content_dir のパストラバーサル防止 */
-		if (!preg_match('/^[a-zA-Z0-9_\-]+$/', $contentDir)) {
-			return ['ok' => false, 'error' => 'content_dir に不正な文字が含まれています'];
-		}
-		/* M22 fix: ブランチ名の検証 */
-		if (!preg_match('/^[a-zA-Z0-9_.\-\/]+$/', $branch) || str_contains($branch, '..')) {
-			return ['ok' => false, 'error' => 'ブランチ名に不正な文字が含まれています'];
-		}
-
-		/* トークンが「********」の場合は既存値を維持 */
-		$cfg = self::loadConfig();
-		if ($token === '********' || $token === '') {
-			$token = $cfg['token'] ?? '';
-		}
-
-		$newConfig = [
-			'enabled'        => $enabled,
-			'provider'       => 'github',
-			'repository'     => $repository,
-			'branch'         => $branch,
-			'token'          => $token,
-			'content_dir'    => $contentDir,
-			'issues_enabled' => $issuesEnabled,
-			'webhook_secret' => $webhookSecret,
-			'last_sync'      => $cfg['last_sync'] ?? null,
-			'last_sync_direction' => $cfg['last_sync_direction'] ?? null,
-			'last_commit_sha'     => $cfg['last_commit_sha'] ?? null,
-		];
-
-		self::saveConfig($newConfig);
-
-		if (class_exists('AdminEngine') && method_exists('AdminEngine', 'logActivity')) {
-			$status = $enabled ? '有効' : '無効';
-			AdminEngine::logActivity("Git 連携設定変更: {$repository} ({$status})");
-		}
-
-		return ['ok' => true, 'message' => 'Git 連携設定を保存しました'];
-	}
 }

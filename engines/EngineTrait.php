@@ -2,42 +2,18 @@
 /**
  * EngineTrait - エンジン共通処理
  *
- * 7+ エンジンで重複している認証・JSON レスポンス処理を統合。
+ * JSON エラーレスポンスを統合。
  * 使用: use EngineTrait; （static メソッドとして提供）
  *
  * Ver.1.7-37: $throwOnError フラグ追加。true 時は exit の代わりに例外を投げる。
- * Controller のラッパーメソッドから使用し、エンジンの既存 handle() との後方互換を維持。
  */
 trait EngineTrait {
 
 	/**
-	 * true のとき jsonError/jsonOk は exit せず例外を投げる。
+	 * true のとき jsonError は exit せず例外を投げる。
 	 * @since Ver.1.7-37
 	 */
 	protected static bool $throwOnError = false;
-
-	/**
-	 * ログイン必須チェック + CSRF 検証 + JSON Content-Type 設定。
-	 * 管理系 POST ハンドラの冒頭で呼び出す。
-	 */
-	protected static function requireLogin(): void {
-		if (!AdminEngine::isLoggedIn()) {
-			http_response_code(401);
-			header('Content-Type: application/json; charset=UTF-8');
-			echo json_encode(['error' => '未ログイン'], JSON_UNESCAPED_UNICODE);
-			exit;
-		}
-		AdminEngine::verifyCsrf();
-		header('Content-Type: application/json; charset=UTF-8');
-	}
-
-	/**
-	 * 成功 JSON レスポンスを送信して終了。
-	 */
-	protected static function jsonOk(mixed $data): never {
-		echo json_encode(['ok' => true, 'data' => $data], JSON_UNESCAPED_UNICODE);
-		exit;
-	}
 
 	/**
 	 * エラー JSON レスポンスを送信して終了。
