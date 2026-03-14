@@ -13,6 +13,7 @@
  * 設定ファイル: data/settings/git_config.json
  */
 class GitEngine {
+	use EngineTrait;
 
 	private const CONFIG_FILE    = 'git_config.json';
 	/* M23 fix: スラッシュとドットを除外（パストラバーサル防止） */
@@ -270,7 +271,11 @@ class GitEngine {
 				}
 			}
 
-			file_put_contents($localPath, $decoded, LOCK_EX);
+			if (file_put_contents($localPath, $decoded, LOCK_EX) === false) {
+				$errors[] = "書き込み失敗: {$path}";
+				if (class_exists('DiagnosticEngine')) DiagnosticEngine::logEnvironmentIssue('Git Pull 書き込み失敗', ['path' => basename($localPath)]);
+				continue;
+			}
 			$downloaded++;
 		}
 
@@ -540,33 +545,6 @@ class GitEngine {
 		return ['ok' => true, 'branch' => $branchName, 'existed' => false];
 	}
 
-	/** プレビューブランチを main にマージ */
-	public static function mergePreviewBranch(string $branchName): array {
-		$cfg = self::loadConfig();
-		if (!self::isEnabled()) {
-			return ['ok' => false, 'error' => 'Git 連携が無効です'];
-		}
-
-		$repo = $cfg['repository'];
-		$baseBranch = $cfg['branch'] ?? 'main';
-
-		$mergeRes = self::apiRequest('POST', "/repos/{$repo}/merges", [
-			'base'           => $baseBranch,
-			'head'           => $branchName,
-			'commit_message' => "Merge {$branchName} into {$baseBranch}",
-		]);
-
-		if (!$mergeRes['ok']) {
-			return ['ok' => false, 'error' => 'マージに失敗: ' . ($mergeRes['data']['message'] ?? '')];
-		}
-
-		if (class_exists('AdminEngine') && method_exists('AdminEngine', 'logActivity')) {
-			AdminEngine::logActivity("プレビューブランチマージ: {$branchName} → {$baseBranch}");
-		}
-
-		return ['ok' => true, 'sha' => $mergeRes['data']['sha'] ?? ''];
-	}
-
 	/* ══════════════════════════════════════════════
 	   GitHub Issue（お問い合わせ保存）
 	   ══════════════════════════════════════════════ */
@@ -649,14 +627,7 @@ class GitEngine {
 		];
 		if (!in_array($action, $valid, true)) return;
 
-		if (!AdminEngine::isLoggedIn()) {
-			http_response_code(401);
-			header('Content-Type: application/json; charset=UTF-8');
-			echo json_encode(['error' => '未ログイン']);
-			exit;
-		}
-		AdminEngine::verifyCsrf();
-		header('Content-Type: application/json; charset=UTF-8');
+		self::requireLogin();
 
 		$result = match ($action) {
 			'git_configure'      => self::handleConfigure(),

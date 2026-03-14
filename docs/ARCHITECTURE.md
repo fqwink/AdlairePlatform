@@ -3,7 +3,7 @@
 <!-- ⚠️ 削除禁止: 本ドキュメントはエンジン駆動モデルアーキテクチャに関する最上位ドキュメントです -->
 
 > **Ver.1.4-pre**: 本ドキュメントは Ver.1.4-pre 時点のアーキテクチャを記録しています。
-> 全 15 エンジン実装完了。Ver.1.4-pre で AppContext・Logger・MailerEngine を追加。
+> 全 16 エンジン実装完了。Ver.1.4-pre で AppContext・Logger・MailerEngine・DiagnosticEngine を追加。
 
 > 分類: 社内限り
 
@@ -368,6 +368,7 @@ ob_end_flush()
 | AppContext | `engines/AppContext.php` | ✅ 実装済み（Ver.1.4-pre） | 集中状態管理 ⭐ |
 | Logger | `engines/Logger.php` | ✅ 実装済み（Ver.1.4-pre） | 構造化ログ（PSR-3 互換） ⭐ |
 | MailerEngine | `engines/MailerEngine.php` | ✅ 実装済み（Ver.1.4-pre） | メール送信抽象化 ⭐ |
+| DiagnosticEngine | `engines/DiagnosticEngine.php` | ✅ 実装済み（Ver.1.4-pre） | リアルタイム診断・テレメトリ ⭐ |
 
 ---
 

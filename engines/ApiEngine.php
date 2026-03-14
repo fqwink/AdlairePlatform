@@ -450,7 +450,7 @@ class ApiEngine {
 		}
 
 		$siteTitle = $settings['title'] ?? 'AP';
-		if (!MailerEngine::sendContact($to, $name, $email, $message, $siteTitle)) {
+
 		/* メールヘッダインジェクション対策 */
 		$safeName  = str_replace(["\r", "\n"], '', $name);
 		$safeEmail = str_replace(["\r", "\n"], '', $email);
@@ -458,15 +458,19 @@ class ApiEngine {
 			DiagnosticEngine::log('security', 'メールヘッダインジェクション試行検出');
 		}
 
-		/* R17 fix: サブジェクトのヘッダインジェクション対策 */
-		$safeTitle = str_replace(["\r", "\n"], '', $settings['title'] ?? 'AP');
-		$subject = '【' . $safeTitle . '】お問い合わせ: ' . $safeName;
-		$body    = "名前: {$safeName}\nメール: {$safeEmail}\n\n{$message}";
-		$headers = "From: {$safeEmail}\r\nReply-To: {$safeEmail}\r\nContent-Type: text/plain; charset=UTF-8";
+		/* E-3 fix: MailerEngine 経由でメール送信（リトライ・ログ・モック対応） */
+		if (!MailerEngine::sendContact($to, $name, $email, $message, $siteTitle)) {
+			/* MailerEngine 失敗時: レガシー mail() にフォールバック */
+			/* R17 fix: サブジェクトのヘッダインジェクション対策 */
+			$safeTitle = str_replace(["\r", "\n"], '', $settings['title'] ?? 'AP');
+			$subject = '【' . $safeTitle . '】お問い合わせ: ' . $safeName;
+			$body    = "名前: {$safeName}\nメール: {$safeEmail}\n\n{$message}";
+			$headers = "From: {$safeEmail}\r\nReply-To: {$safeEmail}\r\nContent-Type: text/plain; charset=UTF-8";
 
-		if (!@mail($to, $subject, $body, $headers)) {
-			if (class_exists('DiagnosticEngine')) DiagnosticEngine::logIntegrationError('mail()', 0, 'コンタクトフォームメール送信失敗');
-			self::jsonError('メール送信に失敗しました', 500);
+			if (!@mail($to, $subject, $body, $headers)) {
+				if (class_exists('DiagnosticEngine')) DiagnosticEngine::logIntegrationError('mail()', 0, 'コンタクトフォームメール送信失敗');
+				self::jsonError('メール送信に失敗しました', 500);
+			}
 		}
 
 		/* アクティビティログに記録 */
@@ -893,7 +897,9 @@ class ApiEngine {
 			self::jsonError('許可されていないファイル形式です', 400);
 		}
 		$dir = 'uploads/';
-		if (!is_dir($dir)) mkdir($dir, 0755, true);
+		if (!FileSystem::ensureDir($dir)) {
+			self::jsonError('アップロードディレクトリの作成に失敗しました', 500);
+		}
 		$filename = bin2hex(random_bytes(12)) . '.' . $ext_map[$mime];
 		if (!move_uploaded_file($file['tmp_name'], $dir . $filename)) {
 			self::jsonError('ファイル保存に失敗しました', 500);
@@ -1161,10 +1167,19 @@ class ApiEngine {
 	}
 
 	private static function jsonResponse(bool $ok, mixed $data): never {
-		echo json_encode(
+		$json = json_encode(
 			['ok' => $ok, 'data' => $data],
 			JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP
 		);
+		/* 公開エンドポイントの成功レスポンスをキャッシュに保存 */
+		if ($ok && class_exists('CacheEngine')) {
+			$action = $_GET['ap_api'] ?? '';
+			$cacheable = ['pages', 'page', 'settings', 'collections', 'collection', 'item'];
+			if (in_array($action, $cacheable, true)) {
+				CacheEngine::store($action, $_GET, $json);
+			}
+		}
+		echo $json;
 		exit;
 	}
 
@@ -1192,7 +1207,8 @@ class ApiEngine {
 		if ($origin !== '' && in_array($origin, $allowed, true)) {
 			return $origin;
 		}
-		return $allowed[0];
+		/* BUG#9 fix: マッチしないオリジンに対して allowed[0] を返すと不正な CORS ポリシーになる */
+		return 'null';
 	}
 
 	/**

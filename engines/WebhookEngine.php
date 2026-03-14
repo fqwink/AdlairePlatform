@@ -12,9 +12,9 @@
  * 署名: HMAC-SHA256（X-AP-Signature ヘッダー）
  */
 class WebhookEngine {
+	use EngineTrait;
 
 	private const CONFIG_FILE = 'webhooks.json';
-	private const SLUG_PATTERN = '/^[a-zA-Z0-9_\-]+$/';
 
 	/**
 	 * Webhook 設定を読み込み
@@ -195,14 +195,7 @@ class WebhookEngine {
 		$valid = ['webhook_add', 'webhook_delete', 'webhook_toggle', 'webhook_test'];
 		if (!in_array($action, $valid, true)) return;
 
-		if (!AdminEngine::isLoggedIn()) {
-			http_response_code(401);
-			header('Content-Type: application/json; charset=UTF-8');
-			echo json_encode(['error' => '未ログイン']);
-			exit;
-		}
-		AdminEngine::verifyCsrf();
-		header('Content-Type: application/json; charset=UTF-8');
+		self::requireLogin();
 
 		match ($action) {
 			'webhook_add'    => self::handleAdd(),
@@ -248,19 +241,28 @@ class WebhookEngine {
 		if (!isset($config['webhooks'][$index])) {
 			self::jsonError('Webhook が見つかりません');
 		}
-		self::dispatch('webhook.test', ['message' => 'テスト配信', 'index' => $index]);
+		/* BUG#19 fix: dispatch() は全 Webhook に送信してしまうため、指定 Webhook のみに直接送信 */
+		$wh = $config['webhooks'][$index];
+		$url = $wh['url'] ?? '';
+		if ($url === '') {
+			self::jsonError('Webhook URL が未設定です');
+		}
+		$body = json_encode([
+			'event'     => 'webhook.test',
+			'timestamp' => date('c'),
+			'data'      => ['message' => 'テスト配信', 'index' => $index],
+		], JSON_UNESCAPED_UNICODE);
+		$headers = [
+			'Content-Type: application/json',
+			'User-Agent: AdlairePlatform/' . (defined('AP_VERSION') ? AP_VERSION : '1.0'),
+			'X-AP-Event: webhook.test',
+		];
+		$secret = $wh['secret'] ?? '';
+		if ($secret !== '') {
+			$headers[] = 'X-AP-Signature: sha256=' . hash_hmac('sha256', $body, $secret);
+		}
+		self::sendAsync($url, $body, $headers);
 		self::jsonOk(['message' => 'テスト送信しました']);
-	}
-
-	private static function jsonOk(mixed $data): never {
-		echo json_encode(['ok' => true, 'data' => $data], JSON_UNESCAPED_UNICODE);
-		exit;
-	}
-
-	private static function jsonError(string $msg, int $status = 400): never {
-		http_response_code($status);
-		echo json_encode(['ok' => false, 'error' => $msg], JSON_UNESCAPED_UNICODE);
-		exit;
 	}
 
 	/**

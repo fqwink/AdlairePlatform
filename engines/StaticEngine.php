@@ -7,6 +7,8 @@
  * TemplateEngine + ThemeEngine::buildStaticContext() でレンダリング。
  */
 class StaticEngine {
+	use EngineTrait;
+
 	private const OUTPUT_DIR     = 'static';
 	private const BUILD_STATE    = 'static_build.json';
 	private const SLUG_PATTERN   = '/^[a-zA-Z0-9_\-]+(\/[a-zA-Z0-9_\-]+)*$/';
@@ -30,14 +32,7 @@ class StaticEngine {
 		];
 		if (!in_array($action, $valid, true)) return;
 
-		if (!isset($_SESSION['l']) || $_SESSION['l'] !== true) {
-			http_response_code(401);
-			header('Content-Type: application/json; charset=UTF-8');
-			echo json_encode(['error' => '未ログイン']);
-			exit;
-		}
-		AdminEngine::verifyCsrf();
-		header('Content-Type: application/json; charset=UTF-8');
+		self::requireLogin();
 
 		$engine = new self();
 		$engine->init();

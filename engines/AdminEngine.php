@@ -129,16 +129,6 @@ class AdminEngine {
 		return true;
 	}
 
-	/** ユーザーのロールを変更 */
-	public static function updateUserRole(string $username, string $role): bool {
-		if (!in_array($role, ['admin', 'editor', 'viewer'], true)) return false;
-		$users = json_read(self::USERS_FILE, settings_dir());
-		if (!isset($users[$username])) return false;
-		$users[$username]['role'] = $role;
-		json_write(self::USERS_FILE, $users, settings_dir());
-		return true;
-	}
-
 	/**
 	 * マルチユーザーログイン試行。
 	 * users.json にユーザーが定義されていればそちらで認証。
@@ -284,6 +274,13 @@ class AdminEngine {
 	   ══════════════════════════════════════════════ */
 
 	private static function handleEditField(): void {
+		/* BUG#13 fix: viewer ロールはコンテンツ編集不可 */
+		if (!self::hasRole('editor') && !self::hasRole('admin')) {
+			http_response_code(403);
+			header('Content-Type: application/json; charset=UTF-8');
+			echo json_encode(['error' => '編集権限がありません']);
+			exit;
+		}
 		$fieldname = $_POST['fieldname'] ?? '';
 		$content   = trim($_POST['content'] ?? '');
 		if (!preg_match('/^[a-zA-Z0-9_\-]+$/', $fieldname)) {
@@ -457,11 +454,7 @@ class AdminEngine {
 			'user'      => $_SESSION['ap_username'] ?? '',
 			'restored'  => $restored,
 		];
-		file_put_contents(
-			$dir . 'rev_' . $ts . '.json',
-			json_encode($rev, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE),
-			LOCK_EX
-		);
+		FileSystem::writeJson($dir . 'rev_' . $ts . '.json', $rev);
 		self::pruneRevisions($dir);
 
 		flock($lf, LOCK_UN);
@@ -473,13 +466,9 @@ class AdminEngine {
 		sort($files);
 		$unpinned = [];
 		foreach ($files as $f) {
-			$raw = file_get_contents($f);
-			if ($raw === false) {
-				if (class_exists('DiagnosticEngine')) DiagnosticEngine::log('engine', 'リビジョンファイル読み込み失敗', ['file' => basename($f)]);
-				continue;
-			}
-			$data = json_decode($raw, true);
-			if (is_array($data) && !empty($data['pinned'])) continue;
+			$data = FileSystem::readJson($f);
+			if ($data === null) continue;
+			if (!empty($data['pinned'])) continue;
 			$unpinned[] = $f;
 		}
 		$pruned = 0;
@@ -533,8 +522,8 @@ class AdminEngine {
 		$files = array_slice($files, $offset, $limit);
 		$revisions = [];
 		foreach ($files as $f) {
-			$data = json_decode(file_get_contents($f), true);
-			if (!is_array($data)) continue;
+			$data = FileSystem::readJson($f);
+			if ($data === null) continue;
 			$revisions[] = [
 				'file'      => basename($f, '.json'),
 				'timestamp' => $data['timestamp'] ?? '',
@@ -552,7 +541,7 @@ class AdminEngine {
 		$fieldname = $_POST['fieldname'] ?? '';
 		$revFile   = $_POST['revision'] ?? '';
 		if (!preg_match('/^[a-zA-Z0-9_\-]+$/', $fieldname) ||
-		    !preg_match('/^rev_[0-9_]+$/', $revFile)) {
+		    !preg_match('/^rev_[0-9a-f_]+$/', $revFile)) {
 			http_response_code(400);
 			echo json_encode(['error' => 'Invalid parameters']);
 			exit;
@@ -563,8 +552,8 @@ class AdminEngine {
 			echo json_encode(['error' => 'Revision not found']);
 			exit;
 		}
-		$rev = json_decode(file_get_contents($path), true);
-		if (!is_array($rev) || !isset($rev['content'])) {
+		$rev = FileSystem::readJson($path);
+		if ($rev === null || !isset($rev['content'])) {
 			http_response_code(500);
 			echo json_encode(['error' => 'Invalid revision data']);
 			exit;
@@ -577,7 +566,7 @@ class AdminEngine {
 		$fieldname = $_POST['fieldname'] ?? '';
 		$revFile   = $_POST['revision'] ?? '';
 		if (!preg_match('/^[a-zA-Z0-9_\-]+$/', $fieldname) ||
-		    !preg_match('/^rev_[0-9_]+$/', $revFile)) {
+		    !preg_match('/^rev_[0-9a-f_]+$/', $revFile)) {
 			http_response_code(400);
 			echo json_encode(['error' => 'Invalid parameters']);
 			exit;
@@ -588,8 +577,8 @@ class AdminEngine {
 			echo json_encode(['error' => 'Revision not found']);
 			exit;
 		}
-		$rev = json_decode(file_get_contents($path), true);
-		if (!is_array($rev) || !isset($rev['content'])) {
+		$rev = FileSystem::readJson($path);
+		if ($rev === null || !isset($rev['content'])) {
 			http_response_code(500);
 			echo json_encode(['error' => 'Invalid revision data']);
 			exit;
@@ -608,7 +597,7 @@ class AdminEngine {
 		$fieldname = $_POST['fieldname'] ?? '';
 		$revFile   = $_POST['revision'] ?? '';
 		if (!preg_match('/^[a-zA-Z0-9_\-]+$/', $fieldname) ||
-		    !preg_match('/^rev_[0-9_]+$/', $revFile)) {
+		    !preg_match('/^rev_[0-9a-f_]+$/', $revFile)) {
 			http_response_code(400);
 			echo json_encode(['error' => 'Invalid parameters']);
 			exit;
@@ -619,16 +608,14 @@ class AdminEngine {
 			echo json_encode(['error' => 'Revision not found']);
 			exit;
 		}
-		$rev = json_decode(file_get_contents($path), true);
-		if (!is_array($rev)) {
+		$rev = FileSystem::readJson($path);
+		if ($rev === null) {
 			http_response_code(500);
 			echo json_encode(['error' => 'Invalid revision data']);
 			exit;
 		}
 		$rev['pinned'] = empty($rev['pinned']);
-		file_put_contents($path,
-			json_encode($rev, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE),
-			LOCK_EX);
+		FileSystem::writeJson($path, $rev);
 		echo json_encode(['ok' => true, 'pinned' => $rev['pinned']]);
 		exit;
 	}
@@ -646,8 +633,8 @@ class AdminEngine {
 		rsort($files);
 		$results = [];
 		foreach ($files as $f) {
-			$data = json_decode(file_get_contents($f), true);
-			if (!is_array($data)) continue;
+			$data = FileSystem::readJson($f);
+			if ($data === null) continue;
 			if ($query !== '' && stripos($data['content'] ?? '', $query) === false) continue;
 			$results[] = [
 				'file'      => basename($f, '.json'),
@@ -833,6 +820,7 @@ class AdminEngine {
 	 */
 	/* B-3 fix: AppContext 経由でフック管理 */
 	public static function registerHooks(): void {
+		AppContext::addHook('admin-head', "\n\t<script src='engines/JsEngine/ap-utils.js'></script>");
 		AppContext::addHook('admin-head', "\n\t<script src='engines/JsEngine/autosize.js'></script>");
 		AppContext::addHook('admin-head', "\n\t<script src='engines/JsEngine/editInplace.js'></script>");
 		AppContext::addHook('admin-head', "\n\t<script src='engines/JsEngine/wysiwyg.js'></script>");
@@ -954,7 +942,8 @@ class AdminEngine {
 			'csrf_token'           => self::csrfToken(),
 			'theme_select_html'    => $selectHtml,
 			/* M25 fix: メニュー表示時に XSS 防止（br タグのみ許可） */
-			'menu_raw'             => strip_tags(AppContext::config('menu', ''), '<br>'),
+			/* BUG#5 fix: strip_tags は属性を除去しないため、on* 属性を手動で除去 */
+			'menu_raw'             => preg_replace('/\s+on\w+\s*=\s*["\'][^"\']*["\']/i', '', strip_tags(AppContext::config('menu', ''), '<br>')),
 			'settings_fields'      => $fields,
 			'pages'                => $pageList,
 			'has_pages'            => !empty($pageList),

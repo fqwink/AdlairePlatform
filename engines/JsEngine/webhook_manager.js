@@ -1,42 +1,13 @@
 /**
  * webhook_manager.js - Outgoing Webhook / キャッシュ / ユーザー管理 UI
+ *
+ * 依存: ap-utils.js (AP.post, AP.apiPost, AP.getCsrf)
  */
 (function() {
 	'use strict';
 
-	var csrf = (document.querySelector('meta[name="csrf-token"]') || {}).content || '';
-
-	/* A-1 fix: X-CSRF-TOKEN ヘッダーを追加（apiPost() と統一） */
-	function post(action, params, callback) {
-		var fd = new FormData();
-		fd.append('ap_action', action);
-		fd.append('csrf', csrf);
-		for (var k in params) {
-			if (params.hasOwnProperty(k)) fd.append(k, params[k]);
-		}
-		fetch('./', { method: 'POST', headers: { 'X-CSRF-TOKEN': csrf }, body: fd })
-			.then(function(r) {
-				if (!r.ok) throw new Error('HTTP ' + r.status);
-				return r.json();
-			})
-			.then(callback)
-			.catch(function(e) { callback({ ok: false, error: e.message }); });
-	}
-
-	/* R1 fix: CSRF トークンを X-CSRF-TOKEN ヘッダーで送信 */
-	function apiPost(endpoint, data, callback) {
-		fetch('./?ap_api=' + encodeURIComponent(endpoint), {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf },
-			body: JSON.stringify(data)
-		})
-		.then(function(r) {
-			if (!r.ok) throw new Error('HTTP ' + r.status);
-			return r.json();
-		})
-		.then(callback)
-		.catch(function(e) { callback({ ok: false, error: e.message }); });
-	}
+	var post    = AP.post;
+	var apiPost = AP.apiPost;
 
 	document.addEventListener('DOMContentLoaded', function() {
 
@@ -179,10 +150,11 @@
 		var deployDiffBtn = document.getElementById('ap-static-deploy-diff');
 		if (deployDiffBtn) {
 			deployDiffBtn.addEventListener('click', function() {
+				var c = AP.getCsrf();
 				var fd = new FormData();
 				fd.append('ap_action', 'deploy_diff');
-				fd.append('csrf', csrf);
-				fetch('./', { method: 'POST', headers: { 'X-CSRF-TOKEN': csrf }, body: fd })
+				fd.append('csrf', c);
+				fetch('./', { method: 'POST', headers: { 'X-CSRF-TOKEN': c }, body: fd })
 					.then(function(r) {
 						if (r.headers.get('content-type') && r.headers.get('content-type').indexOf('application/zip') !== -1) {
 							return r.blob().then(function(blob) {

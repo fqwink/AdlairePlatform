@@ -303,7 +303,21 @@ MailerEngine — メール送信の抽象化
   └─ getSentMails() — テストモード時の送信メール一覧取得
 ```
 
-### 2.17 JsEngine
+### 2.17 DiagnosticEngine ⭐ Ver.1.4-pre
+
+```
+DiagnosticEngine — リアルタイム診断・テレメトリ
+  ├─ registerErrorHandler() — PHP エラー/例外/Fatal ハンドラ登録
+  ├─ log($category, $message, $context) — カスタムログ記録
+  ├─ logRaceCondition($resource, $detail) — 競合状態ログ
+  ├─ logIntegrationError($service, $code, $message) — 外部連携エラーログ
+  ├─ startTimer($label) / stopTimer($label) — パフォーマンス計測
+  ├─ handle() — ダッシュボード API ハンドラ
+  ├─ getHealthStatus() — ヘルスチェック
+  └─ sendDiagnostics() — テレメトリ送信（サーキットブレーカー付き）
+```
+
+### 2.18 JsEngine
 
 | ファイル | 役割 |
 |---------|------|
@@ -318,6 +332,8 @@ MailerEngine — メール送信の抽象化
 | `webhook_manager.js` | Webhook 管理 UI（登録・削除・テスト送信） |
 | `api_keys.js` | API キー管理 UI（生成・削除・CSRF トークン付き） |
 | `ap-api-client.js` | 静的サイト向け軽量 API クライアント。`window.AP.api(action, params)` で公開 API を呼び出し。依存なし・ES5 互換 |
+| `ap-utils.js` | 共通ユーティリティ（`AP.getCsrf`, `AP.escHtml`, `AP.post`, `AP.postAction`, `AP.apiPost`） |
+| `diagnostics.js` | 診断データ管理 UI（有効/無効切替・レベル変更・ログ表示・ヘルスチェック） |
 | `ap-search.js` | クライアントサイド検索（search-index.json を使用） |
 
 ---

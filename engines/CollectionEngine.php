@@ -16,6 +16,7 @@
  *       └── hello-world.md
  */
 class CollectionEngine {
+	use EngineTrait;
 
 	private const SCHEMA_FILE    = 'ap-collections.json';
 	private const SLUG_PATTERN   = '/^[a-zA-Z0-9_\-]+$/';
@@ -145,6 +146,7 @@ class CollectionEngine {
 		if (!is_dir($dir)) return [];
 
 		$items = MarkdownEngine::loadDirectory($dir);
+		$allItemCount = count($items);
 
 		/* ドラフト除外 + ステータス + 予約公開フィルタ（公開 API 用） */
 		$now = time();
@@ -165,10 +167,9 @@ class CollectionEngine {
 			return true;
 		});
 
-		/* 診断: フィルタリング結果 */
-		if (class_exists('DiagnosticEngine') && count(MarkdownEngine::loadDirectory($dir)) !== count($items)) {
-			$allCount = count(MarkdownEngine::loadDirectory($dir));
-			DiagnosticEngine::log('debug', 'コレクションフィルタリング', ['collection' => $collection, 'total' => $allCount, 'public' => count($items), 'excluded' => $allCount - count($items)]);
+		/* BUG#8 fix: 診断用に loadDirectory を再呼出しせず、フィルタ前の件数を使用 */
+		if (class_exists('DiagnosticEngine') && $allItemCount !== count($items)) {
+			DiagnosticEngine::log('debug', 'コレクションフィルタリング', ['collection' => $collection, 'total' => $allItemCount, 'public' => count($items), 'excluded' => $allItemCount - count($items)]);
 		}
 
 		/* ソート */
@@ -211,7 +212,7 @@ class CollectionEngine {
 		$path = $dir . '/' . $slug . '.md';
 		if (!file_exists($path)) return null;
 
-		$raw = file_get_contents($path);
+		$raw = FileSystem::read($path);
 		if ($raw === false) return null;
 
 		$parsed = MarkdownEngine::parseFrontmatter($raw);
@@ -267,11 +268,7 @@ class CollectionEngine {
 		}
 
 		$content = self::buildMarkdown($meta, $body);
-		$result = file_put_contents($path, $content, LOCK_EX);
-		if ($result === false && class_exists('DiagnosticEngine')) {
-			DiagnosticEngine::log('engine', 'アイテム保存失敗: ファイル書き込みエラー', ['collection' => $collection, 'slug' => $slug]);
-		}
-		return $result !== false;
+		return FileSystem::write($path, $content);
 	}
 
 	/**
@@ -386,7 +383,7 @@ class CollectionEngine {
 		}
 
 		$dir = content_dir() . '/pages';
-		if (!is_dir($dir)) mkdir($dir, 0755, true);
+		FileSystem::ensureDir($dir);
 
 		$count = 0;
 		foreach ($pages as $slug => $html) {
@@ -400,10 +397,7 @@ class CollectionEngine {
 			];
 			/* HTML をそのまま本文として保存（Markdown 変換はしない） */
 			$content = self::buildMarkdown($meta, $html);
-			$writeResult = file_put_contents($path, $content, LOCK_EX);
-			if ($writeResult === false && class_exists('DiagnosticEngine')) {
-				DiagnosticEngine::log('engine', 'ページ移行書き込み失敗', ['slug' => $slug, 'error' => error_get_last()['message'] ?? '']);
-			}
+			FileSystem::write($path, $content);
 			$count++;
 		}
 
@@ -475,14 +469,7 @@ class CollectionEngine {
 		];
 		if (!in_array($action, $valid, true)) return;
 
-		if (!AdminEngine::isLoggedIn()) {
-			http_response_code(401);
-			header('Content-Type: application/json; charset=UTF-8');
-			echo json_encode(['error' => '未ログイン']);
-			exit;
-		}
-		AdminEngine::verifyCsrf();
-		header('Content-Type: application/json; charset=UTF-8');
+		self::requireLogin();
 
 		match ($action) {
 			'collection_create'      => self::handleCreate(),
@@ -612,14 +599,4 @@ class CollectionEngine {
 		self::jsonOk($result);
 	}
 
-	private static function jsonOk(mixed $data): never {
-		echo json_encode(['ok' => true, 'data' => $data], JSON_UNESCAPED_UNICODE);
-		exit;
-	}
-
-	private static function jsonError(string $msg, int $status = 400): never {
-		http_response_code($status);
-		echo json_encode(['ok' => false, 'error' => $msg], JSON_UNESCAPED_UNICODE);
-		exit;
-	}
 }

@@ -455,42 +455,6 @@ class MarkdownEngine {
 		return $align;
 	}
 
-	/* ══════════════════════════════════════════════
-	   目次（TOC）生成
-	   ══════════════════════════════════════════════ */
-
-	/**
-	 * Markdown から見出しを抽出して目次配列を返す。
-	 * @return array{level: int, text: string, id: string}[]
-	 */
-	public static function generateToc(string $markdown): array {
-		$headings = [];
-		if (preg_match_all('/^(#{1,6})\s+(.+)$/m', $markdown, $matches, PREG_SET_ORDER)) {
-			foreach ($matches as $match) {
-				$level = strlen($match[1]);
-				$text  = rtrim($match[2], ' #');
-				$id    = self::slugify($text);
-				$headings[] = ['level' => $level, 'text' => $text, 'id' => $id];
-			}
-		}
-		return $headings;
-	}
-
-	/**
-	 * 目次配列を HTML リストとして描画。
-	 */
-	public static function renderToc(array $toc): string {
-		if (empty($toc)) return '';
-		$html = '<nav class="ap-toc"><ul>';
-		foreach ($toc as $item) {
-			$indent = str_repeat('  ', $item['level'] - 1);
-			$html .= $indent . '<li><a href="#' . htmlspecialchars($item['id'], ENT_QUOTES, 'UTF-8') . '">'
-				. htmlspecialchars($item['text'], ENT_QUOTES, 'UTF-8') . '</a></li>';
-		}
-		$html .= '</ul></nav>';
-		return $html;
-	}
-
 	/**
 	 * テキストを URL セーフなスラッグに変換。
 	 */
@@ -515,7 +479,7 @@ class MarkdownEngine {
 		$files = glob($dir . '/*.md') ?: [];
 		foreach ($files as $file) {
 			$slug = basename($file, '.md');
-			$raw = file_get_contents($file);
+			$raw = FileSystem::read($file);
 			if ($raw === false) continue;
 			$parsed = self::parseFrontmatter($raw);
 			$items[$slug] = [
