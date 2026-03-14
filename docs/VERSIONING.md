@@ -251,3 +251,11 @@ Adlaire Group のバージョニング方式は、以下の特徴を持ちます
 ---
 
 *Adlaire Group DX 事業セグメント — 機密: 社内限り*
+
+---
+
+## 📝 変更履歴
+
+本ドキュメントの変更履歴は、以下のファイルで一元管理されています:
+
+👉 **[docs/DOCUMENT_CHANGELOG.md](./DOCUMENT_CHANGELOG.md#-versioningmd)** を参照してください。
