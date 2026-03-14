@@ -2,21 +2,22 @@
  * api_keys.js - API キー管理 UI
  *
  * ダッシュボードの API キー管理セクション用バニラ JS。
- * 依存: なし（ES5 互換）
+ * 依存: ap-utils.js (AP.getCsrf, AP.escHtml)
  */
 (function() {
 	'use strict';
 
-	var csrf = (document.querySelector('meta[name="csrf-token"]') || {}).content || '';
+	var escHtml = AP.escHtml;
 
+	/* セッション認証ヘッダー付き API 呼び出し（api_keys 専用） */
 	function apiCall(method, params, callback) {
 		var url = './?ap_api=api_keys';
 		var opts = { method: method, headers: {} };
 
 		if (method === 'POST') {
+			var csrf = AP.getCsrf();
 			opts.headers['Content-Type'] = 'application/json';
-			opts.headers['Authorization'] = 'session'; /* セッション認証を使用 */
-			/* R21 fix: CSRF トークンをヘッダーとボディの両方で送信 */
+			opts.headers['Authorization'] = 'session';
 			opts.headers['X-CSRF-TOKEN'] = csrf;
 			params.csrf = csrf;
 			opts.body = JSON.stringify(params);
@@ -26,12 +27,6 @@
 			.then(function(r) { return r.json(); })
 			.then(callback)
 			.catch(function(e) { callback({ ok: false, error: e.message }); });
-	}
-
-	function escHtml(s) {
-		var el = document.createElement('span');
-		el.textContent = s || '';
-		return el.innerHTML;
 	}
 
 	function loadKeys() {

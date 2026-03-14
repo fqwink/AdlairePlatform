@@ -2,26 +2,12 @@
  * git_manager.js - Git 連携管理 UI
  *
  * ダッシュボードの Git 連携セクション用バニラ JS。
- * 依存: なし（ES5 互換）
+ * 依存: ap-utils.js (AP.post, AP.escHtml)
  */
 (function() {
 	'use strict';
 
-	var csrf = (document.querySelector('meta[name="csrf-token"]') || {}).content || '';
-
-	function post(action, params, callback) {
-		var fd = new FormData();
-		fd.append('ap_action', action);
-		fd.append('csrf', csrf);
-		for (var k in params) {
-			if (params.hasOwnProperty(k)) fd.append(k, params[k]);
-		}
-		/* R23 fix: X-CSRF-TOKEN ヘッダーを追加 */
-		fetch('./', { method: 'POST', headers: { 'X-CSRF-TOKEN': csrf }, body: fd })
-			.then(function(r) { return r.json(); })
-			.then(callback)
-			.catch(function(e) { callback({ ok: false, error: e.message }); });
-	}
+	var post = AP.post;
 
 	function showResult(elId, res, successMsg) {
 		var el = document.getElementById(elId);
@@ -147,10 +133,6 @@
 			});
 		}
 
-		function escHtml(s) {
-			var el = document.createElement('span');
-			el.textContent = s || '';
-			return el.innerHTML;
-		}
+		var escHtml = AP.escHtml;
 	});
 })();

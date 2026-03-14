@@ -92,7 +92,7 @@ class ImageOptimizer {
 	 */
 	private static function generateThumbnail(string $path, string $mime): void {
 		$thumbDir = dirname($path) . '/thumb';
-		if (!is_dir($thumbDir)) mkdir($thumbDir, 0755, true);
+		if (!FileSystem::ensureDir($thumbDir)) return;
 
 		$thumbPath = $thumbDir . '/' . basename($path);
 		$info = @getimagesize($path);
@@ -131,26 +131,6 @@ class ImageOptimizer {
 
 		imagewebp($src, $webpPath, self::WEBP_QUALITY);
 		imagedestroy($src);
-	}
-
-	/**
-	 * 既存の uploads/ 画像をバッチ最適化
-	 */
-	public static function batchOptimize(): array {
-		if (!extension_loaded('gd')) return ['error' => 'GD ライブラリが利用できません'];
-
-		/* M17 fix: __DIR__ ベースの絶対パスを使用 */
-		$dir = dirname(__DIR__) . '/uploads/';
-		if (!is_dir($dir)) return ['optimized' => 0, 'total' => 0];
-
-		$files = glob($dir . '*.{jpg,jpeg,png,gif,webp}', GLOB_BRACE) ?: [];
-		$optimized = 0;
-
-		foreach ($files as $f) {
-			if (self::optimize($f)) $optimized++;
-		}
-
-		return ['optimized' => $optimized, 'total' => count($files)];
 	}
 
 	/* ── 内部ヘルパー ── */

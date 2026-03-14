@@ -17,6 +17,8 @@ define('AP_UPDATE_URL', 'https://api.github.com/repos/win-k/AdlairePlatform/rele
 define('AP_BACKUP_GENERATIONS', 5);
 define('AP_REVISION_LIMIT', 30);
 
+require 'engines/EngineTrait.php';
+require 'engines/FileSystem.php';
 require 'engines/AppContext.php';
 require 'engines/Logger.php';
 require 'engines/TemplateEngine.php';
@@ -72,7 +74,7 @@ DiagnosticEngine::startTimer('StaticEngine');
 StaticEngine::handle();      /* generate_static_*, clean_static, build_zip 等 */
 DiagnosticEngine::stopTimer('StaticEngine');
 DiagnosticEngine::startTimer('UpdateEngine');
-handle_update_action();      /* update, backup, rollback 等 */
+UpdateEngine::handle();      /* update, backup, rollback 等 */
 DiagnosticEngine::stopTimer('UpdateEngine');
 DiagnosticEngine::handle();  /* diag_set_enabled, diag_preview, diag_send_now 等 */
 
@@ -214,16 +216,6 @@ function is_loggedin(): bool {
 	return AdminEngine::isLoggedIn();
 }
 
-/** @deprecated Ver.1.4 で削除予定。AdminEngine::csrfToken() を直接使用してください */
-function csrf_token(): string {
-	return AdminEngine::csrfToken();
-}
-
-/** @deprecated Ver.1.4 で削除予定。AdminEngine::verifyCsrf() を直接使用してください */
-function verify_csrf(): void {
-	AdminEngine::verifyCsrf();
-}
-
 function getSlug(string $p): string {
 	$slug = mb_convert_case(str_replace(' ', '-', $p), MB_CASE_LOWER, "UTF-8");
 	/* R26 fix: ループでパストラバーサルを再帰的に除去（ ....// → ../ 対策） */
@@ -278,13 +270,6 @@ class JsonCache {
 		self::$store[$path] = $data;
 	}
 
-	public static function invalidate(string $path): void {
-		unset(self::$store[$path]);
-	}
-
-	public static function clear(): void {
-		self::$store = [];
-	}
 }
 
 function json_read(string $file, string $dir = ''): array {
@@ -333,7 +318,8 @@ function host(){
 	$rawHost = preg_replace('/[^a-zA-Z0-9.\-:\[\]]/', '', $rawHost);
 	$host = $rawHost;
 	$uri = preg_replace('#/+#', '/', urldecode($_SERVER['REQUEST_URI']));
-	$host = (strrpos($uri, $rp) !== false) ? $host.'/'.substr($uri, 0, strlen($uri) - strlen($rp)) : $host.'/'.$uri;
+	/* BUG#7 fix: $rp が空文字列の場合 strrpos は常に true を返す問題を修正 */
+	$host = ($rp !== '' && strrpos($uri, $rp) !== false) ? $host.'/'.substr($uri, 0, strlen($uri) - strlen($rp)) : $host.'/'.$uri;
 	$host = explode('?', $host);
 	$host = '//'.str_replace('//', '/', $host[0]);
 	$strip = array('index.php','?','"','\'','>','<','=','(',')','\\');

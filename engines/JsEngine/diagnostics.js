@@ -4,23 +4,13 @@
  * ダッシュボードの診断データセクションを制御。
  * 有効/無効切替、レベル変更、ログ表示、プレビュー、手動送信。
  * Ver.1.4 強化: パフォーマンスプロファイラ、セキュリティサマリー、ヘルスインジケーター。
+ * 依存: ap-utils.js (AP.postAction, AP.escHtml)
  */
 (function () {
 	'use strict';
 
-	const csrf = () => document.querySelector('meta[name="csrf-token"]')?.content || '';
-
-	function post(action, params = {}) {
-		const body = new URLSearchParams({ ap_action: action, csrf: csrf(), ...params });
-		return fetch('./', { method: 'POST', body, headers: { 'X-CSRF-Token': csrf() } })
-			.then(r => r.json());
-	}
-
-	function h(s) {
-		const d = document.createElement('div');
-		d.textContent = s;
-		return d.innerHTML;
-	}
+	const post = (action, params) => AP.postAction(action, params);
+	const h = AP.escHtml;
 
 	function formatTime(iso) {
 		if (!iso) return '-';

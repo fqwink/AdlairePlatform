@@ -2,26 +2,12 @@
  * collection_manager.js - コレクション管理 UI
  *
  * ダッシュボードのコレクション管理セクション用バニラ JS。
- * 依存: なし（ES5 互換）
+ * 依存: ap-utils.js (AP.post, AP.escHtml)
  */
 (function() {
 	'use strict';
 
-	var csrf = (document.querySelector('meta[name="csrf-token"]') || {}).content || '';
-
-	function post(action, params, callback) {
-		var fd = new FormData();
-		fd.append('ap_action', action);
-		fd.append('csrf', csrf);
-		for (var k in params) {
-			if (params.hasOwnProperty(k)) fd.append(k, params[k]);
-		}
-		/* R22 fix: X-CSRF-TOKEN ヘッダーを追加 */
-		fetch('./', { method: 'POST', headers: { 'X-CSRF-TOKEN': csrf }, body: fd })
-			.then(function(r) { return r.json(); })
-			.then(callback)
-			.catch(function(e) { callback({ ok: false, error: e.message }); });
-	}
+	var post = AP.post;
 
 	function fetchApi(action, params, callback) {
 		var url = './?ap_api=' + encodeURIComponent(action);
@@ -133,11 +119,7 @@
 			});
 		}
 
-		function escHtml(s) {
-			var el = document.createElement('span');
-			el.textContent = s;
-			return el.innerHTML;
-		}
+		var escHtml = AP.escHtml;
 
 		function generateSlug(title) {
 			var slug = title.toLowerCase()

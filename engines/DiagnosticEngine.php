@@ -21,6 +21,7 @@
  *   - 匿名インストールID（UUID v4）で識別
  */
 class DiagnosticEngine {
+	use EngineTrait;
 
 	private const CONFIG_FILE = 'diagnostics.json';
 	private const LOG_FILE    = 'diagnostics_log.json';
@@ -848,7 +849,7 @@ class DiagnosticEngine {
 		if (!empty($oldLog['daily_summary'])) {
 			$newLog['daily_summary'] = $oldLog['daily_summary'];
 		}
-		file_put_contents($path, json_encode($newLog, JSON_UNESCAPED_UNICODE), LOCK_EX);
+		FileSystem::writeJson($path, $newLog);
 	}
 
 	/**
@@ -1640,14 +1641,7 @@ class DiagnosticEngine {
 		];
 		if (!in_array($action, $valid, true)) return;
 
-		if (!AdminEngine::isLoggedIn()) {
-			http_response_code(401);
-			header('Content-Type: application/json; charset=UTF-8');
-			echo json_encode(['error' => '未ログイン']);
-			exit;
-		}
-		AdminEngine::verifyCsrf();
-		header('Content-Type: application/json; charset=UTF-8');
+		self::requireLogin();
 
 		match ($action) {
 			'diag_set_enabled' => self::handleSetEnabled(),
@@ -1872,14 +1866,4 @@ class DiagnosticEngine {
 		return round($bytes / 1048576, 1) . ' MB';
 	}
 
-	private static function jsonOk(mixed $data): never {
-		echo json_encode(['ok' => true, 'data' => $data], JSON_UNESCAPED_UNICODE);
-		exit;
-	}
-
-	private static function jsonError(string $msg, int $status = 400): never {
-		http_response_code($status);
-		echo json_encode(['ok' => false, 'error' => $msg], JSON_UNESCAPED_UNICODE);
-		exit;
-	}
 }

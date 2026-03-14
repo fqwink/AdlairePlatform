@@ -18,13 +18,13 @@ APは、デザインテンプレートエンジンを搭載したフラットフ
 - **WYSIWYG エディタ** — 依存ライブラリなしのブロックベースエディタ
 - **静的サイト生成** — 差分ビルド・Static-First Hybrid 配信
 - **ヘッドレス CMS API** — REST API・API キー認証・CORS 対応
-- **15 エンジン構成** — 各機能が独立したエンジンとして実装
+- **16 エンジン構成** — 各機能が独立したエンジンとして実装
 
 詳細な機能一覧は [docs/features.md](docs/features.md) を参照してください。
 
 ---
 
-## エンジン一覧（15 エンジン）
+## エンジン一覧（16 エンジン）
 
 | エンジン | ファイル | 説明 |
 |---------|---------|------|
@@ -43,6 +43,7 @@ APは、デザインテンプレートエンジンを搭載したフラットフ
 | AppContext | `engines/AppContext.php` | 集中状態管理 |
 | Logger | `engines/Logger.php` | 構造化ログ（PSR-3 互換） |
 | MailerEngine | `engines/MailerEngine.php` | メール送信抽象化 |
+| DiagnosticEngine | `engines/DiagnosticEngine.php` | リアルタイム診断・テレメトリ |
 
 ---
 
@@ -69,6 +70,13 @@ APは、デザインテンプレートエンジンを搭載したフラットフ
 
 ## ドキュメント
 
+| ドキュメント | 内容 |
+|---|---|
+| [docs/features.md](docs/features.md) | 実装機能一覧 |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | アーキテクチャ・ファイル責務 |
+| [docs/AdlairePlatform_Design.md](docs/AdlairePlatform_Design.md) | 設計書・仕様書・バージョン計画 |
+| [RELEASE-NOTES.md](RELEASE-NOTES.md) | リリースノート・変更履歴 |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | コントリビューション・ガイド |
 ドキュメントの整備・更新は [DOC_RULEBOOK.md](DOC_RULEBOOK.md) に従う。
 
 ---
