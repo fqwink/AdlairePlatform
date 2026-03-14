@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /**
  * StaticEngine - 静的サイト生成エンジン
  *
@@ -38,32 +38,6 @@ class StaticEngine {
 	private array  $warnings     = [];
 	private array  $changedFiles = [];
 
-	/* ══════════════════════════════════════════════
-	   ap_action ディスパッチャ
-	   ══════════════════════════════════════════════ */
-
-	public static function handle(): void {
-		$action = $_POST['ap_action'] ?? '';
-		$valid  = [
-			'generate_static_diff', 'generate_static_full',
-			'clean_static', 'build_zip', 'static_status', 'deploy_diff',
-		];
-		if (!in_array($action, $valid, true)) return;
-
-		self::requireLogin();
-
-		$engine = new self();
-		$engine->init();
-
-		match ($action) {
-			'generate_static_diff' => self::respond($engine->buildDiff()),
-			'generate_static_full' => self::respond($engine->buildAll()),
-			'clean_static'         => self::respondClean($engine),
-			'build_zip'            => $engine->serveZip(),
-			'static_status'        => self::respond($engine->getStatus()),
-			'deploy_diff'          => $engine->serveDiffZip(),
-		};
-	}
 
 	/* ══════════════════════════════════════════════
 	   初期化
@@ -389,37 +363,6 @@ class StaticEngine {
 		return $tmpFile;
 	}
 
-	private function serveZip(): never {
-		if (!is_dir(self::OUTPUT_DIR)) {
-			http_response_code(400);
-			echo json_encode(['error' => '静的ファイルが生成されていません。先にビルドを実行してください。']);
-			exit;
-		}
-		if (!class_exists('ZipArchive')) {
-			http_response_code(500);
-			echo json_encode(['error' => 'ZipArchive 拡張が利用できません。']);
-			exit;
-		}
-		$tmpFile = sys_get_temp_dir() . '/ap_static_' . date('Ymd_His') . '.zip';
-		$zip = new ZipArchive();
-		if ($zip->open($tmpFile, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
-			http_response_code(500);
-			echo json_encode(['error' => 'ZIP ファイルの作成に失敗しました。']);
-			exit;
-		}
-		$this->addDirToZip($zip, self::OUTPUT_DIR, self::OUTPUT_DIR);
-		$zip->close();
-
-		try {
-			header('Content-Type: application/zip');
-			header('Content-Disposition: attachment; filename="static-' . date('Ymd') . '.zip"');
-			header('Content-Length: ' . filesize($tmpFile));
-			readfile($tmpFile);
-		} finally {
-			@unlink($tmpFile);
-		}
-		exit;
-	}
 
 	/* ══════════════════════════════════════════════
 	   内部メソッド — ページビルド
@@ -1134,46 +1077,6 @@ class StaticEngine {
 	   インクリメンタルデプロイ
 	   ══════════════════════════════════════════════ */
 
-	private function serveDiffZip(): never {
-		$changedFiles = $this->buildState['changed_files'] ?? [];
-		if (empty($changedFiles)) {
-			http_response_code(400);
-			echo json_encode(['error' => '変更ファイルがありません。先にビルドを実行してください。']);
-			exit;
-		}
-		if (!class_exists('ZipArchive')) {
-			http_response_code(500);
-			echo json_encode(['error' => 'ZipArchive 拡張が利用できません。']);
-			exit;
-		}
-
-		$tmpFile = sys_get_temp_dir() . '/ap_deploy_diff_' . date('Ymd_His') . '.zip';
-		$zip = new ZipArchive();
-		if ($zip->open($tmpFile, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
-			http_response_code(500);
-			echo json_encode(['error' => 'ZIP ファイルの作成に失敗しました。']);
-			exit;
-		}
-
-		$prefix = self::OUTPUT_DIR . '/';
-		foreach ($changedFiles as $file) {
-			if (file_exists($file) && str_starts_with($file, $prefix)) {
-				$rel = substr($file, strlen($prefix));
-				$zip->addFile($file, $rel);
-			}
-		}
-		$zip->close();
-
-		try {
-			header('Content-Type: application/zip');
-			header('Content-Disposition: attachment; filename="deploy-diff-' . date('Ymd') . '.zip"');
-			header('Content-Length: ' . filesize($tmpFile));
-			readfile($tmpFile);
-		} finally {
-			@unlink($tmpFile);
-		}
-		exit;
-	}
 
 	/* ══════════════════════════════════════════════
 	   内部メソッド — ハッシュ・差分判定
@@ -1339,18 +1242,4 @@ class StaticEngine {
 		}
 	}
 
-	/* ══════════════════════════════════════════════
-	   ヘルパー — JSON レスポンス
-	   ══════════════════════════════════════════════ */
-
-	private static function respond(array $data): never {
-		echo json_encode($data, JSON_UNESCAPED_UNICODE);
-		exit;
-	}
-
-	private static function respondClean(self $engine): never {
-		$engine->clean();
-		echo json_encode(['ok' => true, 'message' => '静的ファイルを削除しました。']);
-		exit;
-	}
 }

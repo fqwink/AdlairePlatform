@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /**
  * UpdateEngine - アップデート・バックアップ・ロールバック
  *
@@ -170,73 +170,6 @@ class UpdateEngine {
 		return ['ok' => true, 'message' => 'バックアップを削除しました。'];
 	}
 
-	public static function handle(): void {
-		$action = $_POST['ap_action'] ?? '';
-		$valid_actions = ['check', 'check_env', 'apply', 'list_backups', 'rollback', 'delete_backup'];
-		if(!in_array($action, $valid_actions, true)) return;
-
-		self::requireLogin();
-
-		switch($action){
-			case 'check':
-				echo json_encode(self::checkUpdate());
-				break;
-			case 'check_env':
-				echo json_encode(self::checkEnvironment());
-				break;
-			case 'apply':
-				/* C20 fix: URL をサーバー側で取得（ユーザー入力の URL を信頼しない） */
-				$updateInfo = self::checkUpdate();
-				if(empty($updateInfo['zip_url']) || empty($updateInfo['update_available'])){
-					self::jsonError('アップデートが利用できません');
-				}
-				$zip_url = $updateInfo['zip_url'];
-				if(!preg_match('#^https://(api\.github\.com|github\.com|codeload\.github\.com)/#', $zip_url)){
-					self::jsonError('無効な URL です');
-				}
-				$version = $updateInfo['latest'] ?? '';
-				self::applyUpdate($zip_url, $version);
-				echo json_encode(['success' => true, 'message' => 'アップデートが完了しました。ページを再読み込みします。']);
-				break;
-			case 'list_backups':
-				$backups = glob('backup/*', GLOB_ONLYDIR);
-				$list = [];
-				if(is_array($backups)){
-					rsort($backups);
-					foreach($backups as $path){
-						$name      = basename($path);
-						$meta_file = $path.'/meta.json';
-						$meta      = null;
-						if(file_exists($meta_file)){
-							$decoded = FileSystem::readJson($meta_file);
-							if(is_array($decoded)) $meta = $decoded;
-						}
-						$list[] = ['name' => $name, 'meta' => $meta];
-					}
-				}
-				echo json_encode(['backups' => $list]);
-				break;
-			case 'rollback':
-				$name = $_POST['backup'] ?? '';
-				if(!preg_match('/^[0-9_]+$/', $name)){
-					self::jsonError('無効なバックアップ名です');
-				}
-				self::rollbackToBackup($name);
-				echo json_encode(['success' => true, 'message' => 'ロールバックが完了しました。ページを再読み込みします。']);
-				break;
-			case 'delete_backup':
-				$name = $_POST['backup'] ?? '';
-				if(!preg_match('/^[0-9_]+$/', $name)){
-					self::jsonError('無効なバックアップ名です');
-				}
-				self::deleteBackup($name);
-				echo json_encode(['success' => true, 'message' => 'バックアップを削除しました。']);
-				break;
-			default:
-				self::jsonError('不明なアクションです');
-		}
-		exit;
-	}
 
 	public static function checkUpdate(): array {
 		$cache = json_read('update_cache.json', settings_dir());
