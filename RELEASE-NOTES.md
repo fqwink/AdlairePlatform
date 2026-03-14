@@ -6,6 +6,55 @@
 
 ---
 
+## AdlairePlatform Ver.1.7-37（2026-03-14）— Stage 2
+
+Engine 脱 exit・Controller 完全実装・API ルート統合・レガシーエンジンチェーン除去。
+全リクエストを Router 経由に統一し、index.php を大幅に簡素化。
+
+### Engine 脱 exit（Controller 完全実装）
+
+- **Response::file()** — バイナリファイルストリーミング用の Response ファクトリメソッド。`send()` で `readfile()` + 自動クリーンアップ
+- **EngineTrait `$throwOnError`** — `jsonError()` が exit の代わりに `RuntimeException` を投げるフラグ。Controller ラッパーから Engine の private メソッドを安全に呼び出し可能に
+- **StaticController** — `buildZip()` / `deployDiff()` を `Response::file()` で完全実装。Engine の echo+exit パターンを除去
+- **UpdateController** — `apply()` / `rollback()` / `deleteBackup()` を `$throwOnError` パターンで完全実装
+- **DiagnosticController** — `sendNow()` / `clearLogs()` を公開メソッド組み合わせで完全実装
+
+### Engine メソッド公開化
+
+- **StaticEngine** — `init()` を public 化、`buildZipFile()` / `buildDiffZipFile()` 追加（temp ファイルパスを返す）
+- **UpdateEngine** — `executeApplyUpdate()` / `executeRollback()` / `executeDeleteBackup()` 追加
+- **DiagnosticEngine** — `collectWithUnsent()` を public 化
+
+### API ルート統合
+
+- **routes.php** — `$router->mapQuery('ap_api', '/api/{endpoint}', 'endpoint')` + `$router->any('/api/{endpoint}', ...)` 追加
+- **ApiController** — `dispatch()` メソッドが `$_GET['ap_api']` を復元し `ApiEngine::handle()` に委譲
+- **注意**: ApiEngine の 22+ ハンドラの echo+exit 変換は Ver.1.8 以降に延期
+
+### レガシーチェーン除去
+
+- **index.php** — Engine `handle()` の順次呼出チェーン（AdminEngine → ApiEngine → CollectionEngine → ... → DiagnosticEngine）を完全除去
+- **index.php** — `case 'loggedin'` のインラインログイン/ログアウト処理を除去（Router が処理）
+- **index.php** — `?admin` ダッシュボード分岐を除去（Router が処理）
+- **index.php** — `migrate_from_files()` 呼出を除去
+
+### Bridge.php クリーンアップ
+
+- **migrate_from_files()** — Phase 2（`data/*.json` → `data/settings/` & `data/content/`）マイグレーションコードを削除。Ver.1.4 → Ver.1.5 移行期間は十分経過
+
+### テスト
+
+- **ControllerTest.php** — Response::file() / EngineTrait throwOnError / DiagnosticController / UpdateController / StaticController の 17 テスト
+- **RoutingTest.php** — API ルートクエリマッピング・POST メソッドの 2 テスト追加（計 14 テスト）
+- tests/bootstrap.php バージョン同期
+
+### バージョニング
+
+- AP_VERSION: `'1.7.37'`（コード内ドット区切り）
+- ドキュメント表記: Ver.1.7-37（VERSIONING.md 準拠）
+
+---
+
 ## AdlairePlatform Ver.1.7-36（2026-03-14）— Stage 1
 
 Controller ルーティングアーキテクチャの導入。APF Router を中心に、Middleware パイプラインと Controller 層を構築。

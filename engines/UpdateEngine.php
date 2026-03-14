@@ -94,6 +94,82 @@ class UpdateEngine {
 		}
 	}
 
+	/**
+	 * アップデートを実行し結果を返す（exit なし）
+	 * @since Ver.1.7-37
+	 * @throws \RuntimeException エラー時
+	 */
+	public static function executeApplyUpdate(): array {
+		$updateInfo = self::checkUpdate();
+		if (empty($updateInfo['zip_url']) || empty($updateInfo['update_available'])) {
+			throw new \RuntimeException('アップデートが利用できません');
+		}
+		$zip_url = $updateInfo['zip_url'];
+		if (!preg_match('#^https://(api\.github\.com|github\.com|codeload\.github\.com)/#', $zip_url)) {
+			throw new \RuntimeException('無効な URL です');
+		}
+		/* ディスク容量チェック（applyUpdate 内の重複チェックより先に実施） */
+		$free = @disk_free_space('.');
+		if ($free !== false && $free < 50 * 1024 * 1024) {
+			throw new \RuntimeException('ディスク容量が不足しています（空き: ' . round($free / 1024 / 1024, 1) . 'MB）。');
+		}
+		$version = $updateInfo['latest'] ?? '';
+		/* throwOnError: jsonError() を exit ではなく例外に切替 */
+		self::$throwOnError = true;
+		try {
+			self::applyUpdate($zip_url, $version);
+		} finally {
+			self::$throwOnError = false;
+		}
+		return ['ok' => true, 'message' => 'アップデートが完了しました。ページを再読み込みします。'];
+	}
+
+	/**
+	 * バックアップからロールバックし結果を返す（exit なし）
+	 * @since Ver.1.7-37
+	 * @throws \RuntimeException エラー時
+	 */
+	public static function executeRollback(string $name): array {
+		$name = basename($name);
+		if (!preg_match('/^[0-9_]+$/', $name)) {
+			throw new \RuntimeException('無効なバックアップ名です');
+		}
+		$dir = 'backup/' . $name;
+		if (!is_dir($dir)) {
+			throw new \RuntimeException('バックアップが見つかりません: ' . h($name));
+		}
+		self::$throwOnError = true;
+		try {
+			self::rollbackToBackup($name);
+		} finally {
+			self::$throwOnError = false;
+		}
+		return ['ok' => true, 'message' => 'ロールバックが完了しました。ページを再読み込みします。'];
+	}
+
+	/**
+	 * バックアップを削除し結果を返す（exit なし）
+	 * @since Ver.1.7-37
+	 * @throws \RuntimeException エラー時
+	 */
+	public static function executeDeleteBackup(string $name): array {
+		$name = basename($name);
+		if (!preg_match('/^[0-9_]+$/', $name)) {
+			throw new \RuntimeException('無効なバックアップ名です');
+		}
+		$dir = 'backup/' . $name;
+		if (!is_dir($dir)) {
+			throw new \RuntimeException('バックアップが見つかりません: ' . h($name));
+		}
+		self::$throwOnError = true;
+		try {
+			self::deleteBackup($name);
+		} finally {
+			self::$throwOnError = false;
+		}
+		return ['ok' => true, 'message' => 'バックアップを削除しました。'];
+	}
+
 	public static function handle(): void {
 		$action = $_POST['ap_action'] ?? '';
 		$valid_actions = ['check', 'check_env', 'apply', 'list_backups', 'rollback', 'delete_backup'];

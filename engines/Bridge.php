@@ -145,30 +145,10 @@ function host(): void {
 
 /**
  * Ver.1.7-36: Phase 1（files/ → data/）マイグレーションを削除。
- * Ver.1.3 の files/ フラット構造はサポート終了。
- * Phase 2（data/*.json → data/settings/ & data/content/）は維持。
+ * Ver.1.7-37: Phase 2（data/*.json → data/settings/ & data/content/）を削除。
+ *   Ver.1.4 → Ver.1.5 移行期間は十分経過。新規インストールは
+ *   data/settings/ & data/content/ を直接使用。
  *
  * is_loggedin() は Ver.1.4 非推奨 → Ver.1.7 で削除。
  * AdminEngine::isLoggedIn() を使用してください。
  */
-function migrate_from_files(): void {
-	/* Phase 2: data/*.json → data/settings/ & data/content/ への移行 */
-	$s_dir = settings_dir();
-	$c_dir = content_dir();
-	foreach (['settings.json', 'auth.json', 'update_cache.json', 'login_attempts.json', 'version.json'] as $f) {
-		$old = data_dir() . '/' . $f;
-		$new = $s_dir . '/' . $f;
-		if (file_exists($old) && !file_exists($new)) {
-			if (!@rename($old, $new) && class_exists('DiagnosticEngine')) {
-				DiagnosticEngine::log('engine', 'マイグレーション rename 失敗', ['file' => $f]);
-			}
-		}
-	}
-	$old_pages = data_dir() . '/pages.json';
-	$new_pages = $c_dir . '/pages.json';
-	if (file_exists($old_pages) && !file_exists($new_pages)) {
-		if (!@rename($old_pages, $new_pages) && class_exists('DiagnosticEngine')) {
-			DiagnosticEngine::log('engine', 'マイグレーション pages.json rename 失敗');
-		}
-	}
-}

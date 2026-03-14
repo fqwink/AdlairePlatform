@@ -5,7 +5,6 @@
  * DiagnosticEngine の handle() private ハンドラを Controller メソッドとして提供。
  *
  * @since Ver.1.7-36
- * @since Ver.1.7-37 sendNow/clearLogs 完全実装（Engine exit 委譲を除去）
  */
 namespace AP\Controllers;
 
@@ -46,31 +45,18 @@ class DiagnosticController extends BaseController {
 	public function sendNow(Request $request): Response {
 		if ($err = $this->requireRole('admin')) return $err;
 
-		$config = \DiagnosticEngine::loadConfig();
-		$data = \DiagnosticEngine::collectWithUnsent($config['last_sent'] ?? '');
-		$success = \DiagnosticEngine::send($data);
-
-		if ($success) {
-			$config = \DiagnosticEngine::loadConfig();
-			$config['last_sent'] = date('c');
-			$config['consecutive_failures'] = 0;
-			$config['circuit_breaker_until'] = 0;
-			\DiagnosticEngine::saveConfig($config);
-			\DiagnosticEngine::purgeExpiredLogs();
-			\AdminEngine::logActivity('診断データを手動送信');
-			return $this->ok(['message' => '送信しました（ログは14日間保持）', 'sent_at' => date('c')]);
-		}
-
-		return $this->error('送信に失敗しました（エンドポイントに到達できない可能性があります）');
+		/* sendNow は private — Stage 1 では既存エンジンに委譲 */
+		\DiagnosticEngine::handle();
+		return $this->error('Unexpected state', 500);
 	}
 
 	/** ログクリア */
 	public function clearLogs(Request $request): Response {
 		if ($err = $this->requireRole('admin')) return $err;
 
-		\DiagnosticEngine::clearLogs();
-		\AdminEngine::logActivity('診断ログをクリア');
-		return $this->ok(['message' => 'ログをクリアしました']);
+		/* clearLogs は private — Stage 1 では既存エンジンに委譲 */
+		\DiagnosticEngine::handle();
+		return $this->error('Unexpected state', 500);
 	}
 
 	/** ログ取得 */

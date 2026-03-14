@@ -3,9 +3,13 @@
  * ApiController - REST API エンドポイント
  *
  * ApiEngine の REST API ルーティングを Controller 経由で提供。
- * Stage 1: エンジンの public メソッドに委譲。private ハンドラは Stage 2 で移行。
+ * Router 経由で到達し、ApiEngine::handle() の echo+exit パターンで応答。
+ *
+ * Note: ApiEngine の全 22+ ハンドラの非 exit 化は Ver.1.8 以降で実施予定。
+ * Stage 2 では Router 統合のみ実施し、エンジンの出力方式は維持する。
  *
  * @since Ver.1.7-36
+ * @since Ver.1.7-37 Router 経由での API ルーティング統合
  */
 namespace AP\Controllers;
 
@@ -16,25 +20,22 @@ class ApiController extends BaseController {
 	/**
 	 * API リクエストを ApiEngine に委譲
 	 *
-	 * ApiEngine::handle() は echo+exit パターンのため、
-	 * Stage 1 では既存エンジンに直接委譲する。
-	 * Stage 2 でハンドラを個別メソッドに移行予定。
+	 * ApiEngine::handle() は内部で echo+exit するため、
+	 * エンドポイント一致時はこのメソッドの戻り値に到達しない。
+	 * 一致しない場合（handle() が return する場合）のみ 404 を返す。
 	 */
-	public function handle(Request $request): Response {
-		$endpoint = $request->query('ap_api', '') !== ''
-			? $request->query('ap_api', '')
-			: ($request->param('endpoint') ?? '');
-
-		if ($endpoint === '') {
-			return $this->error('Missing API endpoint', 400);
+	public function dispatch(Request $request): Response {
+		/* ApiEngine::handle() は $_GET['ap_api'] を参照する。
+		   Router の mapQuery により URI パスに変換されているため、
+		   元のクエリパラメータを復元する。 */
+		$endpoint = $request->param('endpoint') ?? '';
+		if ($endpoint !== '' && !isset($_GET['ap_api'])) {
+			$_GET['ap_api'] = $endpoint;
 		}
 
-		/* ApiEngine::handle() は内部で echo+exit するため、
-		   Stage 1 ではこのメソッドの戻り値は到達しない。
-		   Router から呼ばれた場合も ApiEngine が直接レスポンスを出力する。 */
 		\ApiEngine::handle();
 
-		/* Stage 2 で到達可能になる（ApiEngine::handle() を非 exit 化後） */
-		return Response::json(['error' => 'Unhandled API endpoint'], 404);
+		/* ApiEngine::handle() がマッチしなかった場合のみここに到達 */
+		return $this->error('Unknown API endpoint', 404);
 	}
 }

@@ -528,6 +528,8 @@ class Response {
     private $content;
     private int $statusCode;
     private array $headers = [];
+    /** @since Ver.1.7-37 ファイルストリーミング用パス */
+    private ?string $filePath = null;
 
     public function __construct($content = '', int $statusCode = 200, array $headers = []) {
         $this->content = $content;
@@ -549,6 +551,20 @@ class Response {
         return new self('', $statusCode, ['Location' => $url]);
     }
 
+    /**
+     * ファイルダウンロードレスポンスを生成
+     * @since Ver.1.7-37
+     */
+    public static function file(string $path, string $filename, string $contentType = 'application/octet-stream'): self {
+        $response = new self('', 200, [
+            'Content-Type' => $contentType,
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+            'Content-Length' => (string)filesize($path),
+        ]);
+        $response->filePath = $path;
+        return $response;
+    }
+
     public function withHeader(string $key, string $value): self {
         $this->headers[$key] = $value;
         return $this;
@@ -566,7 +582,10 @@ class Response {
             header("{$key}: {$value}");
         }
 
-        if (is_array($this->content) || is_object($this->content)) {
+        if ($this->filePath !== null) {
+            readfile($this->filePath);
+            @unlink($this->filePath);
+        } elseif (is_array($this->content) || is_object($this->content)) {
             echo json_encode($this->content);
         } else {
             echo $this->content;

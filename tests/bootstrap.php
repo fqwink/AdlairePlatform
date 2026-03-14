@@ -9,7 +9,7 @@
  */
 
 define('AP_TESTING', true);
-define('AP_VERSION', '1.7.36-test');
+define('AP_VERSION', '1.7.37-test');
 define('AP_UPDATE_URL', 'https://api.github.com/repos/test/test/releases/latest');
 define('AP_BACKUP_GENERATIONS', 5);
 define('AP_REVISION_LIMIT', 30);

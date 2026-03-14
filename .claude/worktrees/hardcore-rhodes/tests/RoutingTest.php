@@ -202,46 +202,6 @@ class RoutingTest extends TestCase {
 		}
 	}
 
-	/* ── API ルート（Ver.1.7-37） ── */
-
-	public function testApiRouteQueryMapping(): void {
-		$captured = null;
-		$this->router->mapQuery('ap_api', '/api/{endpoint}', 'endpoint');
-		$this->router->any('/api/{endpoint}', function (\APF\Core\Request $r) use (&$captured) {
-			$captured = $r->param('endpoint');
-			return new \APF\Core\Response('api-ok');
-		});
-
-		$_SERVER['REQUEST_METHOD'] = 'GET';
-		$_SERVER['REQUEST_URI'] = '/';
-		$_GET = ['ap_api' => 'collections'];
-		$_POST = [];
-
-		$request = new \APF\Core\Request();
-		$response = $this->router->dispatch($request);
-
-		$this->assertEquals(200, $response->getStatusCode());
-		$this->assertEquals('collections', $captured);
-	}
-
-	public function testApiRoutePostMethod(): void {
-		$this->router->mapQuery('ap_api', '/api/{endpoint}', 'endpoint');
-		$this->router->any('/api/{endpoint}', function (\APF\Core\Request $r) {
-			return \APF\Core\Response::json(['endpoint' => $r->param('endpoint')]);
-		});
-
-		$_SERVER['REQUEST_METHOD'] = 'POST';
-		$_SERVER['REQUEST_URI'] = '/';
-		$_GET = ['ap_api' => 'contact'];
-		$_POST = ['name' => 'Test'];
-
-		$request = new \APF\Core\Request();
-		$response = $this->router->dispatch($request);
-
-		$this->assertEquals(200, $response->getStatusCode());
-		$this->assertContains('contact', $response->getContent());
-	}
-
 	/* ── ActionDispatcher ── */
 
 	public function testActionDispatcherRegisteredActions(): void {

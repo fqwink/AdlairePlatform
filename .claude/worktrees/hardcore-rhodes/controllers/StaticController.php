@@ -3,9 +3,9 @@
  * StaticController - 静的サイト生成
  *
  * StaticEngine の handle() private ハンドラを Controller メソッドとして提供。
+ * ファイルダウンロード系 (build_zip, deploy_diff) は Stage 2 で完全移行予定。
  *
  * @since Ver.1.7-36
- * @since Ver.1.7-37 buildZip/deployDiff 完全実装（Engine exit 委譲を除去）
  */
 namespace AP\Controllers;
 
@@ -46,16 +46,15 @@ class StaticController extends BaseController {
 		return $this->ok();
 	}
 
-	/** ZIP ダウンロード */
+	/** ZIP ダウンロード（Stage 2 で完全移行） */
 	public function buildZip(Request $request): Response {
-		try {
-			$engine = new \StaticEngine();
-			$engine->init();
-			$path = $engine->buildZipFile();
-			return Response::file($path, 'static-' . date('Ymd') . '.zip', 'application/zip');
-		} catch (\RuntimeException $e) {
-			return $this->error($e->getMessage());
-		}
+		/* StaticEngine::serveZip() は直接ファイルを出力するため、
+		   Stage 1 では既存エンジンに委譲 */
+		$engine = new \StaticEngine();
+		$engine->init();
+		$engine->serveZip();
+		/* serveZip() は exit() するため到達しない */
+		return $this->error('Unexpected state', 500);
 	}
 
 	/** ビルドステータス取得 */
@@ -66,15 +65,12 @@ class StaticController extends BaseController {
 		return Response::json(['ok' => true, 'data' => $result]);
 	}
 
-	/** デプロイ差分ZIP */
+	/** デプロイ差分ZIP（Stage 2 で完全移行） */
 	public function deployDiff(Request $request): Response {
-		try {
-			$engine = new \StaticEngine();
-			$engine->init();
-			$path = $engine->buildDiffZipFile();
-			return Response::file($path, 'deploy-diff-' . date('Ymd') . '.zip', 'application/zip');
-		} catch (\RuntimeException $e) {
-			return $this->error($e->getMessage());
-		}
+		$engine = new \StaticEngine();
+		$engine->init();
+		$engine->serveDiffZip();
+		/* serveDiffZip() は exit() するため到達しない */
+		return $this->error('Unexpected state', 500);
 	}
 }
