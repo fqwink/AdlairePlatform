@@ -1,0 +1,40 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(wc -l /c/Users/user/Desktop/Locale_Rpository_DATA/AdlairePlatform/engines/*.php)",
+      "Bash(wc -l /c/Users/user/Desktop/Locale_Rpository_DATA/AdlairePlatform/Framework/*/.*php)",
+      "Bash(git -C /c/Users/user/Desktop/Locale_Rpository_DATA/AdlairePlatform log --oneline --all)",
+      "Bash(find /c/Users/user/Desktop/Locale_Rpository_DATA/AdlairePlatform/Framework -name \"*.php\" -exec wc -l {} +)",
+      "Bash(php tests/run.php)",
+      "Bash(where php)",
+      "Read(//c/xampp/php/**)",
+      "Read(//c/php/**)",
+      "Read(//c/Program Files/PHP/**)",
+      "Read(//c/laragon/bin/**)",
+      "Read(//c/wamp64/bin/**)",
+      "Bash(cmd.exe /c \"where php\")",
+      "Read(//c//**)",
+      "Bash(cmd.exe /c \"dir /s /b C:\\\\php*.exe 2>nul\")",
+      "Bash(ls /c/Users/user/Desktop/Locale_Rpository_DATA/AdlairePlatform/engines/*.php)",
+      "Bash(ls -lh /c/Users/user/Desktop/Locale_Rpository_DATA/AdlairePlatform/*.md)",
+      "Bash(grep -n \"@deprecated\" engines/*.php Bridge.php)",
+      "Bash(wc -l Framework/*/*.php)",
+      "Bash(wc -l engines/*.php)",
+      "Bash(ls -1 tests/*Test.php)",
+      "Bash(xargs -I {} basename {} Test.php)",
+      "Bash(cat:*)",
+      "Bash(wc -l Framework/docs/*.md)",
+      "Bash(grep -l \"AFE\\\\|AEF\\\\|ACF\\\\|ASF\\\\|ACM\\\\|AIF\" Framework/docs/*.md)",
+      "Bash(grep -n \"is_loggedin\\(\\)\" index.php engines/*.php)",
+      "Bash(grep -r \"new \\\\\\\\ACE\\\\|new \\\\\\\\APF\\\\|new \\\\\\\\AIS\\\\|new \\\\\\\\ASG\" engines/ --include=\"*.php\")",
+      "Bash(for file in engines/*.php)",
+      "Bash(do grep -l \"\\\\\\\\ACE\\\\\\\\\\\\|\\\\\\\\APF\\\\\\\\\\\\|\\\\\\\\AIS\\\\\\\\\\\\|\\\\\\\\ASG\\\\\\\\\" \"$file \")",
+      "Bash(done)",
+      "Bash(grep -n \"namespace ACE\\\\\\\\Admin\" Framework/ACE/ACE.Admin.php)",
+      "Bash(grep -n \"namespace ACE\\\\\\\\Api\" Framework/ACE/ACE.Api.php)",
+      "Bash(grep -n \"namespace AIS\\\\\\\\Core\" Framework/AIS/AIS.Core.php)",
+      "Bash(grep \"new \\\\\\\\ASG\\\\\\\\Utilities\\\\\\\\ImageOptimizer\" engines/ImageOptimizer.php)",
+      "Bash(grep \"ASG\\\\\\\\Utilities\\\\\\\\ImageOptimizer\" engines/ImageOptimizer.php)"
+    ]
+  }
+}
