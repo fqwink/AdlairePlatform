@@ -66,12 +66,9 @@ class TemplateEngine {
 					return '';
 				}
 				self::$partialDepth++;
-				$content = file_get_contents($path);
+				$content = FileSystem::read($path);
 				if ($content === false) {
 					self::$partialDepth--;
-					Logger::warning("TemplateEngine: パーシャルの読み込みに失敗しました: {$path}");
-					error_log("TemplateEngine: パーシャルの読み込みに失敗しました: {$path}");
-					if (class_exists('DiagnosticEngine')) DiagnosticEngine::log('engine', "パーシャル読み込み失敗: {$name}");
 					return '';
 				}
 				$rendered = self::processPartials($content, $ctx);

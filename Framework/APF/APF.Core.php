@@ -1,15 +1,15 @@
 <?php
 /**
- * Adlaire Framework Ecosystem (AFE) - Core Module
- * 
- * AFE = Adlaire Framework Ecosystem
- * 
- * @package AFE
+ * Adlaire Platform Foundation (APF) - Core Module
+ *
+ * APF = Adlaire Platform Foundation
+ *
+ * @package APF
  * @version 1.0.0
  * @license Adlaire License Ver.2.0
  */
 
-namespace AFE\Core;
+namespace APF\Core;
 
 // ============================================================================
 // Container - 依存性注入コンテナ
@@ -19,6 +19,8 @@ class Container {
     private array $bindings = [];
     private array $instances = [];
     private array $aliases = [];
+    private array $resolving = [];
+    private array $lazy = [];
 
     public function bind(string $abstract, $concrete = null, bool $shared = false): void {
         if (is_null($concrete)) {
@@ -50,19 +52,52 @@ class Container {
             return $this->instances[$abstract];
         }
 
-        $concrete = $this->getConcrete($abstract);
-        $object = $this->build($concrete, $parameters);
-
-        if ($this->isShared($abstract)) {
-            $this->instances[$abstract] = $object;
+        /* B1: 遅延ロード対応 */
+        if (isset($this->lazy[$abstract])) {
+            $instance = ($this->lazy[$abstract])($this);
+            $this->instances[$abstract] = $instance;
+            unset($this->lazy[$abstract]);
+            return $instance;
         }
 
-        return $object;
+        /* B3: 循環依存検出 */
+        if (isset($this->resolving[$abstract])) {
+            throw new ContainerException(
+                "Circular dependency detected: " . implode(' -> ', array_keys($this->resolving)) . " -> {$abstract}",
+                ['chain' => array_keys($this->resolving)]
+            );
+        }
+        $this->resolving[$abstract] = true;
+
+        try {
+            $concrete = $this->getConcrete($abstract);
+            $object = $this->build($concrete, $parameters);
+
+            if ($this->isShared($abstract)) {
+                $this->instances[$abstract] = $object;
+            }
+
+            return $object;
+        } finally {
+            unset($this->resolving[$abstract]);
+        }
     }
 
     public function has(string $abstract): bool {
         $abstract = $this->getAlias($abstract);
         return isset($this->bindings[$abstract]) || isset($this->instances[$abstract]);
+    }
+
+    /** B1: 遅延ロード — 初回アクセス時にのみインスタンス化 */
+    public function lazy(string $abstract, \Closure $factory): void {
+        $this->lazy[$abstract] = $factory;
+    }
+
+    /** B1: 条件付きバインド */
+    public function bindIf(string $abstract, $concrete = null, bool $shared = false): void {
+        if (!$this->has($abstract)) {
+            $this->bind($abstract, $concrete, $shared);
+        }
     }
 
     private function getAlias(string $abstract): string {
@@ -476,4 +511,269 @@ class Response {
 
 abstract class Middleware {
     abstract public function handle(Request $request, \Closure $next): Response;
+}
+
+// ============================================================================
+// Exception Hierarchy - カスタム例外クラス (A1)
+// ============================================================================
+
+class FrameworkException extends \RuntimeException {
+    protected array $context = [];
+
+    public function __construct(string $message = '', array $context = [], int $code = 0, ?\Throwable $previous = null) {
+        $this->context = $context;
+        parent::__construct($message, $code, $previous);
+    }
+
+    public function getContext(): array {
+        return $this->context;
+    }
+}
+
+class ContainerException extends FrameworkException {}
+class NotFoundException extends FrameworkException {}
+class RoutingException extends FrameworkException {}
+class ValidationException extends FrameworkException {
+    private array $errors;
+
+    public function __construct(array $errors, string $message = 'Validation failed', int $code = 422) {
+        $this->errors = $errors;
+        parent::__construct($message, ['errors' => $errors], $code);
+    }
+
+    public function getErrors(): array {
+        return $this->errors;
+    }
+}
+
+class MiddlewareException extends FrameworkException {}
+
+// ============================================================================
+// HookManager - フック機構 (D2)
+// ============================================================================
+
+class HookManager {
+    private array $hooks = [];
+
+    public function register(string $name, callable $callback, int $priority = 10): void {
+        $this->hooks[$name][] = ['callback' => $callback, 'priority' => $priority];
+    }
+
+    public function run(string $name, mixed ...$args): void {
+        if (!isset($this->hooks[$name])) return;
+
+        $sorted = $this->hooks[$name];
+        usort($sorted, fn($a, $b) => $a['priority'] <=> $b['priority']);
+
+        foreach ($sorted as $hook) {
+            try {
+                ($hook['callback'])(...$args);
+            } catch (\Throwable $e) {
+                // Hook failure should not break the flow
+            }
+        }
+    }
+
+    public function filter(string $name, mixed $value, mixed ...$args): mixed {
+        if (!isset($this->hooks[$name])) return $value;
+
+        $sorted = $this->hooks[$name];
+        usort($sorted, fn($a, $b) => $a['priority'] <=> $b['priority']);
+
+        foreach ($sorted as $hook) {
+            try {
+                $value = ($hook['callback'])($value, ...$args);
+            } catch (\Throwable $e) {
+                // Filter failure preserves current value
+            }
+        }
+
+        return $value;
+    }
+
+    public function has(string $name): bool {
+        return isset($this->hooks[$name]) && count($this->hooks[$name]) > 0;
+    }
+
+    public function remove(string $name): void {
+        unset($this->hooks[$name]);
+    }
+
+    public function clear(): void {
+        $this->hooks = [];
+    }
+}
+
+// ============================================================================
+// PluginManager - プラグイン機構 (D3)
+// ============================================================================
+
+class PluginManager {
+    private Container $container;
+    private HookManager $hooks;
+    private array $plugins = [];
+    private array $loaded = [];
+
+    public function __construct(Container $container, HookManager $hooks) {
+        $this->container = $container;
+        $this->hooks = $hooks;
+    }
+
+    public function register(string $name, array $config): void {
+        $this->plugins[$name] = array_merge([
+            'name' => $name,
+            'version' => '1.0.0',
+            'boot' => null,
+            'dependencies' => [],
+            'enabled' => true,
+        ], $config);
+    }
+
+    public function boot(): void {
+        foreach ($this->plugins as $name => $plugin) {
+            if (!$plugin['enabled'] || isset($this->loaded[$name])) continue;
+            $this->loadPlugin($name, $plugin);
+        }
+    }
+
+    private function loadPlugin(string $name, array $plugin): void {
+        foreach ($plugin['dependencies'] as $dep) {
+            if (!isset($this->loaded[$dep])) {
+                if (isset($this->plugins[$dep])) {
+                    $this->loadPlugin($dep, $this->plugins[$dep]);
+                } else {
+                    throw new FrameworkException("Plugin dependency not found: {$dep}", ['plugin' => $name]);
+                }
+            }
+        }
+
+        if (is_callable($plugin['boot'])) {
+            ($plugin['boot'])($this->container, $this->hooks);
+        }
+
+        $this->loaded[$name] = true;
+        $this->hooks->run('plugin:loaded', $name, $plugin);
+    }
+
+    public function isLoaded(string $name): bool {
+        return isset($this->loaded[$name]);
+    }
+
+    public function getAll(): array {
+        return $this->plugins;
+    }
+
+    public function disable(string $name): void {
+        if (isset($this->plugins[$name])) {
+            $this->plugins[$name]['enabled'] = false;
+        }
+    }
+}
+
+// ============================================================================
+// DebugCollector - デバッグ・プロファイル機能 (C1)
+// ============================================================================
+
+class DebugCollector {
+    private static bool $enabled = false;
+    private static array $events = [];
+    private static array $timers = [];
+    private static array $queries = [];
+    private static float $startTime = 0;
+
+    public static function enable(): void {
+        self::$enabled = true;
+        self::$startTime = hrtime(true);
+    }
+
+    public static function isEnabled(): bool {
+        return self::$enabled;
+    }
+
+    public static function logEvent(string $category, string $message, array $context = []): void {
+        if (!self::$enabled) return;
+        self::$events[] = [
+            'time' => (hrtime(true) - self::$startTime) / 1_000_000,
+            'category' => $category,
+            'message' => $message,
+            'context' => $context,
+            'memory' => memory_get_usage(true),
+        ];
+    }
+
+    public static function startTimer(string $name): void {
+        if (!self::$enabled) return;
+        self::$timers[$name] = hrtime(true);
+    }
+
+    public static function stopTimer(string $name): float {
+        if (!self::$enabled || !isset(self::$timers[$name])) return 0.0;
+        $elapsed = (hrtime(true) - self::$timers[$name]) / 1_000_000;
+        self::logEvent('timer', "{$name}: {$elapsed}ms", ['elapsed_ms' => $elapsed]);
+        unset(self::$timers[$name]);
+        return $elapsed;
+    }
+
+    public static function logQuery(string $sql, array $bindings = [], float $time = 0): void {
+        if (!self::$enabled) return;
+        self::$queries[] = ['sql' => $sql, 'bindings' => $bindings, 'time_ms' => $time];
+    }
+
+    public static function getReport(): array {
+        return [
+            'total_time_ms' => (hrtime(true) - self::$startTime) / 1_000_000,
+            'memory_peak' => memory_get_peak_usage(true),
+            'events' => self::$events,
+            'queries' => self::$queries,
+            'event_count' => count(self::$events),
+            'query_count' => count(self::$queries),
+        ];
+    }
+
+    public static function reset(): void {
+        self::$events = [];
+        self::$timers = [];
+        self::$queries = [];
+        self::$startTime = hrtime(true);
+    }
+}
+
+// ============================================================================
+// ErrorBoundary - エラー境界 (A1)
+// ============================================================================
+
+class ErrorBoundary {
+    private static array $handlers = [];
+
+    public static function register(string $type, callable $handler): void {
+        self::$handlers[$type] = $handler;
+    }
+
+    public static function wrap(callable $callback, string $errorType = 'default'): mixed {
+        try {
+            return $callback();
+        } catch (\Throwable $e) {
+            if (isset(self::$handlers[$errorType])) {
+                return (self::$handlers[$errorType])($e);
+            }
+            if (isset(self::$handlers['default'])) {
+                return (self::$handlers['default'])($e);
+            }
+            throw $e;
+        }
+    }
+
+    public static function wrapResponse(callable $callback): Response {
+        try {
+            return $callback();
+        } catch (ValidationException $e) {
+            return Response::json(['errors' => $e->getErrors()], 422);
+        } catch (NotFoundException $e) {
+            return Response::json(['error' => $e->getMessage()], 404);
+        } catch (FrameworkException $e) {
+            return Response::json(['error' => $e->getMessage(), 'context' => $e->getContext()], 500);
+        } catch (\Throwable $e) {
+            return Response::json(['error' => 'Internal Server Error'], 500);
+        }
+    }
 }

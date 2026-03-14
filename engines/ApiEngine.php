@@ -70,10 +70,12 @@ class ApiEngine {
 
 		/* CORS ヘッダー（ヘッドレス CMS: 外部フロントエンドからの API 呼び出し対応） */
 		$allowedOrigin = self::getCorsOrigin();
-		header('Access-Control-Allow-Origin: ' . $allowedOrigin);
-		/* R16 fix: オリジン別レスポンスのキャッシュ分離（CORS キャッシュポイズニング防止） */
-		if ($allowedOrigin !== '*') {
-			header('Vary: Origin');
+		if ($allowedOrigin !== '') {
+			header('Access-Control-Allow-Origin: ' . $allowedOrigin);
+			/* R16 fix: オリジン別レスポンスのキャッシュ分離（CORS キャッシュポイズニング防止） */
+			if ($allowedOrigin !== '*') {
+				header('Vary: Origin');
+			}
 		}
 		header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
 		header('Access-Control-Allow-Headers: Content-Type, Authorization');
@@ -124,7 +126,7 @@ class ApiEngine {
 			'cache_clear'  => self::requireAuth('handleCacheClear'),
 			'cache_stats'  => self::requireAuth('handleCacheStats'),
 			'webhooks'     => self::requireAuth('handleWebhooks'),
-			default        => self::jsonError('不明な API エンドポイントです', 400),
+			default        => self::jsonError(I18n::t('api.error.unknown_endpoint'), 400),
 		};
 	}
 
@@ -142,7 +144,7 @@ class ApiEngine {
 		if (preg_match('/^Bearer\s+(.+)$/i', $authHeader, $m)) {
 			$keys = json_read('api_keys.json', settings_dir());
 			foreach ($keys as $k) {
-				if (password_verify($m[1], $k['hash'] ?? '')) {
+				if (password_verify($m[1], $k['key_hash'] ?? '')) {
 					$detailed = true;
 					break;
 				}
@@ -164,7 +166,7 @@ class ApiEngine {
 	 */
 	private static function requireAuth(string $method): void {
 		if (!self::isAuthenticated()) {
-			self::jsonError('認証が必要です。Authorization ヘッダーに Bearer <API_KEY> を設定するか、セッションでログインしてください。', 401);
+			self::jsonError(I18n::t('api.error.auth_required'), 401);
 		}
 		/* C17 fix: セッション認証時は CSRF 検証を要求（APIキー認証時は不要） */
 		if (class_exists('AdminEngine') && AdminEngine::isLoggedIn() && !self::$authenticatedViaApiKey) {
@@ -297,11 +299,11 @@ class ApiEngine {
 	private static function handleGetPage(): void {
 		$slug = $_GET['slug'] ?? '';
 		if (!preg_match(self::SLUG_PATTERN, $slug)) {
-			self::jsonError('不正な slug パラメータです', 400);
+			self::jsonError(I18n::t('api.error.invalid_slug'), 400);
 		}
 		$pages = json_read('pages.json', content_dir());
 		if (!isset($pages[$slug])) {
-			self::jsonError('ページが見つかりません', 404);
+			self::jsonError(I18n::t('api.error.page_not_found'), 404);
 		}
 		self::jsonResponse(true, [
 			'slug'    => $slug,
@@ -330,7 +332,7 @@ class ApiEngine {
 	private static function handleSearch(): void {
 		$q = trim($_GET['q'] ?? '');
 		if ($q === '' || mb_strlen($q, 'UTF-8') > self::SEARCH_MAX_LEN) {
-			self::jsonError('検索クエリを入力してください（' . self::SEARCH_MAX_LEN . '文字以内）', 400);
+			self::jsonError(I18n::t('api.error.search_query', ['max' => self::SEARCH_MAX_LEN]), 400);
 		}
 
 		$results = [];
@@ -430,13 +432,13 @@ class ApiEngine {
 		$message = trim($_POST['message'] ?? '');
 
 		if ($name === '' || mb_strlen($name, 'UTF-8') > self::NAME_MAX_LEN) {
-			self::jsonError('名前を入力してください（' . self::NAME_MAX_LEN . '文字以内）');
+			self::jsonError(I18n::t('api.error.name_required', ['max' => self::NAME_MAX_LEN]));
 		}
 		if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-			self::jsonError('有効なメールアドレスを入力してください');
+			self::jsonError(I18n::t('api.error.invalid_email'));
 		}
 		if ($message === '' || mb_strlen($message, 'UTF-8') > self::MSG_MAX_LEN) {
-			self::jsonError('メッセージを入力してください（' . self::MSG_MAX_LEN . '文字以内）');
+			self::jsonError(I18n::t('api.error.message_required', ['max' => self::MSG_MAX_LEN]));
 		}
 
 		/* レート制限 */
@@ -446,7 +448,7 @@ class ApiEngine {
 		$settings = json_read('settings.json', settings_dir());
 		$to       = $settings['contact_email'] ?? '';
 		if ($to === '') {
-			self::jsonError('送信先が設定されていません', 500);
+			self::jsonError(I18n::t('api.error.no_contact_email'), 500);
 		}
 
 		$siteTitle = $settings['title'] ?? 'AP';
@@ -458,19 +460,25 @@ class ApiEngine {
 			DiagnosticEngine::log('security', 'メールヘッダインジェクション試行検出');
 		}
 
-		/* E-3 fix: MailerEngine 経由でメール送信（リトライ・ログ・モック対応） */
-		if (!MailerEngine::sendContact($to, $name, $email, $message, $siteTitle)) {
-			/* MailerEngine 失敗時: レガシー mail() にフォールバック */
-			/* R17 fix: サブジェクトのヘッダインジェクション対策 */
-			$safeTitle = str_replace(["\r", "\n"], '', $settings['title'] ?? 'AP');
-			$subject = '【' . $safeTitle . '】お問い合わせ: ' . $safeName;
-			$body    = "名前: {$safeName}\nメール: {$safeEmail}\n\n{$message}";
-			$headers = "From: {$safeEmail}\r\nReply-To: {$safeEmail}\r\nContent-Type: text/plain; charset=UTF-8";
+		try {
+			/* E-3 fix: MailerEngine 経由でメール送信（リトライ・ログ・モック対応） */
+			if (!MailerEngine::sendContact($to, $name, $email, $message, $siteTitle)) {
+				/* MailerEngine 失敗時: レガシー mail() にフォールバック */
+				/* R17 fix: サブジェクトのヘッダインジェクション対策 */
+				$safeTitle = str_replace(["\r", "\n"], '', $settings['title'] ?? 'AP');
+				$subject = '【' . $safeTitle . '】お問い合わせ: ' . $safeName;
+				$body    = "名前: {$safeName}\nメール: {$safeEmail}\n\n{$message}";
+				$headers = "From: {$safeEmail}\r\nReply-To: {$safeEmail}\r\nContent-Type: text/plain; charset=UTF-8";
 
-			if (!@mail($to, $subject, $body, $headers)) {
-				if (class_exists('DiagnosticEngine')) DiagnosticEngine::logIntegrationError('mail()', 0, 'コンタクトフォームメール送信失敗');
-				self::jsonError('メール送信に失敗しました', 500);
+				if (!@mail($to, $subject, $body, $headers)) {
+					if (class_exists('DiagnosticEngine')) DiagnosticEngine::logIntegrationError('mail()', 0, 'コンタクトフォームメール送信失敗');
+					self::jsonError(I18n::t('api.error.mail_failed'), 500);
+				}
 			}
+		} catch (\Throwable $e) {
+			Logger::error('コンタクトフォーム送信中にエラー', ['engine' => 'ApiEngine', 'error' => $e->getMessage()]);
+			if (class_exists('DiagnosticEngine')) DiagnosticEngine::log('runtime', 'handleContact 例外', ['trace' => $e->getTraceAsString()]);
+			self::jsonError('送信処理中にエラーが発生しました', 500);
 		}
 
 		/* アクティビティログに記録 */
@@ -906,8 +914,14 @@ class ApiEngine {
 		}
 
 		/* 画像最適化（提案8） */
-		if (class_exists('ImageOptimizer')) {
-			ImageOptimizer::optimize($dir . $filename);
+		try {
+			if (class_exists('ImageOptimizer')) {
+				ImageOptimizer::optimize($dir . $filename);
+			}
+		} catch (\Throwable $e) {
+			Logger::error('メディアアップロード最適化中にエラー', ['engine' => 'ApiEngine', 'file' => $filename, 'error' => $e->getMessage()]);
+			if (class_exists('DiagnosticEngine')) DiagnosticEngine::log('runtime', 'handleMediaUpload 最適化例外', ['file' => $filename, 'trace' => $e->getTraceAsString()]);
+			/* 最適化失敗でもアップロード自体は成功として続行 */
 		}
 
 		if (class_exists('AdminEngine') && method_exists('AdminEngine', 'logActivity')) {
@@ -1207,8 +1221,8 @@ class ApiEngine {
 		if ($origin !== '' && in_array($origin, $allowed, true)) {
 			return $origin;
 		}
-		/* BUG#9 fix: マッチしないオリジンに対して allowed[0] を返すと不正な CORS ポリシーになる */
-		return 'null';
+		/* ホワイトリストに含まれないオリジンはヘッダー自体を出力しない */
+		return '';
 	}
 
 	/**

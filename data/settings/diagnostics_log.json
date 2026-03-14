@@ -1,0 +1,762 @@
+{
+    "errors": [],
+    "custom": [
+        {
+            "category": "security",
+            "message": "デフォルトパスワード使用中",
+            "timestamp": "2026-03-14T04:27:56+00:00"
+        },
+        {
+            "category": "runtime_snapshot",
+            "message": "シャットダウン時スナップショット",
+            "timestamp": "2026-03-14T04:27:57+00:00",
+            "context": {
+                "memory_usage": 2097152,
+                "memory_peak": 2097152,
+                "memory_usage_human": "2 MB",
+                "memory_peak_human": "2 MB",
+                "timings": {
+                    "AdminEngine": 0.01,
+                    "ApiEngine": 0,
+                    "CollectionEngine": 0,
+                    "GitEngine": 0,
+                    "WebhookEngine": 0,
+                    "StaticEngine": 0,
+                    "UpdateEngine": 0,
+                    "request_total": 322.09
+                },
+                "engine_timings": [],
+                "engine_summary": {
+                    "total_engines_tracked": 0,
+                    "total_calls": 0,
+                    "engine_call_counts": []
+                },
+                "traced_count": 0
+            }
+        },
+        {
+            "category": "security",
+            "message": "デフォルトパスワード使用中",
+            "timestamp": "2026-03-14T04:27:57+00:00"
+        },
+        {
+            "category": "runtime_snapshot",
+            "message": "シャットダウン時スナップショット",
+            "timestamp": "2026-03-14T04:27:58+00:00",
+            "context": {
+                "memory_usage": 2097152,
+                "memory_peak": 2097152,
+                "memory_usage_human": "2 MB",
+                "memory_peak_human": "2 MB",
+                "timings": {
+                    "AdminEngine": 0.01,
+                    "ApiEngine": 0,
+                    "CollectionEngine": 0,
+                    "GitEngine": 0,
+                    "WebhookEngine": 0,
+                    "StaticEngine": 0,
+                    "UpdateEngine": 0,
+                    "request_total": 273.09
+                },
+                "engine_timings": [],
+                "engine_summary": {
+                    "total_engines_tracked": 0,
+                    "total_calls": 0,
+                    "engine_call_counts": []
+                },
+                "traced_count": 0
+            }
+        },
+        {
+            "category": "security",
+            "message": "デフォルトパスワード使用中",
+            "timestamp": "2026-03-14T04:27:58+00:00"
+        },
+        {
+            "category": "runtime_snapshot",
+            "message": "シャットダウン時スナップショット",
+            "timestamp": "2026-03-14T04:27:58+00:00",
+            "context": {
+                "memory_usage": 2097152,
+                "memory_peak": 2097152,
+                "memory_usage_human": "2 MB",
+                "memory_peak_human": "2 MB",
+                "timings": {
+                    "AdminEngine": 0.01,
+                    "ApiEngine": 0,
+                    "CollectionEngine": 0,
+                    "GitEngine": 0,
+                    "WebhookEngine": 0,
+                    "StaticEngine": 0,
+                    "UpdateEngine": 0,
+                    "request_total": 436.96
+                },
+                "engine_timings": [],
+                "engine_summary": {
+                    "total_engines_tracked": 0,
+                    "total_calls": 0,
+                    "engine_call_counts": []
+                },
+                "traced_count": 0
+            }
+        },
+        {
+            "category": "security",
+            "message": "デフォルトパスワード使用中",
+            "timestamp": "2026-03-14T06:45:14+00:00"
+        },
+        {
+            "category": "runtime_snapshot",
+            "message": "シャットダウン時スナップショット",
+            "timestamp": "2026-03-14T06:45:14+00:00",
+            "context": {
+                "memory_usage": 2097152,
+                "memory_peak": 2097152,
+                "memory_usage_human": "2 MB",
+                "memory_peak_human": "2 MB",
+                "timings": {
+                    "AdminEngine": 0.01,
+                    "ApiEngine": 0,
+                    "CollectionEngine": 0.07,
+                    "GitEngine": 0,
+                    "WebhookEngine": 0.12,
+                    "StaticEngine": 0,
+                    "UpdateEngine": 0
+                },
+                "engine_timings": [],
+                "engine_summary": {
+                    "total_engines_tracked": 0,
+                    "total_calls": 0,
+                    "engine_call_counts": []
+                },
+                "traced_count": 0
+            }
+        },
+        {
+            "category": "security",
+            "message": "デフォルトパスワード使用中",
+            "timestamp": "2026-03-14T07:09:25+00:00"
+        },
+        {
+            "category": "runtime_snapshot",
+            "message": "シャットダウン時スナップショット",
+            "timestamp": "2026-03-14T07:09:26+00:00",
+            "context": {
+                "memory_usage": 2097152,
+                "memory_peak": 2097152,
+                "memory_usage_human": "2 MB",
+                "memory_peak_human": "2 MB",
+                "timings": {
+                    "AdminEngine": 0.07,
+                    "ApiEngine": 0,
+                    "CollectionEngine": 0,
+                    "GitEngine": 0,
+                    "WebhookEngine": 0,
+                    "StaticEngine": 0,
+                    "UpdateEngine": 0,
+                    "request_total": 483.06
+                },
+                "engine_timings": [],
+                "engine_summary": {
+                    "total_engines_tracked": 0,
+                    "total_calls": 0,
+                    "engine_call_counts": []
+                },
+                "traced_count": 0
+            }
+        },
+        {
+            "category": "security",
+            "message": "デフォルトパスワード使用中",
+            "timestamp": "2026-03-14T07:09:27+00:00"
+        },
+        {
+            "category": "runtime_snapshot",
+            "message": "シャットダウン時スナップショット",
+            "timestamp": "2026-03-14T07:09:27+00:00",
+            "context": {
+                "memory_usage": 2097152,
+                "memory_peak": 2097152,
+                "memory_usage_human": "2 MB",
+                "memory_peak_human": "2 MB",
+                "timings": {
+                    "AdminEngine": 0.01,
+                    "ApiEngine": 0,
+                    "CollectionEngine": 0,
+                    "GitEngine": 0,
+                    "WebhookEngine": 0,
+                    "StaticEngine": 0,
+                    "UpdateEngine": 0,
+                    "request_total": 231.66
+                },
+                "engine_timings": [],
+                "engine_summary": {
+                    "total_engines_tracked": 0,
+                    "total_calls": 0,
+                    "engine_call_counts": []
+                },
+                "traced_count": 0
+            }
+        },
+        {
+            "category": "security",
+            "message": "デフォルトパスワード使用中",
+            "timestamp": "2026-03-14T07:09:27+00:00"
+        },
+        {
+            "category": "runtime_snapshot",
+            "message": "シャットダウン時スナップショット",
+            "timestamp": "2026-03-14T07:09:27+00:00",
+            "context": {
+                "memory_usage": 2097152,
+                "memory_peak": 2097152,
+                "memory_usage_human": "2 MB",
+                "memory_peak_human": "2 MB",
+                "timings": {
+                    "AdminEngine": 0.01,
+                    "ApiEngine": 0,
+                    "CollectionEngine": 0,
+                    "GitEngine": 0,
+                    "WebhookEngine": 0,
+                    "StaticEngine": 0,
+                    "UpdateEngine": 0,
+                    "request_total": 308.52
+                },
+                "engine_timings": [],
+                "engine_summary": {
+                    "total_engines_tracked": 0,
+                    "total_calls": 0,
+                    "engine_call_counts": []
+                },
+                "traced_count": 0
+            }
+        },
+        {
+            "category": "security",
+            "message": "デフォルトパスワード使用中",
+            "timestamp": "2026-03-14T07:09:28+00:00"
+        },
+        {
+            "category": "runtime_snapshot",
+            "message": "シャットダウン時スナップショット",
+            "timestamp": "2026-03-14T07:09:28+00:00",
+            "context": {
+                "memory_usage": 2097152,
+                "memory_peak": 2097152,
+                "memory_usage_human": "2 MB",
+                "memory_peak_human": "2 MB",
+                "timings": {
+                    "AdminEngine": 0.01,
+                    "ApiEngine": 0,
+                    "CollectionEngine": 0,
+                    "GitEngine": 0,
+                    "WebhookEngine": 0,
+                    "StaticEngine": 0,
+                    "UpdateEngine": 0,
+                    "request_total": 254.58
+                },
+                "engine_timings": [],
+                "engine_summary": {
+                    "total_engines_tracked": 0,
+                    "total_calls": 0,
+                    "engine_call_counts": []
+                },
+                "traced_count": 0
+            }
+        },
+        {
+            "category": "security",
+            "message": "デフォルトパスワード使用中",
+            "timestamp": "2026-03-14T07:09:30+00:00"
+        },
+        {
+            "category": "runtime_snapshot",
+            "message": "シャットダウン時スナップショット",
+            "timestamp": "2026-03-14T07:09:30+00:00",
+            "context": {
+                "memory_usage": 2097152,
+                "memory_peak": 2097152,
+                "memory_usage_human": "2 MB",
+                "memory_peak_human": "2 MB",
+                "timings": {
+                    "AdminEngine": 0.01,
+                    "ApiEngine": 0,
+                    "CollectionEngine": 0,
+                    "GitEngine": 0,
+                    "WebhookEngine": 0,
+                    "StaticEngine": 0,
+                    "UpdateEngine": 0,
+                    "request_total": 218.85
+                },
+                "engine_timings": [],
+                "engine_summary": {
+                    "total_engines_tracked": 0,
+                    "total_calls": 0,
+                    "engine_call_counts": []
+                },
+                "traced_count": 0
+            }
+        },
+        {
+            "category": "security",
+            "message": "デフォルトパスワード使用中",
+            "timestamp": "2026-03-14T07:49:08+00:00"
+        },
+        {
+            "category": "runtime_snapshot",
+            "message": "シャットダウン時スナップショット",
+            "timestamp": "2026-03-14T07:49:08+00:00",
+            "context": {
+                "memory_usage": 2097152,
+                "memory_peak": 2097152,
+                "memory_usage_human": "2 MB",
+                "memory_peak_human": "2 MB",
+                "timings": {
+                    "AdminEngine": 1.21,
+                    "ApiEngine": 0.06,
+                    "CollectionEngine": 0.07,
+                    "GitEngine": 0.34,
+                    "WebhookEngine": 0.06,
+                    "StaticEngine": 0.11,
+                    "UpdateEngine": 0.06
+                },
+                "engine_timings": [],
+                "engine_summary": {
+                    "total_engines_tracked": 0,
+                    "total_calls": 0,
+                    "engine_call_counts": []
+                },
+                "traced_count": 0
+            }
+        },
+        {
+            "category": "security",
+            "message": "デフォルトパスワード使用中",
+            "timestamp": "2026-03-14T07:49:21+00:00"
+        },
+        {
+            "category": "security",
+            "message": "ログイン成功",
+            "timestamp": "2026-03-14T07:49:21+00:00",
+            "context": {
+                "username": "admin",
+                "role": "admin"
+            }
+        },
+        {
+            "category": "runtime_snapshot",
+            "message": "シャットダウン時スナップショット",
+            "timestamp": "2026-03-14T07:49:21+00:00",
+            "context": {
+                "memory_usage": 2097152,
+                "memory_peak": 2097152,
+                "memory_usage_human": "2 MB",
+                "memory_peak_human": "2 MB",
+                "timings": {
+                    "AdminEngine": 0.01,
+                    "ApiEngine": 0.01,
+                    "CollectionEngine": 0.08,
+                    "GitEngine": 0,
+                    "WebhookEngine": 0,
+                    "StaticEngine": 0,
+                    "UpdateEngine": 0
+                },
+                "engine_timings": [],
+                "engine_summary": {
+                    "total_engines_tracked": 0,
+                    "total_calls": 0,
+                    "engine_call_counts": []
+                },
+                "traced_count": 0
+            }
+        },
+        {
+            "category": "security",
+            "message": "デフォルトパスワード使用中",
+            "timestamp": "2026-03-14T07:49:21+00:00"
+        },
+        {
+            "category": "runtime_snapshot",
+            "message": "シャットダウン時スナップショット",
+            "timestamp": "2026-03-14T07:49:21+00:00",
+            "context": {
+                "memory_usage": 2097152,
+                "memory_peak": 2097152,
+                "memory_usage_human": "2 MB",
+                "memory_peak_human": "2 MB",
+                "timings": {
+                    "AdminEngine": 0.01,
+                    "ApiEngine": 0,
+                    "CollectionEngine": 0.1,
+                    "GitEngine": 0,
+                    "WebhookEngine": 0,
+                    "StaticEngine": 0,
+                    "UpdateEngine": 0,
+                    "request_total": 211.26
+                },
+                "engine_timings": [],
+                "engine_summary": {
+                    "total_engines_tracked": 0,
+                    "total_calls": 0,
+                    "engine_call_counts": []
+                },
+                "traced_count": 0
+            }
+        },
+        {
+            "category": "runtime_snapshot",
+            "message": "シャットダウン時スナップショット",
+            "timestamp": "2026-03-14T07:49:34+00:00",
+            "context": {
+                "memory_usage": 2097152,
+                "memory_peak": 2097152,
+                "memory_usage_human": "2 MB",
+                "memory_peak_human": "2 MB",
+                "timings": [],
+                "engine_timings": [],
+                "engine_summary": {
+                    "total_engines_tracked": 0,
+                    "total_calls": 0,
+                    "engine_call_counts": []
+                },
+                "traced_count": 0
+            }
+        },
+        {
+            "category": "runtime_snapshot",
+            "message": "シャットダウン時スナップショット",
+            "timestamp": "2026-03-14T07:49:40+00:00",
+            "context": {
+                "memory_usage": 2097152,
+                "memory_peak": 2097152,
+                "memory_usage_human": "2 MB",
+                "memory_peak_human": "2 MB",
+                "timings": [],
+                "engine_timings": [],
+                "engine_summary": {
+                    "total_engines_tracked": 0,
+                    "total_calls": 0,
+                    "engine_call_counts": []
+                },
+                "traced_count": 0
+            }
+        },
+        {
+            "category": "security",
+            "message": "デフォルトパスワード使用中",
+            "timestamp": "2026-03-14T07:49:40+00:00"
+        },
+        {
+            "category": "runtime_snapshot",
+            "message": "シャットダウン時スナップショット",
+            "timestamp": "2026-03-14T07:49:40+00:00",
+            "context": {
+                "memory_usage": 2097152,
+                "memory_peak": 2097152,
+                "memory_usage_human": "2 MB",
+                "memory_peak_human": "2 MB",
+                "timings": {
+                    "AdminEngine": 0.01,
+                    "ApiEngine": 0,
+                    "CollectionEngine": 0,
+                    "GitEngine": 0,
+                    "WebhookEngine": 0,
+                    "StaticEngine": 0,
+                    "UpdateEngine": 0
+                },
+                "engine_timings": [],
+                "engine_summary": {
+                    "total_engines_tracked": 0,
+                    "total_calls": 0,
+                    "engine_call_counts": []
+                },
+                "traced_count": 0
+            }
+        },
+        {
+            "category": "runtime_snapshot",
+            "message": "シャットダウン時スナップショット",
+            "timestamp": "2026-03-14T07:49:41+00:00",
+            "context": {
+                "memory_usage": 2097152,
+                "memory_peak": 2097152,
+                "memory_usage_human": "2 MB",
+                "memory_peak_human": "2 MB",
+                "timings": {
+                    "AdminEngine": 0.01,
+                    "ApiEngine": 0,
+                    "CollectionEngine": 0,
+                    "GitEngine": 0,
+                    "WebhookEngine": 0
+                },
+                "engine_timings": [],
+                "engine_summary": {
+                    "total_engines_tracked": 0,
+                    "total_calls": 0,
+                    "engine_call_counts": []
+                },
+                "traced_count": 0
+            }
+        },
+        {
+            "category": "security",
+            "message": "CSRF 検証失敗",
+            "timestamp": "2026-03-14T07:49:41+00:00",
+            "context": {
+                "reason": "token_missing"
+            }
+        },
+        {
+            "category": "runtime_snapshot",
+            "message": "シャットダウン時スナップショット",
+            "timestamp": "2026-03-14T07:49:42+00:00",
+            "context": {
+                "memory_usage": 2097152,
+                "memory_peak": 2097152,
+                "memory_usage_human": "2 MB",
+                "memory_peak_human": "2 MB",
+                "timings": {
+                    "AdminEngine": 0.01
+                },
+                "engine_timings": [],
+                "engine_summary": {
+                    "total_engines_tracked": 0,
+                    "total_calls": 0,
+                    "engine_call_counts": []
+                },
+                "traced_count": 0
+            }
+        },
+        {
+            "category": "runtime_snapshot",
+            "message": "シャットダウン時スナップショット",
+            "timestamp": "2026-03-14T07:49:42+00:00",
+            "context": {
+                "memory_usage": 2097152,
+                "memory_peak": 2097152,
+                "memory_usage_human": "2 MB",
+                "memory_peak_human": "2 MB",
+                "timings": {
+                    "AdminEngine": 0.01,
+                    "ApiEngine": 0,
+                    "CollectionEngine": 0,
+                    "GitEngine": 0,
+                    "WebhookEngine": 0,
+                    "StaticEngine": 0,
+                    "UpdateEngine": 0
+                },
+                "engine_timings": [],
+                "engine_summary": {
+                    "total_engines_tracked": 0,
+                    "total_calls": 0,
+                    "engine_call_counts": []
+                },
+                "traced_count": 0
+            }
+        },
+        {
+            "category": "runtime_snapshot",
+            "message": "シャットダウン時スナップショット",
+            "timestamp": "2026-03-14T07:49:43+00:00",
+            "context": {
+                "memory_usage": 2097152,
+                "memory_peak": 2097152,
+                "memory_usage_human": "2 MB",
+                "memory_peak_human": "2 MB",
+                "timings": {
+                    "AdminEngine": 0.01,
+                    "ApiEngine": 0,
+                    "CollectionEngine": 0,
+                    "GitEngine": 0,
+                    "WebhookEngine": 0,
+                    "StaticEngine": 0,
+                    "UpdateEngine": 0
+                },
+                "engine_timings": [],
+                "engine_summary": {
+                    "total_engines_tracked": 0,
+                    "total_calls": 0,
+                    "engine_call_counts": []
+                },
+                "traced_count": 0
+            }
+        },
+        {
+            "category": "runtime_snapshot",
+            "message": "シャットダウン時スナップショット",
+            "timestamp": "2026-03-14T07:51:24+00:00",
+            "context": {
+                "memory_usage": 2097152,
+                "memory_peak": 2097152,
+                "memory_usage_human": "2 MB",
+                "memory_peak_human": "2 MB",
+                "timings": {
+                    "AdminEngine": 0.09,
+                    "ApiEngine": 0,
+                    "CollectionEngine": 0,
+                    "GitEngine": 0,
+                    "WebhookEngine": 0,
+                    "StaticEngine": 0
+                },
+                "engine_timings": [],
+                "engine_summary": {
+                    "total_engines_tracked": 0,
+                    "total_calls": 0,
+                    "engine_call_counts": []
+                },
+                "traced_count": 0
+            }
+        },
+        {
+            "category": "security",
+            "message": "デフォルトパスワード使用中",
+            "timestamp": "2026-03-14T07:52:17+00:00"
+        },
+        {
+            "category": "runtime_snapshot",
+            "message": "シャットダウン時スナップショット",
+            "timestamp": "2026-03-14T07:52:18+00:00",
+            "context": {
+                "memory_usage": 2097152,
+                "memory_peak": 2097152,
+                "memory_usage_human": "2 MB",
+                "memory_peak_human": "2 MB",
+                "timings": {
+                    "AdminEngine": 0.01,
+                    "ApiEngine": 0,
+                    "CollectionEngine": 0.05,
+                    "GitEngine": 0,
+                    "WebhookEngine": 0,
+                    "StaticEngine": 0,
+                    "UpdateEngine": 0,
+                    "request_total": 233.71
+                },
+                "engine_timings": [],
+                "engine_summary": {
+                    "total_engines_tracked": 0,
+                    "total_calls": 0,
+                    "engine_call_counts": []
+                },
+                "traced_count": 0
+            }
+        },
+        {
+            "category": "security",
+            "message": "デフォルトパスワード使用中",
+            "timestamp": "2026-03-14T07:52:22+00:00"
+        },
+        {
+            "category": "runtime_snapshot",
+            "message": "シャットダウン時スナップショット",
+            "timestamp": "2026-03-14T07:52:22+00:00",
+            "context": {
+                "memory_usage": 2097152,
+                "memory_peak": 2097152,
+                "memory_usage_human": "2 MB",
+                "memory_peak_human": "2 MB",
+                "timings": {
+                    "AdminEngine": 0.01,
+                    "ApiEngine": 0,
+                    "CollectionEngine": 0,
+                    "GitEngine": 0,
+                    "WebhookEngine": 0,
+                    "StaticEngine": 0,
+                    "UpdateEngine": 0
+                },
+                "engine_timings": [],
+                "engine_summary": {
+                    "total_engines_tracked": 0,
+                    "total_calls": 0,
+                    "engine_call_counts": []
+                },
+                "traced_count": 0
+            }
+        },
+        {
+            "category": "security",
+            "message": "デフォルトパスワード使用中",
+            "timestamp": "2026-03-14T07:52:22+00:00"
+        },
+        {
+            "category": "runtime_snapshot",
+            "message": "シャットダウン時スナップショット",
+            "timestamp": "2026-03-14T07:52:22+00:00",
+            "context": {
+                "memory_usage": 2097152,
+                "memory_peak": 2097152,
+                "memory_usage_human": "2 MB",
+                "memory_peak_human": "2 MB",
+                "timings": {
+                    "AdminEngine": 0.01,
+                    "ApiEngine": 0,
+                    "CollectionEngine": 0,
+                    "GitEngine": 0,
+                    "WebhookEngine": 0,
+                    "StaticEngine": 0,
+                    "UpdateEngine": 0,
+                    "request_total": 212.47
+                },
+                "engine_timings": [],
+                "engine_summary": {
+                    "total_engines_tracked": 0,
+                    "total_calls": 0,
+                    "engine_call_counts": []
+                },
+                "traced_count": 0
+            }
+        },
+        {
+            "category": "security",
+            "message": "デフォルトパスワード使用中",
+            "timestamp": "2026-03-14T07:52:42+00:00"
+        },
+        {
+            "category": "runtime_snapshot",
+            "message": "シャットダウン時スナップショット",
+            "timestamp": "2026-03-14T07:52:42+00:00",
+            "context": {
+                "memory_usage": 2097152,
+                "memory_peak": 2097152,
+                "memory_usage_human": "2 MB",
+                "memory_peak_human": "2 MB",
+                "timings": {
+                    "AdminEngine": 0.01,
+                    "ApiEngine": 0,
+                    "CollectionEngine": 0,
+                    "GitEngine": 0,
+                    "WebhookEngine": 0,
+                    "StaticEngine": 0,
+                    "UpdateEngine": 0,
+                    "request_total": 196.16
+                },
+                "engine_timings": [],
+                "engine_summary": {
+                    "total_engines_tracked": 0,
+                    "total_calls": 0,
+                    "engine_call_counts": []
+                },
+                "traced_count": 0
+            }
+        }
+    ],
+    "daily_summary": {
+        "2026-03-14": {
+            "errors": 0,
+            "security": 19,
+            "engine": 0,
+            "other": 24,
+            "debug_syntax": 0,
+            "debug_runtime": 0,
+            "debug_logic": 0,
+            "debug_semantic": 0,
+            "debug_off_by_one": 0,
+            "debug_race_condition": 0,
+            "debug_memory": 0,
+            "debug_performance": 0,
+            "debug_security": 19,
+            "debug_environment": 0,
+            "debug_timing": 0,
+            "debug_integration": 0
+        }
+    }
+}

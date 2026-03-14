@@ -1,15 +1,15 @@
 <?php
 /**
- * Adlaire Framework Ecosystem (AFE) - Utilities Module
- * 
- * AFE = Adlaire Framework Ecosystem
- * 
- * @package AFE
+ * Adlaire Platform Foundation (APF) - Utilities Module
+ *
+ * APF = Adlaire Platform Foundation
+ *
+ * @package APF
  * @version 1.0.0
  * @license Adlaire License Ver.2.0
  */
 
-namespace AFE\Utilities;
+namespace APF\Utilities;
 
 // ============================================================================
 // Validator - バリデーション
@@ -154,6 +154,70 @@ class Validator {
         }
     }
 
+    private function validateConfirmed(string $field, $value): void {
+        $confirmation = $this->data[$field . '_confirmation'] ?? null;
+        if ($value !== $confirmation) {
+            $this->addError($field, 'confirmed', "{$field} confirmation does not match");
+        }
+    }
+
+    private function validateRegex(string $field, $value, ?string $parameter): void {
+        if (!is_null($value) && !preg_match($parameter, (string)$value)) {
+            $this->addError($field, 'regex', "{$field} format is invalid");
+        }
+    }
+
+    private function validateBetween(string $field, $value, ?string $parameter): void {
+        if (is_null($value)) return;
+        [$min, $max] = explode(',', $parameter);
+        $len = is_string($value) ? mb_strlen($value) : $value;
+        if ($len < (int)$min || $len > (int)$max) {
+            $this->addError($field, 'between', "{$field} must be between {$min} and {$max}");
+        }
+    }
+
+    private function validateSize(string $field, $value, ?string $parameter): void {
+        if (is_null($value)) return;
+        $size = (int)$parameter;
+        $len = is_string($value) ? mb_strlen($value) : (is_array($value) ? count($value) : $value);
+        if ($len !== $size) {
+            $this->addError($field, 'size', "{$field} must be exactly {$size}");
+        }
+    }
+
+    private function validateArray(string $field, $value): void {
+        if (!is_null($value) && !is_array($value)) {
+            $this->addError($field, 'array', "{$field} must be an array");
+        }
+    }
+
+    private function validateJson(string $field, $value): void {
+        if (!is_null($value)) {
+            json_decode((string)$value);
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                $this->addError($field, 'json', "{$field} must be valid JSON");
+            }
+        }
+    }
+
+    private function validateIp(string $field, $value): void {
+        if (!is_null($value) && !filter_var($value, FILTER_VALIDATE_IP)) {
+            $this->addError($field, 'ip', "{$field} must be a valid IP address");
+        }
+    }
+
+    private function validateUuid(string $field, $value): void {
+        if (!is_null($value) && !preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', (string)$value)) {
+            $this->addError($field, 'uuid', "{$field} must be a valid UUID");
+        }
+    }
+
+    private function validateSlug(string $field, $value): void {
+        if (!is_null($value) && !preg_match('/^[a-z0-9]+(?:-[a-z0-9]+)*$/', (string)$value)) {
+            $this->addError($field, 'slug', "{$field} must be a valid slug");
+        }
+    }
+
     private function addError(string $field, string $rule, string $message): void {
         $key = "{$field}.{$rule}";
         $this->errors[$field][] = $this->messages[$key] ?? $message;
@@ -169,6 +233,10 @@ class Validator {
 
     public function first(string $field): ?string {
         return $this->errors[$field][0] ?? null;
+    }
+
+    public function hasError(string $field): bool {
+        return isset($this->errors[$field]);
     }
 }
 

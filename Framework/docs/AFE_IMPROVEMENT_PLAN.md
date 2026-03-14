@@ -1,10 +1,10 @@
-# AFE Framework 改良計画書
+# APF Framework 改良計画書
 
-**Adlaire Framework Ecosystem Ver.2.1.0 改良提案**
+**Adlaire Platform Foundation Ver.2.1.0 改良提案**
 
 **日付**: 2026年3月13日  
 **ステータス**: 改良計画  
-**目的**: AFEフレームワークの機能強化とパフォーマンス最適化
+**目的**: APFフレームワークの機能強化とパフォーマンス最適化
 
 ---
 
@@ -20,7 +20,7 @@
 
 ## 現状分析
 
-### 現在のAFE構成
+### 現在のAPF構成
 
 ```
 ✅ Framework.php      (~500行) - 統合フレームワーク本体
@@ -227,7 +227,7 @@ class Framework {
     
     private function logError(FrameworkException $e): void {
         error_log(sprintf(
-            "[AFE Error] %s: %s (Context: %s)",
+            "[APF Error] %s: %s (Context: %s)",
             get_class($e),
             $e->getMessage(),
             json_encode($e->getContext())

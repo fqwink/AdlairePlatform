@@ -1,10 +1,10 @@
-# Adlaire Framework Ecosystem
+# Adlaire Framework
 
 **Version 1.0.0** | 将来的に独立Public化予定
 
-## 📖 概要
+## 概要
 
-Adlaire Framework Ecosystem は、**3ファイルのエンジン駆動モデル**で構成された統合フレームワーク群です。
+Adlaire Framework は、**3ファイルのエンジン駆動モデル**で構成された統合フレームワーク群です。
 
 **設計原則**: 各フレームワークは厳密に3ファイル構成で、エンジン駆動アーキテクチャを採用しています。
 
@@ -12,13 +12,18 @@ Adlaire Framework Ecosystem は、**3ファイルのエンジン駆動モデル*
 
 ### フレームワーク構成
 
-- **AFE** (Adlaire Framework Ecosystem) - PHP製コアフレームワーク・エンジン (本体)
-- **AEF** (Adlaire Editor Framework) - JavaScript製エディタフレームワーク・エンジン
-- **ACF** (Adlaire CSS Framework) - CSSフレームワーク・エンジン
+| 略称 | 正式名称 | 言語 | 状態 |
+|------|---------|------|------|
+| **APF** | Adlaire Platform Foundation | PHP 8.2+ | 実装済み |
+| **AEB** | Adlaire Editor & Blocks | JavaScript ES6+ | 実装済み |
+| **ADS** | Adlaire Design System | CSS3 | 実装済み |
+| **ASG** | Adlaire Static Generator | PHP 8.2+ | 計画中 |
+| **ACE** | Adlaire Content Engine | PHP 8.2+ | 計画中 |
+| **AIS** | Adlaire Infrastructure Services | PHP 8.2+ | 計画中 |
 
 ---
 
-## 🎯 設計原則
+## 設計原則
 
 ### 3ファイルのエンジン駆動モデル
 各フレームワークは **3つのエンジンファイル** で構成されています:
@@ -34,24 +39,24 @@ Adlaire Framework Ecosystem は、**3ファイルのエンジン駆動モデル*
 
 ---
 
-## 📁 ディレクトリ構造
+## ディレクトリ構造
 
 ```
-Framework/                        # Adlaire Framework Ecosystem
-├── AFE/                          # PHP Framework Engine (本体)
-│   ├── AFE.Core.php             (15KB) - Container, Router, Request, Response, Middleware
-│   ├── AFE.Database.php         (19KB) - Connection, QueryBuilder, Model, Schema
-│   └── AFE.Utilities.php        (18KB) - Validator, Cache, Logger, Session, Security, Str, Arr
+Framework/
+├── APF/                          # PHP Platform Foundation
+│   ├── APF.Core.php             (15KB) - Container, Router, Request, Response, Middleware
+│   ├── APF.Database.php         (19KB) - Connection, QueryBuilder, Model, Schema
+│   └── APF.Utilities.php        (18KB) - Validator, Cache, Logger, Session, Security, Str, Arr
 │
-├── AEF/                          # JavaScript Editor Engine
-│   ├── AEF.Core.js              (12KB) - Editor, EventBus, BlockRegistry, StateManager, HistoryManager
-│   ├── AEF.Blocks.js            (16KB) - 全ブロックタイプ (10種類)
-│   └── AEF.Utils.js             (13KB) - sanitizer, dom, selection, keyboard
+├── AEB/                          # JavaScript Editor & Blocks
+│   ├── AEB.Core.js              (12KB) - Editor, EventBus, BlockRegistry, StateManager, HistoryManager
+│   ├── AEB.Blocks.js            (16KB) - 全ブロックタイプ (10種類)
+│   └── AEB.Utils.js             (13KB) - sanitizer, dom, selection, keyboard
 │
-├── ACF/                          # CSS Framework Engine
-│   ├── ACF.Base.css             (14KB) - variables, reset, typography, utilities
-│   ├── ACF.Components.css        (9KB) - buttons, forms, cards, modals, alerts, badges
-│   └── ACF.Editor.css           (12KB) - editor-base, blocks, toolbar
+├── ADS/                          # CSS Design System
+│   ├── ADS.Base.css             (14KB) - variables, reset, typography, utilities
+│   ├── ADS.Components.css        (9KB) - buttons, forms, cards, modals, alerts, badges
+│   └── ADS.Editor.css           (12KB) - editor-base, blocks, toolbar
 │
 └── docs/                         # Documentation
 ```
@@ -60,7 +65,7 @@ Framework/                        # Adlaire Framework Ecosystem
 
 ---
 
-## 🚀 AFE (Adlaire Framework Ecosystem) - PHP本体エンジン
+## APF (Adlaire Platform Foundation) - PHP本体エンジン
 
 ### 特徴
 - **エンジン駆動**: 3エンジンファイル構成
@@ -71,22 +76,27 @@ Framework/                        # Adlaire Framework Ecosystem
 
 ### エンジン構成
 
-#### AFE.Core.php (15KB)
-- `Container` - 依存性注入コンテナ (bind, singleton, make, resolve)
+#### APF.Core.php (15KB)
+- `Container` - 依存性注入コンテナ (bind, singleton, make, resolve, lazy, bindIf)
 - `Router` - ルーティング (GET/POST/PUT/PATCH/DELETE, group, middleware)
 - `Request` - HTTPリクエスト (query, post, json, file, cookie, header)
 - `Response` - HTTPレスポンス (json, html, redirect, withHeader, withCookie)
 - `Middleware` - ミドルウェア基底クラス
+- `HookManager` - フック管理 (register, run, filter, has, remove, clear)
+- `PluginManager` - プラグイン管理 (register, boot, loadPlugin, isLoaded, getAll, disable)
+- `DebugCollector` - デバッグ情報収集 (enable, logEvent, startTimer, stopTimer, logQuery, getReport)
+- `ErrorBoundary` - エラー境界 (register, wrap, wrapResponse)
+- 例外クラス: FrameworkException, ContainerException, NotFoundException, RoutingException, ValidationException, MiddlewareException
 
-#### AFE.Database.php (19KB)
+#### APF.Database.php (19KB)
 - `Connection` - データベース接続 (query, insert, update, delete, transaction)
 - `QueryBuilder` - クエリビルダー (select, where, join, orderBy, limit, offset)
 - `Model` - ORM基底クラス (all, find, create, save, delete, toArray, toJson)
 - `Schema` - スキーマビルダー (create, drop, hasTable)
 - `Blueprint` - テーブル定義 (id, string, text, integer, timestamps)
 
-#### AFE.Utilities.php (18KB)
-- `Validator` - バリデーション (required, email, min, max, numeric, url, date)
+#### APF.Utilities.php (18KB)
+- `Validator` - バリデーション (required, email, min, max, numeric, url, date, confirmed, regex, between, size, array, json, ip, uuid, slug)
 - `Cache` - ファイルキャッシュ (get, set, delete, remember, forever)
 - `Logger` - ログシステム (debug, info, warning, error, critical)
 - `Session` - セッション管理 (get, set, flash, regenerate)
@@ -98,13 +108,13 @@ Framework/                        # Adlaire Framework Ecosystem
 
 ```php
 <?php
-require 'Framework/AFE/AFE.Core.php';
-require 'Framework/AFE/AFE.Database.php';
-require 'Framework/AFE/AFE.Utilities.php';
+require 'Framework/APF/APF.Core.php';
+require 'Framework/APF/APF.Database.php';
+require 'Framework/APF/APF.Utilities.php';
 
-use AFE\Core\{Container, Router, Request, Response};
-use AFE\Database\{Connection, Model};
-use AFE\Utilities\{Validator, Cache, Logger, Session, Security};
+use APF\Core\{Container, Router, Request, Response};
+use APF\Database\{Connection, Model};
+use APF\Utilities\{Validator, Cache, Logger, Session, Security};
 
 // Container
 $container = new Container();
@@ -120,21 +130,7 @@ $container->singleton(Connection::class, fn() => new Connection([
 $router = new Router($container);
 
 $router->get('/', function(Request $request) {
-    return Response::json(['message' => 'Hello AFE']);
-});
-
-$router->post('/users', function(Request $request) {
-    $validator = Validator::make($request->post(), [
-        'name' => 'required|min:3',
-        'email' => 'required|email'
-    ]);
-    
-    if ($validator->fails()) {
-        return Response::json(['errors' => $validator->errors()], 400);
-    }
-    
-    // Process...
-    return Response::json(['success' => true], 201);
+    return Response::json(['message' => 'Hello APF']);
 });
 
 $response = $router->dispatch(new Request());
@@ -143,7 +139,7 @@ $response->send();
 
 ---
 
-## 🚀 AEF (Adlaire Editor Framework) - JavaScriptエンジン
+## AEB (Adlaire Editor & Blocks) - JavaScriptエンジン
 
 ### 特徴
 - **エンジン駆動**: イベント駆動3エンジン構成
@@ -153,26 +149,18 @@ $response->send();
 
 ### エンジン構成
 
-#### AEF.Core.js (11.9KB)
+#### AEB.Core.js (12KB)
 - `Editor` - メインコントローラー
 - `EventBus` - Pub/Subイベントシステム
 - `BlockRegistry` - ブロック型管理
 - `StateManager` - リアクティブ状態管理
 - `HistoryManager` - Undo/Redo システム
 
-#### AEF.Blocks.js (16KB)
+#### AEB.Blocks.js (16KB)
 - `BaseBlock` - 抽象基底クラス
-- `ParagraphBlock` - 段落
-- `HeadingBlock` - 見出し (H2/H3)
-- `ListBlock` - リスト (ordered/unordered)
-- `QuoteBlock` - 引用
-- `CodeBlock` - コード
-- `ImageBlock` - 画像
-- `TableBlock` - テーブル
-- `ChecklistBlock` - チェックリスト
-- `DelimiterBlock` - 区切り
+- `ParagraphBlock`, `HeadingBlock` (H2/H3), `ListBlock`, `QuoteBlock`, `CodeBlock`, `ImageBlock`, `TableBlock`, `ChecklistBlock`, `DelimiterBlock`
 
-#### AEF.Utils.js (13KB)
+#### AEB.Utils.js (13KB)
 - `sanitizer` - HTMLサニタイゼーション (XSS防御)
 - `dom` - DOM操作ヘルパー
 - `selection` - 選択範囲ユーティリティ
@@ -181,13 +169,12 @@ $response->send();
 ### 使用方法
 
 ```javascript
-import { Editor, ParagraphBlock, HeadingBlock } from './Framework/AEF/AEF.Core.js';
-import * as Blocks from './Framework/AEF/AEF.Blocks.js';
+import { Editor } from './Framework/AEB/AEB.Core.js';
+import * as Blocks from './Framework/AEB/AEB.Blocks.js';
 
 const editor = new Editor({
   holder: document.getElementById('editor'),
-  autosave: true,
-  autosaveInterval: 30000
+  autosave: true
 });
 
 editor.blocks.register('paragraph', Blocks.ParagraphBlock);
@@ -197,15 +184,11 @@ editor.render([
   { type: 'heading', data: { text: 'Title', level: 2 } },
   { type: 'paragraph', data: { text: 'Content...' } }
 ]);
-
-editor.events.on('save', ({ blocks }) => {
-  console.log('Saved:', blocks);
-});
 ```
 
 ---
 
-## 🎨 ACF (Adlaire CSS Framework) - CSSエンジン
+## ADS (Adlaire Design System) - CSSエンジン
 
 ### 特徴
 - **エンジン駆動**: 3CSSエンジン構成
@@ -216,83 +199,75 @@ editor.events.on('save', ({ blocks }) => {
 
 ### エンジン構成
 
-#### ACF.Base.css (14.2KB)
-- **variables.css** - CSS変数 (色、スペース、タイポグラフィ)
-- **reset.css** - モダンCSSリセット
-- **typography.css** - タイポグラフィスタイル
-- **utilities.css** - ユーティリティクラス (spacing, display, flexbox, text, border, shadow)
+#### ADS.Base.css (14KB)
+- CSS変数 (色、スペース、タイポグラフィ): `--ads-primary`, `--ads-bg`, `--ads-text` 等
+- モダンCSSリセット
+- タイポグラフィスタイル
+- ユーティリティクラス (spacing, display, flexbox, text, border, shadow)
 
-#### ACF.Components.css (9.1KB)
-- **buttons** - プライマリ、セカンダリ、アウトライン、ゴースト
-- **forms** - input, textarea, select, checkbox, radio
-- **cards** - ヘッダー、ボディ、フッター
-- **modals** - バックドロップ、ヘッダー、ボディ、フッター
-- **alerts** - info, success, warning, error
-- **badges** - 各種カラーバリエーション
-- **tooltips** - ツールチップ
-- **spinners** - ローディングスピナー
+#### ADS.Components.css (9KB)
+- `.ads-btn`, `.ads-btn-primary`, `.ads-btn-secondary`, `.ads-btn-outline`, `.ads-btn-ghost`
+- `.ads-card`, `.ads-form`, `.ads-input`, `.ads-textarea`, `.ads-select`
+- `.ads-modal`, `.ads-alert`, `.ads-badge`, `.ads-tooltip`, `.ads-spinner`
 
-#### ACF.Editor.css (12.2KB)
-- **editor-base.css** - エディタラッパー、ブロックコンテナ
-- **blocks.css** - 全ブロックタイプスタイル (9+ types)
-- **toolbar.css** - ツールバー、スラッシュメニュー、ブロックハンドル
+#### ADS.Editor.css (12KB)
+- `.aeb-editor`, `.aeb-block`, `.aeb-toolbar` 等エディタ特化スタイル
 
 ### 使用方法
 
 ```html
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-  <link rel="stylesheet" href="./Framework/ACF/ACF.Base.css">
-  <link rel="stylesheet" href="./Framework/ACF/ACF.Components.css">
-  <link rel="stylesheet" href="./Framework/ACF/ACF.Editor.css">
-</head>
-<body>
-  <button class="acf-btn acf-btn-primary">Primary Button</button>
-  
-  <div class="acf-card">
-    <div class="acf-card-header">
-      <h2 class="acf-card-title">Card Title</h2>
-    </div>
-    <div class="acf-card-body">
-      <p>Card content...</p>
-    </div>
+<link rel="stylesheet" href="./Framework/ADS/ADS.Base.css">
+<link rel="stylesheet" href="./Framework/ADS/ADS.Components.css">
+
+<button class="ads-btn ads-btn-primary">Primary Button</button>
+
+<div class="ads-card">
+  <div class="ads-card-header">
+    <h2 class="ads-card-title">Card Title</h2>
   </div>
-</body>
-</html>
+  <div class="ads-card-body">
+    <p>Card content...</p>
+  </div>
+</div>
 ```
 
 ---
 
-## 📊 統計
+## Adlaire Platform への統合状況
 
-| フレームワーク | エンジン数 | 総サイズ | アーキテクチャ |
-|--------------|-----------|---------|--------------|
-| **AFE** | 3 engines | ~52KB | PHP 8.2+ エンジン駆動 |
-| **AEF** | 3 engines | ~41KB | JavaScript ES6+ エンジン駆動 |
-| **ACF** | 3 engines | ~35KB | CSS3 エンジン駆動 |
-| **合計** | **9 engines** | **~128KB** | 統合エンジン駆動 |
+以下のFrameworkコンポーネントは、APエンジンパターン（staticメソッド、名前空間なし、IIFE）に適応済みです。
 
-### 改善指標
+| Framework 元 | AP 統合先 | 状態 |
+|-------------|----------|------|
+| ADS.Base.css (CSS変数・リセット) | `dashboard.html` で直接リンク | 統合済み |
+| APF.Utilities.php Validator | `engines/Validator.php` として抽出 | 統合済み |
+| AEB.Core.js EventBus | `engines/JsEngine/ap-events.js` として実装 | 統合済み |
+| AEB.Utils.js 共通処理 | `engines/JsEngine/ap-utils.js` として実装 | 統合済み |
 
-| 指標 | Before | After | 改善 |
-|------|--------|-------|------|
-| **エンジンファイル数** | 24+ files | 9 engines | **62%削減** |
-| **メインJSサイズ** | 2,889行 | ~300行 | **90%削減** |
-| **CSS整理** | JS内散在 | エンジン分離 | **100%** |
-| **PHP統合** | - | 52KB (3 engines) | **新規** |
-| **機能追加時間** | 4-8時間 | 1-2時間 | **75%削減** |
-| **アーキテクチャ** | モノリシック | エンジン駆動 | **革新** |
+**削除済み**: `BaseEngine.php` — 存在しないFramework名前空間を参照していたため削除。APエンジンは `EngineTrait` を使用。
+
+**未統合（保留）**: APF.Core.php (DI Container/Router), APF.Database.php (ORM), AEB.Blocks.js, ADS.Components.css, ADS.Editor.css — APはフラットファイルCMSのため現時点では不要。将来のPublic独立化時に活用。
 
 ---
 
-## 🔧 開発ガイドライン
+## 統計
+
+| フレームワーク | エンジン数 | 総サイズ | アーキテクチャ |
+|--------------|-----------|---------|--------------|
+| **APF** | 3 engines | ~52KB | PHP 8.2+ エンジン駆動 |
+| **AEB** | 3 engines | ~41KB | JavaScript ES6+ エンジン駆動 |
+| **ADS** | 3 engines | ~35KB | CSS3 エンジン駆動 |
+| **合計** | **9 engines** | **~128KB** | 統合エンジン駆動 |
+
+---
+
+## 開発ガイドライン
 
 ### エンジン命名規則
-- **フレームワーク略称.エンジン名.拡張子** (例: `AFE.Core.php`, `AEF.Core.js`, `ACF.Base.css`)
-- **AFE** = Adlaire Framework Ecosystem (PHPエンジン本体)
-- **AEF** = Adlaire Editor Framework (JavaScriptエンジン)
-- **ACF** = Adlaire CSS Framework (CSSエンジン)
+- **フレームワーク略称.エンジン名.拡張子** (例: `APF.Core.php`, `AEB.Core.js`, `ADS.Base.css`)
+- **APF** = Adlaire Platform Foundation (PHPエンジン本体)
+- **AEB** = Adlaire Editor & Blocks (JavaScriptエンジン)
+- **ADS** = Adlaire Design System (CSSエンジン)
 - PascalCase for frameworks and engine modules
 
 ### コードスタイル
@@ -300,52 +275,52 @@ editor.events.on('save', ({ blocks }) => {
 - **JavaScript ES6+**: modules (import/export)
 - **CSS3**: custom properties, Grid, Flexbox
 - JSDoc comments for public APIs
-- BEM-like class naming (`.acf-component-element`)
+- BEM-like class naming (`.ads-component-element`)
 
 ### 追加開発
 **各フレームワークは厳密に3ファイル構成を維持**:
 
-#### AFE (PHP本体)
-1. **AFE.Core.php** - Container, Router, Request, Response, Middleware
-2. **AFE.Database.php** - Connection, QueryBuilder, Model, Schema
-3. **AFE.Utilities.php** - Validator, Cache, Logger, Session, Security, Helpers
+#### APF (PHP本体)
+1. **APF.Core.php** - Container, Router, Request, Response, Middleware, HookManager, PluginManager, DebugCollector, ErrorBoundary
+2. **APF.Database.php** - Connection, QueryBuilder, Model, Schema
+3. **APF.Utilities.php** - Validator, Cache, Logger, Session, Security, Helpers
 
-#### AEF (JavaScript)
-1. **AEF.Core.js** - Editor, EventBus, BlockRegistry, StateManager, HistoryManager
-2. **AEF.Blocks.js** - 全ブロックタイプ実装
-3. **AEF.Utils.js** - sanitizer, dom, selection, keyboard
+#### AEB (JavaScript)
+1. **AEB.Core.js** - Editor, EventBus, BlockRegistry, StateManager, HistoryManager
+2. **AEB.Blocks.js** - 全ブロックタイプ実装
+3. **AEB.Utils.js** - sanitizer, dom, selection, keyboard
 
-#### ACF (CSS)
-1. **ACF.Base.css** - variables, reset, typography, utilities
-2. **ACF.Components.css** - 再利用可能コンポーネント
-3. **ACF.Editor.css** - エディタ特化スタイル
+#### ADS (CSS)
+1. **ADS.Base.css** - variables, reset, typography, utilities
+2. **ADS.Components.css** - 再利用可能コンポーネント
+3. **ADS.Editor.css** - エディタ特化スタイル
 
 ---
 
-## 🌐 将来計画
+## 将来計画
 
 ### Version 2.0.0 - 追加フレームワーク (計画中)
 
-現在の **9エンジン (AFE + AEF + ACF)** に加え、以下のフレームワークを追加予定:
+現在の **9エンジン (APF + AEB + ADS)** に加え、以下のフレームワークを追加予定:
 
-#### **ASF** (Adlaire Static Framework) - 静的ジェネレーター
-- `ASF.Core.php` - Generator, Builder, Router, FileSystem
-- `ASF.Template.php` - TemplateEngine, ThemeEngine, MarkdownEngine
-- `ASF.Utilities.php` - Cache, ImageOptimizer, DiffBuilder, Deployer
+#### **ASG** (Adlaire Static Generator) - 静的ジェネレーター
+- `ASG.Core.php` - Generator, Builder, Router, FileSystem
+- `ASG.Template.php` - TemplateEngine, ThemeEngine, MarkdownEngine
+- `ASG.Utilities.php` - Cache, ImageOptimizer, DiffBuilder, Deployer
 
 **抽出元**: Adlaire Platform の StaticEngine, TemplateEngine, ThemeEngine, MarkdownEngine, ImageOptimizer
 
-#### **ACM** (Adlaire CMS Framework) - CMS
-- `ACM.Core.php` - CollectionEngine, ContentManager, MetaManager
-- `ACM.Admin.php` - AdminEngine, UserManager, AuthManager
-- `ACM.Api.php` - ApiEngine, WebhookEngine, RestHandler
+#### **ACE** (Adlaire Content Engine) - CMS
+- `ACE.Core.php` - CollectionEngine, ContentManager, MetaManager
+- `ACE.Admin.php` - AdminEngine, UserManager, AuthManager
+- `ACE.Api.php` - ApiEngine, WebhookEngine, RestHandler
 
 **抽出元**: Adlaire Platform の CollectionEngine, AdminEngine, ApiEngine, WebhookEngine
 
-#### **AIF** (Adlaire Infrastructure Framework) - インフラ
-- `AIF.Core.php` - AppContext, ServiceProvider, Container
-- `AIF.System.php` - CacheEngine, Logger, DiagnosticEngine
-- `AIF.Deployment.php` - UpdateEngine, GitEngine, MailerEngine
+#### **AIS** (Adlaire Infrastructure Services) - インフラ
+- `AIS.Core.php` - AppContext, ServiceProvider, Container
+- `AIS.System.php` - CacheEngine, Logger, DiagnosticEngine
+- `AIS.Deployment.php` - UpdateEngine, GitEngine, MailerEngine
 
 **抽出元**: Adlaire Platform の AppContext, CacheEngine, Logger, DiagnosticEngine, UpdateEngine, GitEngine, MailerEngine
 
@@ -353,7 +328,7 @@ editor.events.on('save', ({ blocks }) => {
 
 **詳細**: [FUTURE_ROADMAP.md](./docs/FUTURE_ROADMAP.md)
 
-**注意**: 
+**注意**:
 - Adlaire Platform 本体のソースコードは一切変更しない
 - エンジンのコピーを作成してフレームワーク化
 - 実装時期は未定
@@ -361,29 +336,29 @@ editor.events.on('save', ({ blocks }) => {
 ---
 
 ### Public独立化 (時期未定)
-- **Adlaire-Framework-Ecosystem** として独立リポジトリ化
+- **Adlaire-Framework** として独立リポジトリ化
 - Composer/npm/CDN 公開
 - 包括的ドキュメントサイト
 - コミュニティ貢献ガイドライン
 
 ---
 
-## 📚 関連ドキュメント
+## 関連ドキュメント
 
 - [docs/README.md](./docs/README.md) - ドキュメント一覧
-- [docs/FUTURE_ROADMAP.md](./docs/FUTURE_ROADMAP.md) - 将来計画 (ASF/ACM/AIF)
-- [docs/AFE_IMPROVEMENT_ROADMAP_V2.md](./docs/AFE_IMPROVEMENT_ROADMAP_V2.md) - AFE改良ロードマップ
-- [docs/EDITOR_CSS_FRAMEWORK_DESIGN.md](./docs/EDITOR_CSS_FRAMEWORK_DESIGN.md) - AEF/ACF設計詳細
+- [docs/FUTURE_ROADMAP.md](./docs/FUTURE_ROADMAP.md) - 将来計画 (ASG/ACE/AIS)
+- [docs/AFE_IMPROVEMENT_ROADMAP_V2.md](./docs/AFE_IMPROVEMENT_ROADMAP_V2.md) - APF改良ロードマップ
+- [docs/EDITOR_CSS_FRAMEWORK_DESIGN.md](./docs/EDITOR_CSS_FRAMEWORK_DESIGN.md) - AEB/ADS設計詳細
 - [docs/WYSIWYG_EDITOR_IMPROVEMENT_PROPOSAL.md](./docs/WYSIWYG_EDITOR_IMPROVEMENT_PROPOSAL.md) - エディタ改良提案
 
 ---
 
-## 📄 ライセンス
+## ライセンス
 
 Adlaire Platformプロジェクトの一部
 
 ---
 
-**Last Updated**: 2026-03-14  
-**Version**: 1.0.0  
-**Status**: ✅ Production Ready
+**Last Updated**: 2026-03-14
+**Version**: 1.0.0
+**Status**: Production Ready

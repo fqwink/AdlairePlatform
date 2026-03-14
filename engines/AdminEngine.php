@@ -36,7 +36,7 @@ class AdminEngine {
 		if (!isset($_SESSION['l']) || $_SESSION['l'] !== true) {
 			http_response_code(401);
 			header('Content-Type: application/json; charset=UTF-8');
-			echo json_encode(['error' => '未ログイン']);
+			echo json_encode(['error' => I18n::t('auth.not_logged_in')]);
 			exit;
 		}
 		self::verifyCsrf();
@@ -154,7 +154,7 @@ class AdminEngine {
 		$ip = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
 		if (!self::checkLoginRate($ip)) {
 			$remaining = self::getLockoutRemaining($ip);
-			return '試行回数が多すぎます。' . $remaining . '分後に再試行してください。';
+			return I18n::t('auth.too_many_attempts', ['remaining' => $remaining]);
 		}
 
 		$password = $_POST['password'] ?? '';
@@ -182,14 +182,14 @@ class AdminEngine {
 			if (class_exists('DiagnosticEngine')) DiagnosticEngine::log('security', 'ログイン失敗（パスワード不一致）');
 			$attemptsLeft = self::getRemainingAttempts($ip);
 			if ($attemptsLeft > 0) {
-				return 'パスワードが違います（残り' . $attemptsLeft . '回）';
+				return I18n::t('auth.wrong_password', ['attempts' => $attemptsLeft]);
 			}
-			return 'wrong password';
+			return I18n::t('auth.wrong_password_final');
 		}
 		self::clearLoginRate($ip);
 		if (!empty($_POST['new'])) {
 			self::savePassword($_POST['new']);
-			return 'password changed';
+			return I18n::t('auth.password_changed');
 		}
 		session_regenerate_id(true);
 		$_SESSION['l'] = true;
@@ -278,7 +278,7 @@ class AdminEngine {
 		if (!self::hasRole('editor') && !self::hasRole('admin')) {
 			http_response_code(403);
 			header('Content-Type: application/json; charset=UTF-8');
-			echo json_encode(['error' => '編集権限がありません']);
+			echo json_encode(['error' => I18n::t('auth.no_edit_permission')]);
 			exit;
 		}
 		$fieldname = $_POST['fieldname'] ?? '';
@@ -286,7 +286,7 @@ class AdminEngine {
 		if (!preg_match('/^[a-zA-Z0-9_\-]+$/', $fieldname)) {
 			http_response_code(400);
 			header('Content-Type: application/json; charset=UTF-8');
-			echo json_encode(['error' => '不正なフィールド名']);
+			echo json_encode(['error' => I18n::t('auth.invalid_field_name')]);
 			exit;
 		}
 		$settings_keys = ['title', 'description', 'keywords', 'copyright', 'themeSelect', 'menu', 'subside', 'contact_email'];
@@ -439,26 +439,30 @@ class AdminEngine {
 			if (class_exists('DiagnosticEngine')) DiagnosticEngine::logRaceCondition('revisions/' . $fieldname, 'ロックファイルオープン失敗');
 			return;
 		}
-		if (!flock($lf, LOCK_EX)) {
-			if (class_exists('DiagnosticEngine')) DiagnosticEngine::logRaceCondition('revisions/' . $fieldname, 'ファイルロック取得失敗');
+		try {
+			if (!flock($lf, LOCK_EX)) {
+				if (class_exists('DiagnosticEngine')) DiagnosticEngine::logRaceCondition('revisions/' . $fieldname, 'ファイルロック取得失敗');
+				return;
+			}
+
+			/* R29 fix: 同一秒のリビジョン衝突を防止（ランダムサフィックス追加） */
+			$ts = date('Ymd_His') . '_' . bin2hex(random_bytes(2));
+			$rev = [
+				'timestamp' => date('c'),
+				'content'   => $content,
+				'size'      => strlen($content),
+				'user'      => $_SESSION['ap_username'] ?? '',
+				'restored'  => $restored,
+			];
+			FileSystem::writeJson($dir . 'rev_' . $ts . '.json', $rev);
+			self::pruneRevisions($dir);
+		} catch (\Throwable $e) {
+			Logger::error('リビジョン保存中にエラー', ['engine' => 'AdminEngine', 'field' => $fieldname, 'error' => $e->getMessage()]);
+			if (class_exists('DiagnosticEngine')) DiagnosticEngine::log('runtime', 'リビジョン保存例外', ['field' => $fieldname, 'trace' => $e->getTraceAsString()]);
+		} finally {
+			flock($lf, LOCK_UN);
 			fclose($lf);
-			return;
 		}
-
-		/* R29 fix: 同一秒のリビジョン衝突を防止（ランダムサフィックス追加） */
-		$ts = date('Ymd_His') . '_' . bin2hex(random_bytes(2));
-		$rev = [
-			'timestamp' => date('c'),
-			'content'   => $content,
-			'size'      => strlen($content),
-			'user'      => $_SESSION['ap_username'] ?? '',
-			'restored'  => $restored,
-		];
-		FileSystem::writeJson($dir . 'rev_' . $ts . '.json', $rev);
-		self::pruneRevisions($dir);
-
-		flock($lf, LOCK_UN);
-		fclose($lf);
 	}
 
 	private static function pruneRevisions(string $dir): void {
@@ -783,7 +787,7 @@ class AdminEngine {
 		if (!file_exists($tplPath)) {
 			return '<h1>Login template not found</h1>';
 		}
-		$tpl = file_get_contents($tplPath);
+		$tpl = FileSystem::read($tplPath);
 		if ($tpl === false) {
 			return '<h1>Login template read error</h1>';
 		}
@@ -792,6 +796,8 @@ class AdminEngine {
 			'title'         => AppContext::config('title', 'Login'),
 			'csrf_token'    => self::csrfToken(),
 			'login_message' => $message,
+			'html_lang'     => I18n::htmlLang(),
+			'i18n'          => I18n::allNested(),
 		];
 		return TemplateEngine::render($tpl, $ctx, __DIR__ . '/AdminEngine');
 	}
@@ -821,6 +827,7 @@ class AdminEngine {
 	/* B-3 fix: AppContext 経由でフック管理 */
 	public static function registerHooks(): void {
 		AppContext::addHook('admin-head', "\n\t<script src='engines/JsEngine/ap-utils.js'></script>");
+		AppContext::addHook('admin-head', "\n\t<script src='engines/JsEngine/ap-events.js'></script>");
 		AppContext::addHook('admin-head', "\n\t<script src='engines/JsEngine/autosize.js'></script>");
 		AppContext::addHook('admin-head', "\n\t<script src='engines/JsEngine/editInplace.js'></script>");
 		AppContext::addHook('admin-head', "\n\t<script src='engines/JsEngine/wysiwyg.js'></script>");
@@ -850,7 +857,7 @@ class AdminEngine {
 		if (!file_exists($tplPath)) {
 			return '<h1>Dashboard template not found</h1>';
 		}
-		$tpl = file_get_contents($tplPath);
+		$tpl = FileSystem::read($tplPath);
 		if ($tpl === false) {
 			return '<h1>Dashboard template read error</h1>';
 		}
@@ -908,7 +915,7 @@ class AdminEngine {
 		}
 		$diskFreeStr = ($diskFree !== false)
 			? number_format($diskFree / 1024 / 1024, 0) . ' MB'
-			: '取得不可';
+			: I18n::t('disk.unavailable');
 
 		/* コレクション情報 */
 		$collectionsEnabled = class_exists('CollectionEngine') && CollectionEngine::isEnabled();
@@ -979,6 +986,11 @@ class AdminEngine {
 			'has_redirects'        => !empty($redirectList),
 			/* 診断データ（Ver.1.4） */
 			'diag_show_notice'     => class_exists('DiagnosticEngine') && DiagnosticEngine::shouldShowNotice(),
+			/* i18n */
+			'html_lang'            => I18n::htmlLang(),
+			'ap_locale'            => I18n::getLocale(),
+			'i18n'                 => I18n::allNested(),
+			'i18n_json'            => json_encode(I18n::all(), JSON_UNESCAPED_UNICODE | JSON_HEX_TAG),
 		];
 	}
 }

@@ -1,4 +1,4 @@
-# Adlaire Framework Ecosystem - 将来計画
+# Adlaire Platform Foundation - 将来計画
 
 **Version**: 1.0.0 → 2.0.0 (計画)  
 **Last Updated**: 2026-03-14
@@ -7,7 +7,7 @@
 
 ## 📋 概要
 
-現在の Adlaire Framework Ecosystem は **3つのフレームワーク (9エンジン)** で構成されています。
+現在の Adlaire Platform Foundation は **3つのフレームワーク (9エンジン)** で構成されています。
 
 将来的に、Adlaire Platform 本体の機能を **フレームワーク化** し、独立した再利用可能なコンポーネント群として提供する計画です。
 
@@ -19,9 +19,9 @@
 
 | フレームワーク | エンジン数 | サイズ | 言語 | 状態 |
 |--------------|-----------|-------|------|------|
-| **AFE** (Adlaire Framework Ecosystem) | 3 | ~52KB | PHP 8.2+ | ✅ 実装済み |
-| **AEF** (Adlaire Editor Framework) | 3 | ~41KB | JavaScript ES6+ | ✅ 実装済み |
-| **ACF** (Adlaire CSS Framework) | 3 | ~35KB | CSS3 | ✅ 実装済み |
+| **APF** (Adlaire Platform Foundation) | 3 | ~52KB | PHP 8.2+ | ✅ 実装済み |
+| **AEB** (Adlaire Editor & Blocks) | 3 | ~41KB | JavaScript ES6+ | ✅ 実装済み |
+| **ADS** (Adlaire Design System) | 3 | ~35KB | CSS3 | ✅ 実装済み |
 
 **合計**: 9エンジン (~128KB)
 
@@ -31,13 +31,13 @@
 
 ### 追加予定フレームワーク
 
-#### 1. **ASF** (Adlaire Static Framework) - 静的ジェネレーターフレームワーク
+#### 1. **ASG** (Adlaire Static Generator) - 静的ジェネレーターフレームワーク
 **目的**: 静的サイト生成機能のフレームワーク化
 
 **3エンジン構成案**:
-- `ASF.Core.php` - Generator, Builder, Router, FileSystem
-- `ASF.Template.php` - TemplateEngine, ThemeEngine, MarkdownEngine
-- `ASF.Utilities.php` - Cache, ImageOptimizer, DiffBuilder, Deployer
+- `ASG.Core.php` - Generator, Builder, Router, FileSystem
+- `ASG.Template.php` - TemplateEngine, ThemeEngine, MarkdownEngine
+- `ASG.Utilities.php` - Cache, ImageOptimizer, DiffBuilder, Deployer
 
 **抽出元** (Adlaire Platform本体):
 - `StaticEngine.php` (静的サイト生成)
@@ -50,13 +50,13 @@
 
 ---
 
-#### 2. **ACM** (Adlaire CMS Framework) - CMSフレームワーク
+#### 2. **ACE** (Adlaire Content Engine) - CMSフレームワーク
 **目的**: コンテンツ管理システム機能のフレームワーク化
 
 **3エンジン構成案**:
-- `ACM.Core.php` - CollectionEngine, ContentManager, MetaManager
-- `ACM.Admin.php` - AdminEngine, UserManager, AuthManager
-- `ACM.Api.php` - ApiEngine, WebhookEngine, RestHandler
+- `ACE.Core.php` - CollectionEngine, ContentManager, MetaManager
+- `ACE.Admin.php` - AdminEngine, UserManager, AuthManager
+- `ACE.Api.php` - ApiEngine, WebhookEngine, RestHandler
 
 **抽出元** (Adlaire Platform本体):
 - `CollectionEngine.php` (コレクション管理)
@@ -68,13 +68,13 @@
 
 ---
 
-#### 3. **AIF** (Adlaire Infrastructure Framework) - インフラフレームワーク
+#### 3. **AIS** (Adlaire Infrastructure Services) - インフラフレームワーク
 **目的**: システム基盤機能のフレームワーク化
 
 **3エンジン構成案**:
-- `AIF.Core.php` - AppContext, ServiceProvider, Container
-- `AIF.System.php` - CacheEngine, Logger, DiagnosticEngine
-- `AIF.Deployment.php` - UpdateEngine, GitEngine, MailerEngine
+- `AIS.Core.php` - AppContext, ServiceProvider, Container
+- `AIS.System.php` - CacheEngine, Logger, DiagnosticEngine
+- `AIS.Deployment.php` - UpdateEngine, GitEngine, MailerEngine
 
 **抽出元** (Adlaire Platform本体):
 - `AppContext.php` (アプリケーションコンテキスト)
@@ -93,35 +93,35 @@
 
 ```
 Framework/
-├── AFE/                          # PHP Framework Engine (本体)
-│   ├── AFE.Core.php             (15KB)
-│   ├── AFE.Database.php         (19KB)
-│   └── AFE.Utilities.php        (18KB)
+├── APF/                          # PHP Framework Engine (本体)
+│   ├── APF.Core.php             (15KB)
+│   ├── APF.Database.php         (19KB)
+│   └── APF.Utilities.php        (18KB)
 │
-├── AEF/                          # JavaScript Editor Engine
-│   ├── AEF.Core.js              (12KB)
-│   ├── AEF.Blocks.js            (16KB)
-│   └── AEF.Utils.js             (13KB)
+├── AEB/                          # JavaScript Editor Engine
+│   ├── AEB.Core.js              (12KB)
+│   ├── AEB.Blocks.js            (16KB)
+│   └── AEB.Utils.js             (13KB)
 │
-├── ACF/                          # CSS Framework Engine
-│   ├── ACF.Base.css             (14KB)
-│   ├── ACF.Components.css        (9KB)
-│   └── ACF.Editor.css           (12KB)
+├── ADS/                          # CSS Framework Engine
+│   ├── ADS.Base.css             (14KB)
+│   ├── ADS.Components.css        (9KB)
+│   └── ADS.Editor.css           (12KB)
 │
-├── ASF/                          # Static Framework Engine (計画中)
-│   ├── ASF.Core.php             (~15KB)
-│   ├── ASF.Template.php         (~18KB)
-│   └── ASF.Utilities.php        (~12KB)
+├── ASG/                          # Static Framework Engine (計画中)
+│   ├── ASG.Core.php             (~15KB)
+│   ├── ASG.Template.php         (~18KB)
+│   └── ASG.Utilities.php        (~12KB)
 │
-├── ACM/                          # CMS Framework Engine (計画中)
-│   ├── ACM.Core.php             (~17KB)
-│   ├── ACM.Admin.php            (~20KB)
-│   └── ACM.Api.php              (~13KB)
+├── ACE/                          # CMS Framework Engine (計画中)
+│   ├── ACE.Core.php             (~17KB)
+│   ├── ACE.Admin.php            (~20KB)
+│   └── ACE.Api.php              (~13KB)
 │
-├── AIF/                          # Infrastructure Framework Engine (計画中)
-│   ├── AIF.Core.php             (~18KB)
-│   ├── AIF.System.php           (~20KB)
-│   └── AIF.Deployment.php       (~17KB)
+├── AIS/                          # Infrastructure Framework Engine (計画中)
+│   ├── AIS.Core.php             (~18KB)
+│   ├── AIS.System.php           (~20KB)
+│   └── AIS.Deployment.php       (~17KB)
 │
 ├── docs/
 └── README.md
@@ -159,12 +159,12 @@ Framework/
 
 | フレームワーク | 状態 | エンジン数 | サイズ | 抽出元 | 独立性 |
 |--------------|------|-----------|-------|-------|-------|
-| **AFE** | ✅ 実装済み | 3 | ~52KB | 新規開発 | 完全独立 |
-| **AEF** | ✅ 実装済み | 3 | ~41KB | wysiwyg.js | 完全独立 |
-| **ACF** | ✅ 実装済み | 3 | ~35KB | 散在CSS | 完全独立 |
-| **ASF** | 📋 計画中 | 3 | ~45KB | Platform 5エンジン | 要抽出 |
-| **ACM** | 📋 計画中 | 3 | ~50KB | Platform 4エンジン | 要抽出 |
-| **AIF** | 📋 計画中 | 3 | ~55KB | Platform 7エンジン | 要抽出 |
+| **APF** | ✅ 実装済み | 3 | ~52KB | 新規開発 | 完全独立 |
+| **AEB** | ✅ 実装済み | 3 | ~41KB | wysiwyg.js | 完全独立 |
+| **ADS** | ✅ 実装済み | 3 | ~35KB | 散在CSS | 完全独立 |
+| **ASG** | 📋 計画中 | 3 | ~45KB | Platform 5エンジン | 要抽出 |
+| **ACE** | 📋 計画中 | 3 | ~50KB | Platform 4エンジン | 要抽出 |
+| **AIS** | 📋 計画中 | 3 | ~55KB | Platform 7エンジン | 要抽出 |
 
 ---
 
@@ -175,7 +175,7 @@ Framework/
 - ✅ 3エンジン構成への分割設計
 - ✅ API設計・インターフェース定義
 
-### Phase 2: ASF実装 (静的ジェネレーター)
+### Phase 2: ASG実装 (静的ジェネレーター)
 **目標**: 静的サイト生成機能を独立フレームワーク化
 
 **作業内容**:
@@ -186,7 +186,7 @@ Framework/
 
 **期間**: 4週間 (実装は将来)
 
-### Phase 3: ACM実装 (CMS)
+### Phase 3: ACE実装 (CMS)
 **目標**: CMS機能を独立フレームワーク化
 
 **作業内容**:
@@ -197,7 +197,7 @@ Framework/
 
 **期間**: 4週間 (実装は将来)
 
-### Phase 4: AIF実装 (インフラ)
+### Phase 4: AIS実装 (インフラ)
 **目標**: システム基盤を独立フレームワーク化
 
 **作業内容**:
@@ -271,9 +271,9 @@ Framework/
 | フェーズ | 内容 | 期間 | 開始予定 |
 |---------|------|------|---------|
 | Phase 1 | 分析・設計 | - | ✅ 完了 |
-| Phase 2 | ASF実装 | 4週間 | 未定 |
-| Phase 3 | ACM実装 | 4週間 | 未定 |
-| Phase 4 | AIF実装 | 4週間 | 未定 |
+| Phase 2 | ASG実装 | 4週間 | 未定 |
+| Phase 3 | ACE実装 | 4週間 | 未定 |
+| Phase 4 | AIS実装 | 4週間 | 未定 |
 | Phase 5 | 統合・最適化 | 2週間 | 未定 |
 
 **合計**: 約14週間（実装時期は未定）
@@ -324,11 +324,11 @@ Framework/
 
 - [Framework/README.md](../README.md) - メインREADME
 - [Framework/docs/README.md](./README.md) - ドキュメント一覧
-- [AFE_IMPROVEMENT_ROADMAP_V2.md](./AFE_IMPROVEMENT_ROADMAP_V2.md) - AFE改良ロードマップ
+- [AFE_IMPROVEMENT_ROADMAP_V2.md](./AFE_IMPROVEMENT_ROADMAP_V2.md) - APF改良ロードマップ
 
 ---
 
-**Adlaire Framework Ecosystem - Future Roadmap**  
+**Adlaire Platform Foundation - Future Roadmap**  
 **Version**: 1.0.0 → 2.0.0 (計画)  
 **Status**: 📋 Planning Phase  
 **Last Updated**: 2026-03-14
@@ -338,16 +338,16 @@ Framework/
 ## 📊 将来の全体像
 
 ```
-Adlaire Framework Ecosystem (Version 2.0.0)
+Adlaire Platform Foundation (Version 2.0.0)
 ├── 実装済み (9 engines, ~128KB)
-│   ├── AFE (PHP Framework)
-│   ├── AEF (JavaScript Editor)
-│   └── ACF (CSS Framework)
+│   ├── APF (PHP Framework)
+│   ├── AEB (JavaScript Editor)
+│   └── ADS (CSS Framework)
 │
 └── 計画中 (9 engines, ~150KB)
-    ├── ASF (Static Generator)
-    ├── ACM (CMS)
-    └── AIF (Infrastructure)
+    ├── ASG (Static Generator)
+    ├── ACE (CMS)
+    └── AIS (Infrastructure)
 
 合計: 18 engines (~278KB)
 ```

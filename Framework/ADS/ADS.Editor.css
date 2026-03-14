@@ -1,0 +1,583 @@
+/**
+ * ADS - Editor Base Styles
+ *
+ * Core styles for the AEB editor wrapper and container
+ */
+
+.aeb-editor {
+  position: relative;
+  min-height: 300px;
+  background-color: var(--ads-bg);
+  border: 1px solid var(--ads-border);
+  border-radius: var(--ads-radius-lg);
+  padding: var(--ads-space-4);
+  font-family: var(--ads-font-family);
+  font-size: var(--ads-font-size-base);
+  color: var(--ads-text);
+  transition: border-color var(--ads-transition-fast);
+}
+
+.aeb-editor:focus-within {
+  border-color: var(--ads-border-focus);
+  outline: none;
+}
+
+.aeb-editor[data-readonly="true"] {
+  background-color: var(--ads-bg-secondary);
+  cursor: not-allowed;
+}
+
+/* ===== Blocks Container ===== */
+.aeb-blocks {
+  position: relative;
+  min-height: 200px;
+}
+
+.aeb-blocks:empty::before {
+  content: attr(data-placeholder);
+  color: var(--ads-text-tertiary);
+  pointer-events: none;
+}
+
+/* ===== Individual Block Wrapper ===== */
+.aeb-block {
+  position: relative;
+  padding: var(--aeb-block-padding);
+  margin-bottom: var(--ads-space-2);
+  border-radius: var(--ads-radius-md);
+  transition: background-color var(--ads-transition-fast);
+}
+
+.aeb-block:hover {
+  background-color: var(--ads-bg-secondary);
+}
+
+.aeb-block:focus-within {
+  background-color: var(--ads-bg-secondary);
+  outline: 2px solid var(--ads-border-focus);
+  outline-offset: -2px;
+}
+
+.aeb-block:last-child {
+  margin-bottom: 0;
+}
+
+/* ===== Block Content Editable ===== */
+.aeb-block [contenteditable] {
+  outline: none;
+  cursor: text;
+}
+
+.aeb-block [contenteditable]:empty::before {
+  content: attr(data-placeholder);
+  color: var(--ads-text-tertiary);
+  pointer-events: none;
+}
+
+.aeb-block [contenteditable]:focus::before {
+  content: '';
+}
+
+/* ===== Block Alignment ===== */
+.aeb-block[data-alignment="left"] [contenteditable] {
+  text-align: left;
+}
+
+.aeb-block[data-alignment="center"] [contenteditable] {
+  text-align: center;
+}
+
+.aeb-block[data-alignment="right"] [contenteditable] {
+  text-align: right;
+}
+
+/* ===== Read-Only Mode ===== */
+.aeb-editor[data-readonly="true"] .aeb-block {
+  cursor: default;
+}
+
+.aeb-editor[data-readonly="true"] [contenteditable] {
+  cursor: default;
+  user-select: text;
+}
+
+/* ===== Drag & Drop States ===== */
+.aeb-block.is-dragging {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.aeb-block.is-drag-over {
+  background-color: var(--ads-primary-light);
+  border: 2px dashed var(--ads-primary);
+}
+
+/* ===== Selection ===== */
+.aeb-block ::selection {
+  background-color: var(--ads-primary-light);
+  color: var(--ads-text);
+}
+
+/* ===== Empty State ===== */
+.aeb-editor-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+  color: var(--ads-text-secondary);
+  font-size: var(--ads-font-size-lg);
+}
+
+.aeb-editor-empty-icon {
+  margin-bottom: var(--ads-space-4);
+  opacity: 0.5;
+}
+/**
+ * ACF - Editor Blocks Styles
+ * 
+ * Styles for individual block types (paragraph, heading, etc.)
+ */
+
+/* ===== Paragraph Block ===== */
+.aeb-block-paragraph {
+  /* Inherits from .aeb-block */
+}
+
+.aeb-paragraph {
+  font-size: var(--ads-font-size-base);
+  line-height: var(--ads-line-height-normal);
+  color: var(--ads-text);
+  min-height: 1.5em;
+}
+
+.aeb-paragraph:empty {
+  min-height: 1.5em;
+}
+
+/* ===== Heading Block ===== */
+.aeb-block-heading {
+  /* Inherits from .aeb-block */
+}
+
+.aeb-heading {
+  font-weight: var(--ads-font-weight-bold);
+  line-height: var(--ads-line-height-tight);
+  color: var(--ads-text);
+}
+
+.aeb-block-heading[data-level="2"] .aeb-heading {
+  font-size: var(--ads-font-size-3xl);
+}
+
+.aeb-block-heading[data-level="3"] .aeb-heading {
+  font-size: var(--ads-font-size-2xl);
+}
+
+/* ===== List Block ===== */
+.aeb-block-list {
+  /* Inherits from .aeb-block */
+}
+
+.aeb-list {
+  padding-left: var(--ads-space-6);
+}
+
+.aeb-list-item {
+  margin-bottom: var(--ads-space-2);
+}
+
+.aeb-list-item:last-child {
+  margin-bottom: 0;
+}
+
+.aeb-list[data-style="unordered"] {
+  list-style-type: disc;
+}
+
+.aeb-list[data-style="ordered"] {
+  list-style-type: decimal;
+}
+
+/* ===== Quote Block ===== */
+.aeb-block-quote {
+  border-left: 4px solid var(--ads-primary);
+  padding-left: var(--ads-space-4);
+  margin-left: var(--ads-space-2);
+}
+
+.aeb-quote {
+  font-style: italic;
+  font-size: var(--ads-font-size-lg);
+  color: var(--ads-text-secondary);
+  line-height: var(--ads-line-height-relaxed);
+}
+
+/* ===== Code Block ===== */
+.aeb-block-code {
+  background-color: var(--ads-bg-tertiary);
+  border-radius: var(--ads-radius-md);
+  padding: var(--ads-space-4);
+}
+
+.aeb-code {
+  font-family: var(--ads-font-family-mono);
+  font-size: var(--ads-font-size-sm);
+  line-height: var(--ads-line-height-normal);
+  color: var(--ads-text);
+  white-space: pre;
+  overflow-x: auto;
+}
+
+/* ===== Delimiter Block ===== */
+.aeb-block-delimiter {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--ads-space-6) 0;
+}
+
+.aeb-delimiter {
+  display: flex;
+  align-items: center;
+  gap: var(--ads-space-2);
+  color: var(--ads-text-tertiary);
+}
+
+.aeb-delimiter-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background-color: currentColor;
+}
+
+/* ===== Image Block ===== */
+.aeb-block-image {
+  /* Inherits from .aeb-block */
+}
+
+.aeb-image-wrapper {
+  position: relative;
+  border-radius: var(--ads-radius-md);
+  overflow: hidden;
+  background-color: var(--ads-bg-secondary);
+}
+
+.aeb-image {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.aeb-image-caption {
+  margin-top: var(--ads-space-2);
+  font-size: var(--ads-font-size-sm);
+  color: var(--ads-text-secondary);
+  text-align: center;
+}
+
+/* ===== Table Block ===== */
+.aeb-block-table {
+  overflow-x: auto;
+}
+
+.aeb-table {
+  width: 100%;
+  border-collapse: collapse;
+  border: 1px solid var(--ads-border);
+}
+
+.aeb-table th,
+.aeb-table td {
+  border: 1px solid var(--ads-border);
+  padding: var(--ads-space-2) var(--ads-space-3);
+  text-align: left;
+}
+
+.aeb-table th {
+  background-color: var(--ads-bg-secondary);
+  font-weight: var(--ads-font-weight-semibold);
+  color: var(--ads-text);
+}
+
+.aeb-table td {
+  background-color: var(--ads-bg);
+  color: var(--ads-text);
+}
+
+.aeb-table tr:hover td {
+  background-color: var(--ads-bg-secondary);
+}
+
+/* ===== Checklist Block ===== */
+.aeb-block-checklist {
+  /* Inherits from .aeb-block */
+}
+
+.aeb-checklist {
+  list-style: none;
+  padding: 0;
+}
+
+.aeb-checklist-item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ads-space-2);
+  margin-bottom: var(--ads-space-2);
+}
+
+.aeb-checklist-checkbox {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  margin-top: 0.125em;
+  border: 2px solid var(--ads-border);
+  border-radius: var(--ads-radius-sm);
+  cursor: pointer;
+  transition: all var(--ads-transition-fast);
+}
+
+.aeb-checklist-checkbox:hover {
+  border-color: var(--ads-primary);
+}
+
+.aeb-checklist-checkbox[data-checked="true"] {
+  background-color: var(--ads-primary);
+  border-color: var(--ads-primary);
+  background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>');
+  background-size: 12px;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.aeb-checklist-text {
+  flex: 1;
+  color: var(--ads-text);
+}
+
+.aeb-checklist-item[data-checked="true"] .aeb-checklist-text {
+  text-decoration: line-through;
+  color: var(--ads-text-tertiary);
+}
+/**
+ * ACF - Toolbar Styles
+ * 
+ * Styles for editor toolbar (inline toolbar, block toolbar, etc.)
+ */
+
+/* ===== Base Toolbar ===== */
+.aeb-toolbar {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: var(--ads-space-1);
+  padding: var(--ads-space-2);
+  background-color: var(--ads-bg);
+  border: 1px solid var(--ads-border);
+  border-radius: var(--ads-radius-md);
+  box-shadow: var(--ads-shadow-lg);
+  z-index: var(--ads-z-popover);
+  transition: opacity var(--ads-transition-fast);
+}
+
+.aeb-toolbar[data-hidden="true"] {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ===== Inline Toolbar (floating) ===== */
+.aeb-toolbar-inline {
+  /* Positioned dynamically via JS */
+}
+
+/* ===== Block Toolbar (at block level) ===== */
+.aeb-toolbar-block {
+  position: absolute;
+  left: calc(-1 * var(--aeb-handle-size) - var(--ads-space-2));
+  top: 0;
+}
+
+/* ===== Toolbar Button ===== */
+.aeb-toolbar-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  background-color: transparent;
+  border: none;
+  border-radius: var(--ads-radius-md);
+  color: var(--ads-text);
+  cursor: pointer;
+  transition: all var(--ads-transition-fast);
+}
+
+.aeb-toolbar-btn:hover {
+  background-color: var(--ads-bg-secondary);
+  color: var(--ads-primary);
+}
+
+.aeb-toolbar-btn:active {
+  background-color: var(--ads-bg-tertiary);
+  transform: scale(0.95);
+}
+
+.aeb-toolbar-btn[data-active="true"] {
+  background-color: var(--ads-primary);
+  color: white;
+}
+
+.aeb-toolbar-btn[disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.aeb-toolbar-btn[disabled]:hover {
+  background-color: transparent;
+  color: var(--ads-text);
+}
+
+/* ===== Toolbar Separator ===== */
+.aeb-toolbar-separator {
+  width: 1px;
+  height: 24px;
+  background-color: var(--ads-border);
+  margin: 0 var(--ads-space-1);
+}
+
+/* ===== Toolbar Dropdown ===== */
+.aeb-toolbar-dropdown {
+  position: relative;
+}
+
+.aeb-toolbar-dropdown-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: var(--ads-space-1);
+  min-width: 150px;
+  background-color: var(--ads-bg);
+  border: 1px solid var(--ads-border);
+  border-radius: var(--ads-radius-md);
+  box-shadow: var(--ads-shadow-lg);
+  padding: var(--ads-space-2);
+  z-index: var(--ads-z-dropdown);
+}
+
+.aeb-toolbar-dropdown-menu[data-hidden="true"] {
+  display: none;
+}
+
+.aeb-toolbar-dropdown-item {
+  display: flex;
+  align-items: center;
+  padding: var(--ads-space-2) var(--ads-space-3);
+  border-radius: var(--ads-radius-sm);
+  cursor: pointer;
+  transition: background-color var(--ads-transition-fast);
+}
+
+.aeb-toolbar-dropdown-item:hover {
+  background-color: var(--ads-bg-secondary);
+}
+
+.aeb-toolbar-dropdown-item[data-active="true"] {
+  background-color: var(--ads-primary-light);
+  color: var(--ads-primary);
+}
+
+/* ===== Slash Commands Menu ===== */
+.aeb-slash-menu {
+  position: absolute;
+  min-width: 250px;
+  max-height: 300px;
+  overflow-y: auto;
+  background-color: var(--ads-bg);
+  border: 1px solid var(--ads-border);
+  border-radius: var(--ads-radius-md);
+  box-shadow: var(--ads-shadow-lg);
+  padding: var(--ads-space-2);
+  z-index: var(--ads-z-dropdown);
+}
+
+.aeb-slash-menu[data-hidden="true"] {
+  display: none;
+}
+
+.aeb-slash-menu-item {
+  display: flex;
+  align-items: center;
+  gap: var(--ads-space-3);
+  padding: var(--ads-space-3);
+  border-radius: var(--ads-radius-sm);
+  cursor: pointer;
+  transition: background-color var(--ads-transition-fast);
+}
+
+.aeb-slash-menu-item:hover,
+.aeb-slash-menu-item[data-selected="true"] {
+  background-color: var(--ads-bg-secondary);
+}
+
+.aeb-slash-menu-icon {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ads-text-secondary);
+}
+
+.aeb-slash-menu-content {
+  flex: 1;
+}
+
+.aeb-slash-menu-title {
+  font-size: var(--ads-font-size-sm);
+  font-weight: var(--ads-font-weight-medium);
+  color: var(--ads-text);
+  margin-bottom: var(--ads-space-1);
+}
+
+.aeb-slash-menu-description {
+  font-size: var(--ads-font-size-xs);
+  color: var(--ads-text-secondary);
+}
+
+/* ===== Block Handle ===== */
+.aeb-block-handle {
+  position: absolute;
+  left: calc(-1 * var(--aeb-handle-size) - var(--ads-space-2));
+  top: var(--ads-space-2);
+  width: var(--aeb-handle-size);
+  height: var(--aeb-handle-size);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--ads-bg);
+  border: 1px solid var(--ads-border);
+  border-radius: var(--ads-radius-sm);
+  cursor: grab;
+  opacity: 0;
+  transition: all var(--ads-transition-fast);
+}
+
+.aeb-block:hover .aeb-block-handle {
+  opacity: 1;
+}
+
+.aeb-block-handle:hover {
+  background-color: var(--ads-bg-secondary);
+  border-color: var(--ads-primary);
+}
+
+.aeb-block-handle:active {
+  cursor: grabbing;
+}
+
+.aeb-block-handle-icon {
+  width: 16px;
+  height: 16px;
+  color: var(--ads-text-secondary);
+}

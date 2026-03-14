@@ -172,7 +172,7 @@ class MarkdownEngine {
 
 		for ($i = 0; $i < count($lines); $i++) {
 			$line = $lines[$i];
-			$trimmed = rtrim($line);
+			$trimmed = rtrim($line, " \t\r");
 
 			/* コードブロックプレースホルダー */
 			if (str_starts_with($trimmed, "\x00CODE")) {

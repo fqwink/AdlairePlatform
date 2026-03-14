@@ -128,6 +128,8 @@ require $engineDir . '/MarkdownEngine.php';
 require $engineDir . '/CollectionEngine.php';
 require $engineDir . '/DiagnosticEngine.php';
 require $engineDir . '/WebhookEngine.php';
+require $engineDir . '/TemplateEngine.php';
+require $engineDir . '/Validator.php';
 
 /* Logger をテスト用ディレクトリで初期化 */
 Logger::init(Logger::DEBUG, 'data/logs');

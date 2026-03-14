@@ -49,30 +49,36 @@ class ImageOptimizer {
 			return false;
 		}
 
-		/* メイン画像リサイズ（最大 1920px） */
-		if ($origWidth > self::MAX_WIDTH || $origHeight > self::MAX_HEIGHT) {
-			$src = self::loadImage($path, $mime);
-			if ($src === null) return false;
+		try {
+			/* メイン画像リサイズ（最大 1920px） */
+			if ($origWidth > self::MAX_WIDTH || $origHeight > self::MAX_HEIGHT) {
+				$src = self::loadImage($path, $mime);
+				if ($src === null) return false;
 
-			list($newW, $newH) = self::fitDimensions($origWidth, $origHeight, self::MAX_WIDTH, self::MAX_HEIGHT);
-			$dst = imagecreatetruecolor($newW, $newH);
-			if ($dst === false) {
-				if (class_exists('DiagnosticEngine')) DiagnosticEngine::log('engine', '画像リサイズ失敗: imagecreatetruecolor', ['path' => basename($path), 'target' => "{$newW}x{$newH}", 'memory_usage_mb' => round(memory_get_usage(true) / 1048576, 1)]);
-				imagedestroy($src); return false;
+				list($newW, $newH) = self::fitDimensions($origWidth, $origHeight, self::MAX_WIDTH, self::MAX_HEIGHT);
+				$dst = imagecreatetruecolor($newW, $newH);
+				if ($dst === false) {
+					if (class_exists('DiagnosticEngine')) DiagnosticEngine::log('engine', '画像リサイズ失敗: imagecreatetruecolor', ['path' => basename($path), 'target' => "{$newW}x{$newH}", 'memory_usage_mb' => round(memory_get_usage(true) / 1048576, 1)]);
+					imagedestroy($src); return false;
+				}
+
+				self::preserveTransparency($dst, $mime);
+				imagecopyresampled($dst, $src, 0, 0, 0, 0, $newW, $newH, $origWidth, $origHeight);
+				self::saveImage($dst, $path, $mime);
+				imagedestroy($src);
+				imagedestroy($dst);
 			}
 
-			self::preserveTransparency($dst, $mime);
-			imagecopyresampled($dst, $src, 0, 0, 0, 0, $newW, $newH, $origWidth, $origHeight);
-			self::saveImage($dst, $path, $mime);
-			imagedestroy($src);
-			imagedestroy($dst);
+			/* サムネイル生成 */
+			self::generateThumbnail($path, $mime);
+
+			/* WebP 変換（GD 対応時） */
+			self::generateWebP($path, $mime);
+		} catch (\Throwable $e) {
+			Logger::error('ImageOptimizer 画像処理中にエラー', ['engine' => 'ImageOptimizer', 'path' => basename($path), 'error' => $e->getMessage()]);
+			if (class_exists('DiagnosticEngine')) DiagnosticEngine::log('runtime', 'ImageOptimizer 例外', ['path' => basename($path), 'trace' => $e->getTraceAsString()]);
+			return false;
 		}
-
-		/* サムネイル生成 */
-		self::generateThumbnail($path, $mime);
-
-		/* WebP 変換（GD 対応時） */
-		self::generateWebP($path, $mime);
 
 		$_optimizeElapsed = (hrtime(true) - $_optimizeStart) / 1_000_000;
 		if ($_optimizeElapsed > 1000 && class_exists('DiagnosticEngine')) {

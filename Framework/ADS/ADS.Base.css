@@ -1,0 +1,567 @@
+/**
+ * ADS (Adlaire Design System) - CSS Variables
+ * 
+ * Central design tokens and CSS custom properties
+ */
+
+:root {
+  /* ===== Colors ===== */
+  --ads-primary: #2563eb;
+  --ads-primary-hover: #1d4ed8;
+  --ads-primary-light: #dbeafe;
+  
+  --ads-secondary: #64748b;
+  --ads-secondary-hover: #475569;
+  --ads-secondary-light: #f1f5f9;
+  
+  --ads-success: #10b981;
+  --ads-warning: #f59e0b;
+  --ads-error: #ef4444;
+  --ads-info: #3b82f6;
+  
+  --ads-bg: #ffffff;
+  --ads-bg-secondary: #f8fafc;
+  --ads-bg-tertiary: #f1f5f9;
+  
+  --ads-text: #1e293b;
+  --ads-text-secondary: #64748b;
+  --ads-text-tertiary: #94a3b8;
+  
+  --ads-border: #e2e8f0;
+  --ads-border-hover: #cbd5e1;
+  --ads-border-focus: #3b82f6;
+  
+  /* ===== Spacing ===== */
+  --ads-space-1: 0.25rem;   /* 4px */
+  --ads-space-2: 0.5rem;    /* 8px */
+  --ads-space-3: 0.75rem;   /* 12px */
+  --ads-space-4: 1rem;      /* 16px */
+  --ads-space-5: 1.25rem;   /* 20px */
+  --ads-space-6: 1.5rem;    /* 24px */
+  --ads-space-8: 2rem;      /* 32px */
+  --ads-space-10: 2.5rem;   /* 40px */
+  --ads-space-12: 3rem;     /* 48px */
+  --ads-space-16: 4rem;     /* 64px */
+  
+  /* ===== Typography ===== */
+  --ads-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 
+                     'Helvetica Neue', Arial, sans-serif;
+  --ads-font-family-mono: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', 
+                          Consolas, 'Courier New', monospace;
+  
+  --ads-font-size-xs: 0.75rem;    /* 12px */
+  --ads-font-size-sm: 0.875rem;   /* 14px */
+  --ads-font-size-base: 1rem;     /* 16px */
+  --ads-font-size-lg: 1.125rem;   /* 18px */
+  --ads-font-size-xl: 1.25rem;    /* 20px */
+  --ads-font-size-2xl: 1.5rem;    /* 24px */
+  --ads-font-size-3xl: 1.875rem;  /* 30px */
+  --ads-font-size-4xl: 2.25rem;   /* 36px */
+  
+  --ads-font-weight-normal: 400;
+  --ads-font-weight-medium: 500;
+  --ads-font-weight-semibold: 600;
+  --ads-font-weight-bold: 700;
+  
+  --ads-line-height-tight: 1.25;
+  --ads-line-height-normal: 1.5;
+  --ads-line-height-relaxed: 1.75;
+  
+  /* ===== Border Radius ===== */
+  --ads-radius-sm: 0.25rem;   /* 4px */
+  --ads-radius-md: 0.375rem;  /* 6px */
+  --ads-radius-lg: 0.5rem;    /* 8px */
+  --ads-radius-xl: 0.75rem;   /* 12px */
+  --ads-radius-full: 9999px;
+  
+  /* ===== Shadows ===== */
+  --ads-shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --ads-shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 
+                   0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --ads-shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 
+                   0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --ads-shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 
+                   0 8px 10px -6px rgb(0 0 0 / 0.1);
+  
+  /* ===== Z-Index ===== */
+  --ads-z-dropdown: 1000;
+  --ads-z-sticky: 1020;
+  --ads-z-fixed: 1030;
+  --ads-z-modal-backdrop: 1040;
+  --ads-z-modal: 1050;
+  --ads-z-popover: 1060;
+  --ads-z-tooltip: 1070;
+  
+  /* ===== Transitions ===== */
+  --ads-transition-fast: 150ms ease-in-out;
+  --ads-transition-base: 250ms ease-in-out;
+  --ads-transition-slow: 350ms ease-in-out;
+  
+  /* ===== Editor Specific ===== */
+  --aef-toolbar-height: 44px;
+  --aef-block-padding: var(--ads-space-4);
+  --aef-handle-size: 24px;
+}
+
+/* Dark mode variables (optional) */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ads-bg: #0f172a;
+    --ads-bg-secondary: #1e293b;
+    --ads-bg-tertiary: #334155;
+    
+    --ads-text: #f1f5f9;
+    --ads-text-secondary: #cbd5e1;
+    --ads-text-tertiary: #94a3b8;
+    
+    --ads-border: #334155;
+    --ads-border-hover: #475569;
+  }
+}
+/**
+ * ACF - CSS Reset
+ * 
+ * Modern CSS reset for consistent rendering across browsers
+ */
+
+/* Box sizing rules */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* Remove default margin and padding */
+* {
+  margin: 0;
+  padding: 0;
+}
+
+/* Remove list styles */
+ul[class],
+ol[class] {
+  list-style: none;
+}
+
+/* Set core root defaults */
+html:focus-within {
+  scroll-behavior: smooth;
+}
+
+/* Set core body defaults */
+body {
+  min-height: 100vh;
+  text-rendering: optimizeSpeed;
+  line-height: var(--ads-line-height-normal, 1.5);
+  font-family: var(--ads-font-family, sans-serif);
+  font-size: var(--ads-font-size-base, 1rem);
+  color: var(--ads-text, #1e293b);
+  background-color: var(--ads-bg, #ffffff);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Make images easier to work with */
+img,
+picture,
+svg {
+  max-width: 100%;
+  display: block;
+}
+
+/* Inherit fonts for inputs and buttons */
+input,
+button,
+textarea,
+select {
+  font: inherit;
+}
+
+/* Remove all animations and transitions for people that prefer not to see them */
+@media (prefers-reduced-motion: reduce) {
+  html:focus-within {
+    scroll-behavior: auto;
+  }
+  
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Remove button default styles */
+button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: inherit;
+}
+
+/* Remove link default styles */
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+/* Better table defaults */
+table {
+  border-collapse: collapse;
+  border-spacing: 0;
+}
+
+/* Make sure disabled elements are not interactive */
+:disabled {
+  cursor: not-allowed;
+}
+
+/* Focus visible for accessibility */
+:focus-visible {
+  outline: 2px solid var(--ads-border-focus, #3b82f6);
+  outline-offset: 2px;
+}
+
+/* Hidden but accessible */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+/**
+ * ACF - Typography
+ * 
+ * Base typography styles for headings, paragraphs, and text elements
+ */
+
+/* ===== Headings ===== */
+h1, h2, h3, h4, h5, h6 {
+  font-weight: var(--ads-font-weight-bold);
+  line-height: var(--ads-line-height-tight);
+  color: var(--ads-text);
+  margin-bottom: var(--ads-space-4);
+}
+
+h1 {
+  font-size: var(--ads-font-size-4xl);
+  margin-bottom: var(--ads-space-6);
+}
+
+h2 {
+  font-size: var(--ads-font-size-3xl);
+}
+
+h3 {
+  font-size: var(--ads-font-size-2xl);
+}
+
+h4 {
+  font-size: var(--ads-font-size-xl);
+}
+
+h5 {
+  font-size: var(--ads-font-size-lg);
+}
+
+h6 {
+  font-size: var(--ads-font-size-base);
+}
+
+/* ===== Paragraphs ===== */
+p {
+  margin-bottom: var(--ads-space-4);
+  line-height: var(--ads-line-height-normal);
+  color: var(--ads-text);
+}
+
+p:last-child {
+  margin-bottom: 0;
+}
+
+/* ===== Links ===== */
+a {
+  color: var(--ads-primary);
+  text-decoration: underline;
+  transition: color var(--ads-transition-fast);
+}
+
+a:hover {
+  color: var(--ads-primary-hover);
+}
+
+a:focus-visible {
+  outline: 2px solid var(--ads-border-focus);
+  outline-offset: 2px;
+  border-radius: var(--ads-radius-sm);
+}
+
+/* ===== Lists ===== */
+ul, ol {
+  margin-bottom: var(--ads-space-4);
+  padding-left: var(--ads-space-6);
+}
+
+ul {
+  list-style-type: disc;
+}
+
+ol {
+  list-style-type: decimal;
+}
+
+li {
+  margin-bottom: var(--ads-space-2);
+}
+
+li:last-child {
+  margin-bottom: 0;
+}
+
+/* ===== Code ===== */
+code {
+  font-family: var(--ads-font-family-mono);
+  font-size: 0.875em;
+  background-color: var(--ads-bg-tertiary);
+  padding: var(--ads-space-1) var(--ads-space-2);
+  border-radius: var(--ads-radius-sm);
+  color: var(--ads-text);
+}
+
+pre {
+  font-family: var(--ads-font-family-mono);
+  font-size: var(--ads-font-size-sm);
+  background-color: var(--ads-bg-tertiary);
+  padding: var(--ads-space-4);
+  border-radius: var(--ads-radius-md);
+  overflow-x: auto;
+  margin-bottom: var(--ads-space-4);
+}
+
+pre code {
+  background-color: transparent;
+  padding: 0;
+  border-radius: 0;
+}
+
+/* ===== Blockquote ===== */
+blockquote {
+  border-left: 4px solid var(--ads-primary);
+  padding-left: var(--ads-space-4);
+  margin: var(--ads-space-6) 0;
+  font-style: italic;
+  color: var(--ads-text-secondary);
+}
+
+/* ===== Horizontal Rule ===== */
+hr {
+  border: 0;
+  border-top: 1px solid var(--ads-border);
+  margin: var(--ads-space-8) 0;
+}
+
+/* ===== Mark ===== */
+mark {
+  background-color: #fef08a;
+  color: var(--ads-text);
+  padding: 0.125em 0.25em;
+  border-radius: var(--ads-radius-sm);
+}
+
+/* ===== Strong / Bold ===== */
+strong, b {
+  font-weight: var(--ads-font-weight-bold);
+}
+
+/* ===== Emphasis / Italic ===== */
+em, i {
+  font-style: italic;
+}
+
+/* ===== Small Text ===== */
+small {
+  font-size: var(--ads-font-size-sm);
+  color: var(--ads-text-secondary);
+}
+
+/* ===== Subscript / Superscript ===== */
+sub, sup {
+  font-size: 0.75em;
+  line-height: 0;
+  position: relative;
+  vertical-align: baseline;
+}
+
+sub {
+  bottom: -0.25em;
+}
+
+sup {
+  top: -0.5em;
+}
+
+/* ===== Abbreviation ===== */
+abbr[title] {
+  text-decoration: underline dotted;
+  cursor: help;
+  border-bottom: 1px dotted var(--ads-text-secondary);
+}
+/**
+ * ACF - Utility Classes
+ * 
+ * Utility-first CSS classes for rapid UI development
+ */
+
+/* ===== Spacing Utilities ===== */
+.ads-m-0 { margin: 0; }
+.ads-m-1 { margin: var(--ads-space-1); }
+.ads-m-2 { margin: var(--ads-space-2); }
+.ads-m-3 { margin: var(--ads-space-3); }
+.ads-m-4 { margin: var(--ads-space-4); }
+.ads-m-6 { margin: var(--ads-space-6); }
+.ads-m-8 { margin: var(--ads-space-8); }
+
+.ads-mt-0 { margin-top: 0; }
+.ads-mt-1 { margin-top: var(--ads-space-1); }
+.ads-mt-2 { margin-top: var(--ads-space-2); }
+.ads-mt-3 { margin-top: var(--ads-space-3); }
+.ads-mt-4 { margin-top: var(--ads-space-4); }
+.ads-mt-6 { margin-top: var(--ads-space-6); }
+.ads-mt-8 { margin-top: var(--ads-space-8); }
+
+.ads-mb-0 { margin-bottom: 0; }
+.ads-mb-1 { margin-bottom: var(--ads-space-1); }
+.ads-mb-2 { margin-bottom: var(--ads-space-2); }
+.ads-mb-3 { margin-bottom: var(--ads-space-3); }
+.ads-mb-4 { margin-bottom: var(--ads-space-4); }
+.ads-mb-6 { margin-bottom: var(--ads-space-6); }
+.ads-mb-8 { margin-bottom: var(--ads-space-8); }
+
+.ads-p-0 { padding: 0; }
+.ads-p-1 { padding: var(--ads-space-1); }
+.ads-p-2 { padding: var(--ads-space-2); }
+.ads-p-3 { padding: var(--ads-space-3); }
+.ads-p-4 { padding: var(--ads-space-4); }
+.ads-p-6 { padding: var(--ads-space-6); }
+.ads-p-8 { padding: var(--ads-space-8); }
+
+/* ===== Display ===== */
+.ads-block { display: block; }
+.ads-inline { display: inline; }
+.ads-inline-block { display: inline-block; }
+.ads-flex { display: flex; }
+.ads-inline-flex { display: inline-flex; }
+.ads-grid { display: grid; }
+.ads-hidden { display: none; }
+
+/* ===== Flexbox ===== */
+.ads-flex-row { flex-direction: row; }
+.ads-flex-col { flex-direction: column; }
+.ads-flex-wrap { flex-wrap: wrap; }
+.ads-flex-nowrap { flex-wrap: nowrap; }
+
+.ads-items-start { align-items: flex-start; }
+.ads-items-center { align-items: center; }
+.ads-items-end { align-items: flex-end; }
+.ads-items-stretch { align-items: stretch; }
+
+.ads-justify-start { justify-content: flex-start; }
+.ads-justify-center { justify-content: center; }
+.ads-justify-end { justify-content: flex-end; }
+.ads-justify-between { justify-content: space-between; }
+.ads-justify-around { justify-content: space-around; }
+
+.ads-gap-1 { gap: var(--ads-space-1); }
+.ads-gap-2 { gap: var(--ads-space-2); }
+.ads-gap-3 { gap: var(--ads-space-3); }
+.ads-gap-4 { gap: var(--ads-space-4); }
+.ads-gap-6 { gap: var(--ads-space-6); }
+
+/* ===== Text ===== */
+.ads-text-left { text-align: left; }
+.ads-text-center { text-align: center; }
+.ads-text-right { text-align: right; }
+.ads-text-justify { text-align: justify; }
+
+.ads-text-xs { font-size: var(--ads-font-size-xs); }
+.ads-text-sm { font-size: var(--ads-font-size-sm); }
+.ads-text-base { font-size: var(--ads-font-size-base); }
+.ads-text-lg { font-size: var(--ads-font-size-lg); }
+.ads-text-xl { font-size: var(--ads-font-size-xl); }
+.ads-text-2xl { font-size: var(--ads-font-size-2xl); }
+
+.ads-font-normal { font-weight: var(--ads-font-weight-normal); }
+.ads-font-medium { font-weight: var(--ads-font-weight-medium); }
+.ads-font-semibold { font-weight: var(--ads-font-weight-semibold); }
+.ads-font-bold { font-weight: var(--ads-font-weight-bold); }
+
+.ads-text-primary { color: var(--ads-text); }
+.ads-text-secondary { color: var(--ads-text-secondary); }
+.ads-text-tertiary { color: var(--ads-text-tertiary); }
+
+/* ===== Border ===== */
+.ads-border { border: 1px solid var(--ads-border); }
+.ads-border-t { border-top: 1px solid var(--ads-border); }
+.ads-border-b { border-bottom: 1px solid var(--ads-border); }
+.ads-border-l { border-left: 1px solid var(--ads-border); }
+.ads-border-r { border-right: 1px solid var(--ads-border); }
+
+.ads-rounded-sm { border-radius: var(--ads-radius-sm); }
+.ads-rounded-md { border-radius: var(--ads-radius-md); }
+.ads-rounded-lg { border-radius: var(--ads-radius-lg); }
+.ads-rounded-xl { border-radius: var(--ads-radius-xl); }
+.ads-rounded-full { border-radius: var(--ads-radius-full); }
+
+/* ===== Shadow ===== */
+.ads-shadow-sm { box-shadow: var(--ads-shadow-sm); }
+.ads-shadow-md { box-shadow: var(--ads-shadow-md); }
+.ads-shadow-lg { box-shadow: var(--ads-shadow-lg); }
+.ads-shadow-xl { box-shadow: var(--ads-shadow-xl); }
+.ads-shadow-none { box-shadow: none; }
+
+/* ===== Position ===== */
+.ads-relative { position: relative; }
+.ads-absolute { position: absolute; }
+.ads-fixed { position: fixed; }
+.ads-sticky { position: sticky; }
+
+/* ===== Overflow ===== */
+.ads-overflow-auto { overflow: auto; }
+.ads-overflow-hidden { overflow: hidden; }
+.ads-overflow-scroll { overflow: scroll; }
+.ads-overflow-x-auto { overflow-x: auto; }
+.ads-overflow-y-auto { overflow-y: auto; }
+
+/* ===== Width / Height ===== */
+.ads-w-full { width: 100%; }
+.ads-h-full { height: 100%; }
+.ads-w-auto { width: auto; }
+.ads-h-auto { height: auto; }
+
+/* ===== Cursor ===== */
+.ads-cursor-pointer { cursor: pointer; }
+.ads-cursor-not-allowed { cursor: not-allowed; }
+.ads-cursor-move { cursor: move; }
+.ads-cursor-text { cursor: text; }
+
+/* ===== Transition ===== */
+.ads-transition { transition: all var(--ads-transition-base); }
+.ads-transition-fast { transition: all var(--ads-transition-fast); }
+.ads-transition-slow { transition: all var(--ads-transition-slow); }
+
+/* ===== Opacity ===== */
+.ads-opacity-0 { opacity: 0; }
+.ads-opacity-50 { opacity: 0.5; }
+.ads-opacity-75 { opacity: 0.75; }
+.ads-opacity-100 { opacity: 1; }
+
+/* ===== Pointer Events ===== */
+.ads-pointer-events-none { pointer-events: none; }
+.ads-pointer-events-auto { pointer-events: auto; }

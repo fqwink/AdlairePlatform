@@ -1,13 +1,17 @@
 <!doctype html>
-<html lang="ja">
+<html lang="{{html_lang}}">
 <head>
 	<meta charset="utf-8">
-	<title>{{title}} - Dashboard</title>
+	<title>{{title}} - {{i18n.dash.label}}</title>
 	<base href="{{host}}">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<meta name="csrf-token" content="{{csrf_token}}">
+	<link rel="stylesheet" href="Framework/ADS/ADS.Base.css">
 	<link rel="stylesheet" href="engines/AdminEngine/dashboard.css">
+	<script>window.__AP_I18N__={{{i18n_json}}};window.__AP_LOCALE__="{{ap_locale}}";</script>
+	<script src="engines/JsEngine/ap-i18n.js"></script>
 	<script src="engines/JsEngine/ap-utils.js"></script>
+	<script src="engines/JsEngine/ap-events.js"></script>
 	<script src="engines/JsEngine/autosize.js"></script>
 	<script src="engines/JsEngine/editInplace.js"></script>
 	<script src="engines/JsEngine/updater.js"></script>
@@ -21,37 +25,37 @@
 </head>
 <body>
 	<header class="ap-dash-header">
-		<h1><a href="./">{{title}}</a> <span class="ap-dash-label">Dashboard</span></h1>
+		<h1><a href="./">{{title}}</a> <span class="ap-dash-label">{{i18n.dash.label}}</span></h1>
 		<nav class="ap-dash-nav">
-			<a href="./">サイト表示</a>
+			<a href="./">{{i18n.dash.nav.view_site}}</a>
 			<form method="POST" class="ap-dash-logout">
 				<input type="hidden" name="csrf" value="{{csrf_token}}">
-				<button type="submit" name="logout" value="1">ログアウト</button>
+				<button type="submit" name="logout" value="1">{{i18n.dash.nav.logout}}</button>
 			</form>
 		</nav>
 	</header>
 
 	<main class="ap-dash-main">
 		{{#if migrate_warning}}
-		<div class="ap-dash-alert">警告: パスワードが MD5 から bcrypt に移行されました。パスワードが "admin" にリセットされています。すぐに変更してください。</div>
+		<div class="ap-dash-alert">{{i18n.dash.alert.migrate_warning}}</div>
 		{{/if}}
 
 		{{#if diag_show_notice}}
 		<div class="ap-dash-alert" id="ap-diag-notice" style="background:#ebf8ff;border-color:#3182ce;color:#2c5282;">
-			<strong>診断データについて</strong> — AdlairePlatform は匿名の利用統計・エラーログを開発元へ送信しています。コンテンツやパスワードは含まれません。
-			<a href="#ap-diag-section" style="color:#2b6cb0;text-decoration:underline;">設定で無効化</a>できます。
+			<strong>{{i18n.dash.alert.diag_title}}</strong> — {{i18n.dash.alert.diag_desc}}
+			<a href="#ap-diag-section" style="color:#2b6cb0;text-decoration:underline;">{{i18n.dash.alert.diag_disable}}</a>
 			<button id="ap-diag-notice-dismiss" style="float:right;background:none;border:none;cursor:pointer;font-size:16px;color:#2c5282;">&times;</button>
 		</div>
 		{{/if}}
 
 		<section class="ap-dash-card">
-			<h2>サイト設定</h2>
+			<h2>{{i18n.dash.settings.title}}</h2>
 			<div class="ap-dash-field">
-				<label>テーマ</label>
+				<label>{{i18n.dash.settings.theme}}</label>
 				<span id="themeSelect">{{{theme_select_html}}}</span>
 			</div>
 			<div class="ap-dash-field">
-				<label>メニュー <small>(ページ名を改行区切りで入力。変更後は<a href="./" id="ap-refresh-link">リフレッシュ</a>)</small></label>
+				<label>{{i18n.dash.settings.menu}} <small>({{i18n.dash.settings.menu_help}}<a href="./" id="ap-refresh-link">{{i18n.dash.settings.refresh}}</a>)</small></label>
 				<span id="menu" title="Home" class="editText">{{{menu_raw}}}</span>
 			</div>
 			{{#each settings_fields}}
@@ -63,7 +67,7 @@
 		</section>
 
 		<section class="ap-dash-card">
-			<h2>ページ一覧</h2>
+			<h2>{{i18n.dash.pages.title}}</h2>
 			{{#if has_pages}}
 			<div class="ap-dash-pages">
 				{{#each pages}}
@@ -72,18 +76,18 @@
 						<strong>{{slug}}</strong>
 						<span>{{preview}}</span>
 					</a>
-					<button class="ap-page-delete" data-slug="{{slug}}" title="ページを削除">&times;</button>
+					<button class="ap-page-delete" data-slug="{{slug}}" title="{{i18n.dash.pages.delete}}">&times;</button>
 				</div>
 				{{/each}}
 			</div>
 			{{else}}
-			<p>ページがありません。メニューにページ名を追加し、サイト表示からコンテンツを編集してください。</p>
+			<p>{{i18n.dash.pages.empty}}</p>
 			{{/if}}
 		</section>
 
 		{{#if has_activity}}
 		<section class="ap-dash-card">
-			<h2>アクティビティ</h2>
+			<h2>{{i18n.dash.activity.title}}</h2>
 			<div class="ap-dash-activity">
 				{{#each activity_log}}
 				<div class="ap-dash-activity-item">
@@ -96,10 +100,10 @@
 		{{/if}}
 
 		<section class="ap-dash-card">
-			<h2>コレクション管理</h2>
+			<h2>{{i18n.dash.collection.title}}</h2>
 			{{#if collections_enabled}}
 			<div class="ap-dash-field">
-				<span style="color:#38a169;font-weight:bold;">✓ コレクションモード有効</span>
+				<span style="color:#38a169;font-weight:bold;">{{i18n.dash.collection.enabled}}</span>
 			</div>
 			{{#if has_collections}}
 			<div class="ap-dash-collections">
@@ -107,129 +111,129 @@
 				<div class="ap-dash-collection-item">
 					<strong>{{name}}</strong>
 					<span class="ap-collection-label">{{label}}</span>
-					<span class="ap-collection-count">{{count}}件</span>
-					<button class="ap-collection-edit" data-collection="{{name}}">編集</button>
-					<button class="ap-collection-delete" data-collection="{{name}}" title="コレクション定義を削除">&times;</button>
+					<span class="ap-collection-count">{{count}}{{i18n.dash.collection.items_suffix}}</span>
+					<button class="ap-collection-edit" data-collection="{{name}}">{{i18n.dash.collection.edit}}</button>
+					<button class="ap-collection-delete" data-collection="{{name}}" title="{{i18n.dash.collection.delete_def}}">&times;</button>
 				</div>
 				{{/each}}
 			</div>
 			{{else}}
-			<p style="color:#718096;font-size:13px;">コレクションが定義されていません。下のフォームから作成してください。</p>
+			<p style="color:#718096;font-size:13px;">{{i18n.dash.collection.empty}}</p>
 			{{/if}}
 			{{else}}
 			<div class="ap-dash-field">
-				<span style="color:#718096;font-size:13px;">コレクションモードは無効です。</span>
+				<span style="color:#718096;font-size:13px;">{{i18n.dash.collection.disabled}}</span>
 			</div>
 			{{/if}}
 			<div class="ap-dash-field" style="margin-top:12px;">
-				<label>新規コレクション作成</label>
+				<label>{{i18n.dash.collection.new}}</label>
 				<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-					<input type="text" id="ap-collection-name" placeholder="コレクション名（英数字）" style="flex:1;min-width:120px;padding:6px 10px;border:1px solid #cbd5e0;border-radius:4px;font-size:14px;">
-					<input type="text" id="ap-collection-label" placeholder="表示名" style="flex:1;min-width:120px;padding:6px 10px;border:1px solid #cbd5e0;border-radius:4px;font-size:14px;">
-					<button id="ap-collection-create" style="white-space:nowrap;">作成</button>
+					<input type="text" id="ap-collection-name" placeholder="{{i18n.dash.collection.name_placeholder}}" style="flex:1;min-width:120px;padding:6px 10px;border:1px solid #cbd5e0;border-radius:4px;font-size:14px;">
+					<input type="text" id="ap-collection-label" placeholder="{{i18n.dash.collection.label_placeholder}}" style="flex:1;min-width:120px;padding:6px 10px;border:1px solid #cbd5e0;border-radius:4px;font-size:14px;">
+					<button id="ap-collection-create" style="white-space:nowrap;">{{i18n.dash.collection.create}}</button>
 				</div>
 			</div>
 			{{#if has_pages}}
 			<div class="ap-dash-field" style="margin-top:8px;">
-				<button id="ap-collection-migrate">pages.json → コレクション移行</button>
+				<button id="ap-collection-migrate">{{i18n.dash.collection.migrate}}</button>
 				<span id="ap-collection-migrate-result" style="margin-left:8px;font-size:13px;"></span>
 			</div>
 			{{/if}}
 		</section>
 
 		<section class="ap-dash-card ap-dash-card-editor" id="ap-collection-editor" style="display:none;">
-			<h2>コレクションエディタ: <span id="ap-editor-collection-name"></span></h2>
+			<h2>{{i18n.dash.editor.title_prefix}} <span id="ap-editor-collection-name"></span></h2>
 			<div id="ap-editor-items"></div>
 			<div class="ap-dash-field" style="margin-top:12px;border-top:1px solid #e2e8f0;padding-top:12px;">
-				<label>新規アイテム</label>
+				<label>{{i18n.dash.editor.new_item}}</label>
 				<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-					<input type="text" id="ap-editor-new-slug" placeholder="スラッグ（英数字）" style="flex:1;min-width:120px;padding:6px 10px;border:1px solid #cbd5e0;border-radius:4px;font-size:14px;">
-					<input type="text" id="ap-editor-new-title" placeholder="タイトル" style="flex:1;min-width:120px;padding:6px 10px;border:1px solid #cbd5e0;border-radius:4px;font-size:14px;">
-					<button id="ap-editor-new-create">追加</button>
+					<input type="text" id="ap-editor-new-slug" placeholder="{{i18n.dash.editor.slug_placeholder}}" style="flex:1;min-width:120px;padding:6px 10px;border:1px solid #cbd5e0;border-radius:4px;font-size:14px;">
+					<input type="text" id="ap-editor-new-title" placeholder="{{i18n.dash.editor.title_placeholder}}" style="flex:1;min-width:120px;padding:6px 10px;border:1px solid #cbd5e0;border-radius:4px;font-size:14px;">
+					<button id="ap-editor-new-create">{{i18n.dash.editor.add}}</button>
 				</div>
 			</div>
 			<div id="ap-editor-edit-area" style="display:none;margin-top:16px;border-top:1px solid #e2e8f0;padding-top:12px;">
-				<h3>編集: <span id="ap-editor-edit-slug"></span></h3>
+				<h3>{{i18n.dash.editor.edit_prefix}} <span id="ap-editor-edit-slug"></span></h3>
 				<div class="ap-dash-field">
-					<label>タイトル</label>
+					<label>{{i18n.dash.editor.title_label}}</label>
 					<input type="text" id="ap-editor-edit-title" style="width:100%;padding:6px 10px;border:1px solid #cbd5e0;border-radius:4px;font-size:14px;">
 				</div>
 				<div class="ap-dash-field">
-					<label>本文 (Markdown)</label>
+					<label>{{i18n.dash.editor.body_label}}</label>
 					<textarea id="ap-editor-edit-body" rows="12" style="width:100%;padding:8px 10px;border:1px solid #cbd5e0;border-radius:4px;font-family:monospace;font-size:13px;resize:vertical;"></textarea>
 				</div>
 				<div class="ap-dash-buttons">
-					<button id="ap-editor-edit-save">保存</button>
-					<button id="ap-editor-edit-cancel" style="background:#718096;">キャンセル</button>
+					<button id="ap-editor-edit-save">{{i18n.dash.editor.save}}</button>
+					<button id="ap-editor-edit-cancel" style="background:#718096;">{{i18n.dash.editor.cancel}}</button>
 				</div>
 				<div id="ap-editor-edit-result" style="margin-top:8px;font-size:13px;"></div>
 				<div id="ap-editor-preview" style="margin-top:12px;border-top:1px solid #e2e8f0;padding-top:12px;">
-					<label style="font-weight:bold;">プレビュー</label>
+					<label style="font-weight:bold;">{{i18n.dash.editor.preview}}</label>
 					<div id="ap-editor-preview-html" style="padding:8px;background:#f7fafc;border:1px solid #e2e8f0;border-radius:4px;min-height:40px;"></div>
 				</div>
 			</div>
 		</section>
 
 		<section class="ap-dash-card">
-			<h2>Git 連携 <small>(GitHub)</small></h2>
+			<h2>{{i18n.dash.git.title}} <small>({{i18n.dash.git.github}})</small></h2>
 			<div class="ap-dash-field">
-				<label>ステータス</label>
+				<label>{{i18n.dash.git.status}}</label>
 				{{#if git_enabled}}
-				<span style="color:#38a169;font-weight:bold;">✓ 有効 — {{git_repository}} ({{git_branch}})</span>
+				<span style="color:#38a169;font-weight:bold;">{{i18n.dash.git.enabled}} — {{git_repository}} ({{git_branch}})</span>
 				{{else}}
-				<span style="color:#718096;">無効</span>
+				<span style="color:#718096;">{{i18n.dash.git.disabled}}</span>
 				{{/if}}
 			</div>
 			<div class="ap-dash-field">
-				<label>リポジトリ <small>(owner/repo 形式)</small></label>
-				<input type="text" id="ap-git-repository" value="{{git_repository}}" placeholder="user/my-site" style="width:100%;padding:6px 10px;border:1px solid #cbd5e0;border-radius:4px;font-size:14px;">
+				<label>{{i18n.dash.git.repository}} <small>({{i18n.dash.git.repository_help}})</small></label>
+				<input type="text" id="ap-git-repository" value="{{git_repository}}" placeholder="{{i18n.dash.git.repository_placeholder}}" style="width:100%;padding:6px 10px;border:1px solid #cbd5e0;border-radius:4px;font-size:14px;">
 			</div>
 			<div class="ap-dash-field">
-				<label>Personal Access Token <small>(GitHub PAT)</small></label>
-				<input type="password" id="ap-git-token" value="{{#if git_enabled}}********{{/if}}" placeholder="ghp_xxxxxxxxxxxx" style="width:100%;padding:6px 10px;border:1px solid #cbd5e0;border-radius:4px;font-size:14px;">
+				<label>{{i18n.dash.git.token_label}} <small>({{i18n.dash.git.token_help}})</small></label>
+				<input type="password" id="ap-git-token" value="{{#if git_enabled}}********{{/if}}" placeholder="{{i18n.dash.git.token_placeholder}}" style="width:100%;padding:6px 10px;border:1px solid #cbd5e0;border-radius:4px;font-size:14px;">
 			</div>
 			<div style="display:flex;gap:12px;flex-wrap:wrap;">
 				<div class="ap-dash-field" style="flex:1;min-width:120px;">
-					<label>ブランチ</label>
+					<label>{{i18n.dash.git.branch}}</label>
 					<input type="text" id="ap-git-branch" value="{{git_branch}}" placeholder="main" style="width:100%;padding:6px 10px;border:1px solid #cbd5e0;border-radius:4px;font-size:14px;">
 				</div>
 				<div class="ap-dash-field" style="flex:1;min-width:120px;">
-					<label>コンテンツディレクトリ</label>
+					<label>{{i18n.dash.git.content_dir}}</label>
 					<input type="text" id="ap-git-content-dir" value="{{git_content_dir}}" placeholder="content" style="width:100%;padding:6px 10px;border:1px solid #cbd5e0;border-radius:4px;font-size:14px;">
 				</div>
 			</div>
 			<div class="ap-dash-field">
 				<label style="display:inline;cursor:pointer;">
 					<input type="checkbox" id="ap-git-issues" {{#if git_issues_enabled}}checked{{/if}} style="margin-right:6px;">
-					お問い合わせを GitHub Issue として保存
+					{{i18n.dash.git.issues_label}}
 				</label>
 			</div>
 			<div class="ap-dash-field">
-				<label>Webhook シークレット <small>(GitHub Webhook の署名検証用・任意)</small></label>
-				<input type="text" id="ap-git-webhook-secret" value="{{git_webhook_secret}}" placeholder="Webhook Secret（任意）" style="width:100%;padding:6px 10px;border:1px solid #cbd5e0;border-radius:4px;font-size:14px;">
-				<div style="font-size:12px;color:#718096;margin-top:2px;">Webhook URL: <code>?ap_api=webhook</code></div>
+				<label>{{i18n.dash.git.webhook_secret}} <small>({{i18n.dash.git.webhook_secret_help}})</small></label>
+				<input type="text" id="ap-git-webhook-secret" value="{{git_webhook_secret}}" placeholder="{{i18n.dash.git.webhook_secret_placeholder}}" style="width:100%;padding:6px 10px;border:1px solid #cbd5e0;border-radius:4px;font-size:14px;">
+				<div style="font-size:12px;color:#718096;margin-top:2px;">{{i18n.dash.git.webhook_url_label}} <code>?ap_api=webhook</code></div>
 			</div>
 			<div class="ap-dash-buttons">
-				<button id="ap-git-save">設定を保存</button>
-				<button id="ap-git-test" style="background:#38a169;">接続テスト</button>
+				<button id="ap-git-save">{{i18n.dash.git.save}}</button>
+				<button id="ap-git-test" style="background:#38a169;">{{i18n.dash.git.test}}</button>
 			</div>
 			<div id="ap-git-config-result" style="font-size:13px;margin-top:4px;"></div>
 			{{#if git_enabled}}
 			<div style="margin-top:16px;border-top:1px solid #e2e8f0;padding-top:12px;">
 				<div class="ap-dash-buttons">
-					<button id="ap-git-pull" style="background:#3182ce;">Pull（取得）</button>
-					<button id="ap-git-push" style="background:#e53e3e;">Push（送信）</button>
+					<button id="ap-git-pull" style="background:#3182ce;">{{i18n.dash.git.pull}}</button>
+					<button id="ap-git-push" style="background:#e53e3e;">{{i18n.dash.git.push}}</button>
 				</div>
 				<div class="ap-dash-field" style="margin-top:4px;">
-					<input type="text" id="ap-git-commit-msg" placeholder="コミットメッセージ（Push 時）" style="width:100%;padding:6px 10px;border:1px solid #cbd5e0;border-radius:4px;font-size:14px;">
+					<input type="text" id="ap-git-commit-msg" placeholder="{{i18n.dash.git.commit_msg_placeholder}}" style="width:100%;padding:6px 10px;border:1px solid #cbd5e0;border-radius:4px;font-size:14px;">
 				</div>
 				<div id="ap-git-sync-result" style="font-size:13px;margin-top:4px;"></div>
 				{{#if git_last_sync}}
-				<div style="font-size:12px;color:#718096;margin-top:4px;">最終同期: {{git_last_sync}}</div>
+				<div style="font-size:12px;color:#718096;margin-top:4px;">{{i18n.dash.git.last_sync}} {{git_last_sync}}</div>
 				{{/if}}
 				<div style="margin-top:12px;border-top:1px solid #e2e8f0;padding-top:8px;">
-					<label style="font-weight:600;font-size:13px;color:#4a5568;">コミット履歴</label>
-					<button id="ap-git-load-log" style="font-size:12px;padding:2px 10px;margin-left:8px;">読み込み</button>
+					<label style="font-weight:600;font-size:13px;color:#4a5568;">{{i18n.dash.git.log_title}}</label>
+					<button id="ap-git-load-log" style="font-size:12px;padding:2px 10px;margin-left:8px;">{{i18n.dash.git.log_load}}</button>
 					<div id="ap-git-log" style="margin-top:8px;max-height:250px;overflow-y:auto;"></div>
 				</div>
 			</div>
@@ -237,51 +241,51 @@
 		</section>
 
 		<section class="ap-dash-card">
-			<h2>Outgoing Webhook</h2>
-			<p style="font-size:13px;color:#718096;margin-bottom:8px;">コンテンツ変更時に外部サービスへ通知します（Vercel / Netlify デプロイフック等）</p>
+			<h2>{{i18n.dash.webhook.title}}</h2>
+			<p style="font-size:13px;color:#718096;margin-bottom:8px;">{{i18n.dash.webhook.description}}</p>
 			{{#if has_webhooks}}
 			<div class="ap-dash-collections" id="ap-webhook-list">
 				{{#each webhooks}}
 				<div class="ap-dash-collection-item">
 					<strong>{{label}}</strong>
 					<span style="font-size:12px;color:#718096;margin-left:8px;">{{url}}</span>
-					{{#if active}}<span style="color:#38a169;font-size:12px;margin-left:4px;">有効</span>{{else}}<span style="color:#e53e3e;font-size:12px;margin-left:4px;">無効</span>{{/if}}
-					<button class="ap-webhook-toggle" data-index="{{index}}" style="font-size:12px;padding:2px 8px;margin-left:4px;">切替</button>
-					<button class="ap-webhook-test" data-index="{{index}}" style="font-size:12px;padding:2px 8px;">テスト</button>
-					<button class="ap-webhook-delete" data-index="{{index}}" title="削除">&times;</button>
+					{{#if active}}<span style="color:#38a169;font-size:12px;margin-left:4px;">{{i18n.dash.webhook.active}}</span>{{else}}<span style="color:#e53e3e;font-size:12px;margin-left:4px;">{{i18n.dash.webhook.inactive}}</span>{{/if}}
+					<button class="ap-webhook-toggle" data-index="{{index}}" style="font-size:12px;padding:2px 8px;margin-left:4px;">{{i18n.dash.webhook.toggle}}</button>
+					<button class="ap-webhook-test" data-index="{{index}}" style="font-size:12px;padding:2px 8px;">{{i18n.dash.webhook.test}}</button>
+					<button class="ap-webhook-delete" data-index="{{index}}" title="{{i18n.dash.webhook.delete}}">&times;</button>
 				</div>
 				{{/each}}
 			</div>
 			{{else}}
-			<p style="font-size:13px;color:#718096;">Webhook が設定されていません。</p>
+			<p style="font-size:13px;color:#718096;">{{i18n.dash.webhook.empty}}</p>
 			{{/if}}
 			<div class="ap-dash-field" style="margin-top:12px;">
-				<label>新規 Webhook 追加</label>
+				<label>{{i18n.dash.webhook.new}}</label>
 				<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
 					<input type="url" id="ap-webhook-url" placeholder="https://api.vercel.com/v1/..." style="flex:2;min-width:200px;padding:6px 10px;border:1px solid #cbd5e0;border-radius:4px;font-size:14px;">
-					<input type="text" id="ap-webhook-label" placeholder="ラベル" style="flex:1;min-width:100px;padding:6px 10px;border:1px solid #cbd5e0;border-radius:4px;font-size:14px;">
-					<input type="text" id="ap-webhook-secret" placeholder="シークレット（任意）" style="flex:1;min-width:100px;padding:6px 10px;border:1px solid #cbd5e0;border-radius:4px;font-size:14px;">
-					<button id="ap-webhook-add">追加</button>
+					<input type="text" id="ap-webhook-label" placeholder="{{i18n.dash.webhook.label_placeholder}}" style="flex:1;min-width:100px;padding:6px 10px;border:1px solid #cbd5e0;border-radius:4px;font-size:14px;">
+					<input type="text" id="ap-webhook-secret" placeholder="{{i18n.dash.webhook.secret_placeholder}}" style="flex:1;min-width:100px;padding:6px 10px;border:1px solid #cbd5e0;border-radius:4px;font-size:14px;">
+					<button id="ap-webhook-add">{{i18n.dash.webhook.add}}</button>
 				</div>
 			</div>
 			<div id="ap-webhook-result" style="margin-top:4px;font-size:13px;"></div>
 		</section>
 
 		<section class="ap-dash-card">
-			<h2>API キャッシュ</h2>
+			<h2>{{i18n.dash.cache.title}}</h2>
 			<div class="ap-dash-field">
-				<span>キャッシュファイル: <strong>{{cache_files}}</strong> 件 / サイズ: <strong>{{cache_size}}</strong></span>
+				<span>{{i18n.dash.cache.files_prefix}} <strong>{{cache_files}}</strong> {{i18n.dash.cache.items_suffix}} / {{i18n.dash.cache.size_prefix}} <strong>{{cache_size}}</strong></span>
 			</div>
 			<div class="ap-dash-buttons">
-				<button id="ap-cache-clear">キャッシュクリア</button>
+				<button id="ap-cache-clear">{{i18n.dash.cache.clear}}</button>
 			</div>
 			<div id="ap-cache-result" style="margin-top:4px;font-size:13px;"></div>
 		</section>
 
 		<section class="ap-dash-card">
-			<h2>ユーザー管理</h2>
+			<h2>{{i18n.dash.users.title}}</h2>
 			<div class="ap-dash-field">
-				<span>ログイン中: <strong>{{current_user}}</strong> ({{current_role}})</span>
+				<span>{{i18n.dash.users.logged_in}} <strong>{{current_user}}</strong> ({{current_role}})</span>
 			</div>
 			{{#if has_users}}
 			<div class="ap-dash-collections" id="ap-users-list">
@@ -289,238 +293,238 @@
 				<div class="ap-dash-collection-item">
 					<strong>{{username}}</strong>
 					<span class="ap-collection-label">{{role}}</span>
-					<button class="ap-user-delete" data-username="{{username}}" title="ユーザーを削除">&times;</button>
+					<button class="ap-user-delete" data-username="{{username}}" title="{{i18n.dash.users.delete}}">&times;</button>
 				</div>
 				{{/each}}
 			</div>
 			{{else}}
-			<p style="font-size:13px;color:#718096;">マルチユーザーモードは無効です（users.json 未設定）。下のフォームからユーザーを追加するとマルチユーザーモードが有効になります。</p>
+			<p style="font-size:13px;color:#718096;">{{i18n.dash.users.empty}}</p>
 			{{/if}}
 			<div class="ap-dash-field" style="margin-top:12px;">
-				<label>新規ユーザー追加</label>
+				<label>{{i18n.dash.users.new}}</label>
 				<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-					<input type="text" id="ap-user-username" placeholder="ユーザー名" style="flex:1;min-width:120px;padding:6px 10px;border:1px solid #cbd5e0;border-radius:4px;font-size:14px;">
-					<input type="password" id="ap-user-password" placeholder="パスワード" style="flex:1;min-width:120px;padding:6px 10px;border:1px solid #cbd5e0;border-radius:4px;font-size:14px;">
+					<input type="text" id="ap-user-username" placeholder="{{i18n.dash.users.username_placeholder}}" style="flex:1;min-width:120px;padding:6px 10px;border:1px solid #cbd5e0;border-radius:4px;font-size:14px;">
+					<input type="password" id="ap-user-password" placeholder="{{i18n.dash.users.password_placeholder}}" style="flex:1;min-width:120px;padding:6px 10px;border:1px solid #cbd5e0;border-radius:4px;font-size:14px;">
 					<select id="ap-user-role" style="padding:6px 10px;border:1px solid #cbd5e0;border-radius:4px;font-size:14px;">
 						<option value="editor">editor</option>
 						<option value="admin">admin</option>
 						<option value="viewer">viewer</option>
 					</select>
-					<button id="ap-user-add">追加</button>
+					<button id="ap-user-add">{{i18n.dash.users.add}}</button>
 				</div>
 			</div>
 			<div id="ap-user-result" style="margin-top:4px;font-size:13px;"></div>
 		</section>
 
 		<section class="ap-dash-card">
-			<h2>API 設定</h2>
+			<h2>{{i18n.dash.api.title}}</h2>
 			<div class="ap-dash-field">
-				<label>お問い合わせ送信先メール <small>(?ap_api=contact の宛先)</small></label>
+				<label>{{i18n.dash.api.contact_email}} <small>({{i18n.dash.api.contact_email_help}})</small></label>
 				<span title="" id="contact_email" class="editText">{{contact_email}}</span>
 			</div>
 			<div class="ap-dash-field">
-				<label>公開エンドポイント <small>(認証不要)</small></label>
+				<label>{{i18n.dash.api.public_endpoints}} <small>({{i18n.dash.api.public_help}})</small></label>
 				<div style="font-size:13px;color:#4a5568;line-height:2;">
-					<code>?ap_api=pages</code> 全ページ一覧<br>
-					<code>?ap_api=page&amp;slug=…</code> 単一ページ取得<br>
-					<code>?ap_api=settings</code> 公開設定<br>
-					<code>?ap_api=search&amp;q=…</code> 全文検索<br>
-					<code>?ap_api=contact</code> お問い合わせ送信 (POST)<br>
-					<code>?ap_api=collections</code> コレクション定義一覧<br>
-					<code>?ap_api=collection&amp;name=…</code> コレクションアイテム一覧<br>
-					<code>?ap_api=item&amp;collection=…&amp;slug=…</code> 単一アイテム取得
+					<code>?ap_api=pages</code> {{i18n.dash.api.desc.pages}}<br>
+					<code>?ap_api=page&amp;slug=…</code> {{i18n.dash.api.desc.page}}<br>
+					<code>?ap_api=settings</code> {{i18n.dash.api.desc.settings}}<br>
+					<code>?ap_api=search&amp;q=…</code> {{i18n.dash.api.desc.search}}<br>
+					<code>?ap_api=contact</code> {{i18n.dash.api.desc.contact}}<br>
+					<code>?ap_api=collections</code> {{i18n.dash.api.desc.collections}}<br>
+					<code>?ap_api=collection&amp;name=…</code> {{i18n.dash.api.desc.collection}}<br>
+					<code>?ap_api=item&amp;collection=…&amp;slug=…</code> {{i18n.dash.api.desc.item}}
 				</div>
 			</div>
 			<div class="ap-dash-field">
-				<label>管理エンドポイント <small>(API キー認証必須: <code>Authorization: Bearer &lt;KEY&gt;</code>)</small></label>
+				<label>{{i18n.dash.api.admin_endpoints}} <small>({{i18n.dash.api.admin_help}}: <code>Authorization: Bearer &lt;KEY&gt;</code>)</small></label>
 				<div style="font-size:13px;color:#4a5568;line-height:2;">
-					<code>?ap_api=item_upsert</code> アイテム作成・更新 (POST)<br>
-					<code>?ap_api=item_delete</code> アイテム削除 (POST)<br>
-					<code>?ap_api=page_upsert</code> ページ作成・更新 (POST)<br>
-					<code>?ap_api=page_delete</code> ページ削除 (POST)<br>
-					<code>?ap_api=media_list</code> メディア一覧<br>
-					<code>?ap_api=media_upload</code> メディアアップロード (POST)<br>
-					<code>?ap_api=media_delete</code> メディア削除 (POST)<br>
-					<code>?ap_api=preview&amp;collection=…&amp;slug=…</code> 下書きプレビュー<br>
-					<code>?ap_api=export&amp;collection=…&amp;format=json|csv</code> エクスポート<br>
-					<code>?ap_api=import</code> インポート (POST)<br>
-					<code>?ap_api=webhooks</code> Webhook 一覧<br>
-					<code>?ap_api=cache_clear</code> キャッシュクリア (POST)<br>
-					<code>?ap_api=cache_stats</code> キャッシュ統計<br>
-					<code>?ap_api=webhook</code> GitHub Webhook 受信 (POST)
+					<code>?ap_api=item_upsert</code> {{i18n.dash.api.desc.item_upsert}}<br>
+					<code>?ap_api=item_delete</code> {{i18n.dash.api.desc.item_delete}}<br>
+					<code>?ap_api=page_upsert</code> {{i18n.dash.api.desc.page_upsert}}<br>
+					<code>?ap_api=page_delete</code> {{i18n.dash.api.desc.page_delete}}<br>
+					<code>?ap_api=media_list</code> {{i18n.dash.api.desc.media_list}}<br>
+					<code>?ap_api=media_upload</code> {{i18n.dash.api.desc.media_upload}}<br>
+					<code>?ap_api=media_delete</code> {{i18n.dash.api.desc.media_delete}}<br>
+					<code>?ap_api=preview&amp;collection=…&amp;slug=…</code> {{i18n.dash.api.desc.preview}}<br>
+					<code>?ap_api=export&amp;collection=…&amp;format=json|csv</code> {{i18n.dash.api.desc.export}}<br>
+					<code>?ap_api=import</code> {{i18n.dash.api.desc.import}}<br>
+					<code>?ap_api=webhooks</code> {{i18n.dash.api.desc.webhooks}}<br>
+					<code>?ap_api=cache_clear</code> {{i18n.dash.api.desc.cache_clear}}<br>
+					<code>?ap_api=cache_stats</code> {{i18n.dash.api.desc.cache_stats}}<br>
+					<code>?ap_api=webhook</code> {{i18n.dash.api.desc.webhook_receive}}
 				</div>
 			</div>
 			<div class="ap-dash-field" style="margin-top:12px;border-top:1px solid #e2e8f0;padding-top:12px;">
-				<label>API キー管理</label>
-				<div id="ap-api-keys-list" style="margin-bottom:8px;font-size:13px;color:#718096;">読み込み中...</div>
+				<label>{{i18n.dash.api.keys_title}}</label>
+				<div id="ap-api-keys-list" style="margin-bottom:8px;font-size:13px;color:#718096;">{{i18n.dash.api.keys_loading}}</div>
 				<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-					<input type="text" id="ap-api-key-label" placeholder="キーのラベル（任意）" style="flex:1;min-width:150px;padding:6px 10px;border:1px solid #cbd5e0;border-radius:4px;font-size:14px;">
-					<button id="ap-api-key-generate">新規キー生成</button>
+					<input type="text" id="ap-api-key-label" placeholder="{{i18n.dash.api.key_label_placeholder}}" style="flex:1;min-width:150px;padding:6px 10px;border:1px solid #cbd5e0;border-radius:4px;font-size:14px;">
+					<button id="ap-api-key-generate">{{i18n.dash.api.key_generate}}</button>
 				</div>
 				<div id="ap-api-key-result" style="margin-top:8px;font-size:13px;"></div>
 			</div>
 		</section>
 
 		<section class="ap-dash-card">
-			<h2>静的書き出し</h2>
+			<h2>{{i18n.dash.static.title}}</h2>
 			<div class="ap-dash-field">
-				<label>モード</label>
-				<span id="ap-static-mode">確認中...</span>
+				<label>{{i18n.dash.static.mode}}</label>
+				<span id="ap-static-mode">{{i18n.dash.static.checking}}</span>
 			</div>
 			<div class="ap-dash-field">
-				<span id="ap-static-status">読み込み中...</span>
+				<span id="ap-static-status">{{i18n.dash.static.loading}}</span>
 			</div>
 			<div id="ap-static-pages" class="ap-dash-field"></div>
 			<div class="ap-dash-buttons">
-				<button id="ap-static-diff">差分ビルド</button>
-				<button id="ap-static-full">フルビルド</button>
-				<button id="ap-static-clean">クリーン</button>
-				<button id="ap-static-zip">ZIP DL</button>
-				<button id="ap-static-deploy-diff" style="background:#805ad5;">差分デプロイ ZIP</button>
+				<button id="ap-static-diff">{{i18n.dash.static.diff_build}}</button>
+				<button id="ap-static-full">{{i18n.dash.static.full_build}}</button>
+				<button id="ap-static-clean">{{i18n.dash.static.clean}}</button>
+				<button id="ap-static-zip">{{i18n.dash.static.zip_dl}}</button>
+				<button id="ap-static-deploy-diff" style="background:#805ad5;">{{i18n.dash.static.deploy_diff}}</button>
 			</div>
 			<div id="ap-static-result" class="ap-dash-field"></div>
 		</section>
 
 		<section class="ap-dash-card">
-			<h2>リダイレクト管理</h2>
-			<p style="font-size:13px;color:#718096;margin-bottom:8px;">URL 変更時のリダイレクトルール。ビルド時に .htaccess と _redirects に反映されます。</p>
+			<h2>{{i18n.dash.redirect.title}}</h2>
+			<p style="font-size:13px;color:#718096;margin-bottom:8px;">{{i18n.dash.redirect.description}}</p>
 			{{#if has_redirects}}
 			<div class="ap-dash-collections" id="ap-redirect-list">
 				{{#each redirects}}
 				<div class="ap-dash-collection-item">
 					<code>{{from}}</code> → <code>{{to}}</code>
 					<span style="font-size:12px;color:#718096;margin-left:4px;">({{code}})</span>
-					<button class="ap-redirect-delete" data-index="{{index}}" title="削除">&times;</button>
+					<button class="ap-redirect-delete" data-index="{{index}}" title="{{i18n.dash.redirect.delete}}">&times;</button>
 				</div>
 				{{/each}}
 			</div>
 			{{else}}
-			<p style="font-size:13px;color:#718096;">リダイレクトルールが設定されていません。</p>
+			<p style="font-size:13px;color:#718096;">{{i18n.dash.redirect.empty}}</p>
 			{{/if}}
 			<div class="ap-dash-field" style="margin-top:12px;">
-				<label>新規リダイレクト追加</label>
+				<label>{{i18n.dash.redirect.new}}</label>
 				<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-					<input type="text" id="ap-redirect-from" placeholder="旧URL (/old-page)" style="flex:1;min-width:150px;padding:6px 10px;border:1px solid #cbd5e0;border-radius:4px;font-size:14px;">
-					<input type="text" id="ap-redirect-to" placeholder="新URL (/new-page)" style="flex:1;min-width:150px;padding:6px 10px;border:1px solid #cbd5e0;border-radius:4px;font-size:14px;">
+					<input type="text" id="ap-redirect-from" placeholder="{{i18n.dash.redirect.from_placeholder}}" style="flex:1;min-width:150px;padding:6px 10px;border:1px solid #cbd5e0;border-radius:4px;font-size:14px;">
+					<input type="text" id="ap-redirect-to" placeholder="{{i18n.dash.redirect.to_placeholder}}" style="flex:1;min-width:150px;padding:6px 10px;border:1px solid #cbd5e0;border-radius:4px;font-size:14px;">
 					<select id="ap-redirect-code" style="padding:6px 10px;border:1px solid #cbd5e0;border-radius:4px;font-size:14px;">
-						<option value="301">301 (永久)</option>
-						<option value="302">302 (一時)</option>
+						<option value="301">{{i18n.dash.redirect.code_301}}</option>
+						<option value="302">{{i18n.dash.redirect.code_302}}</option>
 					</select>
-					<button id="ap-redirect-add">追加</button>
+					<button id="ap-redirect-add">{{i18n.dash.redirect.add}}</button>
 				</div>
 			</div>
 			<div id="ap-redirect-result" style="margin-top:4px;font-size:13px;"></div>
 		</section>
 
 		<section class="ap-dash-card">
-			<h2>アップデート</h2>
+			<h2>{{i18n.dash.update.title}}</h2>
 			<div class="ap-dash-field">
-				<b>現在のバージョン:</b> {{ap_version}}
+				<b>{{i18n.dash.update.current_version}}</b> {{ap_version}}
 			</div>
-			<button id="ap-check-update">更新を確認</button>
+			<button id="ap-check-update">{{i18n.dash.update.check}}</button>
 			<span id="ap-update-status"></span>
 			<div id="ap-update-result"></div>
 		</section>
 
 		<section class="ap-dash-card" id="ap-diag-section">
-			<h2>診断データ</h2>
-			<p style="font-size:13px;color:#718096;margin-bottom:8px;">システムエラー・ログデータをリアルタイムで集約し、開発元へ匿名送信します。全ログは作成から14日間サーバ内に強制保存されます。</p>
+			<h2>{{i18n.dash.diag.title}}</h2>
+			<p style="font-size:13px;color:#718096;margin-bottom:8px;">{{i18n.dash.diag.description}}</p>
 
 			<div class="ap-dash-field" style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
 				<div style="display:flex;align-items:center;gap:8px;">
-					<label style="margin:0;">ヘルス:</label>
-					<span id="ap-diag-health-status">確認中...</span>
+					<label style="margin:0;">{{i18n.dash.diag.health}}</label>
+					<span id="ap-diag-health-status">{{i18n.dash.diag.health_checking}}</span>
 				</div>
 				<div style="display:flex;align-items:center;gap:8px;">
-					<label style="margin:0;">ステータス:</label>
-					<span id="ap-diag-status">読み込み中...</span>
-					<button id="ap-diag-toggle" style="font-size:13px;padding:4px 12px;">切替</button>
+					<label style="margin:0;">{{i18n.dash.diag.status}}</label>
+					<span id="ap-diag-status">{{i18n.dash.diag.status_loading}}</span>
+					<button id="ap-diag-toggle" style="font-size:13px;padding:4px 12px;">{{i18n.dash.diag.toggle}}</button>
 				</div>
 			</div>
 
 			<div id="ap-diag-health-details" class="ap-dash-field" style="font-size:13px;"></div>
 
 			<div id="ap-diag-circuit-breaker" class="ap-dash-field" style="display:none;background:#fed7d7;color:#c53030;padding:8px 12px;border-radius:4px;font-size:13px;font-weight:600;">
-				サーキットブレーカー発動中 — テレメトリ送信が一時停止されています（24時間後に自動復旧）
+				{{i18n.dash.diag.circuit_breaker}}
 			</div>
 
 			<div class="ap-dash-field" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-				<label style="margin:0;">収集レベル:</label>
+				<label style="margin:0;">{{i18n.dash.diag.level}}</label>
 				<select id="ap-diag-level" style="padding:4px 8px;border:1px solid #cbd5e0;border-radius:4px;font-size:14px;">
-					<option value="basic">basic — 環境情報・エラー件数</option>
-					<option value="extended">extended — エラーメッセージ・パフォーマンス</option>
-					<option value="debug">debug — スタックトレース・詳細設定</option>
+					<option value="basic">{{i18n.dash.diag.level_basic}}</option>
+					<option value="extended">{{i18n.dash.diag.level_extended}}</option>
+					<option value="debug">{{i18n.dash.diag.level_debug}}</option>
 				</select>
 			</div>
 
 			<div class="ap-dash-field" style="display:flex;gap:24px;flex-wrap:wrap;font-size:13px;">
-				<span>エラー件数: <strong id="ap-diag-error-count">-</strong></span>
-				<span>ログ件数: <strong id="ap-diag-log-count">-</strong></span>
-				<span>最終送信: <strong id="ap-diag-last-sent">-</strong></span>
+				<span>{{i18n.dash.diag.error_count}} <strong id="ap-diag-error-count">-</strong></span>
+				<span>{{i18n.dash.diag.log_count}} <strong id="ap-diag-log-count">-</strong></span>
+				<span>{{i18n.dash.diag.last_sent}} <strong id="ap-diag-last-sent">-</strong></span>
 				<span id="ap-diag-retention-info" style="color:#3182ce;font-weight:600;">-</span>
 			</div>
 
 			<div class="ap-dash-field">
-				<label style="font-size:13px;color:#4a5568;">セキュリティイベント</label>
-				<div id="ap-diag-security" style="font-size:13px;">読み込み中...</div>
+				<label style="font-size:13px;color:#4a5568;">{{i18n.dash.diag.security_events}}</label>
+				<div id="ap-diag-security" style="font-size:13px;">{{i18n.dash.diag.loading}}</div>
 			</div>
 
 			<div class="ap-dash-field">
-				<label style="font-size:13px;color:#4a5568;">エンジン別実行時間</label>
-				<div id="ap-diag-timings" style="font-size:13px;">読み込み中...</div>
+				<label style="font-size:13px;color:#4a5568;">{{i18n.dash.diag.engine_timings}}</label>
+				<div id="ap-diag-timings" style="font-size:13px;">{{i18n.dash.diag.loading}}</div>
 			</div>
 
 			<div class="ap-dash-field">
-				<label style="font-size:13px;color:#4a5568;">エラートレンド（7日間）</label>
-				<div id="ap-diag-trends">読み込み中...</div>
+				<label style="font-size:13px;color:#4a5568;">{{i18n.dash.diag.error_trends}}</label>
+				<div id="ap-diag-trends">{{i18n.dash.diag.loading}}</div>
 			</div>
 
 			<div class="ap-dash-field">
-				<label style="font-size:13px;color:#4a5568;">エラー種別</label>
-				<div id="ap-diag-error-types" style="font-size:13px;">読み込み中...</div>
+				<label style="font-size:13px;color:#4a5568;">{{i18n.dash.diag.error_types}}</label>
+				<div id="ap-diag-error-types" style="font-size:13px;">{{i18n.dash.diag.loading}}</div>
 			</div>
 
 			<div class="ap-dash-field">
-				<label style="font-size:13px;color:#4a5568;">直近のエラー</label>
+				<label style="font-size:13px;color:#4a5568;">{{i18n.dash.diag.recent_errors}}</label>
 				<div id="ap-diag-recent-errors" style="font-size:12px;max-height:200px;overflow-y:auto;"></div>
 			</div>
 
 			<div class="ap-dash-field">
-				<label style="font-size:13px;color:#4a5568;">直近のログ</label>
+				<label style="font-size:13px;color:#4a5568;">{{i18n.dash.diag.recent_logs}}</label>
 				<div id="ap-diag-recent-logs" style="font-size:12px;max-height:200px;overflow-y:auto;"></div>
 			</div>
 
 			<div class="ap-dash-buttons" style="margin-top:8px;">
-				<button id="ap-diag-preview">送信データをプレビュー</button>
-				<button id="ap-diag-send-now" style="background:#3182ce;">今すぐ送信</button>
-				<button id="ap-diag-show-all-logs" style="background:#718096;">全ログ表示</button>
-				<button id="ap-diag-clear-logs" style="background:#e53e3e;">ログクリア</button>
+				<button id="ap-diag-preview">{{i18n.dash.diag.preview_btn}}</button>
+				<button id="ap-diag-send-now" style="background:#3182ce;">{{i18n.dash.diag.send_now}}</button>
+				<button id="ap-diag-show-all-logs" style="background:#718096;">{{i18n.dash.diag.show_all_logs}}</button>
+				<button id="ap-diag-clear-logs" style="background:#e53e3e;">{{i18n.dash.diag.clear_logs}}</button>
 			</div>
 			<div id="ap-diag-result" style="margin-top:4px;font-size:13px;"></div>
 
 			<div id="ap-diag-preview-data" style="display:none;margin-top:12px;border-top:1px solid #e2e8f0;padding-top:8px;">
-				<label style="font-weight:bold;font-size:13px;">送信データプレビュー</label>
+				<label style="font-weight:bold;font-size:13px;">{{i18n.dash.diag.preview_title}}</label>
 				<pre style="background:#f7fafc;border:1px solid #e2e8f0;border-radius:4px;padding:8px;font-size:11px;max-height:300px;overflow:auto;white-space:pre-wrap;"></pre>
 			</div>
 
 			<div id="ap-diag-all-logs" style="display:none;margin-top:12px;border-top:1px solid #e2e8f0;padding-top:8px;">
-				<label style="font-weight:bold;font-size:13px;">全ログデータ</label>
+				<label style="font-weight:bold;font-size:13px;">{{i18n.dash.diag.all_logs_title}}</label>
 				<pre style="background:#f7fafc;border:1px solid #e2e8f0;border-radius:4px;padding:8px;font-size:11px;max-height:400px;overflow:auto;white-space:pre-wrap;"></pre>
 			</div>
 
 			<div style="margin-top:12px;border-top:1px solid #e2e8f0;padding-top:8px;font-size:12px;color:#718096;">
-				インストールID: <code id="ap-diag-install-id">-</code> |
-				ヘルスチェック API: <code>?ap_api=health</code><br>
-				全ログは作成から14日間サーバ内に強制保存されます。コンテンツ本文・パスワード・トークンは収集されません。
+				{{i18n.dash.diag.install_id}} <code id="ap-diag-install-id">-</code> |
+				{{i18n.dash.diag.health_api}} <code>?ap_api=health</code><br>
+				{{i18n.dash.diag.retention_notice}}
 			</div>
 		</section>
 
 		<section class="ap-dash-card">
-			<h2>システム情報</h2>
+			<h2>{{i18n.dash.system.title}}</h2>
 			<table class="ap-dash-info">
-				<tr><td>PHP</td><td>{{php_version}}</td></tr>
-				<tr><td>ディスク空き</td><td>{{disk_free}}</td></tr>
-				<tr><td>プラットフォーム</td><td>{{ap_version}}</td></tr>
+				<tr><td>{{i18n.dash.system.php}}</td><td>{{php_version}}</td></tr>
+				<tr><td>{{i18n.dash.system.disk_free}}</td><td>{{disk_free}}</td></tr>
+				<tr><td>{{i18n.dash.system.platform}}</td><td>{{ap_version}}</td></tr>
 			</table>
 		</section>
 	</main>

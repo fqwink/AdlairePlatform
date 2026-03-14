@@ -78,67 +78,73 @@ class GitEngine {
 			$headers[] = 'Content-Type: application/json';
 		}
 
-		for ($attempt = 0; $attempt <= self::MAX_RETRIES; $attempt++) {
-			$ch = curl_init();
-			curl_setopt_array($ch, [
-				CURLOPT_URL            => $url,
-				CURLOPT_RETURNTRANSFER => true,
-				CURLOPT_TIMEOUT        => 30,
-				CURLOPT_CONNECTTIMEOUT => 10,
-				CURLOPT_HTTPHEADER     => $headers,
-				CURLOPT_CUSTOMREQUEST  => $method,
-			]);
+		try {
+			for ($attempt = 0; $attempt <= self::MAX_RETRIES; $attempt++) {
+				$ch = curl_init();
+				curl_setopt_array($ch, [
+					CURLOPT_URL            => $url,
+					CURLOPT_RETURNTRANSFER => true,
+					CURLOPT_TIMEOUT        => 30,
+					CURLOPT_CONNECTTIMEOUT => 10,
+					CURLOPT_HTTPHEADER     => $headers,
+					CURLOPT_CUSTOMREQUEST  => $method,
+				]);
 
-			if ($body !== null) {
-				curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($body));
-			}
+				if ($body !== null) {
+					curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($body));
+				}
 
-			$response = curl_exec($ch);
-			$httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-			$error = curl_error($ch);
-			curl_close($ch);
+				$response = curl_exec($ch);
+				$httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+				$error = curl_error($ch);
+				curl_close($ch);
 
-			/* cURL エラーまたはサーバーエラー/レート制限 → リトライ */
-			$shouldRetry = ($error !== '')
-				|| $httpCode === 429
-				|| $httpCode === 502
-				|| $httpCode === 503;
+				/* cURL エラーまたはサーバーエラー/レート制限 → リトライ */
+				$shouldRetry = ($error !== '')
+					|| $httpCode === 429
+					|| $httpCode === 502
+					|| $httpCode === 503;
 
-			if ($shouldRetry && $attempt < self::MAX_RETRIES) {
-				$backoffMs = (int)(pow(2, $attempt) * 500);
-				if (class_exists('DiagnosticEngine')) DiagnosticEngine::log('integration', 'GitHub API リトライ', ['attempt' => $attempt + 1, 'method' => $method, 'endpoint' => $endpoint, 'http_code' => $httpCode, 'curl_error' => $error, 'backoff_ms' => $backoffMs]);
-				usleep($backoffMs * 1000);
-				continue;
-			}
+				if ($shouldRetry && $attempt < self::MAX_RETRIES) {
+					$backoffMs = (int)(pow(2, $attempt) * 500);
+					if (class_exists('DiagnosticEngine')) DiagnosticEngine::log('integration', 'GitHub API リトライ', ['attempt' => $attempt + 1, 'method' => $method, 'endpoint' => $endpoint, 'http_code' => $httpCode, 'curl_error' => $error, 'backoff_ms' => $backoffMs]);
+					usleep($backoffMs * 1000);
+					continue;
+				}
 
-			if ($error) {
-				if (class_exists('DiagnosticEngine')) DiagnosticEngine::logIntegrationError('GitHub API', 0, 'cURL エラー: ' . $error . ' (' . $method . ' ' . $endpoint . ')');
-				return ['ok' => false, 'error' => 'cURL エラー: ' . $error, 'status' => 0];
-			}
+				if ($error) {
+					if (class_exists('DiagnosticEngine')) DiagnosticEngine::logIntegrationError('GitHub API', 0, 'cURL エラー: ' . $error . ' (' . $method . ' ' . $endpoint . ')');
+					return ['ok' => false, 'error' => 'cURL エラー: ' . $error, 'status' => 0];
+				}
 
-			$data = json_decode($response, true);
-			if (!is_array($data)) $data = [];
+				$data = json_decode($response, true);
+				if (!is_array($data)) $data = [];
 
-			/* GitHub API レート制限ヘッダー監視 */
-			if (class_exists('DiagnosticEngine') && is_array($data)) {
-				$rateLimitRemaining = $data['resources']['core']['remaining'] ?? null;
-				if ($rateLimitRemaining === null && isset($http_response_header)) {
-					foreach ($http_response_header ?? [] as $_rh) {
-						if (stripos($_rh, 'x-ratelimit-remaining:') === 0) {
-							$rateLimitRemaining = (int)trim(substr($_rh, 22));
+				/* GitHub API レート制限ヘッダー監視 */
+				if (class_exists('DiagnosticEngine') && is_array($data)) {
+					$rateLimitRemaining = $data['resources']['core']['remaining'] ?? null;
+					if ($rateLimitRemaining === null && isset($http_response_header)) {
+						foreach ($http_response_header ?? [] as $_rh) {
+							if (stripos($_rh, 'x-ratelimit-remaining:') === 0) {
+								$rateLimitRemaining = (int)trim(substr($_rh, 22));
+							}
 						}
 					}
+					if ($rateLimitRemaining !== null && $rateLimitRemaining < 10) {
+						DiagnosticEngine::log('integration', 'GitHub API レート制限残量低下', ['remaining' => $rateLimitRemaining, 'endpoint' => $endpoint]);
+					}
 				}
-				if ($rateLimitRemaining !== null && $rateLimitRemaining < 10) {
-					DiagnosticEngine::log('integration', 'GitHub API レート制限残量低下', ['remaining' => $rateLimitRemaining, 'endpoint' => $endpoint]);
-				}
-			}
 
-			return [
-				'ok'     => $httpCode >= 200 && $httpCode < 300,
-				'status' => $httpCode,
-				'data'   => $data,
-			];
+				return [
+					'ok'     => $httpCode >= 200 && $httpCode < 300,
+					'status' => $httpCode,
+					'data'   => $data,
+				];
+			}
+		} catch (\Throwable $e) {
+			Logger::error('GitHub API リクエスト中にエラー', ['engine' => 'GitEngine', 'method' => $method, 'endpoint' => $endpoint, 'error' => $e->getMessage()]);
+			if (class_exists('DiagnosticEngine')) DiagnosticEngine::log('runtime', 'GitHub API 例外', ['method' => $method, 'endpoint' => $endpoint, 'trace' => $e->getTraceAsString()]);
+			return ['ok' => false, 'error' => '例外: ' . $e->getMessage(), 'status' => 0];
 		}
 
 		if (class_exists('DiagnosticEngine')) DiagnosticEngine::logIntegrationError('GitHub API', 0, 'リトライ上限到達 (' . $method . ' ' . $endpoint . ')');
@@ -263,7 +269,8 @@ class GitEngine {
 			/* SHA 比較でスキップ判定 */
 			$remoteSha = $item['sha'] ?? '';
 			if (file_exists($localPath)) {
-				$localContent = file_get_contents($localPath);
+				$localContent = FileSystem::read($localPath);
+				if ($localContent === false) $localContent = '';
 				$localSha = sha1('blob ' . strlen($localContent) . "\0" . $localContent);
 				if ($localSha === $remoteSha) {
 					$skipped++;
@@ -271,7 +278,7 @@ class GitEngine {
 				}
 			}
 
-			if (file_put_contents($localPath, $decoded, LOCK_EX) === false) {
+			if (!FileSystem::write($localPath, $decoded)) {
 				$errors[] = "書き込み失敗: {$path}";
 				if (class_exists('DiagnosticEngine')) DiagnosticEngine::logEnvironmentIssue('Git Pull 書き込み失敗', ['path' => basename($localPath)]);
 				continue;
@@ -353,10 +360,9 @@ class GitEngine {
 		$errors = [];
 
 		foreach ($files as $relativePath => $localPath) {
-			$content = file_get_contents($localPath);
+			$content = FileSystem::read($localPath);
 			if ($content === false) {
 				$errors[] = "読み込み失敗: {$localPath}";
-				if (class_exists('DiagnosticEngine')) DiagnosticEngine::log('engine', 'Git Push ファイル読み込み失敗', ['path' => basename($localPath)]);
 				continue;
 			}
 

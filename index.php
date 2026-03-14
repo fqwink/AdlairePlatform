@@ -21,6 +21,7 @@ require 'engines/EngineTrait.php';
 require 'engines/FileSystem.php';
 require 'engines/AppContext.php';
 require 'engines/Logger.php';
+require 'engines/I18n.php';
 require 'engines/TemplateEngine.php';
 require 'engines/ThemeEngine.php';
 require 'engines/UpdateEngine.php';
@@ -42,6 +43,9 @@ if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') {
 	ini_set('session.cookie_secure', 1);
 }
 session_start();
+
+/* i18n 初期化（セッション開始後） */
+I18n::init();
 
 /* B-6 fix: 集中ログ管理の初期化 */
 Logger::init();

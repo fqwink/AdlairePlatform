@@ -234,15 +234,12 @@ class UpdateEngine {
 				}
 			}
 		}
-		$metaResult = @file_put_contents($dest.'/meta.json', json_encode([
+		FileSystem::writeJson($dest.'/meta.json', [
 			'version_before' => AP_VERSION,
 			'created_at'     => date('Y-m-d H:i:s'),
 			'file_count'     => $file_count,
 			'size_bytes'     => $size_bytes,
-		], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
-		if ($metaResult === false && class_exists('DiagnosticEngine')) {
-			DiagnosticEngine::log('engine', 'バックアップ meta.json 書き込み失敗', ['backup' => $name]);
-		}
+		]);
 		return $name;
 	}
 
@@ -314,7 +311,7 @@ class UpdateEngine {
 		if(strlen($zip_data) > 100 * 1024 * 1024){
 			self::jsonError('ダウンロードサイズが上限（100MB）を超えています。', 413);
 		}
-		if (file_put_contents($tmp, $zip_data) === false) {
+		if (!FileSystem::write($tmp, $zip_data)) {
 			self::jsonError('ZIP ファイルのディスク書き込みに失敗しました。', 500);
 		}
 		$zip = new ZipArchive();

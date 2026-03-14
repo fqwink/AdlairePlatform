@@ -1,15 +1,15 @@
 <?php
 /**
- * Adlaire Framework Ecosystem (AFE) - Database Module
- * 
- * AFE = Adlaire Framework Ecosystem
- * 
- * @package AFE
+ * Adlaire Platform Foundation (APF) - Database Module
+ *
+ * APF = Adlaire Platform Foundation
+ *
+ * @package APF
  * @version 1.0.0
  * @license Adlaire License Ver.2.0
  */
 
-namespace AFE\Database;
+namespace APF\Database;
 
 // ============================================================================
 // Connection - データベース接続
