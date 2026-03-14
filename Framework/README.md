@@ -324,9 +324,45 @@ editor.events.on('save', ({ blocks }) => {
 
 ## 🌐 将来計画
 
+### Version 2.0.0 - 追加フレームワーク (計画中)
+
+現在の **9エンジン (AFE + AEF + ACF)** に加え、以下のフレームワークを追加予定:
+
+#### **ASF** (Adlaire Static Framework) - 静的ジェネレーター
+- `ASF.Core.php` - Generator, Builder, Router, FileSystem
+- `ASF.Template.php` - TemplateEngine, ThemeEngine, MarkdownEngine
+- `ASF.Utilities.php` - Cache, ImageOptimizer, DiffBuilder, Deployer
+
+**抽出元**: Adlaire Platform の StaticEngine, TemplateEngine, ThemeEngine, MarkdownEngine, ImageOptimizer
+
+#### **ACM** (Adlaire CMS Framework) - CMS
+- `ACM.Core.php` - CollectionEngine, ContentManager, MetaManager
+- `ACM.Admin.php` - AdminEngine, UserManager, AuthManager
+- `ACM.Api.php` - ApiEngine, WebhookEngine, RestHandler
+
+**抽出元**: Adlaire Platform の CollectionEngine, AdminEngine, ApiEngine, WebhookEngine
+
+#### **AIF** (Adlaire Infrastructure Framework) - インフラ
+- `AIF.Core.php` - AppContext, ServiceProvider, Container
+- `AIF.System.php` - CacheEngine, Logger, DiagnosticEngine
+- `AIF.Deployment.php` - UpdateEngine, GitEngine, MailerEngine
+
+**抽出元**: Adlaire Platform の AppContext, CacheEngine, Logger, DiagnosticEngine, UpdateEngine, GitEngine, MailerEngine
+
+**将来の合計**: 18エンジン (~278KB)
+
+**詳細**: [FUTURE_ROADMAP.md](./docs/FUTURE_ROADMAP.md)
+
+**注意**: 
+- Adlaire Platform 本体のソースコードは一切変更しない
+- エンジンのコピーを作成してフレームワーク化
+- 実装時期は未定
+
+---
+
 ### Public独立化 (時期未定)
 - **Adlaire-Framework-Ecosystem** として独立リポジトリ化
-- npm/CDN公開
+- Composer/npm/CDN 公開
 - 包括的ドキュメントサイト
 - コミュニティ貢献ガイドライン
 
@@ -334,9 +370,11 @@ editor.events.on('save', ({ blocks }) => {
 
 ## 📚 関連ドキュメント
 
-- [AFE_IMPROVEMENT_ROADMAP_V2.md](./docs/AFE_IMPROVEMENT_ROADMAP_V2.md) - フレームワークロードマップ
-- [EDITOR_CSS_FRAMEWORK_DESIGN.md](./docs/EDITOR_CSS_FRAMEWORK_DESIGN.md) - 設計詳細
-- [WYSIWYG_EDITOR_IMPROVEMENT_PROPOSAL.md](./docs/WYSIWYG_EDITOR_IMPROVEMENT_PROPOSAL.md) - 改良提案
+- [docs/README.md](./docs/README.md) - ドキュメント一覧
+- [docs/FUTURE_ROADMAP.md](./docs/FUTURE_ROADMAP.md) - 将来計画 (ASF/ACM/AIF)
+- [docs/AFE_IMPROVEMENT_ROADMAP_V2.md](./docs/AFE_IMPROVEMENT_ROADMAP_V2.md) - AFE改良ロードマップ
+- [docs/EDITOR_CSS_FRAMEWORK_DESIGN.md](./docs/EDITOR_CSS_FRAMEWORK_DESIGN.md) - AEF/ACF設計詳細
+- [docs/WYSIWYG_EDITOR_IMPROVEMENT_PROPOSAL.md](./docs/WYSIWYG_EDITOR_IMPROVEMENT_PROPOSAL.md) - エディタ改良提案
 
 ---
 

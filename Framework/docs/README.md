@@ -23,6 +23,26 @@ Adlaire Framework Ecosystem は **3ファイルのエンジン駆動モデル** 
 
 ## 📖 主要ドキュメント
 
+### 0. [FUTURE_ROADMAP.md](./FUTURE_ROADMAP.md) ⭐ **将来計画**
+**Version 2.0.0 - 追加フレームワーク計画**
+
+静的ジェネレーター・CMS・インフラのフレームワーク化計画。
+
+**内容**:
+- **ASF** (Adlaire Static Framework) - 静的ジェネレーター (3 engines, ~45KB)
+- **ACM** (Adlaire CMS Framework) - CMS (3 engines, ~50KB)
+- **AIF** (Adlaire Infrastructure Framework) - インフラ (3 engines, ~55KB)
+- 将来の合計: 18エンジン (~278KB)
+- Adlaire Platform からの非破壊的抽出戦略
+- 3エンジン構成への再設計
+- タイムライン・リスク管理
+
+**対象**: プロジェクト全体の将来を理解したい方
+
+**注意**: 実装時期は未定、Adlaire Platform 本体は一切変更しない
+
+---
+
 ### 1. [EDITOR_CSS_FRAMEWORK_DESIGN.md](./EDITOR_CSS_FRAMEWORK_DESIGN.md)
 **AEF & ACF 設計書**
 
@@ -62,7 +82,7 @@ JavaScript エディタフレームワーク (AEF) と CSS フレームワーク
 
 ---
 
-### 3. [AFE_IMPROVEMENT_ROADMAP_V2.md](./AFE_IMPROVEMENT_ROADMAP_V2.md) ⭐
+### 3. [AFE_IMPROVEMENT_ROADMAP_V2.md](./AFE_IMPROVEMENT_ROADMAP_V2.md)
 **AFE 改良ロードマップ Ver.2**
 
 AFE (PHP本体エンジン) の将来計画。
@@ -110,10 +130,11 @@ AFE (PHP本体エンジン) の将来計画。
 ### 初めて Adlaire Framework Ecosystem に触れる方
 
 1. **Framework/README.md** (親ディレクトリ) - 全体概要の理解
-2. **EDITOR_CSS_FRAMEWORK_DESIGN.md** - AEF/ACF の詳細
-3. **AFE_ENGINE_DRIVEN_MODEL.md** - エンジン駆動モデルの理解
+2. **FUTURE_ROADMAP.md** ⭐ - 将来計画の確認
+3. **EDITOR_CSS_FRAMEWORK_DESIGN.md** - AEF/ACF の詳細
+4. **AFE_ENGINE_DRIVEN_MODEL.md** - エンジン駆動モデルの理解
 
-**所要時間**: 約2時間
+**所要時間**: 約3時間
 
 ---
 
