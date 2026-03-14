@@ -1,8 +1,8 @@
-# Adlaire Framework Ecosystem (AFE) - 3ファイル構成提案書
+# Adlaire Platform Foundation (APF) - 3ファイル構成提案書
 
-**AFE Ver.2.0.0 - 統合エンジン駆動フレームワーク設計書**
+**APF Ver.2.0.0 - 統合エンジン駆動フレームワーク設計書**
 
-**正式名称**: Adlaire Framework Ecosystem  
+**正式名称**: Adlaire Platform Foundation  
 **略称**: AFE  
 **将来計画**: 独立リポジトリ化予定（時期未定）
 

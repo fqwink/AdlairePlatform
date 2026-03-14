@@ -1,4 +1,4 @@
-# Adlaire Framework Ecosystem - Documentation
+# Adlaire Platform Foundation - Documentation
 
 **3ファイルのエンジン駆動モデル - 統合ドキュメント**
 
@@ -20,24 +20,24 @@
 
 ## 📖 概要
 
-Adlaire Framework Ecosystem は **3ファイルのエンジン駆動モデル** で構成された統合フレームワーク群です。
+Adlaire Platform Foundation は **3ファイルのエンジン駆動モデル** で構成された統合フレームワーク群です。
 
 ### 現在の構成 (Version 1.0.0)
 
 | フレームワーク | エンジン数 | サイズ | 状態 |
 |--------------|-----------|-------|------|
-| **AFE** (PHP Framework) | 3 | ~52KB | ✅ 実装済み |
-| **AEF** (JavaScript Editor) | 3 | ~41KB | ✅ 実装済み |
-| **ACF** (CSS Framework) | 3 | ~35KB | ✅ 実装済み |
+| **APF** (PHP Framework) | 3 | ~52KB | ✅ 実装済み |
+| **AEB** (JavaScript Editor) | 3 | ~41KB | ✅ 実装済み |
+| **ADS** (CSS Framework) | 3 | ~35KB | ✅ 実装済み |
 | **合計** | **9 engines** | **~128KB** | **完成** |
 
 ### 将来計画 (Version 2.0.0)
 
 | フレームワーク | エンジン数 | サイズ | 状態 |
 |--------------|-----------|-------|------|
-| **ASF** (Static Generator) | 3 | ~45KB | 📋 設計完了 |
-| **ACM** (CMS Framework) | 3 | ~50KB | 📋 設計完了 |
-| **AIF** (Infrastructure) | 3 | ~55KB | 📋 設計完了 |
+| **ASG** (Static Generator) | 3 | ~45KB | 📋 設計完了 |
+| **ACE** (CMS Framework) | 3 | ~50KB | 📋 設計完了 |
+| **AIS** (Infrastructure) | 3 | ~55KB | 📋 設計完了 |
 | **追加合計** | **9 engines** | **~150KB** | **計画中** |
 
 **将来の総合計**: 18エンジン (~278KB)
@@ -57,13 +57,13 @@ Adlaire Framework Ecosystem は **3ファイルのエンジン駆動モデル** 
 将来追加予定の3フレームワーク (ASF/ACM/AIF) の完全設計。
 
 **内容**:
-- **ASF** (Adlaire Static Framework) - 静的ジェネレーター
+- **ASG** (Adlaire Static Generator) - 静的ジェネレーター
   - 3エンジン構成: Core, Template, Utilities
   - 抽出元: StaticEngine, TemplateEngine, ThemeEngine, MarkdownEngine, ImageOptimizer
-- **ACM** (Adlaire CMS Framework) - CMS
+- **ACE** (Adlaire Content Engine) - CMS
   - 3エンジン構成: Core, Admin, Api
   - 抽出元: CollectionEngine, AdminEngine, ApiEngine, WebhookEngine
-- **AIF** (Adlaire Infrastructure Framework) - インフラ
+- **AIS** (Adlaire Infrastructure Services) - インフラ
   - 3エンジン構成: Core, System, Deployment
   - 抽出元: AppContext, CacheEngine, Logger, DiagnosticEngine, UpdateEngine, GitEngine, MailerEngine
 - 非破壊的抽出戦略
@@ -77,22 +77,22 @@ Adlaire Framework Ecosystem は **3ファイルのエンジン駆動モデル** 
 ---
 
 #### 3. **[EDITOR_CSS_FRAMEWORK_DESIGN.md](./EDITOR_CSS_FRAMEWORK_DESIGN.md)**
-**AEF & ACF 完全設計書** (31KB)
+**AEB AEF & ACF 完全設計書** (31KB)
 
-JavaScript エディタフレームワーク (AEF) と CSS フレームワーク (ACF) の技術詳細。
+JavaScript エディタフレームワーク (AEB) と CSS フレームワーク (ADS) の技術詳細。
 
 **内容**:
-- **AEF (JavaScript Editor Engine)** - 3エンジン構成
-  - AEF.Core.js (12KB) - Editor, EventBus, BlockRegistry, StateManager, HistoryManager
-  - AEF.Blocks.js (16KB) - 10種類のブロック実装
-  - AEF.Utils.js (13KB) - sanitizer, dom, selection, keyboard
+- **AEB (JavaScript Editor Engine)** - 3エンジン構成
+  - AEB.Core.js (12KB) - Editor, EventBus, BlockRegistry, StateManager, HistoryManager
+  - AEB.Blocks.js (16KB) - 10種類のブロック実装
+  - AEB.Utils.js (13KB) - sanitizer, dom, selection, keyboard
   - イベント駆動アーキテクチャ
   - ブロック拡張方法
   - API リファレンス
-- **ACF (CSS Framework Engine)** - 3エンジン構成
-  - ACF.Base.css (14KB) - variables, reset, typography, utilities
-  - ACF.Components.css (9KB) - buttons, forms, cards, modals, alerts, badges
-  - ACF.Editor.css (12KB) - editor-base, blocks, toolbar
+- **ADS (CSS Framework Engine)** - 3エンジン構成
+  - ADS.Base.css (14KB) - variables, reset, typography, utilities
+  - ADS.Components.css (9KB) - buttons, forms, cards, modals, alerts, badges
+  - ADS.Editor.css (12KB) - editor-base, blocks, toolbar
   - ユーティリティファースト設計
   - カスタマイズ方法
   - レスポンシブ設計
@@ -100,7 +100,7 @@ JavaScript エディタフレームワーク (AEF) と CSS フレームワーク
 - パフォーマンス最適化
 - 移行ガイド
 
-**対象**: AEF/ACF 開発者・利用者
+**対象**: AEB/ADS 開発者・利用者
 
 ---
 
@@ -132,7 +132,7 @@ JavaScript エディタフレームワーク (AEF) と CSS フレームワーク
 #### 5. **[AFE_ENGINE_DRIVEN_MODEL.md](./AFE_ENGINE_DRIVEN_MODEL.md)**
 **エンジン駆動モデル完全解説** (37KB)
 
-AFE (PHP本体) のコアアーキテクチャ詳細。
+APF (PHP本体) のコアアーキテクチャ詳細。
 
 **内容**:
 - エンジン駆動モデルの概念
@@ -145,7 +145,7 @@ AFE (PHP本体) のコアアーキテクチャ詳細。
 - エンジン開発ガイド
 - ベストプラクティス
 
-**対象**: AFE (PHP) 開発者、アーキテクト
+**対象**: APF (PHP) 開発者、アーキテクト
 
 ---
 
@@ -196,7 +196,7 @@ Adlaire Platform 本体 (15エンジン) の詳細設計。
 #### 8. **[AFE_IMPROVEMENT_ROADMAP_V2.md](./AFE_IMPROVEMENT_ROADMAP_V2.md)**
 **AFE 改良ロードマップ Ver.2** (49KB)
 
-AFE (PHP本体) の将来改良計画 (Ver 2.2.0 - 2.5.0)。
+APF (PHP本体) の将来改良計画 (Ver 2.2.0 - 2.5.0)。
 
 **内容**:
 - Phase 2 (Ver 2.2.0): 実用的強化
@@ -221,7 +221,7 @@ AFE (PHP本体) の将来改良計画 (Ver 2.2.0 - 2.5.0)。
 #### 9. **[AFE_IMPROVEMENT_PLAN.md](./AFE_IMPROVEMENT_PLAN.md)**
 **AFE 改良計画 Ver.1** (14KB)
 
-AFE の初期改良計画 (Ver 2.1.0、実装済み)。
+APF の初期改良計画 (Ver 2.1.0、実装済み)。
 
 **内容**:
 - エラーハンドリング強化
@@ -251,19 +251,19 @@ AFE の初期改良計画 (Ver 2.1.0、実装済み)。
 
 ### 📌 レベル1: 初心者 - 全体像の把握
 
-**目的**: Adlaire Framework Ecosystem の全体像を理解する
+**目的**: Adlaire Platform Foundation の全体像を理解する
 
 **推奨ドキュメント**:
 1. **[../README.md](../README.md)** (親ディレクトリ) - メインREADME (15分)
 2. **[FUTURE_ROADMAP.md](./FUTURE_ROADMAP.md)** ⭐ - 将来計画 (30分)
-3. **[EDITOR_CSS_FRAMEWORK_DESIGN.md](./EDITOR_CSS_FRAMEWORK_DESIGN.md)** - AEF/ACF設計 (40分)
+3. **[EDITOR_CSS_FRAMEWORK_DESIGN.md](./EDITOR_CSS_FRAMEWORK_DESIGN.md)** - AEB/ADS設計 (40分)
 
 **所要時間**: 約1.5時間
 
 **得られる知識**:
 - 9エンジン構成の理解
 - 将来の18エンジン構想
-- AEF/ACFの使用方法
+- AEB/ADSの使用方法
 
 ---
 
@@ -271,7 +271,7 @@ AFE の初期改良計画 (Ver 2.1.0、実装済み)。
 
 **目的**: 各フレームワークの開発・利用方法を習得
 
-#### パターンA: AEF/ACF (JavaScript/CSS) 開発者
+#### パターンA: AEB/ADS (JavaScript/CSS) 開発者
 
 **推奨ドキュメント**:
 1. **[EDITOR_CSS_FRAMEWORK_DESIGN.md](./EDITOR_CSS_FRAMEWORK_DESIGN.md)** - 設計詳細 (1時間)
@@ -281,13 +281,13 @@ AFE の初期改良計画 (Ver 2.1.0、実装済み)。
 **所要時間**: 約2.5時間
 
 **得られる知識**:
-- AEF/ACF API完全理解
+- AEB/ADS API完全理解
 - カスタムブロックの作成方法
 - CSS カスタマイズ方法
 
 ---
 
-#### パターンB: AFE (PHP) 開発者
+#### パターンB: APF (PHP) 開発者
 
 **推奨ドキュメント**:
 1. **[AFE_ENGINE_DRIVEN_MODEL.md](./AFE_ENGINE_DRIVEN_MODEL.md)** - エンジン駆動モデル (1.5時間)
@@ -447,7 +447,7 @@ AFE の初期改良計画 (Ver 2.1.0、実装済み)。
 |-----|---------|
 | 2026-03-14 | **ドキュメント全体を再整備** - 統合インデックス作成、古い提案書をarchive化 |
 | 2026-03-14 | **FUTURE_ROADMAP.md 作成** - ASF/ACM/AIF 将来計画 (18エンジン構想) |
-| 2026-03-14 | **3ファイルのエンジン駆動モデル実装完了** - AFE/AEF/ACF (9エンジン) |
+| 2026-03-14 | **3ファイルのエンジン駆動モデル実装完了** - AFE/AEB/ADS (9エンジン) |
 | 2026-03-13 | EDITOR_CSS_FRAMEWORK_DESIGN.md 作成 |
 | 2026-03-13 | WYSIWYG_EDITOR_IMPROVEMENT_PROPOSAL.md 作成 |
 | 2026-03-13 | AFE_ENGINE_DRIVEN_MODEL.md 作成 |
@@ -467,15 +467,15 @@ AFE の初期改良計画 (Ver 2.1.0、実装済み)。
 ## 🚀 次のステップ
 
 ### 現在の状態 (Version 1.0.0)
-- ✅ **AFE** (PHP本体) - 3エンジン実装完了
-- ✅ **AEF** (JavaScript) - 3エンジン実装完了
-- ✅ **ACF** (CSS) - 3エンジン実装完了
+- ✅ **APF** (PHP本体) - 3エンジン実装完了
+- ✅ **AEB** (JavaScript) - 3エンジン実装完了
+- ✅ **ADS** (CSS) - 3エンジン実装完了
 - ✅ **ドキュメント** - 全体再整備完了
 
 ### 将来計画 (Version 2.0.0)
-1. **ASF** (Static Generator) - 設計完了、実装未定
-2. **ACM** (CMS Framework) - 設計完了、実装未定
-3. **AIF** (Infrastructure) - 設計完了、実装未定
+1. **ASG** (Static Generator) - 設計完了、実装未定
+2. **ACE** (CMS Framework) - 設計完了、実装未定
+3. **AIS** (Infrastructure) - 設計完了、実装未定
 4. 独立Public化 (時期未定)
 5. Composer/npm/CDN公開
 6. 包括的ドキュメントサイト
@@ -485,7 +485,7 @@ AFE の初期改良計画 (Ver 2.1.0、実装済み)。
 
 ---
 
-**Adlaire Framework Ecosystem Documentation**  
+**Adlaire Platform Foundation Documentation**  
 **Version**: 1.0.0 (Planning: 2.0.0)  
 **Status**: ✅ Production Ready (9 Engines) + 📋 Planning (9 Engines)  
 **Total**: 14 Documents, 451KB, ~150,000 characters  

@@ -1,6 +1,6 @@
 # エディタ & CSS フレームワーク化設計書
 
-**Adlaire Editor Framework (AEF) & Adlaire CSS Framework (ACF)**
+**Adlaire Editor & Blocks (AEB) & Adlaire Design System (ADS)**
 
 **日付**: 2026年3月14日  
 **目的**: WYSIWYG エディタとCSSの専用フレームワーク化  
@@ -12,8 +12,8 @@
 
 1. [エグゼクティブサマリー](#エグゼクティブサマリー)
 2. [現状分析](#現状分析)
-3. [Adlaire Editor Framework (AEF) 設計](#aef設計)
-4. [Adlaire CSS Framework (ACF) 設計](#acf設計)
+3. [Adlaire Editor & Blocks (AEB) 設計](#aeb設計)
+4. [Adlaire Design System (ADS) 設計](#ads設計)
 5. [実装計画](#実装計画)
 6. [期待効果](#期待効果)
 
@@ -29,8 +29,8 @@
 - JavaScript: 13ファイル、約4,910行、統一されたアーキテクチャなし
 
 **提案**:
-1. **Adlaire Editor Framework (AEF)** - WYSIWYGエディタ専用フレームワーク
-2. **Adlaire CSS Framework (ACF)** - 統一CSSフレームワーク
+1. **Adlaire Editor & Blocks (AEB)** - WYSIWYGエディタ専用フレームワーク
+2. **Adlaire Design System (ADS)** - 統一CSSフレームワーク
 
 ### 目標
 
@@ -94,7 +94,7 @@ CSS散在状況:
 
 ## AEF設計
 
-### Adlaire Editor Framework (AEF)
+### Adlaire Editor & Blocks (AEB)
 
 **コンセプト**: モダンでモジュラーなブロックベースWYSIWYGエディタフレームワーク
 
@@ -677,7 +677,7 @@ const editor = new AEFEditor('#editor', {
 
 ## ACF設計
 
-### Adlaire CSS Framework (ACF)
+### Adlaire Design System (ADS)
 
 **コンセプト**: モダンで軽量、カスタマイズ可能なCSSフレームワーク
 
@@ -722,91 +722,91 @@ framework/css/
 /* framework/css/base/variables.css */
 :root {
     /* ── カラーシステム ── */
-    --acf-primary: #0ad;
-    --acf-secondary: #666;
-    --acf-success: #4c4;
-    --acf-danger: #c44;
-    --acf-warning: #fc0;
-    --acf-info: #6cf;
+    --ads-primary: #0ad;
+    --ads-secondary: #666;
+    --ads-success: #4c4;
+    --ads-danger: #c44;
+    --ads-warning: #fc0;
+    --ads-info: #6cf;
     
     /* ── グレースケール ── */
-    --acf-gray-50: #fafafa;
-    --acf-gray-100: #f5f5f5;
-    --acf-gray-200: #e5e5e5;
-    --acf-gray-300: #d4d4d4;
-    --acf-gray-400: #a3a3a3;
-    --acf-gray-500: #737373;
-    --acf-gray-600: #525252;
-    --acf-gray-700: #404040;
-    --acf-gray-800: #262626;
-    --acf-gray-900: #171717;
+    --ads-gray-50: #fafafa;
+    --ads-gray-100: #f5f5f5;
+    --ads-gray-200: #e5e5e5;
+    --ads-gray-300: #d4d4d4;
+    --ads-gray-400: #a3a3a3;
+    --ads-gray-500: #737373;
+    --ads-gray-600: #525252;
+    --ads-gray-700: #404040;
+    --ads-gray-800: #262626;
+    --ads-gray-900: #171717;
     
     /* ── 背景・テキスト ── */
-    --acf-bg-primary: #1a1a1a;
-    --acf-bg-secondary: #2a2a2a;
-    --acf-bg-tertiary: #333;
-    --acf-text-primary: #eee;
-    --acf-text-secondary: #aaa;
-    --acf-text-muted: #666;
+    --ads-bg-primary: #1a1a1a;
+    --ads-bg-secondary: #2a2a2a;
+    --ads-bg-tertiary: #333;
+    --ads-text-primary: #eee;
+    --ads-text-secondary: #aaa;
+    --ads-text-muted: #666;
     
     /* ── ボーダー ── */
-    --acf-border: #555;
-    --acf-border-light: #444;
-    --acf-border-focus: var(--acf-primary);
+    --ads-border: #555;
+    --ads-border-light: #444;
+    --ads-border-focus: var(--ads-primary);
     
     /* ── スペーシング ── */
-    --acf-space-xs: 0.25rem;  /* 4px */
-    --acf-space-sm: 0.5rem;   /* 8px */
-    --acf-space-md: 1rem;     /* 16px */
-    --acf-space-lg: 1.5rem;   /* 24px */
-    --acf-space-xl: 2rem;     /* 32px */
-    --acf-space-2xl: 3rem;    /* 48px */
+    --ads-space-xs: 0.25rem;  /* 4px */
+    --ads-space-sm: 0.5rem;   /* 8px */
+    --ads-space-md: 1rem;     /* 16px */
+    --ads-space-lg: 1.5rem;   /* 24px */
+    --ads-space-xl: 2rem;     /* 32px */
+    --ads-space-2xl: 3rem;    /* 48px */
     
     /* ── タイポグラフィ ── */
-    --acf-font-sans: system-ui, -apple-system, sans-serif;
-    --acf-font-mono: 'SF Mono', Monaco, 'Cascadia Code', monospace;
-    --acf-font-size-xs: 0.75rem;   /* 12px */
-    --acf-font-size-sm: 0.875rem;  /* 14px */
-    --acf-font-size-base: 1rem;    /* 16px */
-    --acf-font-size-lg: 1.125rem;  /* 18px */
-    --acf-font-size-xl: 1.25rem;   /* 20px */
-    --acf-font-size-2xl: 1.5rem;   /* 24px */
-    --acf-font-size-3xl: 1.875rem; /* 30px */
+    --ads-font-sans: system-ui, -apple-system, sans-serif;
+    --ads-font-mono: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+    --ads-font-size-xs: 0.75rem;   /* 12px */
+    --ads-font-size-sm: 0.875rem;  /* 14px */
+    --ads-font-size-base: 1rem;    /* 16px */
+    --ads-font-size-lg: 1.125rem;  /* 18px */
+    --ads-font-size-xl: 1.25rem;   /* 20px */
+    --ads-font-size-2xl: 1.5rem;   /* 24px */
+    --ads-font-size-3xl: 1.875rem; /* 30px */
     
     /* ── 角丸 ── */
-    --acf-radius-sm: 3px;
-    --acf-radius-md: 6px;
-    --acf-radius-lg: 8px;
-    --acf-radius-xl: 12px;
-    --acf-radius-full: 9999px;
+    --ads-radius-sm: 3px;
+    --ads-radius-md: 6px;
+    --ads-radius-lg: 8px;
+    --ads-radius-xl: 12px;
+    --ads-radius-full: 9999px;
     
     /* ── シャドウ ── */
-    --acf-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
-    --acf-shadow-md: 0 4px 6px rgba(0, 0, 0, 0.3);
-    --acf-shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.4);
-    --acf-shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.5);
+    --ads-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+    --ads-shadow-md: 0 4px 6px rgba(0, 0, 0, 0.3);
+    --ads-shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.4);
+    --ads-shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.5);
     
     /* ── トランジション ── */
-    --acf-transition-fast: 150ms ease;
-    --acf-transition-base: 200ms ease;
-    --acf-transition-slow: 300ms ease;
+    --ads-transition-fast: 150ms ease;
+    --ads-transition-base: 200ms ease;
+    --ads-transition-slow: 300ms ease;
     
     /* ── Z-index ── */
-    --acf-z-dropdown: 1000;
-    --acf-z-modal: 2000;
-    --acf-z-tooltip: 3000;
+    --ads-z-dropdown: 1000;
+    --ads-z-modal: 2000;
+    --ads-z-tooltip: 3000;
 }
 
 /* ライトテーマ */
 [data-theme="light"] {
-    --acf-bg-primary: #ffffff;
-    --acf-bg-secondary: #f5f5f5;
-    --acf-bg-tertiary: #e5e5e5;
-    --acf-text-primary: #171717;
-    --acf-text-secondary: #404040;
-    --acf-text-muted: #737373;
-    --acf-border: #d4d4d4;
-    --acf-border-light: #e5e5e5;
+    --ads-bg-primary: #ffffff;
+    --ads-bg-secondary: #f5f5f5;
+    --ads-bg-tertiary: #e5e5e5;
+    --ads-text-primary: #171717;
+    --ads-text-secondary: #404040;
+    --ads-text-muted: #737373;
+    --ads-border: #d4d4d4;
+    --ads-border-light: #e5e5e5;
 }
 ```
 
@@ -816,102 +816,102 @@ framework/css/
 /* framework/css/editor/editor-base.css */
 
 /* ── エディタラッパー ── */
-.aef-editor {
+.aeb-editor {
     position: relative;
     min-height: 200px;
-    font-family: var(--acf-font-sans);
-    font-size: var(--acf-font-size-base);
+    font-family: var(--ads-font-sans);
+    font-size: var(--ads-font-size-base);
     line-height: 1.6;
-    color: var(--acf-text-primary);
-    background: var(--acf-bg-primary);
+    color: var(--ads-text-primary);
+    background: var(--ads-bg-primary);
 }
 
 /* ── ツールバー ── */
-.aef-toolbar {
+.aeb-toolbar {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: var(--acf-space-xs);
-    padding: var(--acf-space-sm);
-    background: var(--acf-bg-tertiary);
-    border-radius: var(--acf-radius-md) var(--acf-radius-md) 0 0;
+    gap: var(--ads-space-xs);
+    padding: var(--ads-space-sm);
+    background: var(--ads-bg-tertiary);
+    border-radius: var(--ads-radius-md) var(--ads-radius-md) 0 0;
     user-select: none;
-    border: 1px solid var(--acf-border);
+    border: 1px solid var(--ads-border);
     border-bottom: none;
 }
 
-.aef-toolbar-btn {
-    padding: var(--acf-space-xs) var(--acf-space-sm);
-    font-size: var(--acf-font-size-sm);
-    color: var(--acf-text-primary);
-    background: var(--acf-bg-secondary);
-    border: 1px solid var(--acf-border);
-    border-radius: var(--acf-radius-sm);
+.aeb-toolbar-btn {
+    padding: var(--ads-space-xs) var(--ads-space-sm);
+    font-size: var(--ads-font-size-sm);
+    color: var(--ads-text-primary);
+    background: var(--ads-bg-secondary);
+    border: 1px solid var(--ads-border);
+    border-radius: var(--ads-radius-sm);
     cursor: pointer;
-    transition: all var(--acf-transition-fast);
+    transition: all var(--ads-transition-fast);
 }
 
-.aef-toolbar-btn:hover {
-    background: var(--acf-bg-primary);
-    border-color: var(--acf-border-focus);
+.aeb-toolbar-btn:hover {
+    background: var(--ads-bg-primary);
+    border-color: var(--ads-border-focus);
 }
 
-.aef-toolbar-btn.active {
-    background: var(--acf-primary);
+.aeb-toolbar-btn.active {
+    background: var(--ads-primary);
     color: #000;
-    border-color: var(--acf-primary);
+    border-color: var(--ads-primary);
 }
 
-.aef-toolbar-sep {
+.aeb-toolbar-sep {
     width: 1px;
     height: 20px;
-    background: var(--acf-border);
+    background: var(--ads-border);
 }
 
 /* ── ブロックコンテナ ── */
-.aef-blocks {
+.aeb-blocks {
     min-height: 150px;
-    padding: var(--acf-space-md) var(--acf-space-md) var(--acf-space-md) 40px;
-    background: var(--acf-bg-secondary);
-    border: 2px solid var(--acf-border);
-    border-radius: 0 0 var(--acf-radius-md) var(--acf-radius-md);
+    padding: var(--ads-space-md) var(--ads-space-md) var(--ads-space-md) 40px;
+    background: var(--ads-bg-secondary);
+    border: 2px solid var(--ads-border);
+    border-radius: 0 0 var(--ads-radius-md) var(--ads-radius-md);
 }
 
-.aef-blocks:focus-within {
-    border-color: var(--acf-border-focus);
+.aeb-blocks:focus-within {
+    border-color: var(--ads-border-focus);
 }
 
 /* ── ブロック ── */
-.aef-block {
+.aeb-block {
     position: relative;
-    margin: var(--acf-space-sm) 0;
-    border-radius: var(--acf-radius-sm);
-    transition: background var(--acf-transition-fast);
+    margin: var(--ads-space-sm) 0;
+    border-radius: var(--ads-radius-sm);
+    transition: background var(--ads-transition-fast);
 }
 
-.aef-block:hover {
+.aeb-block:hover {
     background: rgba(255, 255, 255, 0.03);
 }
 
-.aef-block-wrapper {
+.aeb-block-wrapper {
     position: relative;
 }
 
-.aef-block-content {
+.aeb-block-content {
     min-height: 1.5em;
-    padding: var(--acf-space-xs);
+    padding: var(--ads-space-xs);
     outline: none;
     word-break: break-word;
     overflow-wrap: break-word;
 }
 
-.aef-block-content:focus {
+.aeb-block-content:focus {
     background: rgba(0, 221, 255, 0.05);
-    border-radius: var(--acf-radius-sm);
+    border-radius: var(--ads-radius-sm);
 }
 
 /* ── ブロックハンドル ── */
-.aef-block-handle {
+.aeb-block-handle {
     position: absolute;
     left: -32px;
     top: 2px;
@@ -920,52 +920,52 @@ framework/css/
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: var(--acf-font-size-sm);
-    color: var(--acf-text-muted);
+    font-size: var(--ads-font-size-sm);
+    color: var(--ads-text-muted);
     cursor: grab;
     opacity: 0;
-    transition: opacity var(--acf-transition-fast);
-    border-radius: var(--acf-radius-sm);
+    transition: opacity var(--ads-transition-fast);
+    border-radius: var(--ads-radius-sm);
 }
 
-.aef-block:hover .aef-block-handle,
-.aef-block-handle:hover {
+.aeb-block:hover .aeb-block-handle,
+.aeb-block-handle:hover {
     opacity: 1;
 }
 
-.aef-block-handle:hover {
+.aeb-block-handle:hover {
     background: rgba(255, 255, 255, 0.1);
-    color: var(--acf-text-primary);
+    color: var(--ads-text-primary);
 }
 
-.aef-block-handle:active {
+.aeb-block-handle:active {
     cursor: grabbing;
 }
 
 /* ── プレースホルダー ── */
-.aef-block-content[data-placeholder]:empty::before {
+.aeb-block-content[data-placeholder]:empty::before {
     content: attr(data-placeholder);
-    color: var(--acf-text-muted);
+    color: var(--ads-text-muted);
     pointer-events: none;
     font-style: italic;
 }
 
 /* ── レスポンシブ ── */
 @media (max-width: 768px) {
-    .aef-toolbar {
-        padding: var(--acf-space-xs);
+    .aeb-toolbar {
+        padding: var(--ads-space-xs);
     }
     
-    .aef-toolbar-btn {
+    .aeb-toolbar-btn {
         min-width: 44px;
         min-height: 44px;
     }
     
-    .aef-blocks {
-        padding: var(--acf-space-sm);
+    .aeb-blocks {
+        padding: var(--ads-space-sm);
     }
     
-    .aef-block-handle {
+    .aeb-block-handle {
         left: -28px;
         width: 20px;
         height: 20px;
@@ -979,68 +979,68 @@ framework/css/
 /* framework/css/base/utilities.css */
 
 /* ── Spacing ── */
-.acf-m-0 { margin: 0; }
-.acf-m-1 { margin: var(--acf-space-xs); }
-.acf-m-2 { margin: var(--acf-space-sm); }
-.acf-m-3 { margin: var(--acf-space-md); }
-.acf-m-4 { margin: var(--acf-space-lg); }
+.ads-m-0 { margin: 0; }
+.ads-m-1 { margin: var(--ads-space-xs); }
+.ads-m-2 { margin: var(--ads-space-sm); }
+.ads-m-3 { margin: var(--ads-space-md); }
+.ads-m-4 { margin: var(--ads-space-lg); }
 
-.acf-p-0 { padding: 0; }
-.acf-p-1 { padding: var(--acf-space-xs); }
-.acf-p-2 { padding: var(--acf-space-sm); }
-.acf-p-3 { padding: var(--acf-space-md); }
-.acf-p-4 { padding: var(--acf-space-lg); }
+.ads-p-0 { padding: 0; }
+.ads-p-1 { padding: var(--ads-space-xs); }
+.ads-p-2 { padding: var(--ads-space-sm); }
+.ads-p-3 { padding: var(--ads-space-md); }
+.ads-p-4 { padding: var(--ads-space-lg); }
 
 /* ── Display ── */
-.acf-block { display: block; }
-.acf-inline { display: inline; }
-.acf-inline-block { display: inline-block; }
-.acf-flex { display: flex; }
-.acf-grid { display: grid; }
-.acf-hidden { display: none; }
+.ads-block { display: block; }
+.ads-inline { display: inline; }
+.ads-inline-block { display: inline-block; }
+.ads-flex { display: flex; }
+.ads-grid { display: grid; }
+.ads-hidden { display: none; }
 
 /* ── Flexbox ── */
-.acf-flex-row { flex-direction: row; }
-.acf-flex-col { flex-direction: column; }
-.acf-items-center { align-items: center; }
-.acf-justify-center { justify-content: center; }
-.acf-justify-between { justify-content: space-between; }
-.acf-gap-1 { gap: var(--acf-space-xs); }
-.acf-gap-2 { gap: var(--acf-space-sm); }
-.acf-gap-3 { gap: var(--acf-space-md); }
+.ads-flex-row { flex-direction: row; }
+.ads-flex-col { flex-direction: column; }
+.ads-items-center { align-items: center; }
+.ads-justify-center { justify-content: center; }
+.ads-justify-between { justify-content: space-between; }
+.ads-gap-1 { gap: var(--ads-space-xs); }
+.ads-gap-2 { gap: var(--ads-space-sm); }
+.ads-gap-3 { gap: var(--ads-space-md); }
 
 /* ── Text ── */
-.acf-text-left { text-align: left; }
-.acf-text-center { text-align: center; }
-.acf-text-right { text-align: right; }
-.acf-text-sm { font-size: var(--acf-font-size-sm); }
-.acf-text-base { font-size: var(--acf-font-size-base); }
-.acf-text-lg { font-size: var(--acf-font-size-lg); }
+.ads-text-left { text-align: left; }
+.ads-text-center { text-align: center; }
+.ads-text-right { text-align: right; }
+.ads-text-sm { font-size: var(--ads-font-size-sm); }
+.ads-text-base { font-size: var(--ads-font-size-base); }
+.ads-text-lg { font-size: var(--ads-font-size-lg); }
 
 /* ── Colors ── */
-.acf-text-primary { color: var(--acf-text-primary); }
-.acf-text-secondary { color: var(--acf-text-secondary); }
-.acf-text-muted { color: var(--acf-text-muted); }
-.acf-bg-primary { background-color: var(--acf-bg-primary); }
-.acf-bg-secondary { background-color: var(--acf-bg-secondary); }
+.ads-text-primary { color: var(--ads-text-primary); }
+.ads-text-secondary { color: var(--ads-text-secondary); }
+.ads-text-muted { color: var(--ads-text-muted); }
+.ads-bg-primary { background-color: var(--ads-bg-primary); }
+.ads-bg-secondary { background-color: var(--ads-bg-secondary); }
 
 /* ── Border ── */
-.acf-border { border: 1px solid var(--acf-border); }
-.acf-border-t { border-top: 1px solid var(--acf-border); }
-.acf-border-r { border-right: 1px solid var(--acf-border); }
-.acf-border-b { border-bottom: 1px solid var(--acf-border); }
-.acf-border-l { border-left: 1px solid var(--acf-border); }
+.ads-border { border: 1px solid var(--ads-border); }
+.ads-border-t { border-top: 1px solid var(--ads-border); }
+.ads-border-r { border-right: 1px solid var(--ads-border); }
+.ads-border-b { border-bottom: 1px solid var(--ads-border); }
+.ads-border-l { border-left: 1px solid var(--ads-border); }
 
 /* ── Rounded ── */
-.acf-rounded-sm { border-radius: var(--acf-radius-sm); }
-.acf-rounded { border-radius: var(--acf-radius-md); }
-.acf-rounded-lg { border-radius: var(--acf-radius-lg); }
-.acf-rounded-full { border-radius: var(--acf-radius-full); }
+.ads-rounded-sm { border-radius: var(--ads-radius-sm); }
+.ads-rounded { border-radius: var(--ads-radius-md); }
+.ads-rounded-lg { border-radius: var(--ads-radius-lg); }
+.ads-rounded-full { border-radius: var(--ads-radius-full); }
 
 /* ── Shadow ── */
-.acf-shadow-sm { box-shadow: var(--acf-shadow-sm); }
-.acf-shadow { box-shadow: var(--acf-shadow-md); }
-.acf-shadow-lg { box-shadow: var(--acf-shadow-lg); }
+.ads-shadow-sm { box-shadow: var(--ads-shadow-sm); }
+.ads-shadow { box-shadow: var(--ads-shadow-md); }
+.ads-shadow-lg { box-shadow: var(--ads-shadow-lg); }
 ```
 
 ---

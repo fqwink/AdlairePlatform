@@ -1,6 +1,6 @@
-# AFE Framework 改良計画書
+# APF Framework 改良計画書
 
-**Adlaire Framework Ecosystem Ver.2.1.0 改良提案**
+**Adlaire Platform Foundation Ver.2.1.0 改良提案**
 
 **日付**: 2026年3月13日  
 **ステータス**: 改良計画  

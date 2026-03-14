@@ -66,7 +66,24 @@
       "Bash(cp Framework/AFE/AFE.Core.php Framework/APF/APF.Core.php)",
       "Bash(cp Framework/AFE/AFE.Database.php Framework/APF/APF.Database.php)",
       "Bash(cp Framework/AFE/AFE.Utilities.php Framework/APF/APF.Utilities.php)",
-      "Bash(wc -l Framework/APF/APF.*.php)"
+      "Bash(wc -l Framework/APF/APF.*.php)",
+      "Bash(cp Framework/AEF/AEF.Core.js Framework/AEB/AEB.Core.js)",
+      "Bash(cp Framework/AEF/AEF.Blocks.js Framework/AEB/AEB.Blocks.js)",
+      "Bash(cp Framework/AEF/AEF.Utils.js Framework/AEB/AEB.Utils.js)",
+      "Bash(echo \"Copied AEF -> AEB\")",
+      "Bash(cp Framework/ACF/ACF.Base.css Framework/ADS/ADS.Base.css)",
+      "Bash(cp Framework/ACF/ACF.Components.css Framework/ADS/ADS.Components.css)",
+      "Bash(cp Framework/ACF/ACF.Editor.css Framework/ADS/ADS.Editor.css)",
+      "Bash(echo \"Copied ACF -> ADS\")",
+      "Bash(for FILE in \"Framework/docs/AFE_ENGINE_DRIVEN_MODEL.md\" \"Framework/docs/AFE_IMPROVEMENT_PLAN.md\" \"Framework/docs/AFE_IMPROVEMENT_ROADMAP_V2.md\" \"Framework/docs/EDITOR_CSS_FRAMEWORK_DESIGN.md\" \"Framework/docs/ENGINE_DESIGN.md\" \"Framework/docs/ENGINE_FRAMEWORK_3FILES_PROPOSAL.md\" \"Framework/docs/README.md\" \"Framework/docs/WYSIWYG_EDITOR_IMPROVEMENT_PROPOSAL.md\")",
+      "Bash(do)",
+      "Bash(echo \"=== Processing: $FILE ===\")",
+      "Bash(sed -i 's/Adlaire Framework Ecosystem/Adlaire Platform Foundation/g' \"$FILE\")",
+      "Bash(sed -i 's/Adlaire Editor Framework/Adlaire Editor \\\\& Blocks/g' \"$FILE\")",
+      "Bash(sed -i 's/Adlaire CSS Framework/Adlaire Design System/g' \"$FILE\")",
+      "Bash(sed -i 's/Adlaire Static Framework/Adlaire Static Generator/g' \"$FILE\")",
+      "Bash(sed -i 's/Adlaire CMS Framework/Adlaire Content Engine/g' \"$FILE\")",
+      "Bash(sed -i 's/Adlaire Infrastructure Framework/Adlaire Infrastructure Services/g' \"$FILE\")"
     ]
   }
 }

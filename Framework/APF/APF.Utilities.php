@@ -1,15 +1,15 @@
 <?php
 /**
- * Adlaire Framework Ecosystem (AFE) - Utilities Module
- * 
- * AFE = Adlaire Framework Ecosystem
- * 
- * @package AFE
+ * Adlaire Platform Foundation (APF) - Utilities Module
+ *
+ * APF = Adlaire Platform Foundation
+ *
+ * @package APF
  * @version 1.0.0
  * @license Adlaire License Ver.2.0
  */
 
-namespace AFE\Utilities;
+namespace APF\Utilities;
 
 // ============================================================================
 // Validator - バリデーション

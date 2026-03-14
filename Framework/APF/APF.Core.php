@@ -9,7 +9,7 @@
  * @license Adlaire License Ver.2.0
  */
 
-namespace AFE\Core;
+namespace APF\Core;
 
 // ============================================================================
 // Container - 依存性注入コンテナ

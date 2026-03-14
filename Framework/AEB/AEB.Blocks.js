@@ -1,7 +1,7 @@
 /**
- * AEF (Adlaire Editor Framework) - Blocks Module
- * 
- * @file Framework/AEF/AEF.Blocks.js
+ * AEB (Adlaire Editor & Blocks) - Blocks Module
+ *
+ * @file Framework/AEB/AEB.Blocks.js
  * @version 1.0.0
  * 
  * All block types: BaseBlock, ParagraphBlock, HeadingBlock, ListBlock, QuoteBlock, 
@@ -61,10 +61,10 @@ export class ParagraphBlock extends BaseBlock {
 
   render() {
     this.wrapper = document.createElement('div');
-    this.wrapper.className = 'aef-block aef-block-paragraph';
+    this.wrapper.className = 'aeb-block aeb-block-paragraph';
     this.wrapper.setAttribute('data-alignment', this.data.alignment);
     this.element = document.createElement('p');
-    this.element.className = 'aef-paragraph';
+    this.element.className = 'aeb-paragraph';
     this.element.contentEditable = !this.config.readOnly;
     this.element.innerHTML = this._sanitize(this.data.text);
     if (!this.data.text && !this.config.readOnly) {
@@ -131,12 +131,12 @@ export class HeadingBlock extends BaseBlock {
 
   render() {
     this.wrapper = document.createElement('div');
-    this.wrapper.className = 'aef-block aef-block-heading';
+    this.wrapper.className = 'aeb-block aeb-block-heading';
     this.wrapper.setAttribute('data-level', this.data.level);
     this.wrapper.setAttribute('data-alignment', this.data.alignment);
     const tag = `h${this.data.level}`;
     this.element = document.createElement(tag);
-    this.element.className = 'aef-heading';
+    this.element.className = 'aeb-heading';
     this.element.contentEditable = !this.config.readOnly;
     this.element.innerHTML = this._sanitize(this.data.text);
     if (!this.data.text && !this.config.readOnly) {
@@ -219,14 +219,14 @@ export class ListBlock extends BaseBlock {
 
   render() {
     this.wrapper = document.createElement('div');
-    this.wrapper.className = 'aef-block aef-block-list';
+    this.wrapper.className = 'aeb-block aeb-block-list';
     const tag = this.data.style === 'ordered' ? 'ol' : 'ul';
     this.element = document.createElement(tag);
-    this.element.className = 'aef-list';
+    this.element.className = 'aeb-list';
     this.element.setAttribute('data-style', this.data.style);
     this.data.items.forEach((item, index) => {
       const li = document.createElement('li');
-      li.className = 'aef-list-item';
+      li.className = 'aeb-list-item';
       li.contentEditable = !this.config.readOnly;
       li.innerHTML = item;
       li.dataset.index = index;
@@ -279,9 +279,9 @@ export class QuoteBlock extends BaseBlock {
 
   render() {
     this.wrapper = document.createElement('div');
-    this.wrapper.className = 'aef-block aef-block-quote';
+    this.wrapper.className = 'aeb-block aeb-block-quote';
     this.element = document.createElement('blockquote');
-    this.element.className = 'aef-quote';
+    this.element.className = 'aeb-quote';
     this.element.contentEditable = !this.config.readOnly;
     this.element.innerHTML = this.data.text;
     this.wrapper.appendChild(this.element);
@@ -331,10 +331,10 @@ export class CodeBlock extends BaseBlock {
 
   render() {
     this.wrapper = document.createElement('div');
-    this.wrapper.className = 'aef-block aef-block-code';
+    this.wrapper.className = 'aeb-block aeb-block-code';
     this.element = document.createElement('pre');
     const code = document.createElement('code');
-    code.className = 'aef-code';
+    code.className = 'aeb-code';
     code.contentEditable = !this.config.readOnly;
     code.textContent = this.data.code;
     this.element.appendChild(code);
@@ -387,18 +387,18 @@ export class ImageBlock extends BaseBlock {
 
   render() {
     this.wrapper = document.createElement('div');
-    this.wrapper.className = 'aef-block aef-block-image';
+    this.wrapper.className = 'aeb-block aeb-block-image';
     const imgWrapper = document.createElement('div');
-    imgWrapper.className = 'aef-image-wrapper';
+    imgWrapper.className = 'aeb-image-wrapper';
     this.element = document.createElement('img');
-    this.element.className = 'aef-image';
+    this.element.className = 'aeb-image';
     this.element.src = this.data.url;
     this.element.alt = this.data.alt;
     imgWrapper.appendChild(this.element);
     this.wrapper.appendChild(imgWrapper);
     if (this.data.caption) {
       const caption = document.createElement('div');
-      caption.className = 'aef-image-caption';
+      caption.className = 'aeb-image-caption';
       caption.contentEditable = !this.config.readOnly;
       caption.textContent = this.data.caption;
       this.wrapper.appendChild(caption);
@@ -412,7 +412,7 @@ export class ImageBlock extends BaseBlock {
   }
 
   save() {
-    const caption = this.wrapper.querySelector('.aef-image-caption');
+    const caption = this.wrapper.querySelector('.aeb-image-caption');
     return {
       url: this.data.url,
       caption: caption ? caption.textContent : '',
@@ -452,9 +452,9 @@ export class TableBlock extends BaseBlock {
 
   render() {
     this.wrapper = document.createElement('div');
-    this.wrapper.className = 'aef-block aef-block-table';
+    this.wrapper.className = 'aeb-block aeb-block-table';
     this.element = document.createElement('table');
-    this.element.className = 'aef-table';
+    this.element.className = 'aeb-table';
     this.data.content.forEach((row, rowIndex) => {
       const tr = document.createElement('tr');
       row.forEach((cell, cellIndex) => {
@@ -517,18 +517,18 @@ export class ChecklistBlock extends BaseBlock {
 
   render() {
     this.wrapper = document.createElement('div');
-    this.wrapper.className = 'aef-block aef-block-checklist';
+    this.wrapper.className = 'aeb-block aeb-block-checklist';
     this.element = document.createElement('ul');
-    this.element.className = 'aef-checklist';
+    this.element.className = 'aeb-checklist';
     this.data.items.forEach((item, index) => {
       const li = document.createElement('li');
-      li.className = 'aef-checklist-item';
+      li.className = 'aeb-checklist-item';
       li.dataset.checked = item.checked;
       const checkbox = document.createElement('div');
-      checkbox.className = 'aef-checklist-checkbox';
+      checkbox.className = 'aeb-checklist-checkbox';
       checkbox.dataset.checked = item.checked;
       const text = document.createElement('div');
-      text.className = 'aef-checklist-text';
+      text.className = 'aeb-checklist-text';
       text.contentEditable = !this.config.readOnly;
       text.textContent = item.text;
       li.appendChild(checkbox);
@@ -551,8 +551,8 @@ export class ChecklistBlock extends BaseBlock {
 
   save() {
     return {
-      items: Array.from(this.element.querySelectorAll('.aef-checklist-item')).map(li => ({
-        text: li.querySelector('.aef-checklist-text').textContent,
+      items: Array.from(this.element.querySelectorAll('.aeb-checklist-item')).map(li => ({
+        text: li.querySelector('.aeb-checklist-text').textContent,
         checked: li.dataset.checked === 'true'
       }))
     };
@@ -586,12 +586,12 @@ export class DelimiterBlock extends BaseBlock {
 
   render() {
     this.wrapper = document.createElement('div');
-    this.wrapper.className = 'aef-block aef-block-delimiter';
+    this.wrapper.className = 'aeb-block aeb-block-delimiter';
     this.element = document.createElement('div');
-    this.element.className = 'aef-delimiter';
+    this.element.className = 'aeb-delimiter';
     for (let i = 0; i < 3; i++) {
       const dot = document.createElement('div');
-      dot.className = 'aef-delimiter-dot';
+      dot.className = 'aeb-delimiter-dot';
       this.element.appendChild(dot);
     }
     this.wrapper.appendChild(this.element);

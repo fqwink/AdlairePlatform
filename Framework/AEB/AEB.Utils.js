@@ -1,7 +1,7 @@
 /**
- * AEF (Adlaire Editor Framework) - Utils Module
- * 
- * @file Framework/AEF/AEF.Utils.js
+ * AEB (Adlaire Editor & Blocks) - Utils Module
+ *
+ * @file Framework/AEB/AEB.Utils.js
  * @version 1.0.0
  * 
  * Utility functions: sanitizer, dom, selection, keyboard

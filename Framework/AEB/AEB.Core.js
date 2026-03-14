@@ -1,7 +1,7 @@
 /**
- * AEF (Adlaire Editor Framework) - Core Module
- * 
- * @file Framework/AEF/AEF.Core.js
+ * AEB (Adlaire Editor & Blocks) - Core Module
+ *
+ * @file Framework/AEB/AEB.Core.js
  * @version 1.0.0
  * 
  * Core components: Editor, EventBus, BlockRegistry, StateManager, HistoryManager
@@ -360,13 +360,13 @@ export class Editor {
 
   _createWrapper() {
     this.wrapper = document.createElement('div');
-    this.wrapper.className = 'aef-editor';
+    this.wrapper.className = 'aeb-editor';
     this.wrapper.setAttribute('data-editor', 'true');
     if (this.config.minHeight) {
       this.wrapper.style.minHeight = this.config.minHeight;
     }
     this.blocksContainer = document.createElement('div');
-    this.blocksContainer.className = 'aef-blocks';
+    this.blocksContainer.className = 'aeb-blocks';
     this.wrapper.appendChild(this.blocksContainer);
     this.holder.appendChild(this.wrapper);
   }
