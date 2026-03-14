@@ -72,13 +72,20 @@ class MarkdownEngineTest extends TestCase {
 		$this->assertContains('echo hello', $html);
 	}
 
-	public function testToHtmlCodeBlockContainsContent(): void {
-		/* 既知バグ: コードブロックのNULLバイトプレースホルダ復元が不完全。
-		   コンテンツ自体は含まれることを検証 */
+	public function testToHtmlCodeBlock(): void {
 		$md = "Paragraph before\n\n```\ncode here\n```\n\nParagraph after";
 		$html = MarkdownEngine::toHtml($md);
+		$this->assertContains('<pre>', $html);
+		$this->assertContains('<code>', $html);
+		$this->assertContains('code here', $html);
 		$this->assertContains('Paragraph before', $html);
-		$this->assertContains('Paragraph after', $html);
+	}
+
+	public function testToHtmlCodeBlockWithLanguage(): void {
+		$md = "```php\necho 'hello';\n```";
+		$html = MarkdownEngine::toHtml($md);
+		$this->assertContains('language-php', $html);
+		$this->assertContains('echo', $html);
 	}
 
 	public function testToHtmlUnorderedList(): void {

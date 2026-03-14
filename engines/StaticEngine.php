@@ -274,14 +274,13 @@ class StaticEngine {
 		/* テーマ CSS（ミニファイ対応） */
 		$css = $this->themeDir . '/style.css';
 		if (file_exists($css)) {
-			$cssContent = file_get_contents($css);
+			$cssContent = FileSystem::read($css);
 			if ($cssContent !== false && !empty($this->settings['minify'] ?? true)) {
 				$cssContent = self::minifyCss($cssContent);
 			}
 			if ($cssContent !== false) {
-				file_put_contents($assetsDir . '/style.css', $cssContent, LOCK_EX);
+				FileSystem::write($assetsDir . '/style.css', $cssContent);
 			} else {
-				if (class_exists('DiagnosticEngine')) DiagnosticEngine::log('engine', 'CSS 読み込みフォールバック（copy使用）', ['file' => basename($css)]);
 				copy($css, $assetsDir . '/style.css');
 			}
 		}
@@ -378,10 +377,7 @@ class StaticEngine {
 		}
 		$this->ensureDir($dir);
 		$path = $dir . '/index.html';
-		$writeResult = file_put_contents($path, $html, LOCK_EX);
-		if ($writeResult === false && class_exists('DiagnosticEngine')) {
-			DiagnosticEngine::log('engine', 'StaticEngine ページ書き込み失敗', ['slug' => $slug, 'path' => $path]);
-		}
+		FileSystem::write($path, $html);
 		$this->changedFiles[] = $path;
 	}
 
@@ -390,11 +386,9 @@ class StaticEngine {
 		if (!file_exists($tplPath)) {
 			$tplPath = 'themes/AP-Default/theme.html';
 		}
-		$tpl = file_get_contents($tplPath);
+		$tpl = FileSystem::read($tplPath);
 		if ($tpl === false) {
 			$msg = "テンプレート読み込みエラー: {$tplPath}";
-			error_log("StaticEngine: {$msg}");
-			if (class_exists('DiagnosticEngine')) DiagnosticEngine::log('engine', $msg, ['template' => $tplPath]);
 			$this->warnings[] = $msg;
 			return '<!-- StaticEngine: ' . htmlspecialchars($msg, ENT_QUOTES, 'UTF-8') . ' -->';
 		}
@@ -495,7 +489,7 @@ class StaticEngine {
 				if (!empty($this->settings['minify'] ?? true)) {
 					$rendered = self::minifyHtml($rendered);
 				}
-				file_put_contents($path, $rendered, LOCK_EX);
+				FileSystem::write($path, $rendered);
 				$this->changedFiles[] = $path;
 				$built++;
 			}
@@ -517,7 +511,7 @@ class StaticEngine {
 		$allTags = $this->collectTags($allItems ?: $pageItems);
 
 		if (file_exists($customTpl)) {
-			$tplContent = file_get_contents($customTpl);
+			$tplContent = FileSystem::read($customTpl);
 			if ($tplContent !== false) {
 				$ctx = array_merge(
 					ThemeEngine::buildStaticContext($name, '', $this->settings, ['title' => $col['label'] ?? $name]),
@@ -592,7 +586,7 @@ class StaticEngine {
 
 		if (!file_exists($singleTpl)) return null;
 
-		$tplContent = file_get_contents($singleTpl);
+		$tplContent = FileSystem::read($singleTpl);
 		if ($tplContent === false) return null;
 
 		$item = CollectionEngine::getItem($colName, $itemSlug);
@@ -709,7 +703,7 @@ class StaticEngine {
 		$xml .= "</urlset>\n";
 
 		$this->ensureDir(self::OUTPUT_DIR);
-		file_put_contents(self::OUTPUT_DIR . '/sitemap.xml', $xml, LOCK_EX);
+		FileSystem::write(self::OUTPUT_DIR . '/sitemap.xml', $xml);
 	}
 
 	private function generateRobotsTxt(): void {
@@ -720,7 +714,7 @@ class StaticEngine {
 			$content .= "Sitemap: {$sitemapUrl}\n";
 		}
 		$this->ensureDir(self::OUTPUT_DIR);
-		file_put_contents(self::OUTPUT_DIR . '/robots.txt', $content, LOCK_EX);
+		FileSystem::write(self::OUTPUT_DIR . '/robots.txt', $content);
 	}
 
 	/* ══════════════════════════════════════════════
@@ -768,7 +762,7 @@ class StaticEngine {
 
 			/* タグ別ページ */
 			$tagTplPath = $this->themeDir . '/collection-' . $name . '-tag.html';
-			$tagTpl = file_exists($tagTplPath) ? file_get_contents($tagTplPath) : null;
+			$tagTpl = file_exists($tagTplPath) ? FileSystem::read($tagTplPath) : null;
 
 			$allTags = [];
 			foreach ($tagMap as $tagSlug => $tagData) {
@@ -818,7 +812,7 @@ class StaticEngine {
 				if (!empty($this->settings['minify'] ?? true)) {
 					$rendered = self::minifyHtml($rendered);
 				}
-				file_put_contents($dir . '/index.html', $rendered, LOCK_EX);
+				FileSystem::write($dir . '/index.html', $rendered);
 				$this->changedFiles[] = $dir . '/index.html';
 				$built++;
 			}
@@ -841,7 +835,7 @@ class StaticEngine {
 			if (!empty($this->settings['minify'] ?? true)) {
 				$rendered = self::minifyHtml($rendered);
 			}
-			file_put_contents($tagsDir . '/index.html', $rendered, LOCK_EX);
+			FileSystem::write($tagsDir . '/index.html', $rendered);
 			$this->changedFiles[] = $tagsDir . '/index.html';
 			$built++;
 		}
@@ -875,7 +869,7 @@ class StaticEngine {
 	private function generate404Page(): void {
 		$customTpl = $this->themeDir . '/404.html';
 		if (file_exists($customTpl)) {
-			$tplContent = file_get_contents($customTpl);
+			$tplContent = FileSystem::read($customTpl);
 			if ($tplContent !== false) {
 				$ctx = ThemeEngine::buildStaticContext('404', '', $this->settings, ['title' => 'ページが見つかりません']);
 				$html = TemplateEngine::render($tplContent, $ctx, $this->themeDir);
@@ -890,7 +884,7 @@ class StaticEngine {
 			$html = self::minifyHtml($html);
 		}
 		$this->ensureDir(self::OUTPUT_DIR);
-		file_put_contents(self::OUTPUT_DIR . '/404.html', $html, LOCK_EX);
+		FileSystem::write(self::OUTPUT_DIR . '/404.html', $html);
 		$this->changedFiles[] = self::OUTPUT_DIR . '/404.html';
 	}
 
@@ -932,10 +926,9 @@ class StaticEngine {
 		}
 
 		$this->ensureDir(self::OUTPUT_DIR);
-		file_put_contents(
+		FileSystem::write(
 			self::OUTPUT_DIR . '/search-index.json',
-			json_encode($index, JSON_UNESCAPED_UNICODE),
-			LOCK_EX
+			json_encode($index, JSON_UNESCAPED_UNICODE)
 		);
 		$this->changedFiles[] = self::OUTPUT_DIR . '/search-index.json';
 
@@ -1028,7 +1021,7 @@ class StaticEngine {
 
 		$this->ensureDir(self::OUTPUT_DIR);
 		if ($lines) {
-			file_put_contents(self::OUTPUT_DIR . '/_redirects', implode("\n", $lines) . "\n", LOCK_EX);
+			FileSystem::write(self::OUTPUT_DIR . '/_redirects', implode("\n", $lines) . "\n");
 			$this->changedFiles[] = self::OUTPUT_DIR . '/_redirects';
 		}
 	}
@@ -1229,13 +1222,11 @@ class StaticEngine {
 		/* 404 エラーページ */
 		$content .= "ErrorDocument 404 /404.html\n";
 
-		file_put_contents($htaccess, $content, LOCK_EX);
+		FileSystem::write($htaccess, $content);
 	}
 
 	private function ensureDir(string $path): void {
-		if (!is_dir($path)) {
-			mkdir($path, 0755, true);
-		}
+		FileSystem::ensureDir($path);
 	}
 
 	private function removeDir(string $dir): void {

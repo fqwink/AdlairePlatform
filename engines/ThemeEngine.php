@@ -27,11 +27,10 @@ class ThemeEngine {
 			$htmlPath = $themeDir . '/theme.html';
 		}
 
-		$tpl = file_get_contents($htmlPath);
+		$tpl = FileSystem::read($htmlPath);
 		if ($tpl !== false) {
 			echo TemplateEngine::render($tpl, self::buildContext(), $themeDir);
 		} else {
-			if (class_exists('DiagnosticEngine')) DiagnosticEngine::log('engine', 'テーマテンプレート読み込み失敗', ['path' => $htmlPath]);
 			echo '<!-- ThemeEngine: テンプレート読み込みエラー -->';
 		}
 	}

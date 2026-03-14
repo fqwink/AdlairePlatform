@@ -1,0 +1,10 @@
+{
+    "enabled": true,
+    "level": "basic",
+    "install_id": "a3cf0c3a-9f44-46cf-8b1e-1e2dd1ece259",
+    "last_sent": "",
+    "last_env_sent": "",
+    "first_run_notice_shown": false,
+    "send_interval": 0,
+    "consecutive_failures": 3
+}
