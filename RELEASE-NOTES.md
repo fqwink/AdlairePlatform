@@ -6,6 +6,91 @@
 
 ---
 
+## AdlairePlatform Ver.1.5.0（2026-03-14）
+
+エンジン駆動モデルの Framework 化。engines/ の static ファサードを維持しつつ、
+内部を Framework/ モジュール（APF/ACE/AIS/ASG/AEB/ADS）に委譲するアーキテクチャへ移行。
+Ver.1.3 系を非推奨に指定。
+
+### アーキテクチャ改善
+
+- **autoload.php** — `spl_autoload_register` による Framework 名前空間の自動ロード（12 プレフィックス対応）
+- **bootstrap.php** — `Application` クラス（DI コンテナ・HookManager・EventDispatcher の統合ファサード）
+- **engines/Bridge.php** — index.php から全ユーティリティ関数を分離・集約（JsonCache, data_dir, settings_dir, json_read, json_write, h, getSlug, host 等）
+- **Static Facade パターン** — 全 16 エンジンに Framework インスタンスの lazy-init getter を追加。既存 static API は完全維持
+
+### Framework 委譲マッピング（全 16 エンジン）
+
+| エンジン | Framework 委譲先 |
+|---------|----------------|
+| AppContext | `AIS\Core\AppContext` |
+| Logger | `AIS\System\AppLogger` |
+| CacheEngine | `AIS\System\CacheStore` |
+| DiagnosticEngine | `AIS\System\DiagnosticsCollector` |
+| AdminEngine | `ACE\Admin\AuthManager` |
+| ApiEngine | `ACE\Api\ApiRouter` |
+| CollectionEngine | `ACE\Core\CollectionManager` |
+| WebhookEngine | `ACE\Api\WebhookManager` |
+| TemplateEngine | `ASG\Template\TemplateRenderer` |
+| StaticEngine | `ASG\Core\Generator` |
+| MarkdownEngine | `ASG\Template\MarkdownParser` |
+| ImageOptimizer | `ASG\Utilities\ImageOptimizer` |
+| UpdateEngine | `AIS\Deployment\Updater` |
+| GitEngine | `AIS\Deployment\GitSync` |
+| MailerEngine | `AIS\Deployment\Mailer` |
+| Validator | `APF\Utilities\Validator` |
+
+### フロントエンド移行
+
+- **ADS デザインシステム** — dashboard.html に `ADS.Components.css`, `ADS.Editor.css` を追加
+- **AEB エディタアダプター** — `engines/JsEngine/aeb-adapter.js` 新規作成（ES6 モジュール → グローバルスコープブリッジ）
+  - `window.AEB` として Editor, EventBus, BlockRegistry, StateManager, HistoryManager, 全ブロックタイプ, Utils を公開
+- **テーマ admin-head フック更新** — ADS CSS + AEB adapter をテーマページにも注入
+
+### 新規ファイル
+
+| ファイル | 説明 |
+|---------|------|
+| `autoload.php` | Framework 名前空間オートローダー |
+| `bootstrap.php` | Application ファサード（DI/Hook/Event） |
+| `engines/Bridge.php` | ユーティリティ関数集約 |
+| `engines/JsEngine/aeb-adapter.js` | AEB ES6 モジュールアダプター |
+
+### 破壊的変更
+
+- なし（全 static API は完全後方互換）
+
+### 非推奨
+
+- **Ver.1.3 系** — Ver.1.3-27 〜 Ver.1.3-29 は非推奨。Ver.1.5 への移行を推奨
+
+### 全エンジン一覧（16 エンジン + 4 補助）
+
+| エンジン | ファイル | Framework 委譲先 |
+|---------|---------|----------------|
+| AdminEngine | `engines/AdminEngine.php` | `ACE\Admin\AuthManager` |
+| TemplateEngine | `engines/TemplateEngine.php` | `ASG\Template\TemplateRenderer` |
+| ThemeEngine | `engines/ThemeEngine.php` | — |
+| UpdateEngine | `engines/UpdateEngine.php` | `AIS\Deployment\Updater` |
+| StaticEngine | `engines/StaticEngine.php` | `ASG\Core\Generator` |
+| ApiEngine | `engines/ApiEngine.php` | `ACE\Api\ApiRouter` |
+| CollectionEngine | `engines/CollectionEngine.php` | `ACE\Core\CollectionManager` |
+| MarkdownEngine | `engines/MarkdownEngine.php` | `ASG\Template\MarkdownParser` |
+| GitEngine | `engines/GitEngine.php` | `AIS\Deployment\GitSync` |
+| WebhookEngine | `engines/WebhookEngine.php` | `ACE\Api\WebhookManager` |
+| CacheEngine | `engines/CacheEngine.php` | `AIS\System\CacheStore` |
+| ImageOptimizer | `engines/ImageOptimizer.php` | `ASG\Utilities\ImageOptimizer` |
+| AppContext | `engines/AppContext.php` | `AIS\Core\AppContext` |
+| Logger | `engines/Logger.php` | `AIS\System\AppLogger` |
+| MailerEngine | `engines/MailerEngine.php` | `AIS\Deployment\Mailer` |
+| DiagnosticEngine | `engines/DiagnosticEngine.php` | `AIS\System\DiagnosticsCollector` |
+| Validator | `engines/Validator.php` | `APF\Utilities\Validator` |
+| EngineTrait | `engines/EngineTrait.php` | — |
+| FileSystem | `engines/FileSystem.php` | — |
+| I18n | `engines/I18n.php` | — |
+
+---
+
 ## AdlairePlatform Ver.1.4-pre（2026-03-10）
 
 セキュリティ強化・アーキテクチャ改善・テンプレートエンジン拡張を実施。

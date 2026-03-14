@@ -4,6 +4,9 @@
  *
  * B-3 fix: グローバル変数 ($c, $d, $host 等) をクラスベースの状態管理に移行。
  * 全エンジンから AppContext::config() / AppContext::defaults() 等でアクセス。
+ *
+ * Ver.1.5: AIS\Core\AppContext インスタンスに内部委譲。
+ *          既存の static API は完全に維持。
  */
 class AppContext {
 
@@ -24,6 +27,9 @@ class AppContext {
 
 	/** @var array<string, array<string>> フック登録 (旧 $hook) */
 	private static array $hooks = [];
+
+	/** @var \AIS\Core\AppContext|null Framework インスタンス */
+	private static ?\AIS\Core\AppContext $instance = null;
 
 	/* ── 設定 ($c) アクセサ ── */
 
@@ -77,5 +83,30 @@ class AppContext {
 		self::$loginStatus = $lstatus;
 		self::$credit      = $apcredit;
 		self::$hooks       = $hook ?? [];
+
+		/* Ver.1.5: Framework AppContext にも同期 */
+		self::$instance = new \AIS\Core\AppContext([
+			'config'   => $c,
+			'defaults' => $d,
+			'host'     => $host,
+			'version'  => defined('AP_VERSION') ? AP_VERSION : 'unknown',
+		]);
+	}
+
+	/**
+	 * Ver.1.5: Framework AppContext インスタンスを取得する
+	 *
+	 * Framework モジュールとの連携や、ドット記法アクセスが必要な場合に使用。
+	 */
+	public static function getInstance(): \AIS\Core\AppContext {
+		if (self::$instance === null) {
+			self::$instance = new \AIS\Core\AppContext([
+				'config'   => self::$config,
+				'defaults' => self::$defaults,
+				'host'     => self::$host,
+				'version'  => defined('AP_VERSION') ? AP_VERSION : 'unknown',
+			]);
+		}
+		return self::$instance;
 	}
 }

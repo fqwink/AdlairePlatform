@@ -21,7 +21,6 @@
 | `docs/CONFIGURATION.md` | 設定リファレンス | ✅ | ✅ | ⚪任意 | 公開用 |
 | `docs/THEME_DEVELOPMENT.md` | テーマ開発リファレンス | ✅ | ✅ | ⚪任意 | 公開用 |
 | `docs/Licenses/LICENSE_Ver.2.0.md` | Adlaire License Ver.2.0 | ✅ | ✅ | ⚪任意 | ライセンス文書 |
-| `docs/Licenses/LICENSE_Ver.2.0.md` | Adlaire License Ver.2.0 | ✅ | ✅ | ⚪任意 | ライセンス文書 |
 
 **凡例:**
 - 🚫 禁止

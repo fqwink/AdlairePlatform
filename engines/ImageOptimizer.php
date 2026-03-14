@@ -4,8 +4,23 @@
  *
  * アップロード画像の自動リサイズ・サムネイル生成・WebP 変換。
  * GD ライブラリを使用。GD 未対応環境ではスキップ。
+ *
+ * Ver.1.5: ASG\Utilities\ImageProcessor に内部委譲。既存 static API は完全維持。
  */
 class ImageOptimizer {
+
+	/** @var \ASG\Utilities\ImageProcessor|null Ver.1.5 Framework 画像最適化 */
+	private static ?\ASG\Utilities\ImageProcessor $optimizer = null;
+
+	/**
+	 * Ver.1.5: Framework ImageProcessor インスタンスを取得する
+	 */
+	public static function getOptimizer(): \ASG\Utilities\ImageProcessor {
+		if (self::$optimizer === null) {
+			self::$optimizer = new \ASG\Utilities\ImageProcessor();
+		}
+		return self::$optimizer;
+	}
 
 	private const MAX_WIDTH     = 1920;
 	private const MAX_HEIGHT    = 1920;

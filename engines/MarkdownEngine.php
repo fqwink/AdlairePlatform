@@ -5,8 +5,23 @@
  * PHP のみで Markdown を HTML に変換するゼロ依存パーサー。
  * GFM (GitHub Flavored Markdown) の主要機能に対応。
  * フロントマター (YAML 形式) のパースにも対応。
+ *
+ * Ver.1.5: ASG\Template\MarkdownParser に内部委譲。既存 static API は完全維持。
  */
 class MarkdownEngine {
+
+	/** @var \ASG\Template\MarkdownParser|null Ver.1.5 Framework Markdown パーサー */
+	private static ?\ASG\Template\MarkdownParser $parser = null;
+
+	/**
+	 * Ver.1.5: Framework MarkdownParser インスタンスを取得する
+	 */
+	public static function getParser(): \ASG\Template\MarkdownParser {
+		if (self::$parser === null) {
+			self::$parser = new \ASG\Template\MarkdownParser();
+		}
+		return self::$parser;
+	}
 
 	/* ══════════════════════════════════════════════
 	   フロントマター解析

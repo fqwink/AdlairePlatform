@@ -14,6 +14,19 @@
 class WebhookEngine {
 	use EngineTrait;
 
+	/** @var \ACE\Api\WebhookManager|null Ver.1.5 Framework Webhook マネージャ */
+	private static ?\ACE\Api\WebhookManager $webhookManager = null;
+
+	/**
+	 * Ver.1.5: Framework WebhookManager インスタンスを取得する
+	 */
+	public static function getWebhookManager(): \ACE\Api\WebhookManager {
+		if (self::$webhookManager === null) {
+			self::$webhookManager = new \ACE\Api\WebhookManager(settings_dir());
+		}
+		return self::$webhookManager;
+	}
+
 	private const CONFIG_FILE = 'webhooks.json';
 
 	/**

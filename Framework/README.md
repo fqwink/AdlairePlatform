@@ -1,6 +1,6 @@
 # Adlaire Framework
 
-**Version 1.0.0** | 将来的に独立Public化予定
+**Version 1.5.0** | 将来的に独立Public化予定
 
 ## 概要
 
@@ -8,18 +8,18 @@ Adlaire Framework は、**3ファイルのエンジン駆動モデル**で構成
 
 **設計原則**: 各フレームワークは厳密に3ファイル構成で、エンジン駆動アーキテクチャを採用しています。
 
-**注意**: Adlaire Platform 本体 (15エンジン) とは独立したフレームワークです。
+**Ver.1.5**: 全 6 フレームワーク（18エンジン）が Adlaire Platform の engines/ に統合済み。
 
 ### フレームワーク構成
 
 | 略称 | 正式名称 | 言語 | 状態 |
 |------|---------|------|------|
-| **APF** | Adlaire Platform Foundation | PHP 8.2+ | 実装済み |
-| **AEB** | Adlaire Editor & Blocks | JavaScript ES6+ | 実装済み |
-| **ADS** | Adlaire Design System | CSS3 | 実装済み |
-| **ASG** | Adlaire Static Generator | PHP 8.2+ | 計画中 |
-| **ACE** | Adlaire Content Engine | PHP 8.2+ | 計画中 |
-| **AIS** | Adlaire Infrastructure Services | PHP 8.2+ | 計画中 |
+| **APF** | Adlaire Platform Foundation | PHP 8.2+ | 実装済み・統合済み |
+| **AEB** | Adlaire Editor & Blocks | JavaScript ES6+ | 実装済み・統合済み |
+| **ADS** | Adlaire Design System | CSS3 | 実装済み・統合済み |
+| **ASG** | Adlaire Static Generator | PHP 8.2+ | 実装済み・統合済み |
+| **ACE** | Adlaire Content Engine | PHP 8.2+ | 実装済み・統合済み |
+| **AIS** | Adlaire Infrastructure Services | PHP 8.2+ | 実装済み・統合済み |
 
 ---
 
@@ -61,7 +61,7 @@ Framework/
 └── docs/                         # Documentation
 ```
 
-**エンジン構成**: 3フレームワーク × 3エンジン = 9エンジンファイル (~128KB)
+**エンジン構成**: 6フレームワーク × 3エンジン = 18エンジンファイル (~278KB)
 
 ---
 
@@ -233,20 +233,49 @@ editor.render([
 
 ---
 
-## Adlaire Platform への統合状況
+## Adlaire Platform への統合状況（Ver.1.5）
 
-以下のFrameworkコンポーネントは、APエンジンパターン（staticメソッド、名前空間なし、IIFE）に適応済みです。
+Ver.1.5 で全 6 フレームワークの全エンジンが AP に統合されました。
+engines/ の static ファサードを維持しつつ、内部を Framework モジュールに委譲する **Static Facade パターン** を採用。
 
-| Framework 元 | AP 統合先 | 状態 |
+### インフラ基盤
+
+| 新規ファイル | 役割 |
+|-------------|------|
+| `autoload.php` | `spl_autoload_register` で Framework 名前空間を自動ロード（12プレフィックス） |
+| `bootstrap.php` | `Application` クラス（DI Container, HookManager, EventDispatcher） |
+| `engines/Bridge.php` | index.php から分離したユーティリティ関数集約 |
+| `engines/JsEngine/aeb-adapter.js` | AEB ES6 モジュール → グローバルスコープブリッジ |
+
+### PHP エンジン委譲マッピング（全 16 エンジン）
+
+| AP エンジン | Framework 委譲先 | getter メソッド |
+|-----------|----------------|----------------|
+| AppContext | `AIS\Core\AppContext` | `getInstance()` |
+| Logger | `AIS\System\AppLogger` | `getAppLogger()` |
+| CacheEngine | `AIS\System\CacheStore` | `getStore()` |
+| DiagnosticEngine | `AIS\System\DiagnosticsCollector` | `getCollector()` |
+| AdminEngine | `ACE\Admin\AuthManager` | `getAuthManager()` |
+| ApiEngine | `ACE\Api\ApiRouter` | `getRouter()` |
+| CollectionEngine | `ACE\Core\CollectionManager` | `getManager()` |
+| WebhookEngine | `ACE\Api\WebhookManager` | `getWebhookManager()` |
+| TemplateEngine | `ASG\Template\TemplateRenderer` | `getRenderer()` |
+| StaticEngine | `ASG\Core\Generator` | `getGenerator()` |
+| MarkdownEngine | `ASG\Template\MarkdownParser` | `getParser()` |
+| ImageOptimizer | `ASG\Utilities\ImageOptimizer` | `getOptimizer()` |
+| UpdateEngine | `AIS\Deployment\Updater` | `getUpdater()` |
+| GitEngine | `AIS\Deployment\GitSync` | `getGitSync()` |
+| MailerEngine | `AIS\Deployment\Mailer` | `getMailer()` |
+| Validator | `APF\Utilities\Validator` | `createFrameworkValidator()` |
+
+### フロントエンド統合
+
+| Framework 元 | AP 統合先 | 方式 |
 |-------------|----------|------|
-| ADS.Base.css (CSS変数・リセット) | `dashboard.html` で直接リンク | 統合済み |
-| APF.Utilities.php Validator | `engines/Validator.php` として抽出 | 統合済み |
-| AEB.Core.js EventBus | `engines/JsEngine/ap-events.js` として実装 | 統合済み |
-| AEB.Utils.js 共通処理 | `engines/JsEngine/ap-utils.js` として実装 | 統合済み |
-
-**削除済み**: `BaseEngine.php` — 存在しないFramework名前空間を参照していたため削除。APエンジンは `EngineTrait` を使用。
-
-**未統合（保留）**: APF.Core.php (DI Container/Router), APF.Database.php (ORM), AEB.Blocks.js, ADS.Components.css, ADS.Editor.css — APはフラットファイルCMSのため現時点では不要。将来のPublic独立化時に活用。
+| ADS.Base.css | `dashboard.html` + テーマ admin-head フック | CSS リンク |
+| ADS.Components.css | `dashboard.html` + テーマ admin-head フック | CSS リンク |
+| ADS.Editor.css | `dashboard.html` + テーマ admin-head フック | CSS リンク |
+| AEB.Core.js / AEB.Blocks.js / AEB.Utils.js | `aeb-adapter.js` → `window.AEB` | ES6 動的 import |
 
 ---
 
@@ -255,9 +284,12 @@ editor.render([
 | フレームワーク | エンジン数 | 総サイズ | アーキテクチャ |
 |--------------|-----------|---------|--------------|
 | **APF** | 3 engines | ~52KB | PHP 8.2+ エンジン駆動 |
+| **ACE** | 3 engines | ~50KB | PHP 8.2+ エンジン駆動 |
+| **AIS** | 3 engines | ~50KB | PHP 8.2+ エンジン駆動 |
+| **ASG** | 3 engines | ~40KB | PHP 8.2+ エンジン駆動 |
 | **AEB** | 3 engines | ~41KB | JavaScript ES6+ エンジン駆動 |
 | **ADS** | 3 engines | ~35KB | CSS3 エンジン駆動 |
-| **合計** | **9 engines** | **~128KB** | 統合エンジン駆動 |
+| **合計** | **18 engines** | **~268KB** | 統合エンジン駆動 |
 
 ---
 
@@ -297,41 +329,18 @@ editor.render([
 
 ---
 
-## 将来計画
+## 実装済みフレームワーク全体像
 
-### Version 2.0.0 - 追加フレームワーク (計画中)
+全 **18エンジン** が実装・統合済み:
 
-現在の **9エンジン (APF + AEB + ADS)** に加え、以下のフレームワークを追加予定:
-
-#### **ASG** (Adlaire Static Generator) - 静的ジェネレーター
-- `ASG.Core.php` - Generator, Builder, Router, FileSystem
-- `ASG.Template.php` - TemplateEngine, ThemeEngine, MarkdownEngine
-- `ASG.Utilities.php` - Cache, ImageOptimizer, DiffBuilder, Deployer
-
-**抽出元**: Adlaire Platform の StaticEngine, TemplateEngine, ThemeEngine, MarkdownEngine, ImageOptimizer
-
-#### **ACE** (Adlaire Content Engine) - CMS
-- `ACE.Core.php` - CollectionEngine, ContentManager, MetaManager
-- `ACE.Admin.php` - AdminEngine, UserManager, AuthManager
-- `ACE.Api.php` - ApiEngine, WebhookEngine, RestHandler
-
-**抽出元**: Adlaire Platform の CollectionEngine, AdminEngine, ApiEngine, WebhookEngine
-
-#### **AIS** (Adlaire Infrastructure Services) - インフラ
-- `AIS.Core.php` - AppContext, ServiceProvider, Container
-- `AIS.System.php` - CacheEngine, Logger, DiagnosticEngine
-- `AIS.Deployment.php` - UpdateEngine, GitEngine, MailerEngine
-
-**抽出元**: Adlaire Platform の AppContext, CacheEngine, Logger, DiagnosticEngine, UpdateEngine, GitEngine, MailerEngine
-
-**将来の合計**: 18エンジン (~278KB)
-
-**詳細**: [FUTURE_ROADMAP.md](./docs/FUTURE_ROADMAP.md)
-
-**注意**:
-- Adlaire Platform 本体のソースコードは一切変更しない
-- エンジンのコピーを作成してフレームワーク化
-- 実装時期は未定
+| フレームワーク | エンジン1 | エンジン2 | エンジン3 |
+|-------------|----------|----------|----------|
+| **APF** | APF.Core.php | APF.Database.php | APF.Utilities.php |
+| **ACE** | ACE.Core.php | ACE.Admin.php | ACE.Api.php |
+| **AIS** | AIS.Core.php | AIS.System.php | AIS.Deployment.php |
+| **ASG** | ASG.Core.php | ASG.Template.php | ASG.Utilities.php |
+| **AEB** | AEB.Core.js | AEB.Blocks.js | AEB.Utils.js |
+| **ADS** | ADS.Base.css | ADS.Components.css | ADS.Editor.css |
 
 ---
 
@@ -360,5 +369,5 @@ Adlaire Platformプロジェクトの一部
 ---
 
 **Last Updated**: 2026-03-14
-**Version**: 1.0.0
-**Status**: Production Ready
+**Version**: 1.5.0
+**Status**: Production Ready — 全モジュール AP 統合済み

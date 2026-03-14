@@ -42,6 +42,19 @@
  */
 class ApiEngine {
 
+	/** @var \ACE\Api\ApiRouter|null Ver.1.5 Framework API ルーター */
+	private static ?\ACE\Api\ApiRouter $router = null;
+
+	/**
+	 * Ver.1.5: Framework ApiRouter インスタンスを取得する
+	 */
+	public static function getRouter(): \ACE\Api\ApiRouter {
+		if (self::$router === null) {
+			self::$router = new \ACE\Api\ApiRouter(AdminEngine::getAuthManager());
+		}
+		return self::$router;
+	}
+
 	private const SLUG_PATTERN   = '/^[a-zA-Z0-9_\-]+$/';
 	private const PREVIEW_LENGTH = 120;
 	private const SEARCH_MAX_LEN = 100;

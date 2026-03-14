@@ -10,8 +10,24 @@
  *   {{#if var}}...{{else}}...{{/if}}  → 条件分岐（!var で否定）
  *   {{#each items}}...{{/each}}       → ループ（@index, @first, @last 使用可）
  *   {{> partial}}             → 部分テンプレートの読み込み
+ *
+ * Ver.1.5: ASG\Template\TemplateRenderer に内部委譲。
+ *          テンプレート構文の100%互換性を維持。
  */
 class TemplateEngine {
+
+	/** @var \ASG\Template\TemplateRenderer|null Ver.1.5 Framework テンプレートレンダラー */
+	private static ?\ASG\Template\TemplateRenderer $renderer = null;
+
+	/**
+	 * Ver.1.5: Framework TemplateRenderer インスタンスを取得する
+	 */
+	public static function getRenderer(): \ASG\Template\TemplateRenderer {
+		if (self::$renderer === null) {
+			self::$renderer = new \ASG\Template\TemplateRenderer();
+		}
+		return self::$renderer;
+	}
 
 	/** パーシャル検索ディレクトリ（テーマディレクトリ） */
 	private static string $partialsDir = '';

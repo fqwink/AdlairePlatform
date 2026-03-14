@@ -18,6 +18,19 @@
 class CollectionEngine {
 	use EngineTrait;
 
+	/** @var \ACE\Core\CollectionManager|null Ver.1.5 Framework コレクションマネージャ */
+	private static ?\ACE\Core\CollectionManager $manager = null;
+
+	/**
+	 * Ver.1.5: Framework CollectionManager インスタンスを取得する
+	 */
+	public static function getManager(): \ACE\Core\CollectionManager {
+		if (self::$manager === null) {
+			self::$manager = new \ACE\Core\CollectionManager(content_dir());
+		}
+		return self::$manager;
+	}
+
 	private const SCHEMA_FILE    = 'ap-collections.json';
 	private const SLUG_PATTERN   = '/^[a-zA-Z0-9_\-]+$/';
 	private const ALLOWED_TYPES  = ['string', 'text', 'number', 'boolean', 'date', 'datetime', 'array', 'image'];

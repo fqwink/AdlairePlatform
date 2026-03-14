@@ -9,7 +9,7 @@
  */
 
 define('AP_TESTING', true);
-define('AP_VERSION', '1.4.0-test');
+define('AP_VERSION', '1.5.0-test');
 define('AP_UPDATE_URL', 'https://api.github.com/repos/test/test/releases/latest');
 define('AP_BACKUP_GENERATIONS', 5);
 define('AP_REVISION_LIMIT', 30);
@@ -46,80 +46,18 @@ $_SERVER['SERVER_NAME']  = 'localhost';
 /* テスト用作業ディレクトリ（data_dir 等がテンポラリを参照するように） */
 chdir($_AP_TEST_DIR);
 
-/* ── index.php から必要なユーティリティ関数を抽出定義 ── */
+/* ── Ver.1.5: Framework オートローダー ── */
+require dirname(__DIR__) . '/autoload.php';
 
-/** JSON キャッシュ（index.php の JsonCache クラス相当） */
-class JsonCache {
-	private static array $store = [];
-	public static function get(string $path): ?array { return self::$store[$path] ?? null; }
-	public static function set(string $path, array $data): void { self::$store[$path] = $data; }
-	public static function clear(): void { self::$store = []; }
-}
-
-function h(string $s): string {
-	return htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
-}
-
-function getSlug(string $p): string {
-	$slug = mb_convert_case(str_replace(' ', '-', $p), MB_CASE_LOWER, 'UTF-8');
-	$slug = str_replace("\0", '', $slug);
-	do {
-		$prev = $slug;
-		$slug = str_replace(['../', '..\\'], '', $slug);
-	} while ($slug !== $prev);
-	$slug = preg_replace('#/+#', '/', $slug);
-	return ltrim($slug, '/');
-}
-
-function data_dir(): string {
-	$dir = 'data';
-	if (!is_dir($dir)) @mkdir($dir, 0755, true);
-	return $dir;
-}
-
-function settings_dir(): string {
-	$dir = 'data/settings';
-	if (!is_dir($dir)) @mkdir($dir, 0755, true);
-	return $dir;
-}
-
-function content_dir(): string {
-	$dir = 'data/content';
-	if (!is_dir($dir)) @mkdir($dir, 0755, true);
-	return $dir;
-}
-
-function json_read(string $file, string $dir = ''): array {
-	$path = ($dir ?: data_dir()) . '/' . $file;
-	$cached = JsonCache::get($path);
-	if ($cached !== null) return $cached;
-	if (!file_exists($path)) return [];
-	$raw = file_get_contents($path);
-	if ($raw === false) return [];
-	$decoded = json_decode($raw, true);
-	$result = is_array($decoded) ? $decoded : [];
-	JsonCache::set($path, $result);
-	return $result;
-}
-
-function json_write(string $file, array $data, string $dir = ''): void {
-	$path = ($dir ?: data_dir()) . '/' . $file;
-	$result = file_put_contents(
-		$path,
-		json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT),
-		LOCK_EX
-	);
-	if ($result === false) {
-		throw new RuntimeException("json_write failed: {$file}");
-	}
-	JsonCache::set($path, $data);
-}
+/* ── Bridge.php からユーティリティ関数を読み込み ── */
+require dirname(__DIR__) . '/engines/Bridge.php';
 
 /* ── エンジン読み込み ── */
 $engineDir = dirname(__DIR__) . '/engines';
 
 require $engineDir . '/EngineTrait.php';
 require $engineDir . '/FileSystem.php';
+require $engineDir . '/I18n.php';
 require $engineDir . '/AppContext.php';
 require $engineDir . '/Logger.php';
 require $engineDir . '/AdminEngine.php';
@@ -129,6 +67,13 @@ require $engineDir . '/CollectionEngine.php';
 require $engineDir . '/DiagnosticEngine.php';
 require $engineDir . '/WebhookEngine.php';
 require $engineDir . '/TemplateEngine.php';
+require $engineDir . '/ThemeEngine.php';
+require $engineDir . '/ApiEngine.php';
+require $engineDir . '/StaticEngine.php';
+require $engineDir . '/GitEngine.php';
+require $engineDir . '/UpdateEngine.php';
+require $engineDir . '/ImageOptimizer.php';
+require $engineDir . '/MailerEngine.php';
 require $engineDir . '/Validator.php';
 
 /* Logger をテスト用ディレクトリで初期化 */

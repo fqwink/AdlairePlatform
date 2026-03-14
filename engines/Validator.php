@@ -4,6 +4,8 @@
  *
  * AFE.Utilities.php の Validator を AdlairePlatform エンジンパターンに適応。
  *
+ * Ver.1.5: APF\Utilities\Validator に内部委譲。既存 static API は完全維持。
+ *
  * 使用例:
  *   $v = Validator::make($data, [
  *       'name'  => 'required|min:2|max:100',
@@ -16,6 +18,13 @@
  *   alpha, alphaNum, url, in:a,b,c, date, boolean, slug, regex:pattern
  */
 class Validator {
+
+	/**
+	 * Ver.1.5: Framework Validator インスタンスを生成する
+	 */
+	public static function createFrameworkValidator(array $data, array $rules, array $messages = []): \APF\Utilities\Validator {
+		return new \APF\Utilities\Validator($data, $rules, $messages);
+	}
 
 	private array $data;
 	private array $rules;

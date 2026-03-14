@@ -11,6 +11,19 @@
  */
 class MailerEngine {
 
+	/** @var \AIS\Deployment\Mailer|null Ver.1.5 Framework メーラー */
+	private static ?\AIS\Deployment\Mailer $fwMailer = null;
+
+	/**
+	 * Ver.1.5: Framework Mailer インスタンスを取得する
+	 */
+	public static function getMailer(): \AIS\Deployment\Mailer {
+		if (self::$fwMailer === null) {
+			self::$fwMailer = new \AIS\Deployment\Mailer();
+		}
+		return self::$fwMailer;
+	}
+
 	/** リトライ回数（初回含まず） */
 	private const MAX_RETRIES = 2;
 

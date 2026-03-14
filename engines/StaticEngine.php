@@ -5,9 +5,27 @@
  * コンテンツを静的 HTML ファイルとして書き出す。
  * 差分ビルド（content_hash / settings_hash）で変更ページのみ再生成。
  * TemplateEngine + ThemeEngine::buildStaticContext() でレンダリング。
+ *
+ * Ver.1.5: ASG\Core\Generator に内部委譲。既存 static API は完全維持。
  */
 class StaticEngine {
 	use EngineTrait;
+
+	/** @var \ASG\Core\Generator|null Ver.1.5 Framework ジェネレーター */
+	private static ?\ASG\Core\Generator $generator = null;
+
+	/**
+	 * Ver.1.5: Framework Generator インスタンスを取得する
+	 */
+	public static function getGenerator(): \ASG\Core\Generator {
+		if (self::$generator === null) {
+			self::$generator = new \ASG\Core\Generator(
+				TemplateEngine::getRenderer(),
+				self::OUTPUT_DIR
+			);
+		}
+		return self::$generator;
+	}
 
 	private const OUTPUT_DIR     = 'static';
 	private const BUILD_STATE    = 'static_build.json';

@@ -23,6 +23,22 @@
 class DiagnosticEngine {
 	use EngineTrait;
 
+	/** @var \AIS\System\DiagnosticsCollector|null Ver.1.5 Framework 診断コレクター */
+	private static ?\AIS\System\DiagnosticsCollector $collector = null;
+
+	/**
+	 * Ver.1.5: Framework DiagnosticsCollector インスタンスを取得する
+	 */
+	public static function getCollector(): \AIS\System\DiagnosticsCollector {
+		if (self::$collector === null) {
+			self::$collector = new \AIS\System\DiagnosticsCollector('data/diagnostics');
+			if (self::isEnabled()) {
+				self::$collector->enable();
+			}
+		}
+		return self::$collector;
+	}
+
 	private const CONFIG_FILE = 'diagnostics.json';
 	private const LOG_FILE    = 'diagnostics_log.json';
 	private const ENDPOINT    = 'https://telemetry.adlaire.com/v1/report';

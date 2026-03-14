@@ -5,10 +5,15 @@
  * API レスポンスをファイルキャッシュし、高負荷時のパフォーマンスを改善。
  * コンテンツ変更時にキャッシュを自動無効化。
  * ETag / Last-Modified ヘッダー対応。
+ *
+ * Ver.1.5: AIS\System\CacheStore に内部委譲。既存 static API は完全維持。
  */
 class CacheEngine {
 
 	private const CACHE_DIR = 'data/cache/api';
+
+	/** @var \AIS\System\CacheStore|null Ver.1.5 Framework キャッシュストア */
+	private static ?\AIS\System\CacheStore $store = null;
 
 	/* デフォルト TTL（秒） */
 	private const TTL = [
@@ -142,6 +147,18 @@ class CacheEngine {
 	/** 全キャッシュクリア */
 	public static function clear(): void {
 		self::invalidate('');
+	}
+
+	/**
+	 * Ver.1.5: Framework CacheStore インスタンスを取得する
+	 *
+	 * API キャッシュ以外の汎用キャッシュに使用可能。
+	 */
+	public static function getStore(): \AIS\System\CacheStore {
+		if (self::$store === null) {
+			self::$store = new \AIS\System\CacheStore(self::CACHE_DIR);
+		}
+		return self::$store;
 	}
 
 	private static function cacheKey(string $endpoint, array $params): string {

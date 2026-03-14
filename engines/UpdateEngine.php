@@ -4,9 +4,27 @@
  *
  * 手続き型関数からstaticクラスに変換。
  * EngineTrait で認証・JSON レスポンスを統合。
+ *
+ * Ver.1.5: AIS\Deployment\Updater に内部委譲。既存 static API は完全維持。
  */
 class UpdateEngine {
 	use EngineTrait;
+
+	/** @var \AIS\Deployment\Updater|null Ver.1.5 Framework アップデーター */
+	private static ?\AIS\Deployment\Updater $updater = null;
+
+	/**
+	 * Ver.1.5: Framework Updater インスタンスを取得する
+	 */
+	public static function getUpdater(): \AIS\Deployment\Updater {
+		if (self::$updater === null) {
+			self::$updater = new \AIS\Deployment\Updater(
+				defined('AP_UPDATE_URL') ? AP_UPDATE_URL : '',
+				'backup'
+			);
+		}
+		return self::$updater;
+	}
 
 	public static function checkEnvironment(): array {
 		$ziparchive = class_exists('ZipArchive');

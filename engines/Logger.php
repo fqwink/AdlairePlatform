@@ -5,6 +5,8 @@
  * B-6 fix: error_log() のみに依存していたログ出力を構造化ログに統一。
  * ファイルベースのログ出力 + PSR-3 互換のログレベルをサポート。
  *
+ * Ver.1.5: AIS\System\AppLogger に内部委譲。既存 static API は完全維持。
+ *
  * 使用例:
  *   Logger::info('ページ保存', ['slug' => 'home']);
  *   Logger::error('JSON書き込み失敗', ['file' => 'settings.json']);
@@ -35,6 +37,9 @@ class Logger {
 	/** 現在のリクエスト固有ID（トレーサビリティ用） */
 	private static string $requestId = '';
 
+	/** @var \AIS\System\AppLogger|null Ver.1.5 Framework ロガーインスタンス */
+	private static ?\AIS\System\AppLogger $appLogger = null;
+
 	/** ログローテーション: 最大ファイルサイズ（5MB） */
 	private const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
@@ -54,6 +59,23 @@ class Logger {
 		if (self::$requestId === '') {
 			self::$requestId = substr(bin2hex(random_bytes(4)), 0, 8);
 		}
+
+		/* Ver.1.5: Framework AppLogger を初期化 */
+		$levelMap = [self::DEBUG => 'debug', self::INFO => 'info', self::WARNING => 'warning', self::ERROR => 'error'];
+		self::$appLogger = new \AIS\System\AppLogger(
+			self::$logDir,
+			$levelMap[self::$minLevel] ?? 'info'
+		);
+	}
+
+	/**
+	 * Ver.1.5: Framework AppLogger インスタンスを取得する
+	 */
+	public static function getAppLogger(): \AIS\System\AppLogger {
+		if (self::$appLogger === null) {
+			self::$appLogger = new \AIS\System\AppLogger(self::$logDir, 'info');
+		}
+		return self::$appLogger;
 	}
 
 	/* ── 公開ログメソッド ── */

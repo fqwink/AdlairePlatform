@@ -11,9 +11,24 @@
  *   → 自動検出で切り替え
  *
  * 設定ファイル: data/settings/git_config.json
+ *
+ * Ver.1.5: AIS\Deployment\GitSync に内部委譲。既存 static API は完全維持。
  */
 class GitEngine {
 	use EngineTrait;
+
+	/** @var \AIS\Deployment\GitSync|null Ver.1.5 Framework Git 同期 */
+	private static ?\AIS\Deployment\GitSync $gitSync = null;
+
+	/**
+	 * Ver.1.5: Framework GitSync インスタンスを取得する
+	 */
+	public static function getGitSync(): \AIS\Deployment\GitSync {
+		if (self::$gitSync === null) {
+			self::$gitSync = new \AIS\Deployment\GitSync(settings_dir());
+		}
+		return self::$gitSync;
+	}
 
 	private const CONFIG_FILE    = 'git_config.json';
 	/* M23 fix: スラッシュとドットを除外（パストラバーサル防止） */

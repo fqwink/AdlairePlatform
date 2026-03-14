@@ -1,7 +1,7 @@
 # AdlairePlatform ソースコード解析レポート
 
-**作成日**: 2026-03-13  
-**バージョン**: Ver.1.4-pre  
+**作成日**: 2026-03-14
+**バージョン**: Ver.1.5.0
 **解析対象リポジトリ**: https://github.com/fqwink/AdlairePlatform
 
 ---
@@ -100,17 +100,27 @@ AFEフレームワークに関する詳細ドキュメントは **[Framework/doc
                 ↓↑
 ┌──────────────────────────────────────┐
 │    Application Layer                 │
-│  - 16エンジン                         │
+│  - 16エンジン（Static Facade）       │
 │  - ルーティング                       │
 │  - 認証・認可                         │
+└──────────────────────────────────────┘
+                ↓↑
+┌──────────────────────────────────────┐
+│    Framework Layer (Ver.1.5)         │
+│  - APF（Core/Database/Utilities）   │
+│  - ACE（Admin/Api/Core）            │
+│  - AIS（Core/System/Deployment）    │
+│  - ASG（Core/Template/Utilities）   │
+│  - AEB（Editor/Blocks/Utils）       │
+│  - ADS（Base/Components/Editor CSS）│
 └──────────────────────────────────────┘
                 ↓↑
 ┌──────────────────────────────────────┐
 │    Infrastructure Layer              │
 │  - AppContext（状態管理）            │
 │  - Logger（ログ記録）                │
-│  - JsonCache（I/Oキャッシュ）         │
-│  - MailerEngine（メール送信）         │
+│  - Bridge.php（ユーティリティ集約）  │
+│  - Application（DI/Hook/Event）     │
 └──────────────────────────────────────┘
                 ↓↑
 ┌──────────────────────────────────────┐
@@ -160,7 +170,9 @@ HTTP Request
 
 ```
 /home/user/webapp/
-├── index.php                    # メインエントリーポイント（387行）
+├── index.php                    # メインエントリーポイント
+├── autoload.php                 # Framework名前空間オートローダー（Ver.1.5）
+├── bootstrap.php                # Applicationファサード（DI/Hook/Event）（Ver.1.5）
 ├── .htaccess                    # Apache設定（セキュリティ・リライト・Static-First）
 ├── README.md                    # プロジェクト概要
 ├── CONTRIBUTING.md              # コントリビュートガイドライン
@@ -181,6 +193,7 @@ HTTP Request
 │       └── [collections]/       # コレクションディレクトリ（Markdownファイル）
 │
 ├── engines/                     # エンジンシステム
+│   ├── Bridge.php               # ユーティリティ関数集約（Ver.1.5）
 │   ├── AdminEngine.php          # 管理機能（995行）
 │   ├── ApiEngine.php            # REST API（1,257行）
 │   ├── AppContext.php           # 集中状態管理（147行）
@@ -199,6 +212,7 @@ HTTP Request
 │   ├── WebhookEngine.php        # Webhook管理（280行）
 │   ├── AdminEngine/             # AdminEngine関連アセット
 │   └── JsEngine/                # フロントエンドスクリプト
+│       ├── aeb-adapter.js       # AEB ES6モジュールアダプター（Ver.1.5）
 │       ├── editInplace.js       # インプレイス編集
 │       ├── wysiwyg.js           # WYSIWYGエディタ
 │       ├── dashboard.js         # ダッシュボード
@@ -225,6 +239,32 @@ HTTP Request
 ├── static/                      # 静的サイト出力先（生成時に作成）
 ├── backup/                      # バックアップディレクトリ（.htaccessで保護）
 │
+├── Framework/                   # Ver.1.5 Frameworkモジュール
+│   ├── APF/                     # Adlaire Platform Foundation
+│   │   ├── APF.Core.php         # Container, Router, Request, Response, Middleware
+│   │   ├── APF.Database.php     # QueryBuilder, Connection, Migration
+│   │   └── APF.Utilities.php    # Validator, Cache, Logger, Session, Security, Str, Arr
+│   ├── ACE/                     # Adlaire Content Engine
+│   │   ├── ACE.Core.php         # CollectionManager, ContentManager, MetaManager
+│   │   ├── ACE.Admin.php        # AdminPanel, UserManager, AuthManager
+│   │   └── ACE.Api.php          # ApiRouter, WebhookManager, RestHandler, RateLimiter
+│   ├── AIS/                     # Adlaire Infrastructure Services
+│   │   ├── AIS.Core.php         # AppContext, ServiceProvider, EventDispatcher
+│   │   ├── AIS.System.php       # CacheStore, AppLogger, DiagnosticsCollector
+│   │   └── AIS.Deployment.php   # Updater, GitSync, Mailer
+│   ├── ASG/                     # Adlaire Static Generator
+│   │   ├── ASG.Core.php         # Generator, BuildPipeline
+│   │   ├── ASG.Template.php     # TemplateRenderer, MarkdownParser
+│   │   └── ASG.Utilities.php    # ImageOptimizer, AssetPipeline
+│   ├── AEB/                     # Adlaire Editor & Blocks
+│   │   ├── AEB.Core.js          # Editor, EventBus, BlockRegistry, StateManager
+│   │   ├── AEB.Blocks.js        # ParagraphBlock, HeadingBlock, etc.（10タイプ）
+│   │   └── AEB.Utils.js         # sanitizer, dom, selection, keyboard
+│   └── ADS/                     # Adlaire Design System
+│       ├── ADS.Base.css          # デザイントークン・CSS変数
+│       ├── ADS.Components.css    # ボタン・フォーム・カード等
+│       └── ADS.Editor.css        # エディタ基本スタイル
+│
 └── docs/                        # ドキュメント
     ├── features.md              # 機能一覧（570行）
     └── Licenses/
@@ -235,12 +275,14 @@ HTTP Request
 
 | カテゴリ | ファイル数 | 総行数（概算） |
 |---------|-----------|--------------|
-| コアシステム（index.php） | 1 | 387 |
-| エンジン（PHP） | 16 | 9,531 |
-| フロントエンド（JS） | 13 | 約5,000 |
+| コアシステム（index.php + autoload + bootstrap） | 3 | 約500 |
+| エンジン（PHP、Bridge.php 含む） | 20 | 約10,000 |
+| Framework（PHP） | 12 | 約3,500 |
+| フロントエンド（JS、AEB 含む） | 16 | 約6,500 |
+| フロントエンド（CSS、ADS 含む） | 4 | 約500 |
 | テーマ | 2 | 約500 |
 | ドキュメント | 複数 | 約2,000 |
-| **合計** | **32+** | **約17,418行** |
+| **合計** | **57+** | **約23,500行** |
 
 ---
 

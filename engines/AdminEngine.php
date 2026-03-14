@@ -4,8 +4,23 @@
  *
  * 認証・CSRF・管理アクション（フィールド保存・画像アップロード・リビジョン管理）
  * およびダッシュボード（?admin）を提供する。
+ *
+ * Ver.1.5: ACE\Admin\AuthManager に内部委譲。既存 static API は完全維持。
  */
 class AdminEngine {
+
+	/** @var \ACE\Admin\AuthManager|null Ver.1.5 Framework 認証マネージャ */
+	private static ?\ACE\Admin\AuthManager $authManager = null;
+
+	/**
+	 * Ver.1.5: Framework AuthManager インスタンスを取得する
+	 */
+	public static function getAuthManager(): \ACE\Admin\AuthManager {
+		if (self::$authManager === null) {
+			self::$authManager = new \ACE\Admin\AuthManager(settings_dir());
+		}
+		return self::$authManager;
+	}
 
 	/* ══════════════════════════════════════════════
 	   POST アクションハンドラ
@@ -826,6 +841,11 @@ class AdminEngine {
 	 */
 	/* B-3 fix: AppContext 経由でフック管理 */
 	public static function registerHooks(): void {
+		/* Ver.1.5: ADS CSS + AEB adapter を追加 */
+		AppContext::addHook('admin-head', "\n\t<link rel='stylesheet' href='Framework/ADS/ADS.Base.css'>");
+		AppContext::addHook('admin-head', "\n\t<link rel='stylesheet' href='Framework/ADS/ADS.Components.css'>");
+		AppContext::addHook('admin-head', "\n\t<link rel='stylesheet' href='Framework/ADS/ADS.Editor.css'>");
+		AppContext::addHook('admin-head', "\n\t<script src='engines/JsEngine/aeb-adapter.js' type='module'></script>");
 		AppContext::addHook('admin-head', "\n\t<script src='engines/JsEngine/ap-utils.js'></script>");
 		AppContext::addHook('admin-head', "\n\t<script src='engines/JsEngine/ap-events.js'></script>");
 		AppContext::addHook('admin-head', "\n\t<script src='engines/JsEngine/autosize.js'></script>");
