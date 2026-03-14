@@ -439,26 +439,30 @@ class AdminEngine {
 			if (class_exists('DiagnosticEngine')) DiagnosticEngine::logRaceCondition('revisions/' . $fieldname, 'ロックファイルオープン失敗');
 			return;
 		}
-		if (!flock($lf, LOCK_EX)) {
-			if (class_exists('DiagnosticEngine')) DiagnosticEngine::logRaceCondition('revisions/' . $fieldname, 'ファイルロック取得失敗');
+		try {
+			if (!flock($lf, LOCK_EX)) {
+				if (class_exists('DiagnosticEngine')) DiagnosticEngine::logRaceCondition('revisions/' . $fieldname, 'ファイルロック取得失敗');
+				return;
+			}
+
+			/* R29 fix: 同一秒のリビジョン衝突を防止（ランダムサフィックス追加） */
+			$ts = date('Ymd_His') . '_' . bin2hex(random_bytes(2));
+			$rev = [
+				'timestamp' => date('c'),
+				'content'   => $content,
+				'size'      => strlen($content),
+				'user'      => $_SESSION['ap_username'] ?? '',
+				'restored'  => $restored,
+			];
+			FileSystem::writeJson($dir . 'rev_' . $ts . '.json', $rev);
+			self::pruneRevisions($dir);
+		} catch (\Throwable $e) {
+			Logger::error('リビジョン保存中にエラー', ['engine' => 'AdminEngine', 'field' => $fieldname, 'error' => $e->getMessage()]);
+			if (class_exists('DiagnosticEngine')) DiagnosticEngine::log('runtime', 'リビジョン保存例外', ['field' => $fieldname, 'trace' => $e->getTraceAsString()]);
+		} finally {
+			flock($lf, LOCK_UN);
 			fclose($lf);
-			return;
 		}
-
-		/* R29 fix: 同一秒のリビジョン衝突を防止（ランダムサフィックス追加） */
-		$ts = date('Ymd_His') . '_' . bin2hex(random_bytes(2));
-		$rev = [
-			'timestamp' => date('c'),
-			'content'   => $content,
-			'size'      => strlen($content),
-			'user'      => $_SESSION['ap_username'] ?? '',
-			'restored'  => $restored,
-		];
-		FileSystem::writeJson($dir . 'rev_' . $ts . '.json', $rev);
-		self::pruneRevisions($dir);
-
-		flock($lf, LOCK_UN);
-		fclose($lf);
 	}
 
 	private static function pruneRevisions(string $dir): void {
@@ -821,6 +825,7 @@ class AdminEngine {
 	/* B-3 fix: AppContext 経由でフック管理 */
 	public static function registerHooks(): void {
 		AppContext::addHook('admin-head', "\n\t<script src='engines/JsEngine/ap-utils.js'></script>");
+		AppContext::addHook('admin-head', "\n\t<script src='engines/JsEngine/ap-events.js'></script>");
 		AppContext::addHook('admin-head', "\n\t<script src='engines/JsEngine/autosize.js'></script>");
 		AppContext::addHook('admin-head', "\n\t<script src='engines/JsEngine/editInplace.js'></script>");
 		AppContext::addHook('admin-head', "\n\t<script src='engines/JsEngine/wysiwyg.js'></script>");

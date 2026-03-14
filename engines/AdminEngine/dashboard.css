@@ -1,11 +1,11 @@
-/* AdminEngine Dashboard - テーマ非依存スタイル */
+/* AdminEngine Dashboard - ACF デザイントークン適用済みスタイル */
 
-* { margin: 0; padding: 0; box-sizing: border-box; }
+/* ACF.Base.css のリセットが適用済みのため、独自リセットは不要 */
 
 body {
-	font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-	background: #f0f2f5;
-	color: #1a1a2e;
+	font-family: var(--acf-font-family);
+	background: var(--acf-bg-tertiary);
+	color: var(--acf-text);
 	line-height: 1.6;
 }
 
@@ -13,141 +13,141 @@ body {
 
 .ap-dash-header {
 	background: #1a1a2e;
-	color: #fff;
-	padding: 12px 24px;
+	color: var(--acf-bg);
+	padding: var(--acf-space-3) var(--acf-space-6);
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
 }
 
 .ap-dash-header h1 {
-	font-size: 18px;
-	font-weight: 600;
+	font-size: var(--acf-font-size-lg);
+	font-weight: var(--acf-font-weight-semibold);
 }
 
 .ap-dash-header h1 a {
-	color: #fff;
+	color: var(--acf-bg);
 	text-decoration: none;
 }
 
 .ap-dash-label {
 	font-weight: 300;
 	opacity: 0.7;
-	margin-left: 8px;
+	margin-left: var(--acf-space-2);
 }
 
 .ap-dash-nav {
 	display: flex;
 	align-items: center;
-	gap: 16px;
+	gap: var(--acf-space-4);
 }
 
 .ap-dash-nav a {
-	color: #a0aec0;
+	color: var(--acf-text-tertiary);
 	text-decoration: none;
-	font-size: 14px;
+	font-size: var(--acf-font-size-sm);
 }
 
 .ap-dash-nav a:hover {
-	color: #fff;
+	color: var(--acf-bg);
 }
 
 .ap-dash-logout button {
 	background: none;
-	border: 1px solid #a0aec0;
-	color: #a0aec0;
-	padding: 4px 12px;
-	border-radius: 4px;
+	border: 1px solid var(--acf-text-tertiary);
+	color: var(--acf-text-tertiary);
+	padding: var(--acf-space-1) var(--acf-space-3);
+	border-radius: var(--acf-radius-sm);
 	cursor: pointer;
 	font-size: 13px;
 }
 
 .ap-dash-logout button:hover {
-	color: #fff;
-	border-color: #fff;
+	color: var(--acf-bg);
+	border-color: var(--acf-bg);
 }
 
 /* ── メイン ── */
 
 .ap-dash-main {
 	max-width: 900px;
-	margin: 24px auto;
-	padding: 0 16px;
+	margin: var(--acf-space-6) auto;
+	padding: 0 var(--acf-space-4);
 }
 
 /* ── アラート ── */
 
 .ap-dash-alert {
-	background: #c0392b;
-	color: #fff;
-	padding: 12px 16px;
-	border-radius: 6px;
-	margin-bottom: 16px;
-	font-weight: 600;
+	background: var(--acf-error);
+	color: var(--acf-bg);
+	padding: var(--acf-space-3) var(--acf-space-4);
+	border-radius: var(--acf-radius-md);
+	margin-bottom: var(--acf-space-4);
+	font-weight: var(--acf-font-weight-semibold);
 }
 
 /* ── カード ── */
 
 .ap-dash-card {
-	background: #fff;
-	border-radius: 8px;
-	padding: 20px 24px;
-	margin-bottom: 16px;
-	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+	background: var(--acf-bg);
+	border-radius: var(--acf-radius-lg);
+	padding: var(--acf-space-5) var(--acf-space-6);
+	margin-bottom: var(--acf-space-4);
+	box-shadow: var(--acf-shadow-sm);
 }
 
 .ap-dash-card h2 {
-	font-size: 16px;
-	font-weight: 600;
-	margin-bottom: 16px;
-	padding-bottom: 8px;
-	border-bottom: 1px solid #e2e8f0;
+	font-size: var(--acf-font-size-base);
+	font-weight: var(--acf-font-weight-semibold);
+	margin-bottom: var(--acf-space-4);
+	padding-bottom: var(--acf-space-2);
+	border-bottom: 1px solid var(--acf-border);
 }
 
 /* ── フィールド ── */
 
 .ap-dash-field {
-	margin-bottom: 12px;
+	margin-bottom: var(--acf-space-3);
 }
 
 .ap-dash-field label {
 	display: block;
 	font-size: 13px;
-	font-weight: 600;
-	color: #4a5568;
-	margin-bottom: 4px;
+	font-weight: var(--acf-font-weight-semibold);
+	color: var(--acf-text-secondary);
+	margin-bottom: var(--acf-space-1);
 }
 
 .ap-dash-field label small {
-	font-weight: 400;
+	font-weight: var(--acf-font-weight-normal);
 }
 
 .ap-dash-field label small a {
-	color: #3182ce;
+	color: var(--acf-primary);
 }
 
 .ap-dash-field .editText {
 	display: block;
 	width: 100%;
-	padding: 8px 12px;
-	border: 1px solid #e2e8f0;
-	border-radius: 4px;
+	padding: var(--acf-space-2) var(--acf-space-3);
+	border: 1px solid var(--acf-border);
+	border-radius: var(--acf-radius-sm);
 	min-height: 36px;
 	cursor: text;
-	background: #f7fafc;
-	transition: border-color 0.15s;
+	background: var(--acf-bg-secondary);
+	transition: border-color var(--acf-transition-fast);
 }
 
 .ap-dash-field .editText:hover {
-	border-color: #cbd5e0;
+	border-color: var(--acf-border-hover);
 }
 
 .ap-dash-field select {
-	padding: 8px 12px;
-	border: 1px solid #e2e8f0;
-	border-radius: 4px;
-	background: #f7fafc;
-	font-size: 14px;
+	padding: var(--acf-space-2) var(--acf-space-3);
+	border: 1px solid var(--acf-border);
+	border-radius: var(--acf-radius-sm);
+	background: var(--acf-bg-secondary);
+	font-size: var(--acf-font-size-sm);
 }
 
 /* ── ページ一覧 ── */
@@ -155,34 +155,34 @@ body {
 .ap-dash-pages {
 	display: grid;
 	grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-	gap: 12px;
+	gap: var(--acf-space-3);
 }
 
 .ap-dash-page-item {
 	display: block;
 	position: relative;
-	padding: 12px 16px;
-	border: 1px solid #e2e8f0;
-	border-radius: 6px;
+	padding: var(--acf-space-3) var(--acf-space-4);
+	border: 1px solid var(--acf-border);
+	border-radius: var(--acf-radius-md);
 	text-decoration: none;
 	color: inherit;
-	transition: border-color 0.15s, box-shadow 0.15s;
+	transition: border-color var(--acf-transition-fast), box-shadow var(--acf-transition-fast);
 }
 
 .ap-dash-page-item:hover {
-	border-color: #3182ce;
-	box-shadow: 0 2px 4px rgba(49, 130, 206, 0.1);
+	border-color: var(--acf-primary);
+	box-shadow: 0 2px 4px rgba(37, 99, 235, 0.1);
 }
 
 .ap-dash-page-item strong {
 	display: block;
-	font-size: 14px;
-	margin-bottom: 4px;
+	font-size: var(--acf-font-size-sm);
+	margin-bottom: var(--acf-space-1);
 }
 
 .ap-dash-page-item span {
-	font-size: 12px;
-	color: #718096;
+	font-size: var(--acf-font-size-xs);
+	color: var(--acf-text-secondary);
 	display: block;
 	overflow: hidden;
 	text-overflow: ellipsis;
@@ -196,15 +196,15 @@ body {
 	width: 22px;
 	height: 22px;
 	padding: 0;
-	font-size: 16px;
+	font-size: var(--acf-font-size-base);
 	line-height: 1;
 	background: transparent;
-	color: #a0aec0;
+	color: var(--acf-text-tertiary);
 	border: none;
 	border-radius: 3px;
 	cursor: pointer;
 	opacity: 0;
-	transition: opacity 0.15s, color 0.15s;
+	transition: opacity var(--acf-transition-fast), color var(--acf-transition-fast);
 }
 
 .ap-dash-page-item:hover .ap-page-delete {
@@ -212,25 +212,25 @@ body {
 }
 
 .ap-page-delete:hover {
-	color: #c0392b;
-	background: rgba(192, 57, 43, 0.08);
+	color: var(--acf-error);
+	background: rgba(239, 68, 68, 0.08);
 }
 
 /* ── ボタン ── */
 
 button, .ap-dash-btn {
-	padding: 8px 16px;
+	padding: var(--acf-space-2) var(--acf-space-4);
 	border: none;
-	border-radius: 4px;
+	border-radius: var(--acf-radius-sm);
 	cursor: pointer;
-	font-size: 14px;
-	background: #3182ce;
-	color: #fff;
-	transition: background 0.15s;
+	font-size: var(--acf-font-size-sm);
+	background: var(--acf-primary);
+	color: var(--acf-bg);
+	transition: background var(--acf-transition-fast);
 }
 
 button:hover, .ap-dash-btn:hover {
-	background: #2b6cb0;
+	background: var(--acf-primary-hover);
 }
 
 /* ── システム情報テーブル ── */
@@ -241,14 +241,14 @@ button:hover, .ap-dash-btn:hover {
 }
 
 .ap-dash-info td {
-	padding: 8px 12px;
-	border-bottom: 1px solid #e2e8f0;
-	font-size: 14px;
+	padding: var(--acf-space-2) var(--acf-space-3);
+	border-bottom: 1px solid var(--acf-border);
+	font-size: var(--acf-font-size-sm);
 }
 
 .ap-dash-info td:first-child {
-	font-weight: 600;
-	color: #4a5568;
+	font-weight: var(--acf-font-weight-semibold);
+	color: var(--acf-text-secondary);
 	width: 160px;
 }
 
@@ -256,32 +256,32 @@ button:hover, .ap-dash-btn:hover {
 
 .ap-dash-buttons {
 	display: flex;
-	gap: 8px;
+	gap: var(--acf-space-2);
 	flex-wrap: wrap;
-	margin-bottom: 12px;
+	margin-bottom: var(--acf-space-3);
 }
 
 /* ── 静的書き出しセクション ── */
 
 .ap-static-page-badge {
 	display: inline-block;
-	padding: 2px 8px;
+	padding: 2px var(--acf-space-2);
 	margin: 2px;
-	border-radius: 4px;
+	border-radius: var(--acf-radius-sm);
 	font-size: 13px;
-	background: #f7fafc;
-	border: 1px solid #e2e8f0;
+	background: var(--acf-bg-secondary);
+	border: 1px solid var(--acf-border);
 }
 
 #ap-static-result {
-	font-size: 14px;
-	color: #2d3748;
+	font-size: var(--acf-font-size-sm);
+	color: var(--acf-text);
 }
 
 .ap-static-summary {
 	font-size: 13px;
-	font-weight: 600;
-	color: #4a5568;
+	font-weight: var(--acf-font-weight-semibold);
+	color: var(--acf-text-secondary);
 }
 
 button:disabled {
@@ -292,12 +292,12 @@ button:disabled {
 /* ── フィールド保存フィードバック ── */
 
 @keyframes ap-flash-green {
-	0%   { box-shadow: 0 0 0 2px #38a169; }
+	0%   { box-shadow: 0 0 0 2px var(--acf-success); }
 	100% { box-shadow: none; }
 }
 
 @keyframes ap-flash-red {
-	0%   { box-shadow: 0 0 0 2px #c0392b; }
+	0%   { box-shadow: 0 0 0 2px var(--acf-error); }
 	100% { box-shadow: none; }
 }
 
@@ -313,7 +313,7 @@ button:disabled {
 
 #ap-update-status {
 	margin-left: 10px;
-	font-size: 14px;
+	font-size: var(--acf-font-size-sm);
 }
 
 #ap-update-result {
@@ -323,20 +323,20 @@ button:disabled {
 #ap-update-result table {
 	width: 100%;
 	border-collapse: collapse;
-	margin-top: 8px;
+	margin-top: var(--acf-space-2);
 }
 
 #ap-update-result th,
 #ap-update-result td {
-	padding: 8px 12px;
-	border-bottom: 1px solid #e2e8f0;
+	padding: var(--acf-space-2) var(--acf-space-3);
+	border-bottom: 1px solid var(--acf-border);
 	text-align: left;
 	font-size: 13px;
 }
 
 #ap-update-result th {
-	background: #f7fafc;
-	font-weight: 600;
+	background: var(--acf-bg-secondary);
+	font-weight: var(--acf-font-weight-semibold);
 }
 
 /* ── アクティビティログ ── */
@@ -348,9 +348,9 @@ button:disabled {
 
 .ap-dash-activity-item {
 	display: flex;
-	gap: 12px;
+	gap: var(--acf-space-3);
 	padding: 6px 0;
-	border-bottom: 1px solid #f0f2f5;
+	border-bottom: 1px solid var(--acf-bg-tertiary);
 	font-size: 13px;
 }
 
@@ -359,14 +359,14 @@ button:disabled {
 }
 
 .ap-dash-activity-time {
-	color: #718096;
+	color: var(--acf-text-secondary);
 	white-space: nowrap;
 	flex-shrink: 0;
-	font-size: 12px;
+	font-size: var(--acf-font-size-xs);
 }
 
 .ap-dash-activity-msg {
-	color: #2d3748;
+	color: var(--acf-text);
 }
 
 /* ── コレクション管理 ── */
@@ -375,47 +375,47 @@ button:disabled {
 	display: grid;
 	grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
 	gap: 10px;
-	margin-bottom: 12px;
+	margin-bottom: var(--acf-space-3);
 }
 
 .ap-dash-collection-item {
 	position: relative;
 	padding: 10px 14px;
-	border: 1px solid #e2e8f0;
-	border-radius: 6px;
-	transition: border-color 0.15s;
+	border: 1px solid var(--acf-border);
+	border-radius: var(--acf-radius-md);
+	transition: border-color var(--acf-transition-fast);
 }
 
 .ap-dash-collection-item:hover {
-	border-color: #3182ce;
+	border-color: var(--acf-primary);
 }
 
 .ap-dash-collection-item strong {
 	display: block;
-	font-size: 14px;
+	font-size: var(--acf-font-size-sm);
 }
 
 .ap-collection-label {
-	font-size: 12px;
-	color: #718096;
+	font-size: var(--acf-font-size-xs);
+	color: var(--acf-text-secondary);
 }
 
 .ap-collection-count {
-	font-size: 12px;
-	color: #3182ce;
-	margin-left: 4px;
-	font-weight: 600;
+	font-size: var(--acf-font-size-xs);
+	color: var(--acf-primary);
+	margin-left: var(--acf-space-1);
+	font-weight: var(--acf-font-weight-semibold);
 }
 
 .ap-collection-edit {
-	font-size: 12px !important;
+	font-size: var(--acf-font-size-xs) !important;
 	padding: 2px 10px !important;
-	background: #38a169 !important;
+	background: var(--acf-success) !important;
 	margin-top: 6px;
 }
 
 .ap-collection-edit:hover {
-	background: #2f855a !important;
+	background: #059669 !important;
 }
 
 .ap-collection-delete {
@@ -425,15 +425,15 @@ button:disabled {
 	width: 22px;
 	height: 22px;
 	padding: 0 !important;
-	font-size: 16px;
+	font-size: var(--acf-font-size-base);
 	line-height: 1;
 	background: transparent !important;
-	color: #a0aec0;
+	color: var(--acf-text-tertiary);
 	border: none;
 	border-radius: 3px;
 	cursor: pointer;
 	opacity: 0;
-	transition: opacity 0.15s, color 0.15s;
+	transition: opacity var(--acf-transition-fast), color var(--acf-transition-fast);
 }
 
 .ap-dash-collection-item:hover .ap-collection-delete {
@@ -441,8 +441,8 @@ button:disabled {
 }
 
 .ap-collection-delete:hover {
-	color: #c0392b !important;
-	background: rgba(192, 57, 43, 0.08) !important;
+	color: var(--acf-error) !important;
+	background: rgba(239, 68, 68, 0.08) !important;
 }
 
 .ap-editor-item-delete {
@@ -452,15 +452,15 @@ button:disabled {
 	width: 22px;
 	height: 22px;
 	padding: 0 !important;
-	font-size: 16px;
+	font-size: var(--acf-font-size-base);
 	line-height: 1;
 	background: transparent !important;
-	color: #a0aec0;
+	color: var(--acf-text-tertiary);
 	border: none;
 	border-radius: 3px;
 	cursor: pointer;
 	opacity: 0;
-	transition: opacity 0.15s, color 0.15s;
+	transition: opacity var(--acf-transition-fast), color var(--acf-transition-fast);
 }
 
 .ap-dash-page-item:hover .ap-editor-item-delete {
@@ -468,46 +468,46 @@ button:disabled {
 }
 
 .ap-editor-item-delete:hover {
-	color: #c0392b !important;
-	background: rgba(192, 57, 43, 0.08) !important;
+	color: var(--acf-error) !important;
+	background: rgba(239, 68, 68, 0.08) !important;
 }
 
 /* ── 診断データ ── */
 
 .ap-diag-badge {
 	display: inline-block;
-	padding: 2px 8px;
+	padding: 2px var(--acf-space-2);
 	margin: 2px;
-	border-radius: 4px;
-	font-size: 12px;
-	background: #fed7d7;
-	color: #c53030;
-	font-weight: 600;
+	border-radius: var(--acf-radius-sm);
+	font-size: var(--acf-font-size-xs);
+	background: #fef2f2;
+	color: var(--acf-error);
+	font-weight: var(--acf-font-weight-semibold);
 }
 
 .ap-diag-table {
 	width: 100%;
 	border-collapse: collapse;
-	margin-top: 4px;
+	margin-top: var(--acf-space-1);
 }
 
 .ap-diag-table th,
 .ap-diag-table td {
-	padding: 4px 8px;
-	border-bottom: 1px solid #e2e8f0;
+	padding: var(--acf-space-1) var(--acf-space-2);
+	border-bottom: 1px solid var(--acf-border);
 	text-align: left;
-	font-size: 12px;
+	font-size: var(--acf-font-size-xs);
 	word-break: break-all;
 }
 
 .ap-diag-table th {
-	background: #f7fafc;
-	font-weight: 600;
-	color: #4a5568;
+	background: var(--acf-bg-secondary);
+	font-weight: var(--acf-font-weight-semibold);
+	color: var(--acf-text-secondary);
 }
 
 .ap-diag-table tr:hover {
-	background: #f7fafc;
+	background: var(--acf-bg-secondary);
 }
 
 /* ── 診断: プロファイラバー ── */
@@ -515,29 +515,29 @@ button:disabled {
 .ap-diag-timing-row {
 	display: flex;
 	align-items: center;
-	gap: 8px;
-	margin-bottom: 4px;
+	gap: var(--acf-space-2);
+	margin-bottom: var(--acf-space-1);
 }
 
 .ap-diag-timing-label {
 	width: 140px;
 	flex-shrink: 0;
-	font-size: 12px;
-	color: #4a5568;
+	font-size: var(--acf-font-size-xs);
+	color: var(--acf-text-secondary);
 	text-align: right;
 }
 
 .ap-diag-timing-bar-bg {
 	flex: 1;
 	height: 14px;
-	background: #edf2f7;
+	background: var(--acf-bg-tertiary);
 	border-radius: 3px;
 	overflow: hidden;
 }
 
 .ap-diag-timing-bar {
 	height: 100%;
-	background: #3182ce;
+	background: var(--acf-primary);
 	border-radius: 3px;
 	min-width: 2px;
 	transition: width 0.3s ease;
@@ -546,9 +546,9 @@ button:disabled {
 .ap-diag-timing-value {
 	width: 70px;
 	flex-shrink: 0;
-	font-size: 12px;
-	color: #2d3748;
-	font-weight: 600;
+	font-size: var(--acf-font-size-xs);
+	color: var(--acf-text);
+	font-weight: var(--acf-font-weight-semibold);
 }
 
 /* ── エラートレンドバー ── */
@@ -556,9 +556,9 @@ button:disabled {
 .ap-diag-trend-chart {
 	display: flex;
 	align-items: flex-end;
-	gap: 4px;
+	gap: var(--acf-space-1);
 	height: 60px;
-	padding: 4px 0;
+	padding: var(--acf-space-1) 0;
 }
 
 .ap-diag-trend-bar-wrap {
@@ -578,23 +578,23 @@ button:disabled {
 
 .ap-diag-trend-date {
 	font-size: 10px;
-	color: #718096;
+	color: var(--acf-text-secondary);
 	margin-top: 2px;
 }
 
 .ap-diag-trend-count {
 	font-size: 10px;
-	color: #2d3748;
-	font-weight: 600;
+	color: var(--acf-text);
+	font-weight: var(--acf-font-weight-semibold);
 }
 
 .ap-diag-trend-info {
 	display: flex;
 	align-items: center;
-	gap: 8px;
-	margin-top: 4px;
-	font-size: 12px;
-	color: #4a5568;
+	gap: var(--acf-space-2);
+	margin-top: var(--acf-space-1);
+	font-size: var(--acf-font-size-xs);
+	color: var(--acf-text-secondary);
 }
 
 /* ── レスポンシブ ── */
@@ -602,11 +602,11 @@ button:disabled {
 @media (max-width: 640px) {
 	.ap-dash-header {
 		flex-direction: column;
-		gap: 8px;
+		gap: var(--acf-space-2);
 	}
 
 	.ap-dash-main {
-		padding: 0 8px;
+		padding: 0 var(--acf-space-2);
 	}
 
 	.ap-dash-pages {

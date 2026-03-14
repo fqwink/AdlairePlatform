@@ -458,19 +458,25 @@ class ApiEngine {
 			DiagnosticEngine::log('security', 'メールヘッダインジェクション試行検出');
 		}
 
-		/* E-3 fix: MailerEngine 経由でメール送信（リトライ・ログ・モック対応） */
-		if (!MailerEngine::sendContact($to, $name, $email, $message, $siteTitle)) {
-			/* MailerEngine 失敗時: レガシー mail() にフォールバック */
-			/* R17 fix: サブジェクトのヘッダインジェクション対策 */
-			$safeTitle = str_replace(["\r", "\n"], '', $settings['title'] ?? 'AP');
-			$subject = '【' . $safeTitle . '】お問い合わせ: ' . $safeName;
-			$body    = "名前: {$safeName}\nメール: {$safeEmail}\n\n{$message}";
-			$headers = "From: {$safeEmail}\r\nReply-To: {$safeEmail}\r\nContent-Type: text/plain; charset=UTF-8";
+		try {
+			/* E-3 fix: MailerEngine 経由でメール送信（リトライ・ログ・モック対応） */
+			if (!MailerEngine::sendContact($to, $name, $email, $message, $siteTitle)) {
+				/* MailerEngine 失敗時: レガシー mail() にフォールバック */
+				/* R17 fix: サブジェクトのヘッダインジェクション対策 */
+				$safeTitle = str_replace(["\r", "\n"], '', $settings['title'] ?? 'AP');
+				$subject = '【' . $safeTitle . '】お問い合わせ: ' . $safeName;
+				$body    = "名前: {$safeName}\nメール: {$safeEmail}\n\n{$message}";
+				$headers = "From: {$safeEmail}\r\nReply-To: {$safeEmail}\r\nContent-Type: text/plain; charset=UTF-8";
 
-			if (!@mail($to, $subject, $body, $headers)) {
-				if (class_exists('DiagnosticEngine')) DiagnosticEngine::logIntegrationError('mail()', 0, 'コンタクトフォームメール送信失敗');
-				self::jsonError('メール送信に失敗しました', 500);
+				if (!@mail($to, $subject, $body, $headers)) {
+					if (class_exists('DiagnosticEngine')) DiagnosticEngine::logIntegrationError('mail()', 0, 'コンタクトフォームメール送信失敗');
+					self::jsonError('メール送信に失敗しました', 500);
+				}
 			}
+		} catch (\Throwable $e) {
+			Logger::error('コンタクトフォーム送信中にエラー', ['engine' => 'ApiEngine', 'error' => $e->getMessage()]);
+			if (class_exists('DiagnosticEngine')) DiagnosticEngine::log('runtime', 'handleContact 例外', ['trace' => $e->getTraceAsString()]);
+			self::jsonError('送信処理中にエラーが発生しました', 500);
 		}
 
 		/* アクティビティログに記録 */
@@ -906,8 +912,14 @@ class ApiEngine {
 		}
 
 		/* 画像最適化（提案8） */
-		if (class_exists('ImageOptimizer')) {
-			ImageOptimizer::optimize($dir . $filename);
+		try {
+			if (class_exists('ImageOptimizer')) {
+				ImageOptimizer::optimize($dir . $filename);
+			}
+		} catch (\Throwable $e) {
+			Logger::error('メディアアップロード最適化中にエラー', ['engine' => 'ApiEngine', 'file' => $filename, 'error' => $e->getMessage()]);
+			if (class_exists('DiagnosticEngine')) DiagnosticEngine::log('runtime', 'handleMediaUpload 最適化例外', ['file' => $filename, 'trace' => $e->getTraceAsString()]);
+			/* 最適化失敗でもアップロード自体は成功として続行 */
 		}
 
 		if (class_exists('AdminEngine') && method_exists('AdminEngine', 'logActivity')) {
