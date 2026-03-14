@@ -9,9 +9,8 @@
 | `docs/DOCUMENT_CHANGELOG.md` | **全ドキュメント変更履歴** | 🚫 | 🚫 | **✅本体** | **永続保護、変更履歴の一元管理元** |
 | `docs/AdlairePlatform_Design.md` | 基本設計・設計方針 | 🚫 | 🚫 | 📄DOCUMENT_CHANGELOG.md | 保護対象、内部専用 |
 | `docs/ARCHITECTURE.md` | アーキテクチャ設計 | 🚫 | 🚫 | 📄DOCUMENT_CHANGELOG.md | 保護対象、内部専用 |
-| `docs/SPECIFICATION.md` | 全機能仕様リファレンス | 🚫 | ✅ | 📄DOCUMENT_CHANGELOG.md | 削除可能、内部専用 |
+| `docs/DETAILED_DESIGN.md` | 詳細設計書（実装レベルの技術仕様） | 🚫 | 🚫 | 📄DOCUMENT_CHANGELOG.md | 保護対象、内部専用 |
 | `docs/SECURITY_POLICY.md` | セキュリティ方針 | 🚫 | 🚫 | 📄DOCUMENT_CHANGELOG.md | 保護対象、**機密**、内部限定 |
-| `docs/ENGINE_DESIGN.md` | エンジン技術設計書リファレンス | 🚫 | ✅ | 📄DOCUMENT_CHANGELOG.md | 削除可能、内部専用 |
 | `docs/VERSIONING.md` | バージョニング規則 | 🚫 | 🚫 | 📄DOCUMENT_CHANGELOG.md | 保護対象 |
 | `docs/DOC_RULEBOOK.md` | ドキュメント管理ルールブック | 🚫 | 🚫 | 📄DOCUMENT_CHANGELOG.md | 保護対象 |
 | `CHANGELOG.md` | プラットフォーム変更履歴 | 🚫 | 🚫 | ⚪自己管理 | 永続禁止、プラットフォーム本体の変更履歴 |
@@ -21,8 +20,7 @@
 | `docs/features.md` | 実装機能一覧 | ✅ | ✅ | ⚪任意 | 公開用 |
 | `docs/CONFIGURATION.md` | 設定リファレンス | ✅ | ✅ | ⚪任意 | 公開用 |
 | `docs/THEME_DEVELOPMENT.md` | テーマ開発リファレンス | ✅ | ✅ | ⚪任意 | 公開用 |
-| `docs/nginx.conf.example` | Nginx 設定サンプル | ✅ | ✅ | ⚪任意 | 公開用 |
-| `docs/Licenses/LICENSE_Ver.1.0.md` | Adlaire License Ver.1.0 | ✅ | ✅ | ⚪任意 | ライセンス文書 |
+| `docs/Licenses/LICENSE_Ver.2.0.md` | Adlaire License Ver.2.0 | ✅ | ✅ | ⚪任意 | ライセンス文書 |
 | `docs/Licenses/LICENSE_Ver.2.0.md` | Adlaire License Ver.2.0 | ✅ | ✅ | ⚪任意 | ライセンス文書 |
 
 **凡例:**
@@ -219,9 +217,8 @@
 |-------------|-----------------|------|
 | `docs/AdlairePlatform_Design.md` | 🔧 策定中 | 5文書構成整理完了 |
 | `docs/ARCHITECTURE.md` | 🔧 策定中 | Ver.1.4-pre 時点のアーキテクチャ記録 |
-| `docs/SPECIFICATION.md` | 🔧 策定中 | 機能仕様統合完了 |
+| `docs/DETAILED_DESIGN.md` | 🔧 策定中 | 実装レベルの技術仕様 |
 | `docs/SECURITY_POLICY.md` | 🔧 策定中 | セキュリティ方針統合完了 |
-| `docs/ENGINE_DESIGN.md` | 🔧 策定中 | エンジン設計書統合完了 |
 | `docs/VERSIONING.md` | ✅ 確定 | バージョニング規則確定 |
 | `docs/DOC_RULEBOOK.md` | 🔧 策定中 | ルール整備中 |
 | `docs/DOCUMENT_CHANGELOG.md` | ⚠️ 暫定運用 | 一元管理運用開始、試験運用中 |

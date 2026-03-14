@@ -21,11 +21,9 @@
 > - 詳細設計書（実装レベルの技術仕様） → [DETAILED_DESIGN.md](DETAILED_DESIGN.md)
 > - 機能一覧・関数リファレンス → [features.md](features.md)
 > - 本ドキュメントは **基本設計書・基本方針に関するすべて** を定めています。
-> **関連ドキュメント**:  
-> - アーキテクチャ: [ARCHITECTURE.md](ARCHITECTURE.md)  
-> - 機能仕様: [SPECIFICATION.md](SPECIFICATION.md)  
-> - セキュリティ: [SECURITY_POLICY.md](SECURITY_POLICY.md)  
-> - エンジン技術設計: [ENGINE_DESIGN.md](ENGINE_DESIGN.md)  
+> **関連ドキュメント（旧形式 — 上記の4文書体制を正とする）**:
+> - アーキテクチャ: [ARCHITECTURE.md](ARCHITECTURE.md)
+> - セキュリティ: [SECURITY_POLICY.md](SECURITY_POLICY.md)
 > - 実装機能一覧: [features.md](features.md)
 
 ---

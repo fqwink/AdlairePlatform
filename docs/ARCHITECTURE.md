@@ -9,15 +9,10 @@
 > **最終更新**: 2026-03-10（5文書構成整理）  
 > **分類**: 社内限り
 
-> **関連ドキュメント**:  
-> - 設計方針・設計思想: [AdlairePlatform_Design.md](AdlairePlatform_Design.md)  
-> - 機能仕様: [SPECIFICATION.md](SPECIFICATION.md)  
-> - セキュリティ: [SECURITY_POLICY.md](SECURITY_POLICY.md)  
-> - エンジン技術設計: [ENGINE_DESIGN.md](ENGINE_DESIGN.md)
-
 > **関連ドキュメント**:
 > - 基本設計書・基本方針 → [AdlairePlatform_Design.md](AdlairePlatform_Design.md)（最上位ドキュメント）
 > - 実装レベルの技術仕様（詳細設計） → [DETAILED_DESIGN.md](DETAILED_DESIGN.md)
+> - セキュリティ → [SECURITY_POLICY.md](SECURITY_POLICY.md)
 > - 機能一覧・関数リファレンス → [features.md](features.md)
 > - 本ドキュメントは **エンジン駆動モデルアーキテクチャに関する基本設計書・方針** を定めています。
 
@@ -62,12 +57,10 @@ AdlairePlatform/
 ├─ docs/
 │  ├─ AdlairePlatform_Design.md # 基本設計・設計方針
 │  ├─ ARCHITECTURE.md           # 本ドキュメント（アーキテクチャ設計）
-│  ├─ SPECIFICATION.md          # 機能仕様リファレンス
+│  ├─ DETAILED_DESIGN.md        # 詳細設計書（実装レベルの技術仕様）
 │  ├─ SECURITY_POLICY.md        # セキュリティ方針（社内限定）
-│  ├─ ENGINE_DESIGN.md          # エンジン技術設計書リファレンス
 │  ├─ VERSIONING.md             # バージョン規則
 │  ├─ features.md               # 実装機能一覧
-│  ├─ nginx.conf.example        # Nginx 設定リファレンス
 │  └─ Licenses/
 │     └─ LICENSE_Ver.2.0.md
 ├─ engines/

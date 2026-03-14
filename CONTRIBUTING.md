@@ -127,15 +127,11 @@ php -S localhost:8000
 | [docs/AdlairePlatform_Design.md](docs/AdlairePlatform_Design.md) | 基本設計・方針に関するドキュメント | 既存 | — | **🚫 禁止** |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | アーキテクチャに関するドキュメント | 既存 | — | **🚫 禁止** |
 | [docs/VERSIONING.md](docs/VERSIONING.md) | バージョニング規則に関するドキュメント | 既存 | — | **🚫 禁止** |
+| [docs/DETAILED_DESIGN.md](docs/DETAILED_DESIGN.md) | 詳細設計書（実装レベルの技術仕様） | 既存 | — | **🚫 禁止** |
+| [docs/SECURITY_POLICY.md](docs/SECURITY_POLICY.md) | セキュリティ方針 | 既存 | — | **🚫 禁止** |
 | [docs/features.md](docs/features.md) | 実装・未実装・関数リファレンス・APIリファレンスに関するドキュメント | 既存 | — | 可 |
-| [docs/HEADLESS_CMS.md](docs/HEADLESS_CMS.md) | Headless CMS / REST API 仕様 | 既存 | — | 可 |
-| [docs/HEADLESS_CMS_ROADMAP.md](docs/HEADLESS_CMS_ROADMAP.md) | Headless CMS ロードマップ | 既存 | — | 可 |
-| [docs/STATIC_GENERATOR.md](docs/STATIC_GENERATOR.md) | 静的サイト生成仕様 | 既存 | — | 可 |
-| [docs/DIAGNOSTIC_ENGINE.md](docs/DIAGNOSTIC_ENGINE.md) | DiagnosticEngine 仕様 | 既存 | — | 可 |
 | [docs/CONFIGURATION.md](docs/CONFIGURATION.md) | 設定リファレンスに関するドキュメント | 未作成 | — | 可 |
 | [docs/THEME_DEVELOPMENT.md](docs/THEME_DEVELOPMENT.md) | テーマ開発リファレンスに関するドキュメント | 未作成 | — | 可 |
-| [docs/nginx.conf.example](docs/nginx.conf.example) | Nginx 設定サンプル | 既存 | — | 可 |
-| [docs/Licenses/LICENSE_Ver.1.0.md](docs/Licenses/LICENSE_Ver.1.0.md) | Adlaire License Ver.1.0 | 既存 | — | 可 |
 | [docs/Licenses/LICENSE_Ver.2.0.md](docs/Licenses/LICENSE_Ver.2.0.md) | Adlaire License Ver.2.0 | 既存 | — | 可 |
 
 - 作成禁止ファイルを誤って作成した場合は強制削除を義務とする

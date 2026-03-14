@@ -10,14 +10,13 @@
 
 ### Adlaire Framework Ecosystem (AFE) ドキュメント
 
-AFEフレームワークに関する詳細ドキュメントは **[framework/docs/](./framework/docs/)** に集約されています。
+AFEフレームワークに関する詳細ドキュメントは **[Framework/docs/](./Framework/docs/)** に集約されています。
 
 **主要ドキュメント**:
-- [AFE_ENGINE_DRIVEN_MODEL.md](./framework/docs/AFE_ENGINE_DRIVEN_MODEL.md) - エンジン駆動モデル完全解説（12,000文字）
-- [ENGINE_FRAMEWORK_3FILES_PROPOSAL.md](./framework/docs/ENGINE_FRAMEWORK_3FILES_PROPOSAL.md) - 3ファイル構成提案書
-- [AFE_IMPROVEMENT_PLAN.md](./framework/docs/AFE_IMPROVEMENT_PLAN.md) - 改良計画書（Ver 2.1.0 - 2.3.0）
+- [AFE_ENGINE_DRIVEN_MODEL.md](./Framework/docs/AFE_ENGINE_DRIVEN_MODEL.md) - エンジン駆動モデル完全解説
+- [AFE_IMPROVEMENT_ROADMAP_V2.md](./Framework/docs/AFE_IMPROVEMENT_ROADMAP_V2.md) - APF改良ロードマップ（Ver 2.2.0 - 2.5.0）
 
-詳細は [framework/docs/README.md](./framework/docs/README.md) を参照してください。
+詳細は [Framework/docs/README.md](./Framework/docs/README.md) を参照してください。
 
 ---
 

@@ -27,9 +27,8 @@
 |---------|------|------|
 | `docs/AdlairePlatform_Design.md` | 基本設計・設計方針 | 🚫 禁止 |
 | `docs/ARCHITECTURE.md` | アーキテクチャ設計 | 🚫 禁止 |
-| `docs/SPECIFICATION.md` | 全機能仕様リファレンス | ✅ 可 |
+| `docs/DETAILED_DESIGN.md` | 詳細設計書（実装レベルの技術仕様） | 🚫 禁止 |
 | `docs/SECURITY_POLICY.md` | セキュリティ方針（機密） | 🚫 禁止 |
-| `docs/ENGINE_DESIGN.md` | エンジン技術設計書リファレンス | ✅ 可 |
 | `docs/VERSIONING.md` | バージョニング規則 | 🚫 禁止 |
 | `docs/DOC_RULEBOOK.md` | ドキュメント管理ルールブック | 🚫 禁止 |
 
@@ -68,10 +67,11 @@
 
 ---
 
-## 📄 SPECIFICATION.md
+## 📄 SPECIFICATION.md（削除済み）
 
 | バージョン | 更新日 | 変更内容 | 変更者 |
 |-----------|--------|----------|--------|
+| — | 2026-03-14 | **削除** — features.md および DETAILED_DESIGN.md と内容が重複のため | Claude |
 | Ver.1.0-1 | 2026-03-10 | 新規作成。AdlairePlatform_Design.md のセクション5-13（機能仕様）を統合 | fqwink |
 
 ---
@@ -84,10 +84,11 @@
 
 ---
 
-## 📄 ENGINE_DESIGN.md
+## 📄 ENGINE_DESIGN.md（削除済み）
 
 | バージョン | 更新日 | 変更内容 | 変更者 |
 |-----------|--------|----------|--------|
+| — | 2026-03-14 | **削除** — SOURCE_CODE_ANALYSIS_JP.md に内容が統合済みのため | Claude |
 | Ver.1.0-3 | 2026-03-12 | AdminEngine, TemplateEngine, ThemeEngine, UpdateEngine, WebhookEngine, CacheEngine, ImageOptimizer, AppContext, Logger, MailerEngine の設計書を追加（ソースコード解析に基づく）、統合エンジン数を7→17に拡大 | fqwink |
 | Ver.1.0-2 | 2026-03-10 | ENGINE_DESIGN_INTEGRATED.md からリネーム、タイトルを「エンジン技術設計書リファレンス」に変更、相互参照リンク追加 | fqwink |
 | Ver.1.0-1 | 2026-03-08 | ENGINE_DESIGN_INTEGRATED.md として初版作成、StaticEngine・ApiEngine・DiagnosticEngine・Git連携エンジン群の設計書を統合 | fqwink |

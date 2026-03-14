@@ -10,11 +10,11 @@
 > **所有者**: Adlaire Group  
 > **バージョニング規則**: [AFE/VERSIONING.md](https://github.com/fqwink/AdlaireGroup-Documents-Repository/blob/main/AFE/VERSIONING.md)
 
-> **関連ドキュメント**:  
-> - 設計方針: [AdlairePlatform_Design.md](AdlairePlatform_Design.md)  
-> - アーキテクチャ: [ARCHITECTURE.md](ARCHITECTURE.md)  
-> - 機能仕様: [SPECIFICATION.md](SPECIFICATION.md)  
-> - エンジン技術設計: [ENGINE_DESIGN.md](ENGINE_DESIGN.md)
+> **関連ドキュメント**:
+> - 設計方針: [AdlairePlatform_Design.md](AdlairePlatform_Design.md)
+> - アーキテクチャ: [ARCHITECTURE.md](ARCHITECTURE.md)
+> - 詳細設計: [DETAILED_DESIGN.md](DETAILED_DESIGN.md)
+> - 機能一覧: [features.md](features.md)
 
 ---
 
