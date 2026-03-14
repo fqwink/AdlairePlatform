@@ -44,7 +44,10 @@
       "Bash(cmd.exe /c \"where php.exe\")",
       "Bash(docker.exe run --rm -v \"C:\\\\Users\\\\user\\\\Desktop\\\\Locale_Rpository_DATA\\\\AdlairePlatform\\\\.claude\\\\worktrees\\\\jolly-matsumoto:/var/www/html\" -w /var/www/html php:8.2-cli php tests/run.php)",
       "Bash(cmd.exe /c \"docker run --rm -v C:\\\\Users\\\\user\\\\Desktop\\\\Locale_Rpository_DATA\\\\AdlairePlatform\\\\.claude\\\\worktrees\\\\jolly-matsumoto:/var/www/html -w /var/www/html php:8.2-cli php tests/run.php\")",
-      "Bash(powershell.exe -Command \"docker run --rm -v ''C:\\\\Users\\\\user\\\\Desktop\\\\Locale_Rpository_DATA\\\\AdlairePlatform\\\\.claude\\\\worktrees\\\\jolly-matsumoto:/var/www/html'' -w /var/www/html php:8.2-cli php tests/run.php\")"
+      "Bash(powershell.exe -Command \"docker run --rm -v ''C:\\\\Users\\\\user\\\\Desktop\\\\Locale_Rpository_DATA\\\\AdlairePlatform\\\\.claude\\\\worktrees\\\\jolly-matsumoto:/var/www/html'' -w /var/www/html php:8.2-cli php tests/run.php\")",
+      "Bash(wc -l engines/*.php)",
+      "Bash(ls -1 engines/*.php)",
+      "Bash(ls -1 tests/*Test.php)"
     ]
   }
 }

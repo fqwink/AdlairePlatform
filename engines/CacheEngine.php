@@ -29,8 +29,8 @@ class CacheEngine {
 		$key = self::cacheKey($endpoint, $params);
 		$path = self::cachePath($key);
 
-		/* M14 fix: TOCTOU 回避 — file_exists + file_get_contents を一括で */
-		$content = @file_get_contents($path);
+		/* M14 fix: TOCTOU 回避 — FileSystem::read で一括読込 */
+		$content = FileSystem::read($path);
 		if ($content === false) return false;
 
 		$ttl = self::TTL[$endpoint] ?? 60;
@@ -81,11 +81,10 @@ class CacheEngine {
 	public static function store(string $endpoint, array $params, string $content): void {
 		$key = self::cacheKey($endpoint, $params);
 		$path = self::cachePath($key);
-		$dir = dirname($path);
-		if (!is_dir($dir)) mkdir($dir, 0755, true);
-		$result = file_put_contents($path, $content, LOCK_EX);
-		if ($result === false && class_exists('DiagnosticEngine')) {
-			DiagnosticEngine::log('engine', 'CacheEngine 書き込み失敗', ['endpoint' => $endpoint]);
+		if (!FileSystem::write($path, $content)) {
+			if (class_exists('DiagnosticEngine')) {
+				DiagnosticEngine::log('engine', 'CacheEngine 書き込み失敗', ['endpoint' => $endpoint]);
+			}
 		}
 	}
 

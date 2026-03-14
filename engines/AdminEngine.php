@@ -783,7 +783,7 @@ class AdminEngine {
 		if (!file_exists($tplPath)) {
 			return '<h1>Login template not found</h1>';
 		}
-		$tpl = file_get_contents($tplPath);
+		$tpl = FileSystem::read($tplPath);
 		if ($tpl === false) {
 			return '<h1>Login template read error</h1>';
 		}
@@ -850,7 +850,7 @@ class AdminEngine {
 		if (!file_exists($tplPath)) {
 			return '<h1>Dashboard template not found</h1>';
 		}
-		$tpl = file_get_contents($tplPath);
+		$tpl = FileSystem::read($tplPath);
 		if ($tpl === false) {
 			return '<h1>Dashboard template read error</h1>';
 		}

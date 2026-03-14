@@ -263,7 +263,8 @@ class GitEngine {
 			/* SHA 比較でスキップ判定 */
 			$remoteSha = $item['sha'] ?? '';
 			if (file_exists($localPath)) {
-				$localContent = file_get_contents($localPath);
+				$localContent = FileSystem::read($localPath);
+				if ($localContent === false) $localContent = '';
 				$localSha = sha1('blob ' . strlen($localContent) . "\0" . $localContent);
 				if ($localSha === $remoteSha) {
 					$skipped++;
@@ -271,7 +272,7 @@ class GitEngine {
 				}
 			}
 
-			if (file_put_contents($localPath, $decoded, LOCK_EX) === false) {
+			if (!FileSystem::write($localPath, $decoded)) {
 				$errors[] = "書き込み失敗: {$path}";
 				if (class_exists('DiagnosticEngine')) DiagnosticEngine::logEnvironmentIssue('Git Pull 書き込み失敗', ['path' => basename($localPath)]);
 				continue;
@@ -353,10 +354,9 @@ class GitEngine {
 		$errors = [];
 
 		foreach ($files as $relativePath => $localPath) {
-			$content = file_get_contents($localPath);
+			$content = FileSystem::read($localPath);
 			if ($content === false) {
 				$errors[] = "読み込み失敗: {$localPath}";
-				if (class_exists('DiagnosticEngine')) DiagnosticEngine::log('engine', 'Git Push ファイル読み込み失敗', ['path' => basename($localPath)]);
 				continue;
 			}
 
