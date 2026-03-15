@@ -6,7 +6,7 @@
 
 ---
 
-## AdlairePlatform Ver.2.0（2026-03-15）— PHP 8.3+ 移行開始
+## AdlairePlatform Ver.1.8-38（2026-03-15）— PHP 8.3+ 移行開始
 
 PHP 8.3+ 完全対応への移行開発を開始。Ver.2.2 までにすべてのソースコードを PHP 8.3 以降完全対応とする。
 PHP 8.2 以前は非対応。段階的に書き換えを実施。
@@ -29,14 +29,35 @@ PHP 8.2 以前は非対応。段階的に書き換えを実施。
 ### ドキュメント再整備
 
 - 全ドキュメントの PHP バージョン要件を 8.2+ → 8.3+ に更新
-- Ver.2.0 移行に伴うアーキテクチャ変更をドキュメントに反映
+- Ver.1.8 移行に伴うアーキテクチャ変更をドキュメントに反映
 - ドキュメントテーブルの整理・リンク修正
+
+### engines/ → Framework 統合
+
+- **AP.Bridge.php** — `engines/Bridge.php` を `Framework/AP/AP.Bridge.php` に移行
+- **AdminEngine 資産** — `engines/AdminEngine/` を `Framework/ACE/AdminEngine/` に移行（dashboard.html, dashboard.css, login.html）
+- **JsEngine 資産** — `engines/JsEngine/`（17ファイル）を `Framework/AP/JsEngine/` に移行
+- **PHP エンジンシム廃止** — `engines/` 内の 21 PHP ファイル（静的ファサード）を削除。Framework モジュールが直接使用される
+- **engines/ ディレクトリ廃止** — 全 41 ファイルを Framework に統合後、ディレクトリごと削除
+- **フレームワークルールブック** — `docs/FRAMEWORK_RULEBOOK.md` を新設（削除禁止事項・エンジン駆動モデル・改善ロードマップを統合）
+
+### バグ修正
+
+- **BUG#1 (HIGH)** — Logger クラスに静的ファサードパターン（`__callStatic` / `init()` / `getInstance()`）を追加。全プロジェクトの `Logger::info()` 等の静的呼び出しに対応
+- **BUG#2 (MEDIUM)** — `index.php` の読み込み順序を修正。`AP.Bridge.php` を `bootstrap.php` より先に読み込み、`settings_dir()` が RateLimiter 設定時に利用可能に
+- **BUG#3 (CRITICAL)** — `dashboard.html` / `login.html` の `engines/` パスを `Framework/` に更新
 
 ### 破壊的変更
 
 - **PHP 8.2 以前の非サポート** — PHP 8.3 未満では動作保証なし
 - **controllers/ ディレクトリ廃止** — PSR-4 オートロードから名前空間マッピングに変更（名前空間 `AP\Controllers\` は変更なし）
 - **tests/ ディレクトリ廃止**
+- **engines/ ディレクトリ廃止** — 全資産を Framework に統合
+
+### バージョニング
+
+- AP_VERSION: `'1.8.38'`（コード内ドット区切り）
+- ドキュメント表記: Ver.1.8-38（VERSIONING.md 準拠）
 
 ---
 

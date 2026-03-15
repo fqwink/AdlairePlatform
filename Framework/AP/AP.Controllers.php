@@ -5,7 +5,7 @@
  * 全 Controller クラスを単一ファイルに統合。
  * PHP 8.3+ 対応。
  *
- * @since Ver.2.0
+ * @since Ver.1.8
  * @license Adlaire License Ver.2.0
  */
 namespace AP\Controllers;

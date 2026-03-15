@@ -19,7 +19,7 @@ use AIS\Core\EventDispatcher;
  * Application - アプリケーションファサード
  *
  * DI コンテナ・フック・イベントへのグローバルアクセスを提供する。
- * engines/ から Framework サービスを利用する際の統一エントリポイント。
+ * Framework サービスを利用する際の統一エントリポイント。
  */
 class Application {
 

@@ -3,7 +3,6 @@
  * AdlairePlatform - Framework オートローダー
  *
  * Framework/ モジュールの名前空間を自動解決する。
- * engines/ は従来通り require で読み込む。
  *
  * @since Ver.1.5.0
  * @license Adlaire License Ver.2.0

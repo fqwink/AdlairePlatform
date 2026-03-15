@@ -1041,7 +1041,7 @@ class StaticService {
         }
 
         /* 公開 API クライアント JS */
-        $apiClient = 'engines/JsEngine/ap-api-client.js';
+        $apiClient = 'Framework/AP/JsEngine/ap-api-client.js';
         if (file_exists($apiClient)) {
             copy($apiClient, $assetsDir . '/ap-api-client.js');
         }
@@ -1050,7 +1050,7 @@ class StaticService {
         self::syncUploads();
 
         /* 検索 JS */
-        $searchJs = 'engines/JsEngine/ap-search.js';
+        $searchJs = 'Framework/AP/JsEngine/ap-search.js';
         if (file_exists($searchJs)) {
             copy($searchJs, $assetsDir . '/ap-search.js');
         }
@@ -1681,7 +1681,7 @@ class StaticService {
         );
         self::$changedFiles[] = self::OUTPUT_DIR . '/search-index.json';
 
-        $searchJs = 'engines/JsEngine/ap-search.js';
+        $searchJs = 'Framework/AP/JsEngine/ap-search.js';
         if (file_exists($searchJs)) {
             $dst = self::OUTPUT_DIR . '/assets/ap-search.js';
             \APF\Utilities\FileSystem::ensureDir(dirname($dst));
@@ -1779,7 +1779,7 @@ class StaticService {
             $real = realpath($hookFile);
             if ($real === false) continue;
             $projectRoot = realpath('.') ?: '';
-            if (!str_starts_with($real, $projectRoot . '/engines/') && !str_starts_with($real, $projectRoot . '/data/')) {
+            if (!str_starts_with($real, $projectRoot . '/Framework/') && !str_starts_with($real, $projectRoot . '/data/')) {
                 self::$warnings[] = "フック拒否（許可外パス）: {$hookFile}";
                 continue;
             }

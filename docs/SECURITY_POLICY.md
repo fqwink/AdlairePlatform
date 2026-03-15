@@ -4,7 +4,7 @@
 <!-- 機密レベル: 社内限定 -->
 
 > **ドキュメントバージョン**: Ver.1.0-1  
-> **ステータス**: 🔧 開発中（Ver.2.0）  
+> **ステータス**: 🔧 開発中（Ver.1.8）
 > **作成日**: 2026-03-10  
 > **最終更新**: 2026-03-10（新規作成）  
 > **所有者**: Adlaire Group  
@@ -207,7 +207,7 @@ add_header Referrer-Policy "same-origin" always;
 | `data/` | 外部アクセス完全遮断 |
 | `backup/` | 外部アクセス完全遮断 |
 | `files/` | 外部アクセス完全遮断（レガシー互換） |
-| `engines/*.php` | 直接アクセス禁止（`RedirectMatch 403`） |
+| `Framework/*.php` | 直接アクセス禁止（`RedirectMatch 403`） |
 | `uploads/` | PHP 実行禁止（`Options -ExecCGI`） |
 
 ### 7.2 Apache 設定（.htaccess）
@@ -220,8 +220,8 @@ add_header Referrer-Policy "same-origin" always;
     </Directory>
 </IfModule>
 
-# engines/ 直接アクセス禁止
-RedirectMatch 403 ^.*/engines/.*\.php$
+# Framework/ 直接アクセス禁止
+RedirectMatch 403 ^.*/Framework/.*\.php$
 
 # uploads/ 内 PHP 実行禁止
 <Directory "/path/to/uploads">
@@ -246,8 +246,8 @@ location ~ ^/backup/ {
     return 403;
 }
 
-# engines/ 直接アクセス禁止
-location ~ /engines/.*\.php$ {
+# Framework/ 直接アクセス禁止
+location ~ /Framework/.*\.php$ {
     deny all;
     return 403;
 }

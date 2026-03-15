@@ -342,40 +342,70 @@ class Cache {
 // ============================================================================
 
 class Logger {
+    private static ?self $instance = null;
+
     private string $logFile;
     private string $level = 'info';
     private array $levels = ['debug', 'info', 'warning', 'error', 'critical'];
 
     public function __construct(string $logFile) {
         $this->logFile = $logFile;
-        
+
         $dir = dirname($logFile);
         if (!is_dir($dir)) {
             mkdir($dir, 0755, true);
         }
     }
 
+    /**
+     * 静的ファサード: デフォルトロガーを初期化する
+     */
+    public static function init(string $logFile = ''): void {
+        if ($logFile === '') {
+            $logFile = (defined('AP_DATA_DIR') ? AP_DATA_DIR : 'data') . '/logs/app.log';
+        }
+        self::$instance = new self($logFile);
+    }
+
+    private static function getInstance(): self {
+        if (self::$instance === null) {
+            self::init();
+        }
+        return self::$instance;
+    }
+
+    /**
+     * 静的ファサードメソッド群
+     * 全プロジェクトから \APF\Utilities\Logger::info() 等で呼び出し可能
+     */
+    public static function __callStatic(string $name, array $arguments): void {
+        $instance = self::getInstance();
+        if (method_exists($instance, $name) && in_array($name, ['debug', 'info', 'warning', 'error', 'critical'])) {
+            $instance->$name(...$arguments);
+        }
+    }
+
     public function debug(string $message, array $context = []): void {
-        $this->log('debug', $message, $context);
+        $this->writeLog('debug', $message, $context);
     }
 
     public function info(string $message, array $context = []): void {
-        $this->log('info', $message, $context);
+        $this->writeLog('info', $message, $context);
     }
 
     public function warning(string $message, array $context = []): void {
-        $this->log('warning', $message, $context);
+        $this->writeLog('warning', $message, $context);
     }
 
     public function error(string $message, array $context = []): void {
-        $this->log('error', $message, $context);
+        $this->writeLog('error', $message, $context);
     }
 
     public function critical(string $message, array $context = []): void {
-        $this->log('critical', $message, $context);
+        $this->writeLog('critical', $message, $context);
     }
 
-    private function log(string $level, string $message, array $context = []): void {
+    private function writeLog(string $level, string $message, array $context = []): void {
         if (!$this->shouldLog($level)) {
             return;
         }
@@ -383,14 +413,14 @@ class Logger {
         $timestamp = date('Y-m-d H:i:s');
         $contextString = empty($context) ? '' : ' ' . json_encode($context);
         $logMessage = "[{$timestamp}] [{$level}] {$message}{$contextString}" . PHP_EOL;
-        
+
         file_put_contents($this->logFile, $logMessage, FILE_APPEND);
     }
 
     private function shouldLog(string $level): bool {
         $currentIndex = array_search($this->level, $this->levels);
         $requestedIndex = array_search($level, $this->levels);
-        
+
         return $requestedIndex >= $currentIndex;
     }
 
