@@ -11,8 +11,7 @@
  * @license Adlaire License Ver.2.0
  */
 
-use APF\Core\Container;
-use APF\Core\HookManager;
+use APF\Core\{Container, HookManager, ServiceProvider};
 use AIS\Core\EventDispatcher;
 
 /**
@@ -27,6 +26,8 @@ class Application {
     private static ?HookManager $hooks = null;
     private static ?EventDispatcher $events = null;
     private static bool $booted = false;
+    /** @var ServiceProvider[] @since Ver.1.9 */
+    private static array $providers = [];
 
     /**
      * アプリケーションを初期化する
@@ -95,6 +96,25 @@ class Application {
     }
 
     /**
+     * ServiceProvider を登録する。
+     * @since Ver.1.9
+     */
+    public static function registerProvider(ServiceProvider $provider): void {
+        self::$providers[] = $provider;
+        $provider->register();
+    }
+
+    /**
+     * 全プロバイダの boot() を実行する。
+     * @since Ver.1.9
+     */
+    public static function bootProviders(): void {
+        foreach (self::$providers as $provider) {
+            $provider->boot();
+        }
+    }
+
+    /**
      * テスト用: アプリケーション状態をリセットする
      */
     public static function reset(): void {
@@ -102,6 +122,7 @@ class Application {
         self::$hooks     = null;
         self::$events    = null;
         self::$booted    = false;
+        self::$providers = [];
     }
 }
 

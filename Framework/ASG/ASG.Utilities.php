@@ -613,7 +613,7 @@ class ImageService {
         $requiredMemory = $origWidth * $origHeight * 4 * 2;
         $memoryLimit    = self::getMemoryLimitBytes();
         if ($memoryLimit > 0 && (memory_get_usage() + $requiredMemory) > $memoryLimit) {
-            error_log("ImageService: メモリ不足のためスキップ: {$path} ({$origWidth}x{$origHeight})");
+            \APF\Utilities\Logger::warning('ImageService: メモリ不足のためスキップ', ['path' => $path, 'dimensions' => "{$origWidth}x{$origHeight}"]);
             \AIS\System\DiagnosticsManager::log('engine', 'ImageService メモリ不足スキップ', [
                 'dimensions' => "{$origWidth}x{$origHeight}",
                 'required_mb' => round($requiredMemory / 1048576, 1),

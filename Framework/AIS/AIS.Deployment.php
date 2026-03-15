@@ -2214,7 +2214,7 @@ class UpdateService {
             if ($status >= 300 && $status < 400 && $location !== '') {
                 if (!preg_match('#^https://(api\.github\.com|github\.com|codeload\.github\.com'
                     . '|objects\.githubusercontent\.com)/#', $location)) {
-                    error_log('apply_update: redirect to disallowed domain: ' . $location);
+                    \APF\Utilities\Logger::error('apply_update: redirect to disallowed domain', ['location' => $location]);
                     self::jsonError('リダイレクト先が許可ドメインではありません。');
                 }
                 $current_url = $location;
@@ -2225,7 +2225,7 @@ class UpdateService {
         }
 
         if ($zip_data === false) {
-            error_log('apply_update: download failed: ' . $zip_url);
+            \APF\Utilities\Logger::error('apply_update: download failed', ['url' => $zip_url]);
             \AIS\System\DiagnosticsManager::log('engine', 'アップデートダウンロード失敗', ['url' => $zip_url]);
             self::jsonError('ダウンロードに失敗しました。', 502);
         }
@@ -2241,7 +2241,7 @@ class UpdateService {
         }
         if ($content_type !== '' && !str_contains($content_type, 'zip')
             && !str_contains($content_type, 'octet-stream')) {
-            error_log('apply_update: unexpected content-type: ' . $content_type);
+            \APF\Utilities\Logger::error('apply_update: unexpected content-type', ['content_type' => $content_type]);
             self::jsonError('ダウンロードしたファイルが ZIP ではありません。', 502);
         }
         if (strlen($zip_data) > 100 * 1024 * 1024) {

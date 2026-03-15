@@ -1,6 +1,6 @@
 # Adlaire Framework
 
-**Version 1.8** | 将来的に独立Public化予定
+**Version 1.9** | 将来的に独立Public化予定
 
 ## 概要
 

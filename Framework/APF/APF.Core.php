@@ -100,6 +100,25 @@ class Container {
         }
     }
 
+    /**
+     * 登録済みバインディング一覧を返す（デバッグ用）。
+     * @since Ver.1.9
+     */
+    public function getBindings(): array {
+        return array_keys($this->bindings + $this->lazy + $this->instances);
+    }
+
+    /**
+     * 全バインディングをリセットする（テスト用）。
+     * @since Ver.1.9
+     */
+    public function flush(): void {
+        $this->bindings = [];
+        $this->instances = [];
+        $this->aliases = [];
+        $this->lazy = [];
+    }
+
     private function getAlias(string $abstract): string {
         return $this->aliases[$abstract] ?? $abstract;
     }
@@ -168,12 +187,17 @@ class Container {
 // Router - ルーティング
 // ============================================================================
 
+/**
+ * @updated Ver.1.9 ルートキャッシュ機構追加、名前付きルート対応
+ */
 class Router {
     private array $routes = [];
     private array $middlewares = [];
     private array $groupStack = [];
     private array $queryMappings = [];
     private array $postMappings = [];
+    /** @var array<string, int> 名前付きルート → routes インデックス @since Ver.1.9 */
+    private array $namedRoutes = [];
     private Container $container;
 
     public function __construct(Container $container) {
@@ -243,6 +267,42 @@ class Router {
         return $this;
     }
 
+    /**
+     * ルートに名前を付ける。直前に登録したルートが対象。
+     * @since Ver.1.9
+     */
+    public function name(string $name): self {
+        if (!empty($this->routes)) {
+            $index = array_key_last($this->routes);
+            $this->routes[$index]['name'] = $name;
+            $this->namedRoutes[$name] = $index;
+        }
+        return $this;
+    }
+
+    /**
+     * 名前付きルートの URI を生成する。
+     * @since Ver.1.9
+     */
+    public function route(string $name, array $params = []): ?string {
+        if (!isset($this->namedRoutes[$name])) {
+            return null;
+        }
+        $uri = $this->routes[$this->namedRoutes[$name]]['uri'];
+        foreach ($params as $key => $value) {
+            $uri = str_replace('{' . $key . '}', $value, $uri);
+        }
+        return $uri;
+    }
+
+    /**
+     * 登録済みルート数を返す。
+     * @since Ver.1.9
+     */
+    public function count(): int {
+        return count($this->routes);
+    }
+
     private function addRoute(string $method, string $uri, $action): self {
         $uri = $this->applyGroupPrefix($uri);
         $middleware = $this->getGroupMiddleware();
@@ -283,6 +343,9 @@ class Router {
         return '#^' . $pattern . '$#';
     }
 
+    /**
+     * @updated Ver.1.9 ErrorBoundary でルートディスパッチをラップ
+     */
     public function dispatch(Request $request): Response {
         $method = $request->method();
         $uri = $this->resolveUri($request);
@@ -296,7 +359,7 @@ class Router {
                 $params = array_filter($matches, 'is_string', ARRAY_FILTER_USE_KEY);
                 $request->setParams($params);
 
-                return $this->runRoute($route, $request);
+                return ErrorBoundary::wrapResponse(fn() => $this->runRoute($route, $request));
             }
         }
 
@@ -351,26 +414,21 @@ class Router {
         return $pipeline($request);
     }
 
+    /**
+     * @updated Ver.1.9 match 式で分岐を簡潔化
+     */
     private function callAction($action, Request $request): Response {
-        if ($action instanceof \Closure) {
-            $result = $action($request);
-        } elseif (is_array($action)) {
-            [$controller, $method] = $action;
-            $controller = $this->container->make($controller);
-            $result = $controller->$method($request);
-        } elseif (is_string($action) && strpos($action, '@') !== false) {
-            [$controller, $method] = explode('@', $action);
-            $controller = $this->container->make($controller);
-            $result = $controller->$method($request);
-        } else {
-            throw new \Exception('Invalid route action');
-        }
+        $result = match (true) {
+            $action instanceof \Closure => $action($request),
+            is_array($action) => $this->container->make($action[0])->{$action[1]}($request),
+            is_string($action) && str_contains($action, '@') => (function () use ($action, $request) {
+                [$ctrl, $method] = explode('@', $action);
+                return $this->container->make($ctrl)->$method($request);
+            })(),
+            default => throw new RoutingException('Invalid route action'),
+        };
 
-        if ($result instanceof Response) {
-            return $result;
-        }
-
-        return new Response($result);
+        return $result instanceof Response ? $result : new Response($result);
     }
 }
 
@@ -378,15 +436,18 @@ class Router {
 // Request - HTTPリクエスト
 // ============================================================================
 
+/**
+ * @updated Ver.1.9 readonly プロパティ適用
+ */
 class Request {
-    private array $query;
-    private array $post;
-    private array $files;
-    private array $cookies;
-    private array $server;
-    private array $headers;
+    private readonly array $query;
+    private readonly array $post;
+    private readonly array $files;
+    private readonly array $cookies;
+    private readonly array $server;
+    private readonly array $headers;
     private array $params = [];
-    private ?string $body = null;
+    private readonly ?string $body;
 
     public function __construct() {
         $this->query = $_GET;
@@ -395,7 +456,7 @@ class Request {
         $this->cookies = $_COOKIE;
         $this->server = $_SERVER;
         $this->headers = $this->parseHeaders();
-        $this->body = file_get_contents('php://input');
+        $this->body = file_get_contents('php://input') ?: null;
     }
 
     private function parseHeaders(): array {
@@ -654,6 +715,38 @@ class ValidationException extends FrameworkException {
 class MiddlewareException extends FrameworkException {}
 
 // ============================================================================
+// ServiceProvider - サービスプロバイダ基底クラス
+// ============================================================================
+
+/**
+ * サービスプロバイダ基底クラス。
+ * DI コンテナへのサービス登録をモジュール化する。
+ * 各モジュールがサービス登録ロジックをカプセル化し、
+ * bootstrap.php の肥大化を防ぐ。
+ * @since Ver.1.9
+ */
+abstract class ServiceProvider {
+
+    protected readonly Container $container;
+
+    public function __construct(Container $container) {
+        $this->container = $container;
+    }
+
+    /**
+     * サービスをコンテナに登録する。
+     * Application::boot() 時に一度だけ呼ばれる。
+     */
+    abstract public function register(): void;
+
+    /**
+     * サービス起動処理（任意）。
+     * 全プロバイダの register() 完了後に呼ばれる。
+     */
+    public function boot(): void {}
+}
+
+// ============================================================================
 // HookManager - フック機構 (D2)
 // ============================================================================
 
@@ -847,17 +940,73 @@ class DebugCollector {
 // ErrorBoundary - エラー境界 (A1)
 // ============================================================================
 
+/**
+ * @updated Ver.1.9 グローバルエラーハンドラ登録、構造化ログ連携
+ */
 class ErrorBoundary {
     private static array $handlers = [];
+    private static bool $globalRegistered = false;
 
     public static function register(string $type, callable $handler): void {
         self::$handlers[$type] = $handler;
+    }
+
+    /**
+     * グローバル例外ハンドラとして登録する。
+     * 未キャッチ例外・致命的エラーを構造化ログに出力し、
+     * 適切な HTTP レスポンスを返す。
+     * @since Ver.1.9
+     */
+    public static function registerGlobal(): void {
+        if (self::$globalRegistered) return;
+
+        set_exception_handler(function (\Throwable $e): void {
+            self::handleUncaught($e);
+        });
+
+        register_shutdown_function(function (): void {
+            $error = error_get_last();
+            if ($error !== null && in_array($error['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR], true)) {
+                self::handleUncaught(new \ErrorException(
+                    $error['message'], 0, $error['type'], $error['file'], $error['line']
+                ));
+            }
+        });
+
+        self::$globalRegistered = true;
+    }
+
+    /**
+     * 未キャッチ例外の統一ハンドリング。
+     * @since Ver.1.9
+     */
+    private static function handleUncaught(\Throwable $e): void {
+        /* 構造化ログへ出力 */
+        \APF\Utilities\Logger::critical('Uncaught exception', [
+            'class'   => $e::class,
+            'message' => $e->getMessage(),
+            'file'    => $e->getFile(),
+            'line'    => $e->getLine(),
+        ]);
+
+        if (PHP_SAPI !== 'cli' && !headers_sent()) {
+            http_response_code(500);
+            header('Content-Type: application/json; charset=UTF-8');
+            echo json_encode(['error' => 'Internal Server Error'], JSON_UNESCAPED_UNICODE);
+        }
     }
 
     public static function wrap(callable $callback, string $errorType = 'default'): mixed {
         try {
             return $callback();
         } catch (\Throwable $e) {
+            /* Ver.1.9: エラーを構造化ログに記録 */
+            \APF\Utilities\Logger::error('ErrorBoundary caught exception', [
+                'type'    => $errorType,
+                'class'   => $e::class,
+                'message' => $e->getMessage(),
+            ]);
+
             if (isset(self::$handlers[$errorType])) {
                 return (self::$handlers[$errorType])($e);
             }
@@ -872,13 +1021,23 @@ class ErrorBoundary {
         try {
             return $callback();
         } catch (ValidationException $e) {
-            return Response::json(['errors' => $e->getErrors()], 422);
+            return Response::json(['ok' => false, 'error' => 'Validation failed', 'errors' => $e->getErrors()], 422);
         } catch (NotFoundException $e) {
-            return Response::json(['error' => $e->getMessage()], 404);
+            return Response::json(['ok' => false, 'error' => $e->getMessage()], 404);
         } catch (FrameworkException $e) {
-            return Response::json(['error' => $e->getMessage(), 'context' => $e->getContext()], 500);
+            \APF\Utilities\Logger::error('FrameworkException', [
+                'message' => $e->getMessage(),
+                'context' => $e->getContext(),
+            ]);
+            return Response::json(['ok' => false, 'error' => $e->getMessage()], 500);
         } catch (\Throwable $e) {
-            return Response::json(['error' => 'Internal Server Error'], 500);
+            \APF\Utilities\Logger::critical('Unhandled exception in wrapResponse', [
+                'class'   => $e::class,
+                'message' => $e->getMessage(),
+                'file'    => $e->getFile(),
+                'line'    => $e->getLine(),
+            ]);
+            return Response::json(['ok' => false, 'error' => 'Internal Server Error'], 500);
         }
     }
 }
