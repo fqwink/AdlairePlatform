@@ -14,20 +14,20 @@ class AuthController extends BaseController {
 
 	/** GET /login — ログインページ表示 */
 	public function showLogin(Request $request): Response {
-		if (\AdminEngine::isLoggedIn()) {
+		if (\ACE\Admin\AdminManager::isLoggedIn()) {
 			return Response::redirect('./');
 		}
-		$html = \AdminEngine::renderLogin('');
+		$html = \ACE\Admin\AdminManager::renderLogin('');
 		return Response::html($html);
 	}
 
 	/** POST /login — ログイン認証 */
 	public function authenticate(Request $request): Response {
-		if (\AdminEngine::isLoggedIn()) {
+		if (\ACE\Admin\AdminManager::isLoggedIn()) {
 			return Response::redirect('./');
 		}
 
-		\AdminEngine::verifyCsrf();
+		\ACE\Admin\AdminManager::verifyCsrf();
 
 		$password = $request->post('password', '');
 		$username = $request->post('username', '');
@@ -36,13 +36,13 @@ class AuthController extends BaseController {
 		/* レート制限チェック */
 		if (!$this->checkLoginRate($ip)) {
 			$remaining = $this->getLockoutRemaining($ip);
-			$msg = \I18n::t('auth.too_many_attempts', ['remaining' => $remaining]);
-			return Response::html(\AdminEngine::renderLogin($msg));
+			$msg = \AIS\Core\I18n::t('auth.too_many_attempts', ['remaining' => $remaining]);
+			return Response::html(\ACE\Admin\AdminManager::renderLogin($msg));
 		}
 
 		/* マルチユーザーログイン試行 */
 		if ($username !== '') {
-			$users = json_read(\AdminEngine::USERS_FILE, settings_dir());
+			$users = json_read(\ACE\Admin\AdminManager::USERS_FILE, settings_dir());
 			if (!empty($users) && isset($users[$username])) {
 				$user = $users[$username];
 				if (($user['active'] ?? true) && password_verify($password, $user['password_hash'] ?? '')) {
@@ -52,8 +52,8 @@ class AuthController extends BaseController {
 					$_SESSION['l'] = true;
 					$_SESSION['ap_username'] = $username;
 					$_SESSION['ap_role'] = $user['role'] ?? 'editor';
-					\AdminEngine::logActivity('ログイン: ' . $username . ' (' . ($user['role'] ?? 'editor') . ')');
-					if (class_exists('DiagnosticEngine')) \DiagnosticEngine::log('security', 'ログイン成功', ['username' => $username]);
+					\ACE\Admin\AdminManager::logActivity('ログイン: ' . $username . ' (' . ($user['role'] ?? 'editor') . ')');
+					\AIS\System\DiagnosticsManager::log('security', 'ログイン成功', ['username' => $username]);
 					return Response::redirect('./');
 				}
 			}
@@ -64,12 +64,12 @@ class AuthController extends BaseController {
 		$passwordHash = $_auth['password_hash'] ?? '';
 		if ($passwordHash === '' || !password_verify($password, $passwordHash)) {
 			$this->recordLoginFailure($ip);
-			if (class_exists('DiagnosticEngine')) \DiagnosticEngine::log('security', 'ログイン失敗');
+			\AIS\System\DiagnosticsManager::log('security', 'ログイン失敗');
 			$attemptsLeft = $this->getRemainingAttempts($ip);
 			$msg = $attemptsLeft > 0
-				? \I18n::t('auth.wrong_password', ['attempts' => $attemptsLeft])
-				: \I18n::t('auth.wrong_password_final');
-			return Response::html(\AdminEngine::renderLogin($msg));
+				? \AIS\Core\I18n::t('auth.wrong_password', ['attempts' => $attemptsLeft])
+				: \AIS\Core\I18n::t('auth.wrong_password_final');
+			return Response::html(\ACE\Admin\AdminManager::renderLogin($msg));
 		}
 
 		$this->clearLoginRate($ip);
@@ -77,27 +77,27 @@ class AuthController extends BaseController {
 		/* Argon2id リハッシュ */
 		$algo = defined('PASSWORD_ARGON2ID') ? PASSWORD_ARGON2ID : PASSWORD_BCRYPT;
 		if (password_needs_rehash($passwordHash, $algo)) {
-			\AdminEngine::savePassword($password);
-			\Logger::info('パスワードハッシュを Argon2id へアップグレードしました');
+			\ACE\Admin\AdminManager::savePassword($password);
+			\APF\Utilities\Logger::info('パスワードハッシュを Argon2id へアップグレードしました');
 		}
 
 		/* パスワード変更リクエスト */
 		if (!empty($request->post('new'))) {
-			\AdminEngine::savePassword($request->post('new'));
-			return Response::html(\AdminEngine::renderLogin(\I18n::t('auth.password_changed')));
+			\ACE\Admin\AdminManager::savePassword($request->post('new'));
+			return Response::html(\ACE\Admin\AdminManager::renderLogin(\AIS\Core\I18n::t('auth.password_changed')));
 		}
 
 		session_regenerate_id(true);
 		$_SESSION['l'] = true;
 		$_SESSION['ap_username'] = 'admin';
 		$_SESSION['ap_role'] = 'admin';
-		if (class_exists('DiagnosticEngine')) \DiagnosticEngine::log('security', 'ログイン成功', ['username' => 'admin']);
+		\AIS\System\DiagnosticsManager::log('security', 'ログイン成功', ['username' => 'admin']);
 		return Response::redirect('./');
 	}
 
 	/** POST /logout — ログアウト */
 	public function logout(Request $request): Response {
-		\AdminEngine::verifyCsrf();
+		\ACE\Admin\AdminManager::verifyCsrf();
 		$_SESSION = [];
 		if (ini_get('session.use_cookies')) {
 			$p = session_get_cookie_params();
@@ -125,7 +125,7 @@ class AuthController extends BaseController {
 		if ($attempts['count'] >= 5) {
 			$attempts['locked_until'] = time() + 900;
 			$attempts['count'] = 0;
-			if (class_exists('DiagnosticEngine')) \DiagnosticEngine::log('security', 'ロックアウト発動');
+			\AIS\System\DiagnosticsManager::log('security', 'ロックアウト発動');
 		}
 		$data[$ip] = $attempts;
 		json_write('login_attempts.json', $data, settings_dir());
@@ -153,8 +153,8 @@ class AuthController extends BaseController {
 		$algo = defined('PASSWORD_ARGON2ID') ? PASSWORD_ARGON2ID : PASSWORD_BCRYPT;
 		if (password_needs_rehash($users[$username]['password_hash'] ?? '', $algo)) {
 			$users[$username]['password_hash'] = password_hash($password, $algo);
-			json_write(\AdminEngine::USERS_FILE, $users, settings_dir());
-			\Logger::info("ユーザー \"{$username}\" のパスワードハッシュを Argon2id へアップグレードしました");
+			json_write(\ACE\Admin\AdminManager::USERS_FILE, $users, settings_dir());
+			\APF\Utilities\Logger::info("ユーザー \"{$username}\" のパスワードハッシュを Argon2id へアップグレードしました");
 		}
 	}
 }

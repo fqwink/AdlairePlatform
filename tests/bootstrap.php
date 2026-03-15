@@ -9,7 +9,7 @@
  */
 
 define('AP_TESTING', true);
-define('AP_VERSION', '1.7.37-test');
+define('AP_VERSION', '1.8.0-test');
 define('AP_UPDATE_URL', 'https://api.github.com/repos/test/test/releases/latest');
 define('AP_BACKUP_GENERATIONS', 5);
 define('AP_REVISION_LIMIT', 30);
@@ -80,7 +80,7 @@ require $engineDir . '/MailerEngine.php';
 require $engineDir . '/Validator.php';
 
 /* Logger をテスト用ディレクトリで初期化 */
-Logger::init(Logger::DEBUG, 'data/logs');
+\APF\Utilities\Logger::init(\APF\Utilities\Logger::DEBUG, 'data/logs');
 
 /* TestCase クラス読み込み */
 require __DIR__ . '/TestCase.php';

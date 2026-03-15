@@ -12,7 +12,7 @@ if (PHP_VERSION_ID < 80200) {
 	exit('AdlairePlatform requires PHP 8.2 or later. Current version: ' . PHP_VERSION);
 }
 
-define('AP_VERSION', '1.7.37');
+define('AP_VERSION', '1.8.0');
 define('AP_UPDATE_URL', 'https://api.github.com/repos/win-k/AdlairePlatform/releases/latest');
 define('AP_BACKUP_GENERATIONS', 5);
 define('AP_REVISION_LIMIT', 30);
@@ -21,32 +21,33 @@ define('AP_REVISION_LIMIT', 30);
 require __DIR__ . '/autoload.php';
 require __DIR__ . '/bootstrap.php';
 
-/* ── ユーティリティ関数（Bridge.php に集約） ── */
+/* ── グローバルユーティリティ関数（後方互換シム） ── */
 require __DIR__ . '/engines/Bridge.php';
 
 /* ── Ver.1.7: ルート定義（Router にルートとミドルウェアを登録） ── */
 require __DIR__ . '/routes.php';
 
-/* ── エンジン読み込み ── */
+/* ── Ver.1.8: エンジンシム読み込み（後方互換） ── */
 require 'engines/EngineTrait.php';
 require 'engines/FileSystem.php';
 require 'engines/AppContext.php';
 require 'engines/Logger.php';
 require 'engines/I18n.php';
+require 'engines/Validator.php';
 require 'engines/TemplateEngine.php';
 require 'engines/ThemeEngine.php';
-require 'engines/UpdateEngine.php';
-require 'engines/AdminEngine.php';
-require 'engines/StaticEngine.php';
-require 'engines/ApiEngine.php';
 require 'engines/MarkdownEngine.php';
+require 'engines/AdminEngine.php';
 require 'engines/CollectionEngine.php';
-require 'engines/GitEngine.php';
-require 'engines/WebhookEngine.php';
 require 'engines/CacheEngine.php';
+require 'engines/DiagnosticEngine.php';
+require 'engines/WebhookEngine.php';
+require 'engines/ApiEngine.php';
+require 'engines/StaticEngine.php';
+require 'engines/GitEngine.php';
+require 'engines/UpdateEngine.php';
 require 'engines/ImageOptimizer.php';
 require 'engines/MailerEngine.php';
-require 'engines/DiagnosticEngine.php';
 
 ini_set('session.cookie_httponly', 1);
 ini_set('session.cookie_samesite', 'Lax');
@@ -75,13 +76,13 @@ if (isset($_SESSION['l']) && $_SESSION['l'] === true) {
 }
 
 /* i18n 初期化（セッション開始後） */
-I18n::init();
+\AIS\Core\I18n::init();
 
 /* B-6 fix: 集中ログ管理の初期化 */
-Logger::init();
-/* 診断エンジン: エラーハンドラ登録（セッション開始後） */
-DiagnosticEngine::registerErrorHandler();
-DiagnosticEngine::startTimer('request_total');
+\APF\Utilities\Logger::init();
+/* 診断: エラーハンドラ登録（セッション開始後） */
+\AIS\System\DiagnosticsManager::registerErrorHandler();
+\AIS\System\DiagnosticsManager::startTimer('request_total');
 
 /* セキュリティヘッダー */
 header('X-Content-Type-Options: nosniff');
@@ -100,8 +101,8 @@ $_ap_router   = Application::make(\APF\Core\Router::class);
 $_ap_response = $_ap_router->dispatch($_ap_request);
 
 if ($_ap_response->getStatusCode() !== 404) {
-	DiagnosticEngine::stopTimer('request_total');
-	DiagnosticEngine::maybeSend();
+	\AIS\System\DiagnosticsManager::stopTimer('request_total');
+	\AIS\System\DiagnosticsManager::maybeSend();
 	$_ap_response->send();
 	exit;
 }
@@ -133,8 +134,8 @@ $_auth     = json_read('auth.json', settings_dir());
 $_pages    = json_read('pages.json', content_dir());
 
 /* コレクションモード: Markdown → HTML 変換済みページをマージ */
-if (class_exists('CollectionEngine') && CollectionEngine::isEnabled()) {
-	$_collectionPages = CollectionEngine::loadAllAsPages();
+if (\ACE\Core\CollectionService::isEnabled()) {
+	$_collectionPages = \ACE\Core\CollectionService::loadAllAsPages();
 	foreach ($_collectionPages as $_cpSlug => $_cpHtml) {
 		if (!isset($_pages[$_cpSlug])) {
 			$_pages[$_cpSlug] = $_cpHtml;
@@ -151,33 +152,33 @@ foreach($c as $key => $val){
 	switch($key){
 		case 'password':
 			if(empty($_auth['password_hash'])){
-				$c[$key] = AdminEngine::savePassword($val);
+				$c[$key] = \ACE\Admin\AdminManager::savePassword($val);
 			} elseif(strlen($_auth['password_hash']) === 32 && ctype_xdigit($_auth['password_hash'])){
 				/* R2 fix: MD5ハッシュ検出 → デフォルトパスワード 'admin' で bcrypt 化（ログイン可能を維持） */
-				$c[$key] = AdminEngine::savePassword('admin');
+				$c[$key] = \ACE\Admin\AdminManager::savePassword('admin');
 				$c['migrate_warning'] = true;
-				Logger::warning('MD5パスワードを検出。デフォルト "admin" で bcrypt 化しました。直ちにパスワードを変更してください。');
+				\APF\Utilities\Logger::warning('MD5パスワードを検出。デフォルト "admin" で bcrypt 化しました。直ちにパスワードを変更してください。');
 				error_log('AdlairePlatform: MD5パスワードを検出。デフォルト "admin" で bcrypt 化しました。直ちにパスワードを変更してください。');
-				DiagnosticEngine::log('security', 'MD5パスワード検出・bcrypt移行実行');
+				\AIS\System\DiagnosticsManager::log('security', 'MD5パスワード検出・bcrypt移行実行');
 			} else {
 				$c[$key] = $_auth['password_hash'];
 			}
 			/* デフォルトパスワード 'admin' が有効な場合の警告 */
 			if (password_verify('admin', $c[$key])) {
-				DiagnosticEngine::log('security', 'デフォルトパスワード使用中');
+				\AIS\System\DiagnosticsManager::log('security', 'デフォルトパスワード使用中');
 			}
 			break;
 		case 'loggedin':
 			/* Ver.1.7-37: ログイン/ログアウト/ダッシュボードは Router が処理。
 			   ここではテンプレート変数 $lstatus の組み立てのみ実施。 */
-			if(AdminEngine::isLoggedIn())
+			if(\ACE\Admin\AdminManager::isLoggedIn())
 				$c[$key] = true;
 			$logout_form = "<form method='POST' style='display:inline'>"
-				."<input type='hidden' name='csrf' value='".AdminEngine::csrfToken()."'>"
+				."<input type='hidden' name='csrf' value='".\ACE\Admin\AdminManager::csrfToken()."'>"
 				."<button type='submit' name='logout' value='1' style='background:none;border:none;cursor:pointer;padding:0;color:inherit;text-decoration:underline;font:inherit'>Logout</button>"
 				."</form>";
-			$admin_link = (AdminEngine::isLoggedIn()) ? " | <a href='?admin'>Dashboard</a>" : '';
-			$lstatus = (AdminEngine::isLoggedIn()) ? $logout_form . $admin_link : "<a href='".h($host)."?login'>Login</a>";
+			$admin_link = (\ACE\Admin\AdminManager::isLoggedIn()) ? " | <a href='?admin'>Dashboard</a>" : '';
+			$lstatus = (\ACE\Admin\AdminManager::isLoggedIn()) ? $logout_form . $admin_link : "<a href='".h($host)."?login'>Login</a>";
 			break;
 		case 'page':
 			if($rp)
@@ -187,7 +188,7 @@ foreach($c as $key => $val){
 			if($c['content'] === null){
 				if(!isset($d['page'][$c[$key]])){
 					header('HTTP/1.1 404 Not Found');
-					$c['content'] = (AdminEngine::isLoggedIn()) ? $d['new_page']['admin'] : $d['new_page']['visitor'];
+					$c['content'] = (\ACE\Admin\AdminManager::isLoggedIn()) ? $d['new_page']['admin'] : $d['new_page']['visitor'];
 				} else{
 					$c['content'] = $d['page'][$c[$key]];
 				}
@@ -199,13 +200,13 @@ foreach($c as $key => $val){
 }
 
 /* B-3 fix: グローバル変数を AppContext に同期 */
-AppContext::syncFromGlobals($c, $d, $host, $lstatus, $apcredit, $hook);
+\AIS\Core\AppContext::syncFromGlobals($c, $d, $host, $lstatus, $apcredit, $hook);
 
-AdminEngine::registerHooks();
+\ACE\Admin\AdminManager::registerHooks();
 
-/* 診断エンジン: リクエスト終了時にデータ収集・定期送信 */
-DiagnosticEngine::stopTimer('request_total');
-DiagnosticEngine::maybeSend();
+/* 診断: リクエスト終了時にデータ収集・定期送信 */
+\AIS\System\DiagnosticsManager::stopTimer('request_total');
+\AIS\System\DiagnosticsManager::maybeSend();
 
-ThemeEngine::load($c['themeSelect']);
+\ASG\Template\ThemeService::load($c['themeSelect']);
 ?>
