@@ -316,7 +316,11 @@ class QueryBuilder {
     }
 
     public function orderBy(string $column, string $direction = 'ASC'): self {
-        $this->orderBy[] = [$column, strtoupper($direction)];
+        $dir = strtoupper($direction);
+        if (!in_array($dir, ['ASC', 'DESC'], true)) {
+            throw new \InvalidArgumentException("Invalid ORDER BY direction: {$direction}");
+        }
+        $this->orderBy[] = [$column, $dir];
         return $this;
     }
 
@@ -325,8 +329,15 @@ class QueryBuilder {
         return $this;
     }
 
-    public function having(string $condition): self {
+    /**
+     * HAVING 条件を設定する。
+     * @updated Ver.1.9 プレースホルダバインディング対応
+     */
+    public function having(string $condition, array $bindings = []): self {
         $this->having = $condition;
+        if (!empty($bindings)) {
+            $this->bindings = array_merge($this->bindings, $bindings);
+        }
         return $this;
     }
 
