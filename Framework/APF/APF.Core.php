@@ -601,17 +601,18 @@ class Request {
         return $input[$key] ?? $default;
     }
 
+    /** @var array|null インスタンス単位の JSON キャッシュ @since Ver.1.9 */
+    private ?array $jsonCache = null;
+
     public function json(?string $key = null, $default = null) {
-        static $json = null;
-        
-        if (is_null($json)) {
-            $json = json_decode($this->body, true) ?? [];
+        if ($this->jsonCache === null) {
+            $this->jsonCache = json_decode($this->body, true) ?? [];
         }
 
         if (is_null($key)) {
-            return $json;
+            return $this->jsonCache;
         }
-        return $json[$key] ?? $default;
+        return $this->jsonCache[$key] ?? $default;
     }
 
     public function file(string $key): ?array {
@@ -725,6 +726,9 @@ class Response {
      * @since Ver.1.7-37
      */
     public static function file(string $path, string $filename, string $contentType = 'application/octet-stream'): self {
+        if (!is_file($path) || !is_readable($path)) {
+            throw new NotFoundException("File not found: {$filename}");
+        }
         $response = new self('', 200, [
             'Content-Type' => $contentType,
             'Content-Disposition' => 'attachment; filename="' . $filename . '"',
