@@ -50,7 +50,7 @@
 本ドキュメントは AdlairePlatform の **詳細設計書** です。
 基本設計（[AdlairePlatform_Design.md](AdlairePlatform_Design.md)）およびアーキテクチャ基本設計（[ARCHITECTURE.md](ARCHITECTURE.md)）で定められた方針に基づく、実装レベルの技術仕様を記録します。
 
-- **エンジン実装仕様**: 全 15 エンジン + JsEngine の関数シグネチャ・内部フロー
+- **エンジン実装仕様**: 全エンジン（Framework モジュール統合済み）の関数シグネチャ・内部フロー
 - **データ層実装仕様**: ファイルパスマッピング・マイグレーションパス
 - **セキュリティ実装仕様**: 脅威対策マトリクス（脅威 → 対策 → 実装場所）
 - **フック機構実装**: コアフックの実装パターン
@@ -64,7 +64,7 @@
 
 | 機能グループ | 関数 | 説明 |
 |------------|------|------|
-| 起動制御 | ─ | PHP バージョン確認・定数定義・全 15 エンジン require・Logger 初期化 |
+| 起動制御 | ─ | PHP バージョン確認・定数定義・autoload/bootstrap 読み込み・Logger 初期化 |
 | ルーティング | `host()`, `getSlug()` | URL 解析・スラッグ生成・`?admin` ダッシュボードルーティング |
 | データ層 | `json_read()`, `json_write()`, `data_dir()`, `settings_dir()`, `content_dir()` | JSON ファイル読み書き（JsonCache 付き） |
 | キャッシュ | `JsonCache::get/set/invalidate/clear()` | リクエスト内 JSON I/O キャッシュ ⭐ Ver.1.4-pre |
@@ -388,7 +388,7 @@ Phase 2 は起動時に毎回チェックするが、移行済みの場合は `f
 | CORS キャッシュポイズニング | `Vary: Origin` ヘッダー | `ApiEngine` |
 | オープンリダイレクト | リダイレクト先 URL 検証 | `AdminEngine` |
 | API 認証 | Bearer トークン + bcrypt | `ApiEngine` |
-| engines/ 直接アクセス | `RedirectMatch 403 ^.*/engines/.*\.php$` | `.htaccess` |
+| Framework/ 直接アクセス | `RedirectMatch 403 ^.*/Framework/.*\.php$` | `.htaccess` |
 
 ---
 
@@ -409,7 +409,7 @@ AdminEngine::registerHooks();
 
 | 定数 | 値 | 説明 |
 |-----|---|------|
-| `AP_VERSION` | `'1.4-pre'` | 現在のバージョン |
+| `AP_VERSION` | `'1.8.38'` | 現在のバージョン |
 | `AP_UPDATE_URL` | GitHub API URL | 最新リリース確認先 |
 | `AP_BACKUP_GENERATIONS` | `5` | 保持するバックアップ世代数 |
 | `AP_REVISION_LIMIT` | `30` | リビジョン保持数上限 |

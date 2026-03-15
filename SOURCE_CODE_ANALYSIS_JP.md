@@ -13,10 +13,9 @@
 AFEフレームワークに関する詳細ドキュメントは **[Framework/docs/](./Framework/docs/)** に集約されています。
 
 **主要ドキュメント**:
-- [AFE_ENGINE_DRIVEN_MODEL.md](./Framework/docs/AFE_ENGINE_DRIVEN_MODEL.md) - エンジン駆動モデル完全解説
-- [AFE_IMPROVEMENT_ROADMAP_V2.md](./Framework/docs/AFE_IMPROVEMENT_ROADMAP_V2.md) - APF改良ロードマップ（Ver 2.2.0 - 2.5.0）
+- [FRAMEWORK_RULEBOOK.md](./docs/FRAMEWORK_RULEBOOK.md) - フレームワークルールブック（エンジン駆動モデル・改善ロードマップ統合）
 
-詳細は [Framework/docs/README.md](./Framework/docs/README.md) を参照してください。
+詳細は [Framework/README.md](./Framework/README.md) を参照してください。
 
 ---
 
@@ -43,7 +42,7 @@ AFEフレームワークに関する詳細ドキュメントは **[Framework/doc
 
 | 項目 | 詳細 |
 |------|------|
-| **言語** | PHP 8.2+ |
+| **言語** | PHP 8.3+ |
 | **データベース** | 不要（JSON フラットファイル） |
 | **ライセンス** | Adlaire License Ver.2.0（Source Available, Not Open Source） |
 | **総コード行数** | 約9,531行（エンジンのみ） + 387行（index.php） |

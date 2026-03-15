@@ -5,7 +5,7 @@
 > 詳細は [docs/Licenses/LICENSE_Ver.2.0.md](docs/Licenses/LICENSE_Ver.2.0.md) を参照してください。
 
 APは、デザインテンプレートエンジンを搭載したフラットファイルベースの軽量 CMS フレームワークです。
-データベース不要で動作し、各機能を小さなエンジン単位として設計することで、段階的なシステム拡張が可能です。
+データベース不要で動作し、各機能を Framework モジュールとして設計することで、段階的なシステム拡張が可能です。
 
 > **現在のバージョン**: Ver.1.8-38（PHP 8.3+ 移行開発中）
 
@@ -18,32 +18,32 @@ APは、デザインテンプレートエンジンを搭載したフラットフ
 - **WYSIWYG エディタ** — 依存ライブラリなしのブロックベースエディタ
 - **静的サイト生成** — 差分ビルド・Static-First Hybrid 配信
 - **ヘッドレス CMS API** — REST API・API キー認証・CORS 対応
-- **16 エンジン構成** — 各機能が独立したエンジンとして実装
+- **Framework 統合** — 全エンジンを Framework モジュール（APF/ACE/AIS/ASG/AP）に統合
 
 詳細な機能一覧は [docs/features.md](docs/features.md) を参照してください。
 
 ---
 
-## エンジン一覧（16 エンジン）
+## Framework モジュール一覧
 
-| エンジン | ファイル | 説明 |
-|---------|---------|------|
-| AdminEngine | `engines/AdminEngine.php` | 認証・CSRF・管理アクション・ダッシュボード |
-| TemplateEngine | `engines/TemplateEngine.php` | 軽量テンプレートエンジン |
-| ThemeEngine | `engines/ThemeEngine.php` | テーマ検証・読み込み・コンテキスト構築 |
-| UpdateEngine | `engines/UpdateEngine.php` | アップデート・バックアップ・ロールバック |
-| StaticEngine | `engines/StaticEngine.php` | 静的サイト生成 |
-| ApiEngine | `engines/ApiEngine.php` | 公開 REST API |
-| CollectionEngine | `engines/CollectionEngine.php` | コレクション管理 |
-| MarkdownEngine | `engines/MarkdownEngine.php` | Markdown パーサー |
-| GitEngine | `engines/GitEngine.php` | GitHub リポジトリ連携 |
-| WebhookEngine | `engines/WebhookEngine.php` | Webhook 管理・送信 |
-| CacheEngine | `engines/CacheEngine.php` | API レスポンスキャッシュ |
-| ImageOptimizer | `engines/ImageOptimizer.php` | 画像最適化 |
-| AppContext | `engines/AppContext.php` | 集中状態管理 |
-| Logger | `engines/Logger.php` | 構造化ログ（PSR-3 互換） |
-| MailerEngine | `engines/MailerEngine.php` | メール送信抽象化 |
-| DiagnosticEngine | `engines/DiagnosticEngine.php` | リアルタイム診断・テレメトリ |
+| モジュール | ファイル | 説明 |
+|-----------|---------|------|
+| **APF** | `Framework/APF/APF.Core.php` | Container, Router, Request, Response, HookManager |
+| | `Framework/APF/APF.Middleware.php` | Middleware パイプライン |
+| | `Framework/APF/APF.Database.php` | JSON ファイルストレージ |
+| | `Framework/APF/APF.Utilities.php` | Security, Str, Cache, Logger |
+| **ACE** | `Framework/ACE/ACE.Core.php` | TemplateEngine, ThemeEngine, CollectionEngine, MarkdownEngine |
+| | `Framework/ACE/ACE.Admin.php` | AdminEngine（認証・ダッシュボード） |
+| | `Framework/ACE/ACE.Api.php` | ApiEngine, WebhookService, RateLimiter |
+| **AIS** | `Framework/AIS/AIS.Core.php` | AppContext, I18n, EventDispatcher |
+| | `Framework/AIS/AIS.System.php` | HealthMonitor, DiagnosticsManager, ApiCache |
+| | `Framework/AIS/AIS.Deployment.php` | UpdateEngine, GitEngine, ImageOptimizer |
+| **ASG** | `Framework/ASG/ASG.Core.php` | StaticEngine |
+| | `Framework/ASG/ASG.Template.php` | テンプレート処理 |
+| | `Framework/ASG/ASG.Utilities.php` | ユーティリティ |
+| **AP** | `Framework/AP/AP.Controllers.php` | Controller 統合モジュール |
+| | `Framework/AP/AP.Bridge.php` | グローバルユーティリティ関数 |
+| | `Framework/AP/JsEngine/` | フロントエンド JavaScript（17ファイル） |
 
 ---
 

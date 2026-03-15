@@ -3,7 +3,7 @@
 **Adlaire Platform WYSIWYG Editor Improvements**
 
 **日付**: 2026年3月13日  
-**対象**: engines/JsEngine/wysiwyg.js  
+**対象**: Framework/AP/JsEngine/wysiwyg.js  
 **現状**: 2,889行、Editor.jsスタイル ブロックベースエディタ  
 **目的**: 保守性向上、機能拡張、パフォーマンス最適化
 
@@ -23,7 +23,7 @@
 
 ### エディタ概要
 
-**ファイル**: `engines/JsEngine/wysiwyg.js`  
+**ファイル**: `Framework/AP/JsEngine/wysiwyg.js`  
 **サイズ**: 2,889行、約90KB  
 **スタイル**: Editor.jsスタイル ブロックベースエディタ  
 **依存**: なし（Vanilla JavaScript）

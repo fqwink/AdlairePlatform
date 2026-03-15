@@ -7,13 +7,6 @@
 > **作成日**: 2026-03-06
 > **最終更新**: 2026-03-10（ドキュメント役割再定義・4ドキュメント体制）
 > **所有者**: Adlaire Group
-<!-- ⚠️ 削除禁止: 本ドキュメントはプロジェクトの正式な設計書です -->
-
-> **ドキュメントバージョン**: Ver.0.5-1  
-> **ステータス**: 🔧 開発中（Ver.1.8）  
-> **作成日**: 2026-03-06  
-> **最終更新**: 2026-03-10（5文書構成整理）  
-> **所有者**: Adlaire Group  
 > **バージョニング規則**: [AFE/VERSIONING.md](https://github.com/fqwink/AdlaireGroup-Documents-Repository/blob/main/AFE/VERSIONING.md)
 
 > **関連ドキュメント**:
@@ -21,10 +14,6 @@
 > - 詳細設計書（実装レベルの技術仕様） → [DETAILED_DESIGN.md](DETAILED_DESIGN.md)
 > - 機能一覧・関数リファレンス → [features.md](features.md)
 > - 本ドキュメントは **基本設計書・基本方針に関するすべて** を定めています。
-> **関連ドキュメント（旧形式 — 上記の4文書体制を正とする）**:
-> - アーキテクチャ: [ARCHITECTURE.md](ARCHITECTURE.md)
-> - セキュリティ: [SECURITY_POLICY.md](SECURITY_POLICY.md)
-> - 実装機能一覧: [features.md](features.md)
 
 ---
 
@@ -41,15 +30,12 @@
    - 4.5 [エディタ設計（3段階実装）](#45-エディタ設計3段階実装)
    - 4.6 [フック機構](#46-フック機構)
    - 4.7 [データ層](#47-データ層)
-5. [PHP 8.2 対応仕様](#5-php-82-対応仕様)
+5. [PHP 8.3+ 対応仕様](#5-php-83-対応仕様)
 6. [セキュリティ方針](#6-セキュリティ方針)
 7. [バージョン計画](#7-バージョン計画)
    - [保留事項・次期バージョン検討項目](#保留事項次期バージョン検討項目)
 8. [実装タスクリスト（全24件）](#8-実装タスクリスト全24件)
 9. [変更履歴](#9-変更履歴)
-4. [バージョン計画](#4-バージョン計画)
-5. [実装タスクリスト（全24件）](#5-実装タスクリスト全24件)
-6. [変更履歴](#6-変更履歴)
 
 ---
 
@@ -102,7 +88,7 @@ AdlairePlatform は以下の設計思想に基づいて開発されています:
 
 - 多層防御: 認証・CSRF・XSS・パストラバーサル・レート制限
 - CSP ヘッダーによるコンテンツインジェクション防止
-- ディレクトリ保護と engines/ 直接アクセス禁止
+- ディレクトリ保護と Framework/ 直接アクセス禁止
 
 ### ロードマップ（概要）
 
@@ -126,10 +112,18 @@ WYSIWYGエディタ（完了）      →    ─                                 
 ─                            →    ─                                 →    AppContext 実装（✅ Ver.1.4-pre）
 ─                            →    ─                                 →    Logger 実装（✅ Ver.1.4-pre）
 ─                            →    ─                                 →    MailerEngine 実装（✅ Ver.1.4-pre）
+
+Ver.1.5系〜Ver.1.8系（Framework 統合）
+──────────────────────────────────────────────────────────────────────────
+Ver.1.5  Framework/ ディレクトリ導入・engines/ → Framework/AP/ 移行（✅ 完了）
+Ver.1.6  Controller 層導入・Router/Middleware 実装（✅ 完了）
+Ver.1.7  エンジンフレームワーク化・モジュール統合（✅ 完了）
+Ver.1.8  PHP 8.3+ 移行・Controller 単一ファイル化・tests/ 廃止（🔧 開発中）
 ```
 
-> **注**: Ver.1.2系は Ver.1.2-26 をもって終了。Ver.1.3系（Ver.1.3-29）で 12 エンジンの実装を完了。  
+> **注**: Ver.1.2系は Ver.1.2-26 をもって終了。Ver.1.3系（Ver.1.3-29）で 12 エンジンの実装を完了。
 > Ver.1.4系で AppContext・Logger・MailerEngine を追加し **15 エンジン体制**へ。
+> Ver.1.5〜1.7 で Framework 統合を完了し、Ver.1.8 で PHP 8.3+ 移行を実施中。
 
 ---
 
@@ -158,7 +152,7 @@ WYSIWYGエディタ（完了）      →    ─                                 
 方針:
   - 新規ライブラリの追加は原則禁止
   - 追加が必要な場合は Adlaire Group の承認を要する
-  - CDN 利用は禁止。ローカルまたは engines/JsEngine/ での提供を必須とする
+  - CDN 利用は禁止。ローカルまたは Framework/AP/JsEngine/ での提供を必須とする
 ```
 
 ---
@@ -270,7 +264,7 @@ WYSIWYGエディタ（完了）      →    ─                                 
 
 #### Phase 2（Ver.1.2-20 で実装済み）
 
-- 外部WYSIWYGライブラリは採用せず、`engines/JsEngine/wysiwyg.js` として独自実装
+- 外部WYSIWYGライブラリは採用せず、`Framework/AP/JsEngine/wysiwyg.js` として独自実装
 - `class="editRich"` 要素クリックで WYSIWYG エディタを起動
 - 基本インラインツール（B/I/U）、ブロックタイプ（H2/H3/P/UL/OL）、画像挿入（D&D/クリップボード/ボタン）、自動保存（30秒）
 
@@ -351,14 +345,13 @@ if (PHP_VERSION_ID < 80300) {
 ---
 
 ## 7. バージョン計画
-## 4. バージョン計画
 
 | フェーズ | バージョン | ステータス | 主な内容 |
 |---------|----------|-----------|---------|
 | 初期 | `Ver.1.0-11` | ✅ 完了 | 初期リリース・アップデートエンジン・バックアップ等 |
 | P1完了 | `Ver.1.1-12` | ✅ 完了 | PHP 8.2 必須化・jQuery廃止・JsEngine・RTE廃止 |
 | P2完了 | `Ver.1.2-13` | ✅ 完了 | エンジン分離・データ層分割・サードパーティ排除 |
-| P3完了 | `Ver.1.2-14` | ✅ 完了 | セキュリティ強化（CSP・engines/保護・nginx設定） |
+| P3完了 | `Ver.1.2-14` | ✅ 完了 | セキュリティ強化（CSP・Framework/保護・nginx設定） |
 | P4完了 | `Ver.1.2-15` | ✅ 完了 | ドキュメント整備 |
 | バグ修正 | `Ver.1.2-16` | ✅ 完了 | defense-in-depth・バグ修正 |
 | WYSIWYG | `Ver.1.2-20 〜 25` | ✅ 完了 | WYSIWYG エディタ独自実装（ブロックベース） |
@@ -438,7 +431,6 @@ if (PHP_VERSION_ID < 80300) {
 ---
 
 ## 8. 実装タスクリスト（全24件）
-## 5. 実装タスクリスト（全24件）
 
 ### P1 – 即実装（→ Ver.1.1-12）✅ 完了
 
@@ -446,8 +438,8 @@ if (PHP_VERSION_ID < 80300) {
 |---|-------|------------|
 | P1-1 | ✅ PHP 8.2 バージョンチェック追加 | `index.php` |
 | P1-2 | ✅ jQuery CDN タグ削除 | `themes/AP-Default/theme.php`, `themes/AP-Adlaire/theme.php` |
-| P1-3 | ✅ `editInplace.js` 作成（バニラJS全面リライト） | `engines/JsEngine/editInplace.js` |
-| P1-4 | ✅ `autosize.js` セルフホスト配置 | `engines/JsEngine/autosize.js` |
+| P1-3 | ✅ `editInplace.js` 作成（バニラJS全面リライト） | `Framework/AP/JsEngine/editInplace.js` |
+| P1-4 | ✅ `autosize.js` セルフホスト配置 | `Framework/AP/JsEngine/autosize.js` |
 | P1-5 | ✅ `rte.php` 削除・`richText` クラス廃止 | `js/rte.php` → 削除, `index.php` |
 
 ### P2 – エンジン構築・データ層・サードパーティ排除（→ Ver.1.2-13）✅ 完了
@@ -456,10 +448,10 @@ if (PHP_VERSION_ID < 80300) {
 |---|-------|------------|
 | P2-1 | ✅ `loadPlugins()` → `registerCoreHooks()` 改修 | `index.php` |
 | P2-2 | ✅ `plugins/` ディレクトリ廃止 | `plugins/` |
-| P2-3 | ✅ `engines/` ディレクトリ作成 | `engines/` |
-| P2-4 | ✅ `ThemeEngine.php` 作成 | `engines/ThemeEngine.php` |
-| P2-5 | ✅ `UpdateEngine.php` 作成 | `engines/UpdateEngine.php` |
-| P2-6 | ✅ `JsEngine/` 作成・移行 | `engines/JsEngine/` |
+| P2-3 | ✅ `Framework/` ディレクトリ作成 | `Framework/` |
+| P2-4 | ✅ `ThemeEngine.php` 作成 | `Framework/AP/ThemeEngine.php` |
+| P2-5 | ✅ `UpdateEngine.php` 作成 | `Framework/AP/UpdateEngine.php` |
+| P2-6 | ✅ `JsEngine/` 作成・移行 | `Framework/AP/JsEngine/` |
 | P2-7 | ✅ `data/settings/` 作成・JSONファイル移行 | `data/settings/` |
 | P2-8 | ✅ `data/content/` 作成・`pages.json` 移行 | `data/content/` |
 | P2-9 | ✅ `index.php` パス更新（`settings_dir()`, `content_dir()`） | `index.php` |
@@ -473,7 +465,7 @@ if (PHP_VERSION_ID < 80300) {
 
 | # | タスク | 対象ファイル |
 |---|-------|------------|
-| P3-1 | ✅ `engines/*.php` 直接アクセス禁止 | `.htaccess` |
+| P3-1 | ✅ `Framework/*.php` 直接アクセス禁止 | `.htaccess` |
 | P3-2 | ✅ CSP ヘッダー追加 | `.htaccess`, `nginx.conf.example` |
 | P3-3 | ✅ `nginx.conf.example` 新規作成 | `nginx.conf.example` |
 
@@ -486,32 +478,19 @@ if (PHP_VERSION_ID < 80300) {
 
 ### Phase 2 – 将来タスク（時期未定）
 
-> ⚠️ **Ph2-1〜3 はステータス変更**: WYSIWYG は外部ライブラリを採用せず、`engines/JsEngine/wysiwyg.js` として  
+> ⚠️ **Ph2-1〜3 はステータス変更**: WYSIWYG は外部ライブラリを採用せず、`Framework/AP/JsEngine/wysiwyg.js` として
 > 依存なしの独自実装で完了済み（Ver.1.2-20）。以下は参考として残す。
 
 | # | タスク | ステータス |
 |---|-------|-----------|
 | Ph2-1 | ~~WYSIWYGライブラリ選定（Quill / TipTap / Editor.js 等）~~ | ✅ 完了（独自実装を採用） |
-| Ph2-2 | ~~WYSIWYGエディタ実装~~ | ✅ 完了（`engines/JsEngine/wysiwyg.js`） |
+| Ph2-2 | ~~WYSIWYGエディタ実装~~ | ✅ 完了（`Framework/AP/JsEngine/wysiwyg.js`） |
 | Ph2-3 | ~~`admin-richText` フック復活~~ | ✅ 完了（`editRich` クラスとして統合） |
 | Ph3 | ~~Editor.js スタイル ブロックベースエディタ~~ | ✅ 完了（Ver.1.2-22） |
 
 ---
 
 ## 9. 変更履歴
-
-| バージョン | 日付 | 変更内容 | 担当 |
-|------------|------|----------|------|
-| Ver.0.5-2 | 2026-03-10 | ドキュメント役割再定義。基本設計書・基本方針の最上位ドキュメントとして位置付け。§6.2 脅威マトリクスを DETAILED_DESIGN.md に移出。関連ドキュメント参照を 4 ドキュメント体制に更新 | Adlaire Group |
-| Ver.0.5-1 | 2026-03-10 | ARCHITECTURE.md との重複排除のためゼロベースで書き換え。設計方針（Why）に特化し、実装詳細（What）は ARCHITECTURE.md・features.md への参照に置換。§4 設計方針セクションに集約。全 16 セクション → 9 セクションに再構成（約 1100 行 → 約 450 行） | Adlaire Group |
-| Ver.0.4-2 | 2026-03-10 | 廃止機能記載の削除（§2.2 廃止テーブル・§5.2.4 theme.php 関数・§9 jQuery 移行仕様など約 85 行）。§14 に保留事項・次期バージョン検討項目を集約追加 | Adlaire Group |
-| Ver.0.4-1 | 2026-03-10 | SPEC.md を統合。設計書・仕様書を単一ドキュメントに集約。ディレクトリ構成・ライセンス・機能リストなど他ドキュメントと重複するセクションを削除 | Adlaire Group |
-| Ver.0.3-12 | 2026-03-10 | Ver.1.4-pre 更新。AppContext・Logger・MailerEngine の 3 エンジン追加（15 エンジン体制） | Adlaire Group |
-| Ver.0.2-11 | 2026-03-09 | Ver.1.3系終了（Ver.1.3-29）を反映 | Adlaire Group |
-| Ver.0.2-10 | 2026-03-09 | 全エンジン実装を反映（Ver.1.3-28） | Adlaire Group |
-| Ver.0.2-9 | 2026-03-08 | AdminEngine・ダッシュボード化を反映（Ver.1.3-27） | Adlaire Group |
-| Ver.0.1-1 | 2026-03-06 | 初版確定 | Adlaire Group |
-## 6. 変更履歴
 
 本ドキュメントの変更履歴は、以下のファイルで一元管理されています:
 
