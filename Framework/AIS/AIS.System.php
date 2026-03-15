@@ -1684,10 +1684,10 @@ class DiagnosticsManager {
     }
 
     private static function collectCollectionsSummary(): array {
-        if (!class_exists('CollectionEngine') || !\CollectionEngine::isEnabled()) {
+        if (!\ACE\Core\CollectionService::isEnabled()) {
             return ['enabled' => false];
         }
-        $collections = \CollectionEngine::listCollections();
+        $collections = \ACE\Core\CollectionService::listCollections();
         $totalItems = 0;
         foreach ($collections as $col) $totalItems += $col['count'] ?? 0;
         return ['enabled' => true, 'collection_count' => count($collections), 'total_items' => $totalItems];

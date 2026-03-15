@@ -40,7 +40,7 @@ class ControllerTest extends TestCase {
 		/* UpdateEngine の executeDeleteBackup は不正な名前で RuntimeException を投げる */
 		$threw = false;
 		try {
-			\UpdateEngine::executeDeleteBackup('');
+			\AIS\Deployment\UpdateService::executeDeleteBackup('');
 		} catch (\RuntimeException $e) {
 			$threw = true;
 			$this->assertNotEmpty($e->getMessage());
@@ -51,7 +51,7 @@ class ControllerTest extends TestCase {
 	public function testEngineTraitThrowOnErrorRollback(): void {
 		$threw = false;
 		try {
-			\UpdateEngine::executeRollback('');
+			\AIS\Deployment\UpdateService::executeRollback('');
 		} catch (\RuntimeException $e) {
 			$threw = true;
 		}

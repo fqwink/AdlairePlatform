@@ -1272,7 +1272,7 @@ class ApiService {
         }
 
         try {
-            if (!class_exists('MailerEngine') || !\MailerEngine::sendContact($to, $name, $email, $message, $settings['title'] ?? 'AP')) {
+            if (!\AIS\Deployment\MailerService::sendContact($to, $name, $email, $message, $settings['title'] ?? 'AP')) {
                 $safeTitle = str_replace(["\r", "\n"], '', $settings['title'] ?? 'AP');
                 $subject = '【' . $safeTitle . '】お問い合わせ: ' . $safeName;
                 $body = "名前: {$safeName}\nメール: {$safeEmail}\n\n{$message}";
@@ -1289,10 +1289,10 @@ class ApiService {
 
         \ACE\Admin\AdminManager::logActivity('お問い合わせ受信: ' . $safeName . ' <' . $safeEmail . '>');
 
-        if (class_exists('GitEngine') && \GitEngine::isEnabled()) {
-            $gitCfg = \GitEngine::loadConfig();
+        if (\AIS\Deployment\GitService::isEnabled()) {
+            $gitCfg = \AIS\Deployment\GitService::loadConfig();
             if (!empty($gitCfg['issues_enabled'])) {
-                \GitEngine::createIssue('お問い合わせ: ' . $safeName, "**名前**: {$safeName}\n**メール**: {$safeEmail}\n\n{$message}", ['contact']);
+                \AIS\Deployment\GitService::createIssue('お問い合わせ: ' . $safeName, "**名前**: {$safeName}\n**メール**: {$safeEmail}\n\n{$message}", ['contact']);
             }
         }
         self::jsonResponse(true, ['message' => '送信しました。']);
@@ -1410,7 +1410,7 @@ class ApiService {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') self::jsonError('POST メソッドが必要です', 405);
         $payload = file_get_contents('php://input');
         if ($payload === false || $payload === '') self::jsonError('ペイロードが空です', 400);
-        $cfg = class_exists('GitEngine') ? \GitEngine::loadConfig() : [];
+        $cfg = \AIS\Deployment\GitService::loadConfig();
         $secret = $cfg['webhook_secret'] ?? '';
         if ($secret === '') self::jsonError('Webhook シークレットが設定されていません。ダッシュボードで設定してください。', 403);
         $sigHeader = $_SERVER['HTTP_X_HUB_SIGNATURE_256'] ?? '';
@@ -1422,8 +1422,8 @@ class ApiService {
         if ($event === 'push') {
             $branch = $cfg['branch'] ?? 'main';
             if (($data['ref'] ?? '') !== 'refs/heads/' . $branch) self::jsonResponse(true, ['message' => '対象外のブランチです', 'skipped' => true]);
-            if (class_exists('GitEngine') && \GitEngine::isEnabled()) {
-                $result = \GitEngine::pull();
+            if (\AIS\Deployment\GitService::isEnabled()) {
+                $result = \AIS\Deployment\GitService::pull();
                 \ACE\Admin\AdminManager::logActivity('Webhook: Push 受信 → 自動 Pull 実行');
                 self::jsonResponse(true, $result);
             }
@@ -1466,7 +1466,7 @@ class ApiService {
         $filename = bin2hex(random_bytes(12)) . '.' . $ext_map[$mime];
         if (!move_uploaded_file($file['tmp_name'], $dir . $filename)) self::jsonError('ファイル保存に失敗しました', 500);
         try {
-            if (class_exists('ImageOptimizer')) \ImageOptimizer::optimize($dir . $filename);
+            \ASG\Utilities\ImageService::optimize($dir . $filename);
         } catch (\Throwable $e) {
             \APF\Utilities\Logger::error('メディアアップロード最適化中にエラー', ['engine' => 'ApiService', 'file' => $filename, 'error' => $e->getMessage()]);
         }

@@ -2,10 +2,11 @@
 /**
  * StaticController - 静的サイト生成
  *
- * StaticEngine の handle() private ハンドラを Controller メソッドとして提供。
+ * ASG\Core\StaticService の機能を Controller メソッドとして提供。
  *
  * @since Ver.1.7-36
  * @since Ver.1.7-37 buildZip/deployDiff 完全実装（Engine exit 委譲を除去）
+ * @since Ver.1.8   StaticEngine → StaticService 移行
  */
 namespace AP\Controllers;
 
@@ -15,43 +16,33 @@ class StaticController extends BaseController {
 
 	/** 差分ビルド */
 	public function buildDiff(Request $request): Response {
-		$engine = new \StaticEngine();
-		$engine->init();
-		$result = $engine->buildDiff();
-		\AdminEngine::logActivity('静的サイト差分ビルド');
-		if (class_exists('WebhookEngine')) {
-			\WebhookEngine::dispatch('build.completed', $result);
-		}
+		\ASG\Core\StaticService::init();
+		$result = \ASG\Core\StaticService::buildDiff();
+		\ACE\Admin\AdminManager::logActivity('静的サイト差分ビルド');
 		return Response::json(['ok' => true, 'data' => $result]);
 	}
 
 	/** フルビルド */
 	public function buildAll(Request $request): Response {
-		$engine = new \StaticEngine();
-		$engine->init();
-		$result = $engine->buildAll();
-		\AdminEngine::logActivity('静的サイトフルビルド');
-		if (class_exists('WebhookEngine')) {
-			\WebhookEngine::dispatch('build.completed', $result);
-		}
+		\ASG\Core\StaticService::init();
+		$result = \ASG\Core\StaticService::buildAll();
+		\ACE\Admin\AdminManager::logActivity('静的サイトフルビルド');
 		return Response::json(['ok' => true, 'data' => $result]);
 	}
 
 	/** 静的ファイルクリーン */
 	public function clean(Request $request): Response {
-		$engine = new \StaticEngine();
-		$engine->init();
-		$engine->clean();
-		\AdminEngine::logActivity('静的サイトクリーン');
+		\ASG\Core\StaticService::init();
+		\ASG\Core\StaticService::clean();
+		\ACE\Admin\AdminManager::logActivity('静的サイトクリーン');
 		return $this->ok();
 	}
 
 	/** ZIP ダウンロード */
 	public function buildZip(Request $request): Response {
 		try {
-			$engine = new \StaticEngine();
-			$engine->init();
-			$path = $engine->buildZipFile();
+			\ASG\Core\StaticService::init();
+			$path = \ASG\Core\StaticService::buildZipFile();
 			return Response::file($path, 'static-' . date('Ymd') . '.zip', 'application/zip');
 		} catch (\RuntimeException $e) {
 			return $this->error($e->getMessage());
@@ -60,18 +51,16 @@ class StaticController extends BaseController {
 
 	/** ビルドステータス取得 */
 	public function status(Request $request): Response {
-		$engine = new \StaticEngine();
-		$engine->init();
-		$result = $engine->getStatus();
+		\ASG\Core\StaticService::init();
+		$result = \ASG\Core\StaticService::getStatus();
 		return Response::json(['ok' => true, 'data' => $result]);
 	}
 
 	/** デプロイ差分ZIP */
 	public function deployDiff(Request $request): Response {
 		try {
-			$engine = new \StaticEngine();
-			$engine->init();
-			$path = $engine->buildDiffZipFile();
+			\ASG\Core\StaticService::init();
+			$path = \ASG\Core\StaticService::buildDiffZipFile();
 			return Response::file($path, 'deploy-diff-' . date('Ymd') . '.zip', 'application/zip');
 		} catch (\RuntimeException $e) {
 			return $this->error($e->getMessage());

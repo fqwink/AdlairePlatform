@@ -1,639 +1,67 @@
-﻿<?php
+<?php
 /**
- * GitEngine - Git/GitHub 連携エンジン
+ * GitEngine - 後方互換シム
  *
- * pitcms.net の核心機能に相当。
- * コンテンツを GitHub リポジトリと双方向同期する。
+ * Ver.1.8: 全ロジックを AIS\Deployment\GitService に移植。
+ * このファイルは後方互換のためのシムとして残存。
+ * Stage 8 で削除予定。
  *
- * 動作モード:
- *   1. git コマンド実行モード（サーバーに Git がある場合）
- *   2. GitHub REST API モード（Git がない共用サーバー用）
- *   → 自動検出で切り替え
- *
- * 設定ファイル: data/settings/git_config.json
- *
- * Ver.1.5: AIS\Deployment\GitSync に内部委譲。既存 static API は完全維持。
+ * @deprecated Ver.1.8 — \AIS\Deployment\GitService を使用してください
  */
 class GitEngine {
-	use EngineTrait;
 
-	/** @var \AIS\Deployment\GitSync|null Ver.1.5 Framework Git 同期 */
-	private static ?\AIS\Deployment\GitSync $gitSync = null;
-
-	/**
-	 * Ver.1.5: Framework GitSync インスタンスを取得する
-	 */
-	public static function getGitSync(): \AIS\Deployment\GitSync {
-		if (self::$gitSync === null) {
-			self::$gitSync = new \AIS\Deployment\GitSync(settings_dir());
-		}
-		return self::$gitSync;
-	}
-
-	private const CONFIG_FILE    = 'git_config.json';
-	/* M23 fix: スラッシュとドットを除外（パストラバーサル防止） */
-	private const SLUG_PATTERN   = '/^[a-zA-Z0-9_\-]+$/';
-	private const API_BASE       = 'https://api.github.com';
-	private const COMMIT_AUTHOR  = 'AdlairePlatform';
-	private const COMMIT_EMAIL   = 'ap@localhost';
-	private const MAX_FILE_SIZE  = 50 * 1024 * 1024; /* 50MB */
-	private const MAX_RETRIES    = 3;
-
-	/* ══════════════════════════════════════════════
-	   設定管理
-	   ══════════════════════════════════════════════ */
-
-	/** Git 連携が有効か */
+	/** @deprecated */
 	public static function isEnabled(): bool {
-		$cfg = self::loadConfig();
-		return !empty($cfg['enabled'])
-			&& !empty($cfg['repository'])
-			&& !empty($cfg['token']);
+		return \AIS\Deployment\GitService::isEnabled();
 	}
 
-	/** 設定を読み込み */
+	/** @deprecated */
 	public static function loadConfig(): array {
-		return json_read(self::CONFIG_FILE, settings_dir());
+		return \AIS\Deployment\GitService::loadConfig();
 	}
 
-	/** 設定を保存 */
+	/** @deprecated */
 	public static function saveConfig(array $config): void {
-		json_write(self::CONFIG_FILE, $config, settings_dir());
+		\AIS\Deployment\GitService::saveConfig($config);
 	}
 
-	/** Git コマンドが利用可能か */
+	/** @deprecated */
 	public static function hasGitCommand(): bool {
-		$result = @exec('which git 2>/dev/null', $output, $code);
-		return $code === 0 && !empty($result);
+		return \AIS\Deployment\GitService::hasGitCommand();
 	}
 
-	/* ══════════════════════════════════════════════
-	   GitHub API ヘルパー
-	   ══════════════════════════════════════════════ */
-
-	/**
-	 * GitHub REST API を呼び出し（指数バックオフ付きリトライ対応）
-	 */
-	private static function apiRequest(
-		string $method,
-		string $endpoint,
-		?array $body = null
-	): array {
-		$cfg = self::loadConfig();
-		$token = $cfg['token'] ?? '';
-		$url = self::API_BASE . $endpoint;
-
-		$headers = [
-			'Authorization: Bearer ' . $token,
-			'Accept: application/vnd.github.v3+json',
-			'User-Agent: AdlairePlatform/' . (defined('AP_VERSION') ? AP_VERSION : '1.0'),
-		];
-
-		if ($body !== null) {
-			$headers[] = 'Content-Type: application/json';
-		}
-
-		try {
-			for ($attempt = 0; $attempt <= self::MAX_RETRIES; $attempt++) {
-				$ch = curl_init();
-				curl_setopt_array($ch, [
-					CURLOPT_URL            => $url,
-					CURLOPT_RETURNTRANSFER => true,
-					CURLOPT_TIMEOUT        => 30,
-					CURLOPT_CONNECTTIMEOUT => 10,
-					CURLOPT_HTTPHEADER     => $headers,
-					CURLOPT_CUSTOMREQUEST  => $method,
-				]);
-
-				if ($body !== null) {
-					curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($body));
-				}
-
-				$response = curl_exec($ch);
-				$httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-				$error = curl_error($ch);
-				curl_close($ch);
-
-				/* cURL エラーまたはサーバーエラー/レート制限 → リトライ */
-				$shouldRetry = ($error !== '')
-					|| $httpCode === 429
-					|| $httpCode === 502
-					|| $httpCode === 503;
-
-				if ($shouldRetry && $attempt < self::MAX_RETRIES) {
-					$backoffMs = (int)(pow(2, $attempt) * 500);
-					if (class_exists('DiagnosticEngine')) DiagnosticEngine::log('integration', 'GitHub API リトライ', ['attempt' => $attempt + 1, 'method' => $method, 'endpoint' => $endpoint, 'http_code' => $httpCode, 'curl_error' => $error, 'backoff_ms' => $backoffMs]);
-					usleep($backoffMs * 1000);
-					continue;
-				}
-
-				if ($error) {
-					if (class_exists('DiagnosticEngine')) DiagnosticEngine::logIntegrationError('GitHub API', 0, 'cURL エラー: ' . $error . ' (' . $method . ' ' . $endpoint . ')');
-					return ['ok' => false, 'error' => 'cURL エラー: ' . $error, 'status' => 0];
-				}
-
-				$data = json_decode($response, true);
-				if (!is_array($data)) $data = [];
-
-				/* GitHub API レート制限ヘッダー監視 */
-				if (class_exists('DiagnosticEngine') && is_array($data)) {
-					$rateLimitRemaining = $data['resources']['core']['remaining'] ?? null;
-					if ($rateLimitRemaining === null && isset($http_response_header)) {
-						foreach ($http_response_header ?? [] as $_rh) {
-							if (stripos($_rh, 'x-ratelimit-remaining:') === 0) {
-								$rateLimitRemaining = (int)trim(substr($_rh, 22));
-							}
-						}
-					}
-					if ($rateLimitRemaining !== null && $rateLimitRemaining < 10) {
-						DiagnosticEngine::log('integration', 'GitHub API レート制限残量低下', ['remaining' => $rateLimitRemaining, 'endpoint' => $endpoint]);
-					}
-				}
-
-				return [
-					'ok'     => $httpCode >= 200 && $httpCode < 300,
-					'status' => $httpCode,
-					'data'   => $data,
-				];
-			}
-		} catch (\Throwable $e) {
-			Logger::error('GitHub API リクエスト中にエラー', ['engine' => 'GitEngine', 'method' => $method, 'endpoint' => $endpoint, 'error' => $e->getMessage()]);
-			if (class_exists('DiagnosticEngine')) DiagnosticEngine::log('runtime', 'GitHub API 例外', ['method' => $method, 'endpoint' => $endpoint, 'trace' => $e->getTraceAsString()]);
-			return ['ok' => false, 'error' => '例外: ' . $e->getMessage(), 'status' => 0];
-		}
-
-		if (class_exists('DiagnosticEngine')) DiagnosticEngine::logIntegrationError('GitHub API', 0, 'リトライ上限到達 (' . $method . ' ' . $endpoint . ')');
-		return ['ok' => false, 'error' => 'リトライ上限に達しました', 'status' => 0];
-	}
-
-	/* ══════════════════════════════════════════════
-	   接続テスト
-	   ══════════════════════════════════════════════ */
-
-	/** リポジトリへの接続をテスト */
+	/** @deprecated */
 	public static function testConnection(): array {
-		$cfg = self::loadConfig();
-		if (empty($cfg['repository']) || empty($cfg['token'])) {
-			return ['ok' => false, 'error' => 'リポジトリまたはトークンが未設定です'];
-		}
-
-		$repo = $cfg['repository'];
-		$res = self::apiRequest('GET', "/repos/{$repo}");
-
-		if (!$res['ok']) {
-			$msg = $res['data']['message'] ?? '接続に失敗しました';
-			return ['ok' => false, 'error' => $msg . ' (HTTP ' . $res['status'] . ')'];
-		}
-
-		return [
-			'ok'          => true,
-			'name'        => $res['data']['full_name'] ?? $repo,
-			'private'     => $res['data']['private'] ?? false,
-			'default_branch' => $res['data']['default_branch'] ?? 'main',
-		];
+		return \AIS\Deployment\GitService::testConnection();
 	}
 
-	/* ══════════════════════════════════════════════
-	   コンテンツ取得（Pull）
-	   ══════════════════════════════════════════════ */
-
-	/**
-	 * リポジトリからコンテンツを取得（Pull 相当）。
-	 * content/ ディレクトリの Markdown ファイルをダウンロードして同期。
-	 */
+	/** @deprecated */
 	public static function pull(): array {
-		$cfg = self::loadConfig();
-		if (!self::isEnabled()) {
-			return ['ok' => false, 'error' => 'Git 連携が無効です'];
-		}
-
-		$repo = $cfg['repository'];
-		$branch = $cfg['branch'] ?? 'main';
-		$remoteDir = $cfg['content_dir'] ?? 'content';
-
-		/* リポジトリのツリーを取得 */
-		$res = self::apiRequest('GET', "/repos/{$repo}/git/trees/{$branch}?recursive=1");
-		if (!$res['ok']) {
-			return ['ok' => false, 'error' => 'ツリーの取得に失敗: ' . ($res['data']['message'] ?? '')];
-		}
-
-		$tree = $res['data']['tree'] ?? [];
-		$downloaded = 0;
-		$skipped = 0;
-		$errors = [];
-
-		foreach ($tree as $item) {
-			if ($item['type'] !== 'blob') continue;
-			$path = $item['path'];
-
-			/* content/ ディレクトリ内の .md ファイルのみ対象 */
-			if (!str_starts_with($path, $remoteDir . '/')) continue;
-			if (!str_ends_with($path, '.md') && $path !== $remoteDir . '/ap-collections.json') continue;
-
-			/* ローカルパスを計算 */
-			$relativePath = substr($path, strlen($remoteDir) + 1);
-			/* R12 fix: パストラバーサル防止（リポジトリ内の悪意あるパスを排除） */
-			if (str_contains($relativePath, '..') || str_starts_with($relativePath, '/')) {
-				$errors[] = "不正なパス検出: {$path}";
-				continue;
-			}
-			$localPath = content_dir() . '/' . $relativePath;
-
-			/* ディレクトリ作成 */
-			$localDir = dirname($localPath);
-			if (!is_dir($localDir)) {
-				if (!@mkdir($localDir, 0755, true) && class_exists('DiagnosticEngine')) {
-					DiagnosticEngine::logEnvironmentIssue('Git Pull ディレクトリ作成失敗', ['dir' => basename($localDir), 'error' => error_get_last()['message'] ?? '']);
-				}
-			}
-			$realContentDir = realpath(content_dir());
-			$realLocalDir = realpath($localDir);
-			if ($realLocalDir === false || $realContentDir === false || !str_starts_with($realLocalDir, $realContentDir)) {
-				$errors[] = "パストラバーサル検出: {$path}";
-				continue;
-			}
-
-			/* ファイルサイズチェック */
-			$fileSize = $item['size'] ?? 0;
-			if ($fileSize > self::MAX_FILE_SIZE) {
-				$errors[] = "サイズ超過（{$fileSize} bytes）: {$path}";
-				continue;
-			}
-
-			/* ファイル内容を取得 */
-			$fileRes = self::apiRequest('GET', "/repos/{$repo}/contents/{$path}?ref={$branch}");
-			if (!$fileRes['ok']) {
-				$errors[] = "取得失敗: {$path}";
-				continue;
-			}
-
-			$content = $fileRes['data']['content'] ?? '';
-			$encoding = $fileRes['data']['encoding'] ?? '';
-
-			if ($encoding === 'base64') {
-				$decoded = base64_decode($content);
-			} else {
-				$decoded = $content;
-			}
-
-			if ($decoded === false) {
-				$errors[] = "デコード失敗: {$path}";
-				continue;
-			}
-
-			/* SHA 比較でスキップ判定 */
-			$remoteSha = $item['sha'] ?? '';
-			if (file_exists($localPath)) {
-				$localContent = FileSystem::read($localPath);
-				if ($localContent === false) $localContent = '';
-				$localSha = sha1('blob ' . strlen($localContent) . "\0" . $localContent);
-				if ($localSha === $remoteSha) {
-					$skipped++;
-					continue;
-				}
-			}
-
-			if (!FileSystem::write($localPath, $decoded)) {
-				$errors[] = "書き込み失敗: {$path}";
-				if (class_exists('DiagnosticEngine')) DiagnosticEngine::logEnvironmentIssue('Git Pull 書き込み失敗', ['path' => basename($localPath)]);
-				continue;
-			}
-			$downloaded++;
-		}
-
-		/* 診断: Pull 処理サマリー */
-		if (class_exists('DiagnosticEngine')) {
-			DiagnosticEngine::log('debug', 'Git Pull 処理サマリー', ['downloaded' => $downloaded, 'skipped' => $skipped, 'errors' => count($errors), 'tree_items' => count($tree)]);
-		}
-
-		/* 最終同期時刻を記録 */
-		$cfg['last_sync'] = date('c');
-		$cfg['last_sync_direction'] = 'pull';
-		self::saveConfig($cfg);
-
-		$result = [
-			'ok'         => true,
-			'downloaded' => $downloaded,
-			'skipped'    => $skipped,
-		];
-		if ($errors) $result['errors'] = $errors;
-
-		if (class_exists('AdminEngine') && method_exists('AdminEngine', 'logActivity')) {
-			AdminEngine::logActivity("Git Pull: {$downloaded}件ダウンロード, {$skipped}件スキップ");
-		}
-
-		return $result;
+		return \AIS\Deployment\GitService::pull();
 	}
 
-	/* ══════════════════════════════════════════════
-	   コンテンツ送信（Push）
-	   ══════════════════════════════════════════════ */
-
-	/**
-	 * ローカルコンテンツをリポジトリに送信（Push 相当）。
-	 * content/ ディレクトリの Markdown ファイルをアップロード。
-	 */
+	/** @deprecated */
 	public static function push(string $commitMessage = ''): array {
-		$cfg = self::loadConfig();
-		if (!self::isEnabled()) {
-			return ['ok' => false, 'error' => 'Git 連携が無効です'];
-		}
-
-		$repo = $cfg['repository'];
-		$branch = $cfg['branch'] ?? 'main';
-		$remoteDir = $cfg['content_dir'] ?? 'content';
-		if ($commitMessage === '') {
-			$commitMessage = 'Update content from AdlairePlatform';
-		}
-
-		/* 1. 現在の HEAD コミット SHA を取得 */
-		$refRes = self::apiRequest('GET', "/repos/{$repo}/git/ref/heads/{$branch}");
-		if (!$refRes['ok']) {
-			return ['ok' => false, 'error' => 'ブランチ参照の取得に失敗: ' . ($refRes['data']['message'] ?? '')];
-		}
-		$headSha = $refRes['data']['object']['sha'] ?? '';
-		if ($headSha === '') {
-			return ['ok' => false, 'error' => 'HEAD SHA を取得できません'];
-		}
-
-		/* 2. 現在のツリー SHA を取得 */
-		$commitRes = self::apiRequest('GET', "/repos/{$repo}/git/commits/{$headSha}");
-		if (!$commitRes['ok']) {
-			return ['ok' => false, 'error' => 'コミット情報の取得に失敗'];
-		}
-		$baseTreeSha = $commitRes['data']['tree']['sha'] ?? '';
-
-		/* 3. ローカルの content/ ファイルを収集 */
-		$files = self::collectLocalFiles(content_dir());
-		if (empty($files)) {
-			return ['ok' => false, 'error' => 'アップロードするファイルがありません'];
-		}
-
-		/* 4. Blob を作成してツリーエントリを構築 */
-		$treeEntries = [];
-		$uploaded = 0;
-		$errors = [];
-
-		foreach ($files as $relativePath => $localPath) {
-			$content = FileSystem::read($localPath);
-			if ($content === false) {
-				$errors[] = "読み込み失敗: {$localPath}";
-				continue;
-			}
-
-			$remotePath = $remoteDir . '/' . $relativePath;
-
-			/* Blob 作成 */
-			$blobRes = self::apiRequest('POST', "/repos/{$repo}/git/blobs", [
-				'content'  => base64_encode($content),
-				'encoding' => 'base64',
-			]);
-
-			if (!$blobRes['ok']) {
-				$errors[] = "Blob 作成失敗: {$remotePath}";
-				if (class_exists('DiagnosticEngine')) DiagnosticEngine::logIntegrationError('GitHub API', $blobRes['status'] ?? 0, 'Blob 作成失敗: ' . $remotePath);
-				continue;
-			}
-
-			$treeEntries[] = [
-				'path' => $remotePath,
-				'mode' => '100644',
-				'type' => 'blob',
-				'sha'  => $blobRes['data']['sha'],
-			];
-			$uploaded++;
-		}
-
-		if (empty($treeEntries)) {
-			return ['ok' => false, 'error' => 'アップロード可能なファイルがありません', 'errors' => $errors];
-		}
-
-		/* 5. 新しいツリーを作成 */
-		$treeRes = self::apiRequest('POST', "/repos/{$repo}/git/trees", [
-			'base_tree' => $baseTreeSha,
-			'tree'      => $treeEntries,
-		]);
-
-		if (!$treeRes['ok']) {
-			return ['ok' => false, 'error' => 'ツリー作成に失敗: ' . ($treeRes['data']['message'] ?? '')];
-		}
-
-		/* 6. コミットを作成 */
-		$newCommitRes = self::apiRequest('POST', "/repos/{$repo}/git/commits", [
-			'message' => $commitMessage,
-			'tree'    => $treeRes['data']['sha'],
-			'parents' => [$headSha],
-			'author'  => [
-				'name'  => self::COMMIT_AUTHOR,
-				'email' => self::COMMIT_EMAIL,
-				'date'  => date('c'),
-			],
-		]);
-
-		if (!$newCommitRes['ok']) {
-			return ['ok' => false, 'error' => 'コミット作成に失敗: ' . ($newCommitRes['data']['message'] ?? '')];
-		}
-
-		/* 7. ブランチ参照を更新 */
-		$updateRefRes = self::apiRequest('PATCH', "/repos/{$repo}/git/refs/heads/{$branch}", [
-			'sha' => $newCommitRes['data']['sha'],
-		]);
-
-		if (!$updateRefRes['ok']) {
-			return ['ok' => false, 'error' => '参照更新に失敗: ' . ($updateRefRes['data']['message'] ?? '')];
-		}
-
-		/* 最終同期時刻を記録 */
-		$cfg['last_sync'] = date('c');
-		$cfg['last_sync_direction'] = 'push';
-		$cfg['last_commit_sha'] = $newCommitRes['data']['sha'];
-		self::saveConfig($cfg);
-
-		$result = [
-			'ok'         => true,
-			'uploaded'   => $uploaded,
-			'commit_sha' => $newCommitRes['data']['sha'],
-		];
-		if ($errors) $result['errors'] = $errors;
-
-		if (class_exists('AdminEngine') && method_exists('AdminEngine', 'logActivity')) {
-			AdminEngine::logActivity("Git Push: {$uploaded}件アップロード, コミット " . substr($newCommitRes['data']['sha'], 0, 7));
-		}
-
-		return $result;
+		return \AIS\Deployment\GitService::push($commitMessage);
 	}
 
-	/* ══════════════════════════════════════════════
-	   コミット履歴
-	   ══════════════════════════════════════════════ */
-
-	/** コミット履歴を取得 */
+	/** @deprecated */
 	public static function log(int $limit = 20): array {
-		$cfg = self::loadConfig();
-		if (!self::isEnabled()) {
-			return ['ok' => false, 'error' => 'Git 連携が無効です'];
-		}
-
-		$repo = $cfg['repository'];
-		$branch = $cfg['branch'] ?? 'main';
-		$contentDir = $cfg['content_dir'] ?? 'content';
-
-		$res = self::apiRequest('GET',
-			"/repos/{$repo}/commits?sha={$branch}&path={$contentDir}&per_page={$limit}"
-		);
-
-		if (!$res['ok']) {
-			return ['ok' => false, 'error' => 'コミット履歴の取得に失敗'];
-		}
-
-		$commits = [];
-		foreach ($res['data'] as $c) {
-			$commits[] = [
-				'sha'     => substr($c['sha'] ?? '', 0, 7),
-				'full_sha'=> $c['sha'] ?? '',
-				'message' => $c['commit']['message'] ?? '',
-				'author'  => $c['commit']['author']['name'] ?? '',
-				'date'    => $c['commit']['author']['date'] ?? '',
-				'url'     => $c['html_url'] ?? '',
-			];
-		}
-
-		return ['ok' => true, 'commits' => $commits];
+		return \AIS\Deployment\GitService::log($limit);
 	}
 
-	/* ══════════════════════════════════════════════
-	   ステータス
-	   ══════════════════════════════════════════════ */
-
-	/** Git 連携の状態を取得 */
+	/** @deprecated */
 	public static function status(): array {
-		$cfg = self::loadConfig();
-		return [
-			'ok'             => true,
-			'enabled'        => self::isEnabled(),
-			'repository'     => $cfg['repository'] ?? '',
-			'branch'         => $cfg['branch'] ?? 'main',
-			'content_dir'    => $cfg['content_dir'] ?? 'content',
-			'last_sync'      => $cfg['last_sync'] ?? null,
-			'last_direction' => $cfg['last_sync_direction'] ?? null,
-			'last_commit'    => $cfg['last_commit_sha'] ?? null,
-			'has_git'        => self::hasGitCommand(),
-		];
+		return \AIS\Deployment\GitService::status();
 	}
 
-	/* ══════════════════════════════════════════════
-	   プレビューブランチ（pitcms 編集セッション相当）
-	   ══════════════════════════════════════════════ */
-
-	/**
-	 * プレビュー用ブランチを作成。
-	 * pitcms の「編集セッション」に相当する機能。
-	 */
+	/** @deprecated */
 	public static function createPreviewBranch(string $name): array {
-		$cfg = self::loadConfig();
-		if (!self::isEnabled()) {
-			return ['ok' => false, 'error' => 'Git 連携が無効です'];
-		}
-
-		$repo = $cfg['repository'];
-		$baseBranch = $cfg['branch'] ?? 'main';
-		$branchName = 'preview/' . preg_replace('/[^a-zA-Z0-9_\-]/', '-', $name);
-
-		/* ベースブランチの HEAD を取得 */
-		$refRes = self::apiRequest('GET', "/repos/{$repo}/git/ref/heads/{$baseBranch}");
-		if (!$refRes['ok']) {
-			return ['ok' => false, 'error' => 'ベースブランチの取得に失敗'];
-		}
-		$baseSha = $refRes['data']['object']['sha'] ?? '';
-
-		/* 新しいブランチ参照を作成 */
-		$createRes = self::apiRequest('POST', "/repos/{$repo}/git/refs", [
-			'ref' => 'refs/heads/' . $branchName,
-			'sha' => $baseSha,
-		]);
-
-		if (!$createRes['ok']) {
-			if (($createRes['data']['message'] ?? '') === 'Reference already exists') {
-				return ['ok' => true, 'branch' => $branchName, 'existed' => true];
-			}
-			return ['ok' => false, 'error' => 'ブランチ作成に失敗: ' . ($createRes['data']['message'] ?? '')];
-		}
-
-		if (class_exists('AdminEngine') && method_exists('AdminEngine', 'logActivity')) {
-			AdminEngine::logActivity("プレビューブランチ作成: {$branchName}");
-		}
-
-		return ['ok' => true, 'branch' => $branchName, 'existed' => false];
+		return \AIS\Deployment\GitService::createPreviewBranch($name);
 	}
 
-	/* ══════════════════════════════════════════════
-	   GitHub Issue（お問い合わせ保存）
-	   ══════════════════════════════════════════════ */
-
-	/**
-	 * GitHub Issue を作成。
-	 * pitcms のお問い合わせ → GitHub Issue 保存に相当。
-	 */
+	/** @deprecated */
 	public static function createIssue(string $title, string $body, array $labels = []): array {
-		$cfg = self::loadConfig();
-		if (!self::isEnabled()) {
-			return ['ok' => false, 'error' => 'Git 連携が無効です'];
-		}
-		if (empty($cfg['issues_enabled'])) {
-			return ['ok' => false, 'error' => 'Issue 連携が無効です'];
-		}
-
-		$repo = $cfg['repository'];
-
-		$issueData = [
-			'title' => $title,
-			'body'  => $body,
-		];
-		if ($labels) $issueData['labels'] = $labels;
-
-		$res = self::apiRequest('POST', "/repos/{$repo}/issues", $issueData);
-
-		if (!$res['ok']) {
-			return ['ok' => false, 'error' => 'Issue 作成に失敗: ' . ($res['data']['message'] ?? '')];
-		}
-
-		return [
-			'ok'     => true,
-			'number' => $res['data']['number'] ?? 0,
-			'url'    => $res['data']['html_url'] ?? '',
-		];
+		return \AIS\Deployment\GitService::createIssue($title, $body, $labels);
 	}
-
-	/* ══════════════════════════════════════════════
-	   ファイル収集ヘルパー
-	   ══════════════════════════════════════════════ */
-
-	/**
-	 * ディレクトリ内の .md と .json ファイルを再帰的に収集。
-	 * @return array<string, string> relativePath => absolutePath
-	 */
-	private static function collectLocalFiles(string $baseDir): array {
-		$files = [];
-		if (!is_dir($baseDir)) return $files;
-
-		$iter = new RecursiveIteratorIterator(
-			new RecursiveDirectoryIterator($baseDir, RecursiveDirectoryIterator::SKIP_DOTS),
-			RecursiveIteratorIterator::SELF_FIRST
-		);
-
-		foreach ($iter as $item) {
-			if ($item->isDir()) continue;
-			$ext = strtolower($item->getExtension());
-			if ($ext !== 'md' && $ext !== 'json') continue;
-
-			$relativePath = substr($item->getPathname(), strlen($baseDir) + 1);
-			/* pages.json はレガシーファイルなので除外（コレクションのみ同期） */
-			if ($relativePath === 'pages.json') continue;
-
-			$files[$relativePath] = $item->getPathname();
-		}
-
-		return $files;
-	}
-
 }

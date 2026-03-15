@@ -28,10 +28,10 @@ class WebhookController extends BaseController {
 			return $this->error('有効な HTTP(S) URL を指定してください');
 		}
 
-		if (!\WebhookEngine::addWebhook($url, $label, $events, $secret)) {
+		if (!\ACE\Api\WebhookService::addWebhook($url, $label, $events, $secret)) {
 			return $this->error('Webhook追加に失敗しました', 500);
 		}
-		\AdminEngine::logActivity('Webhook追加: ' . $label);
+		\ACE\Admin\AdminManager::logActivity('Webhook追加: ' . $label);
 		return $this->ok();
 	}
 
@@ -40,10 +40,10 @@ class WebhookController extends BaseController {
 		if ($err = $this->requireRole('admin')) return $err;
 
 		$index = (int)$request->post('index', -1);
-		if (!\WebhookEngine::deleteWebhook($index)) {
+		if (!\ACE\Api\WebhookService::deleteWebhook($index)) {
 			return $this->error('Webhook削除に失敗しました');
 		}
-		\AdminEngine::logActivity("Webhook削除: #{$index}");
+		\ACE\Admin\AdminManager::logActivity("Webhook削除: #{$index}");
 		return $this->ok();
 	}
 
@@ -52,7 +52,7 @@ class WebhookController extends BaseController {
 		if ($err = $this->requireRole('admin')) return $err;
 
 		$index = (int)$request->post('index', -1);
-		if (!\WebhookEngine::toggleWebhook($index)) {
+		if (!\ACE\Api\WebhookService::toggleWebhook($index)) {
 			return $this->error('Webhook切替に失敗しました');
 		}
 		return $this->ok();
@@ -63,11 +63,11 @@ class WebhookController extends BaseController {
 		if ($err = $this->requireRole('admin')) return $err;
 
 		$index = (int)$request->post('index', -1);
-		$webhooks = \WebhookEngine::listWebhooks();
+		$webhooks = \ACE\Api\WebhookService::listWebhooks();
 		if ($index < 0 || $index >= count($webhooks)) {
 			return $this->error('無効なインデックス');
 		}
-		\WebhookEngine::dispatch('webhook.test', ['test' => true, 'timestamp' => date('c')]);
+		\ACE\Api\WebhookService::dispatch('webhook.test', ['test' => true, 'timestamp' => date('c')]);
 		return $this->ok();
 	}
 }

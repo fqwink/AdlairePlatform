@@ -12,7 +12,7 @@ class DashboardController extends BaseController {
 
 	/** GET /admin — ダッシュボード表示 */
 	public function index(Request $request): Response {
-		$html = \AdminEngine::renderDashboard();
+		$html = \ACE\Admin\AdminManager::renderDashboard();
 		return Response::html($html);
 	}
 }

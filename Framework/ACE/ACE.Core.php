@@ -1083,7 +1083,7 @@ class CollectionService {
         $dir = \AIS\Core\AppContext::contentDir() . '/' . ($def['directory'] ?? $collection);
         if (!is_dir($dir)) return [];
 
-        $items = \MarkdownEngine::loadDirectory($dir);
+        $items = \ASG\Template\MarkdownService::loadDirectory($dir);
         $allItemCount = count($items);
 
         $now = time();
@@ -1124,7 +1124,7 @@ class CollectionService {
         if ($def === null) return [];
         $dir = \AIS\Core\AppContext::contentDir() . '/' . ($def['directory'] ?? $collection);
         if (!is_dir($dir)) return [];
-        return \MarkdownEngine::loadDirectory($dir);
+        return \ASG\Template\MarkdownService::loadDirectory($dir);
     }
 
     public static function getItem(string $collection, string $slug): ?array {
@@ -1136,12 +1136,12 @@ class CollectionService {
         if (!file_exists($path)) return null;
         $raw = \APF\Utilities\FileSystem::read($path);
         if ($raw === false) return null;
-        $parsed = \MarkdownEngine::parseFrontmatter($raw);
+        $parsed = \ASG\Template\MarkdownService::parseFrontmatter($raw);
         return [
             'slug' => $slug,
             'meta' => $parsed['meta'],
             'body' => $parsed['body'],
-            'html' => \MarkdownEngine::toHtml($parsed['body']),
+            'html' => \ASG\Template\MarkdownService::toHtml($parsed['body']),
         ];
     }
 

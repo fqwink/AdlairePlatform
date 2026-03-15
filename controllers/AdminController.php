@@ -21,7 +21,7 @@ class AdminController extends BaseController {
 		$fieldname = $request->post('fieldname', '');
 		$content   = trim($request->post('content', ''));
 		if (!preg_match('/^[a-zA-Z0-9_\-]+$/', $fieldname)) {
-			return $this->error(\I18n::t('auth.invalid_field_name'));
+			return $this->error(\AIS\Core\I18n::t('auth.invalid_field_name'));
 		}
 
 		$settingsKeys = ['title', 'description', 'keywords', 'copyright', 'themeSelect', 'menu', 'subside', 'contact_email'];
@@ -29,18 +29,16 @@ class AdminController extends BaseController {
 			$settings = json_read('settings.json', settings_dir());
 			$settings[$fieldname] = $content;
 			json_write('settings.json', $settings, settings_dir());
-			\AdminEngine::logActivity('設定変更: ' . $fieldname);
+			\ACE\Admin\AdminManager::logActivity('設定変更: ' . $fieldname);
 		} else {
-			\AdminEngine::saveRevision($fieldname, $content);
+			\ACE\Admin\AdminManager::saveRevision($fieldname, $content);
 			$pages = json_read('pages.json', content_dir());
 			$pages[$fieldname] = $content;
 			json_write('pages.json', $pages, content_dir());
-			\AdminEngine::logActivity('ページ編集: ' . $fieldname);
-			if (class_exists('WebhookEngine')) {
-				\WebhookEngine::dispatch('page.updated', ['slug' => $fieldname]);
-			}
+			\ACE\Admin\AdminManager::logActivity('ページ編集: ' . $fieldname);
+			\ACE\Api\WebhookService::dispatch('page.updated', ['slug' => $fieldname]);
 		}
-		if (class_exists('CacheEngine')) \CacheEngine::invalidateContent();
+		\AIS\System\ApiCache::invalidateContent();
 
 		return Response::json(
 			['ok' => true, 'content' => $content],
@@ -73,8 +71,8 @@ class AdminController extends BaseController {
 		if (!move_uploaded_file($file['tmp_name'], $dir . $filename)) {
 			return $this->error('ファイル保存に失敗しました', 500);
 		}
-		if (class_exists('ImageOptimizer')) \ImageOptimizer::optimize($dir . $filename);
-		\AdminEngine::logActivity('画像アップロード: ' . $filename);
+		\ASG\Utilities\ImageService::optimize($dir . $filename);
+		\ACE\Admin\AdminManager::logActivity('画像アップロード: ' . $filename);
 
 		return Response::json(['url' => $dir . $filename]);
 	}
@@ -92,10 +90,10 @@ class AdminController extends BaseController {
 		if (!isset($pages[$slug])) {
 			return $this->error('ページが見つかりません', 404);
 		}
-		\AdminEngine::saveRevision($slug, $pages[$slug]);
+		\ACE\Admin\AdminManager::saveRevision($slug, $pages[$slug]);
 		unset($pages[$slug]);
 		json_write('pages.json', $pages, content_dir());
-		\AdminEngine::logActivity('ページ削除: ' . $slug);
+		\ACE\Admin\AdminManager::logActivity('ページ削除: ' . $slug);
 
 		return $this->ok();
 	}
@@ -118,7 +116,7 @@ class AdminController extends BaseController {
 
 		$revisions = [];
 		foreach ($files as $f) {
-			$data = \FileSystem::readJson($f);
+			$data = \APF\Utilities\FileSystem::readJson($f);
 			if ($data === null) continue;
 			$revisions[] = [
 				'file'      => basename($f, '.json'),
@@ -141,7 +139,7 @@ class AdminController extends BaseController {
 		}
 		$path = content_dir() . '/revisions/' . $fieldname . '/' . $revFile . '.json';
 		if (!file_exists($path)) return $this->error('Revision not found', 404);
-		$rev = \FileSystem::readJson($path);
+		$rev = \APF\Utilities\FileSystem::readJson($path);
 		if ($rev === null || !isset($rev['content'])) return $this->error('Invalid revision data', 500);
 
 		return Response::json(['ok' => true, 'content' => $rev['content']]);
@@ -156,15 +154,15 @@ class AdminController extends BaseController {
 		}
 		$path = content_dir() . '/revisions/' . $fieldname . '/' . $revFile . '.json';
 		if (!file_exists($path)) return $this->error('Revision not found', 404);
-		$rev = \FileSystem::readJson($path);
+		$rev = \APF\Utilities\FileSystem::readJson($path);
 		if ($rev === null || !isset($rev['content'])) return $this->error('Invalid revision data', 500);
 
 		$content = $rev['content'];
-		\AdminEngine::saveRevision($fieldname, $content, true);
+		\ACE\Admin\AdminManager::saveRevision($fieldname, $content, true);
 		$pages = json_read('pages.json', content_dir());
 		$pages[$fieldname] = $content;
 		json_write('pages.json', $pages, content_dir());
-		\AdminEngine::logActivity('リビジョン復元: ' . $fieldname);
+		\ACE\Admin\AdminManager::logActivity('リビジョン復元: ' . $fieldname);
 
 		return Response::json(['ok' => true, 'content' => $content]);
 	}
@@ -178,11 +176,11 @@ class AdminController extends BaseController {
 		}
 		$path = content_dir() . '/revisions/' . $fieldname . '/' . $revFile . '.json';
 		if (!file_exists($path)) return $this->error('Revision not found', 404);
-		$rev = \FileSystem::readJson($path);
+		$rev = \APF\Utilities\FileSystem::readJson($path);
 		if ($rev === null) return $this->error('Invalid revision data', 500);
 
 		$rev['pinned'] = empty($rev['pinned']);
-		\FileSystem::writeJson($path, $rev);
+		\APF\Utilities\FileSystem::writeJson($path, $rev);
 
 		return Response::json(['ok' => true, 'pinned' => $rev['pinned']]);
 	}
@@ -198,7 +196,7 @@ class AdminController extends BaseController {
 		rsort($files);
 		$results = [];
 		foreach ($files as $f) {
-			$data = \FileSystem::readJson($f);
+			$data = \APF\Utilities\FileSystem::readJson($f);
 			if ($data === null) continue;
 			if ($query !== '' && stripos($data['content'] ?? '', $query) === false) continue;
 			$results[] = [
@@ -223,23 +221,23 @@ class AdminController extends BaseController {
 		if ($username === '' || $password === '') {
 			return $this->error('ユーザー名とパスワードは必須です');
 		}
-		if (!\AdminEngine::addUser($username, $password, $role)) {
+		if (!\ACE\Admin\AdminManager::addUser($username, $password, $role)) {
 			return $this->error('ユーザーの追加に失敗しました');
 		}
-		\AdminEngine::logActivity("ユーザー追加: {$username} ({$role})");
+		\ACE\Admin\AdminManager::logActivity("ユーザー追加: {$username} ({$role})");
 		return Response::json(['ok' => true, 'data' => ['username' => $username, 'role' => $role]]);
 	}
 
 	public function userDelete(Request $request): Response {
 		if ($err = $this->requireRole('admin')) return $err;
 		$username = trim($request->post('username', ''));
-		if ($username === \AdminEngine::currentUsername()) {
+		if ($username === \ACE\Admin\AdminManager::currentUsername()) {
 			return $this->error('自分自身は削除できません');
 		}
-		if (!\AdminEngine::deleteUser($username)) {
+		if (!\ACE\Admin\AdminManager::deleteUser($username)) {
 			return $this->error('ユーザーの削除に失敗しました');
 		}
-		\AdminEngine::logActivity("ユーザー削除: {$username}");
+		\ACE\Admin\AdminManager::logActivity("ユーザー削除: {$username}");
 		return Response::json(['ok' => true, 'data' => ['deleted' => $username]]);
 	}
 
@@ -270,7 +268,7 @@ class AdminController extends BaseController {
 		}
 		$redirects[] = ['from' => $from, 'to' => $to, 'code' => $code];
 		json_write('redirects.json', $redirects, settings_dir());
-		\AdminEngine::logActivity("リダイレクト追加: {$from} → {$to}");
+		\ACE\Admin\AdminManager::logActivity("リダイレクト追加: {$from} → {$to}");
 		return $this->ok();
 	}
 
@@ -283,7 +281,7 @@ class AdminController extends BaseController {
 		}
 		array_splice($redirects, $index, 1);
 		json_write('redirects.json', $redirects, settings_dir());
-		\AdminEngine::logActivity("リダイレクト削除: #{$index}");
+		\ACE\Admin\AdminManager::logActivity("リダイレクト削除: #{$index}");
 		return $this->ok();
 	}
 }

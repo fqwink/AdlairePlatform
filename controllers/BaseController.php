@@ -26,8 +26,8 @@ abstract class BaseController {
 
 	/** ロール検証 */
 	protected function requireRole(string $role): ?Response {
-		if (!\AdminEngine::hasRole($role)) {
-			return $this->error(\I18n::t('auth.no_edit_permission'), 403);
+		if (!\ACE\Admin\AdminManager::hasRole($role)) {
+			return $this->error(\AIS\Core\I18n::t('auth.no_edit_permission'), 403);
 		}
 		return null;
 	}

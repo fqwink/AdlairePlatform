@@ -18,8 +18,8 @@ class DiagnosticController extends BaseController {
 		if ($err = $this->requireRole('admin')) return $err;
 
 		$enabled = !empty($request->post('enabled'));
-		\DiagnosticEngine::setEnabled($enabled);
-		\AdminEngine::logActivity('診断収集: ' . ($enabled ? '有効' : '無効'));
+		\AIS\System\DiagnosticsManager::setEnabled($enabled);
+		\ACE\Admin\AdminManager::logActivity('診断収集: ' . ($enabled ? '有効' : '無効'));
 		return $this->ok(['enabled' => $enabled]);
 	}
 
@@ -31,14 +31,14 @@ class DiagnosticController extends BaseController {
 		if (!in_array($level, ['basic', 'extended', 'debug'], true)) {
 			return $this->error('無効なレベル: basic, extended, debug のいずれかを指定してください');
 		}
-		\DiagnosticEngine::setLevel($level);
-		\AdminEngine::logActivity('診断レベル変更: ' . $level);
+		\AIS\System\DiagnosticsManager::setLevel($level);
+		\ACE\Admin\AdminManager::logActivity('診断レベル変更: ' . $level);
 		return $this->ok(['level' => $level]);
 	}
 
 	/** 現在のバッファプレビュー */
 	public function preview(Request $request): Response {
-		$data = \DiagnosticEngine::healthCheck(true);
+		$data = \AIS\System\DiagnosticsManager::healthCheck(true);
 		return Response::json(['ok' => true, 'data' => $data]);
 	}
 
@@ -46,18 +46,18 @@ class DiagnosticController extends BaseController {
 	public function sendNow(Request $request): Response {
 		if ($err = $this->requireRole('admin')) return $err;
 
-		$config = \DiagnosticEngine::loadConfig();
-		$data = \DiagnosticEngine::collectWithUnsent($config['last_sent'] ?? '');
-		$success = \DiagnosticEngine::send($data);
+		$config = \AIS\System\DiagnosticsManager::loadConfig();
+		$data = \AIS\System\DiagnosticsManager::collectWithUnsent($config['last_sent'] ?? '');
+		$success = \AIS\System\DiagnosticsManager::send($data);
 
 		if ($success) {
-			$config = \DiagnosticEngine::loadConfig();
+			$config = \AIS\System\DiagnosticsManager::loadConfig();
 			$config['last_sent'] = date('c');
 			$config['consecutive_failures'] = 0;
 			$config['circuit_breaker_until'] = 0;
-			\DiagnosticEngine::saveConfig($config);
-			\DiagnosticEngine::purgeExpiredLogs();
-			\AdminEngine::logActivity('診断データを手動送信');
+			\AIS\System\DiagnosticsManager::saveConfig($config);
+			\AIS\System\DiagnosticsManager::purgeExpiredLogs();
+			\ACE\Admin\AdminManager::logActivity('診断データを手動送信');
 			return $this->ok(['message' => '送信しました（ログは14日間保持）', 'sent_at' => date('c')]);
 		}
 
@@ -68,15 +68,15 @@ class DiagnosticController extends BaseController {
 	public function clearLogs(Request $request): Response {
 		if ($err = $this->requireRole('admin')) return $err;
 
-		\DiagnosticEngine::clearLogs();
-		\AdminEngine::logActivity('診断ログをクリア');
+		\AIS\System\DiagnosticsManager::clearLogs();
+		\ACE\Admin\AdminManager::logActivity('診断ログをクリア');
 		return $this->ok(['message' => 'ログをクリアしました']);
 	}
 
 	/** ログ取得 */
 	public function getLogs(Request $request): Response {
-		$timings = \DiagnosticEngine::getTimings();
-		$engineTimings = \DiagnosticEngine::getEngineTimings();
+		$timings = \AIS\System\DiagnosticsManager::getTimings();
+		$engineTimings = \AIS\System\DiagnosticsManager::getEngineTimings();
 		return Response::json(['ok' => true, 'data' => [
 			'timings' => $timings,
 			'engine_timings' => $engineTimings,
@@ -85,14 +85,14 @@ class DiagnosticController extends BaseController {
 
 	/** サマリー取得 */
 	public function getSummary(Request $request): Response {
-		$data = \DiagnosticEngine::healthCheck(false);
+		$data = \AIS\System\DiagnosticsManager::healthCheck(false);
 		return Response::json(['ok' => true, 'data' => $data]);
 	}
 
 	/** ヘルスチェック */
 	public function health(Request $request): Response {
 		$detailed = !empty($request->post('detailed'));
-		$data = \DiagnosticEngine::healthCheck($detailed);
+		$data = \AIS\System\DiagnosticsManager::healthCheck($detailed);
 		return Response::json(['ok' => true, 'data' => $data]);
 	}
 }

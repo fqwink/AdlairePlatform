@@ -147,22 +147,16 @@ $events = Application::events();
 
 /* コンテンツ変更イベント → Webhook 自動配信 */
 $events->listen('content.changed', function (array $data) {
-    if (class_exists('WebhookEngine')) {
-        $event = $data['event'] ?? 'page.updated';
-        WebhookEngine::dispatch($event, $data['payload'] ?? []);
-    }
+    $event = $data['event'] ?? 'page.updated';
+    \ACE\Api\WebhookService::dispatch($event, $data['payload'] ?? []);
 });
 
 /* ログインイベント → 診断ログ */
 $events->listen('auth.login', function (array $data) {
-    if (class_exists('DiagnosticEngine')) {
-        DiagnosticEngine::log('security', 'イベント: ログイン', $data);
-    }
+    \AIS\System\DiagnosticsManager::log('security', 'イベント: ログイン', $data);
 });
 
 /* キャッシュ無効化イベント */
 $events->listen('cache.invalidate', function (array $data) {
-    if (class_exists('CacheEngine')) {
-        CacheEngine::invalidateContent();
-    }
+    \AIS\System\ApiCache::invalidateContent();
 });
