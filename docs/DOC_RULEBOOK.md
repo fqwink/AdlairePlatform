@@ -13,6 +13,7 @@
 | `docs/SECURITY_POLICY.md` | セキュリティ方針 | 🚫 | 🚫 | 📄DOCUMENT_CHANGELOG.md | 保護対象、**機密**、内部限定 |
 | `docs/VERSIONING.md` | バージョニング規則 | 🚫 | 🚫 | 📄DOCUMENT_CHANGELOG.md | 保護対象 |
 | `docs/DOC_RULEBOOK.md` | ドキュメント管理ルールブック | 🚫 | 🚫 | 📄DOCUMENT_CHANGELOG.md | 保護対象 |
+| `docs/FRAMEWORK_RULEBOOK.md` | フレームワーク管理ルールブック | 🚫 | 🚫 | 📄DOCUMENT_CHANGELOG.md | 保護対象、内部専用 |
 | `CHANGELOG.md` | プラットフォーム変更履歴 | 🚫 | 🚫 | ⚪自己管理 | 永続禁止、プラットフォーム本体の変更履歴 |
 | `README.md` | プロジェクト紹介 | ✅ | ✅ | ⚪任意 | 公開用 |
 | `CONTRIBUTING.md` | 貢献ガイド | ✅ | ✅ | ⚪任意 | 公開用 |
