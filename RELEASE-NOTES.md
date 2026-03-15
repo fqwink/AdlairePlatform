@@ -6,6 +6,40 @@
 
 ---
 
+## AdlairePlatform Ver.2.0（2026-03-15）— PHP 8.3+ 移行開始
+
+PHP 8.3+ 完全対応への移行開発を開始。Ver.2.2 までにすべてのソースコードを PHP 8.3 以降完全対応とする。
+PHP 8.2 以前は非対応。段階的に書き換えを実施。
+
+### PHP 8.3+ 移行
+
+- **動作要件変更** — PHP 8.2 以前を非サポートに変更。PHP 8.3 以上を必須化
+- Ver.2.2 までにすべてのソースコードを PHP 8.3+ 完全対応とする段階的移行を開始
+
+### Controller 単一ファイル化
+
+- **AP.Controllers.php** — `controllers/` ディレクトリ（12ファイル）を `Framework/AP/AP.Controllers.php` に統合。他の Framework モジュール（APF, ACE, AIS, ASG）と同じ単一ファイル設計パターンに統一
+- **autoload.php** — PSR-4 方式から名前空間マッピング方式に変更（`AP\Controllers\` → `Framework/AP/AP.Controllers.php`）
+- **controllers/ 廃止** — ディレクトリごと削除
+
+### テストスイート廃止
+
+- **tests/ 廃止** — 旧テストスイート（18ファイル）を削除
+
+### ドキュメント再整備
+
+- 全ドキュメントの PHP バージョン要件を 8.2+ → 8.3+ に更新
+- Ver.2.0 移行に伴うアーキテクチャ変更をドキュメントに反映
+- ドキュメントテーブルの整理・リンク修正
+
+### 破壊的変更
+
+- **PHP 8.2 以前の非サポート** — PHP 8.3 未満では動作保証なし
+- **controllers/ ディレクトリ廃止** — PSR-4 オートロードから名前空間マッピングに変更（名前空間 `AP\Controllers\` は変更なし）
+- **tests/ ディレクトリ廃止**
+
+---
+
 ## AdlairePlatform Ver.1.7-37（2026-03-14）— Stage 2
 
 Engine 脱 exit・Controller 完全実装・API ルート統合・レガシーエンジンチェーン除去。

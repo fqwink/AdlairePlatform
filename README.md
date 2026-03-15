@@ -7,7 +7,7 @@
 APは、デザインテンプレートエンジンを搭載したフラットファイルベースの軽量 CMS フレームワークです。
 データベース不要で動作し、各機能を小さなエンジン単位として設計することで、段階的なシステム拡張が可能です。
 
-> **現在のバージョン**: Ver.1.4-pre（Ver.1.4系開発中）
+> **現在のバージョン**: Ver.2.0（PHP 8.3+ 移行開発中）
 
 ---
 
@@ -51,7 +51,7 @@ APは、デザインテンプレートエンジンを搭載したフラットフ
 
 | 項目 | 要件 |
 |------|------|
-| PHP | **8.2 以上（必須）** |
+| PHP | **8.3 以上（必須）** — PHP 8.2 以前は非対応 |
 | Web サーバー | Apache（mod_rewrite・mod_headers 有効）または Nginx（php-fpm） |
 | PHP 拡張 | `json`, `mbstring`, `ZipArchive`（アップデート機能に必要） |
 | データベース | 不要 |
@@ -75,9 +75,13 @@ APは、デザインテンプレートエンジンを搭載したフラットフ
 | [docs/features.md](docs/features.md) | 実装機能一覧 |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | アーキテクチャ・ファイル責務 |
 | [docs/AdlairePlatform_Design.md](docs/AdlairePlatform_Design.md) | 設計書・仕様書・バージョン計画 |
+| [docs/DETAILED_DESIGN.md](docs/DETAILED_DESIGN.md) | 詳細設計書 |
+| [docs/SECURITY_POLICY.md](docs/SECURITY_POLICY.md) | セキュリティ方針 |
 | [RELEASE-NOTES.md](RELEASE-NOTES.md) | リリースノート・変更履歴 |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | コントリビューション・ガイド |
-ドキュメントの整備・更新は [DOC_RULEBOOK.md](DOC_RULEBOOK.md) に従う。
+| [Framework/README.md](Framework/README.md) | Adlaire Framework 概要 |
+
+ドキュメントの整備・更新は [docs/DOC_RULEBOOK.md](docs/DOC_RULEBOOK.md) に従う。
 
 ---
 

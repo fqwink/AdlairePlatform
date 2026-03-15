@@ -3,14 +3,14 @@
 <!-- ⚠️ 削除禁止: 本ドキュメントは基本設計書・基本方針に関する最上位ドキュメントです -->
 
 > **ドキュメントバージョン**: Ver.0.5-2
-> **ステータス**: 🔧 開発中（Ver.1.4-pre）
+> **ステータス**: 🔧 開発中（Ver.2.0）
 > **作成日**: 2026-03-06
 > **最終更新**: 2026-03-10（ドキュメント役割再定義・4ドキュメント体制）
 > **所有者**: Adlaire Group
 <!-- ⚠️ 削除禁止: 本ドキュメントはプロジェクトの正式な設計書です -->
 
 > **ドキュメントバージョン**: Ver.0.5-1  
-> **ステータス**: 🔧 開発中（Ver.1.4-pre）  
+> **ステータス**: 🔧 開発中（Ver.2.0）  
 > **作成日**: 2026-03-06  
 > **最終更新**: 2026-03-10（5文書構成整理）  
 > **所有者**: Adlaire Group  
@@ -139,7 +139,7 @@ WYSIWYGエディタ（完了）      →    ─                                 
 
 | 項目 | 採用技術 | バージョン要件 | 備考 |
 |------|----------|----------------|------|
-| **サーバーサイド言語** | PHP | **8.2 以降必須** | 8.2 未満は非サポート |
+| **サーバーサイド言語** | PHP | **8.3 以降必須** | 8.2 以前は非サポート（Ver.2.0〜） |
 | **Web サーバー** | Apache / Nginx | 任意（要件参照） | Apache: mod_rewrite / mod_headers 必須、Nginx: php-fpm 連携必須 |
 | **フロントエンドライブラリ** | autosize | 最新安定版 | テキストエリア自動拡張専用（セルフホスト） |
 | **スクリプト言語** | JavaScript（バニラ） | ES5+ | jQuery は廃止済み |
@@ -169,7 +169,7 @@ WYSIWYGエディタ（完了）      →    ─                                 
 
 | 項目 | 要件 | 詳細 |
 |------|------|------|
-| PHP | **8.2 以上（必須）** | 8.2 未満では動作保証なし |
+| PHP | **8.3 以上（必須）** | 8.2 以前は非サポート（Ver.2.0〜） |
 | PHP 拡張 | `json` | JSON 読み書き（標準バンドル） |
 | PHP 拡張 | `mbstring` | マルチバイト文字列処理 |
 | PHP 拡張 | `ZipArchive` | アップデートエンジン（推奨） |
@@ -206,7 +206,7 @@ WYSIWYGエディタ（完了）      →    ─                                 
 
 ### 3.3 非サポート環境
 
-- PHP 8.1 以前
+- PHP 8.2 以前
 - IIS など Apache・Nginx 以外の Web サーバー
 - `mod_rewrite` が無効な Apache 環境
 - `php-fpm` が利用できない Nginx 環境
@@ -312,24 +312,24 @@ Phase 2 は起動時に毎回チェックするが、移行済みの場合は `f
 
 ---
 
-## 5. PHP 8.2 対応仕様
+## 5. PHP 8.3+ 対応仕様
 
 ### 5.1 サポートバージョン
 
 | バージョン | EOL（セキュリティ） | ステータス |
 |------------|---------------------|----------|
-| **PHP 8.2** | **2026-12-31** | **最低サポートバージョン** |
-| PHP 8.3 | 2027-12-31 | 推奨バージョン |
-| PHP 8.4 | 2028-12-31 | 最新安定版 |
+| PHP 8.2 | 2026-12-31 | **非サポート**（Ver.2.0〜） |
+| **PHP 8.3** | **2027-12-31** | **最低サポートバージョン** |
+| PHP 8.4 | 2028-12-31 | 推奨バージョン |
 
 ### 5.2 バージョンチェック
 
 アプリケーション起動時に PHP バージョンを検証する:
 
 ```php
-if (PHP_VERSION_ID < 80200) {
+if (PHP_VERSION_ID < 80300) {
     http_response_code(500);
-    exit('AdlairePlatform requires PHP 8.2 or later. Current version: ' . PHP_VERSION);
+    exit('AdlairePlatform requires PHP 8.3 or later. Current version: ' . PHP_VERSION);
 }
 ```
 
@@ -369,6 +369,8 @@ if (PHP_VERSION_ID < 80200) {
 | ヘッドレス CMS | `Ver.1.3-28` | ✅ 完了 | ApiEngine・CollectionEngine・MarkdownEngine・GitEngine・WebhookEngine・CacheEngine・ImageOptimizer |
 | **Ver.1.3系終了** | `Ver.1.3-29` | **🔒 終了** | **Ver.1.3系最終リビジョン** |
 | Ver.1.4-pre | Ver.1.4-pre | ✅ 完了 | AppContext・Logger・MailerEngine・JsonCache・TemplateEngine拡張 |
+| Ver.1.5〜1.8 | Ver.1.5〜1.8 | ✅ 完了 | Framework統合・Controller層・Router/Middleware・エンジンフレームワーク化 |
+| **Ver.2.0** | **Ver.2.0** | **🔧 開発中** | **PHP 8.3+ 移行・Controller単一ファイル化・tests/廃止** |
 
 ### Ver.1.3系（🔒 終了）
 

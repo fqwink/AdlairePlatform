@@ -63,6 +63,15 @@ AdlairePlatform/
 │  ├─ features.md               # 実装機能一覧
 │  └─ Licenses/
 │     └─ LICENSE_Ver.2.0.md
+├─ Framework/
+│  ├─ AP/
+│  │  └─ AP.Controllers.php     # Controller 統合モジュール（Ver.2.0）
+│  ├─ APF/                      # Adlaire Platform Foundation
+│  ├─ ACE/                      # Adlaire Content Engine
+│  ├─ AIS/                      # Adlaire Infrastructure Services
+│  ├─ ASG/                      # Adlaire Static Generator
+│  ├─ AEB/                      # Adlaire Editor & Blocks
+│  └─ ADS/                      # Adlaire Design System
 ├─ engines/
 │  ├─ AdminEngine.php           # 認証・CSRF・管理アクション・ダッシュボード
 │  ├─ AdminEngine/
@@ -79,9 +88,9 @@ AdlairePlatform/
 │  ├─ WebhookEngine.php         # Webhook 管理・送信（SSRF 防止付き）
 │  ├─ CacheEngine.php           # API レスポンスキャッシュ
 │  ├─ ImageOptimizer.php        # 画像最適化（リサイズ・品質調整）
-│  ├─ AppContext.php            # 集中状態管理（グローバル変数代替） ⭐ Ver.1.4-pre
-│  ├─ Logger.php                # 構造化ログ（PSR-3 互換・ファイルローテーション） ⭐ Ver.1.4-pre
-│  ├─ MailerEngine.php          # メール送信抽象化（リトライ・テストモード） ⭐ Ver.1.4-pre
+│  ├─ AppContext.php            # 集中状態管理（グローバル変数代替）
+│  ├─ Logger.php                # 構造化ログ（PSR-3 互換・ファイルローテーション）
+│  ├─ MailerEngine.php          # メール送信抽象化（リトライ・テストモード）
 │  └─ JsEngine/
 │     ├─ autosize.js            # テキストエリア自動リサイズ
 │     ├─ editInplace.js         # インプレイス編集（バニラJS・plain text）
