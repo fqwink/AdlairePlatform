@@ -804,7 +804,13 @@ class Str {
     }
 
     public static function random(int $length = 16): string {
-        return substr(str_shuffle('0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'), 0, $length);
+        $chars = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        $max = strlen($chars) - 1;
+        $result = '';
+        for ($i = 0; $i < $length; $i++) {
+            $result .= $chars[random_int(0, $max)];
+        }
+        return $result;
     }
 
     public static function limit(string $string, int $limit = 100, string $end = '...'): string {
