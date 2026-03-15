@@ -2,10 +2,10 @@
 
 <!-- ⚠️ 削除禁止: 本ドキュメントは機能一覧に関する正式なドキュメントです -->
 
-AdlairePlatform Ver.1.8 の実装済み機能・未実装機能・関数リファレンス・API リファレンスを定めたドキュメントです。
+AdlairePlatform Ver.2.0 の実装済み機能・未実装機能・関数リファレンス・API リファレンスを定めたドキュメントです。
 
 > 最終更新: 2026-03-15
-> **Ver.1.8**: PHP 8.3+ 必須。Controller 単一ファイル化完了。全 16 エンジン + 4 補助を Framework（APF/ACE/AIS/ASG/AEB/ADS）に統合済み。
+> **Ver.2.0**: PHP 8.3+ 必須。Controller 単一ファイル化完了。全 16 エンジン + 4 補助を Framework（APF/ACE/AIS/ASG/AEB/ADS）に統合済み。
 
 > **関連ドキュメント**:
 > - 基本設計書・基本方針 → [AdlairePlatform_Design.md](AdlairePlatform_Design.md)（最上位ドキュメント）

@@ -2,16 +2,18 @@
 
 <!-- ⚠️ 削除禁止: 本ドキュメントは実装詳細に関する最上位ドキュメントです -->
 
-> **ドキュメントバージョン**: Ver.0.1-1
-> **ステータス**: 🔧 開発中（Ver.1.8）
+> **ドキュメントバージョン**: Ver.2.0-1
+> **ステータス**: 🔧 開発中（Ver.2.0）
 > **作成日**: 2026-03-10
-> **最終更新**: 2026-03-10
+> **最終更新**: 2026-03-15
 > **所有者**: Adlaire Group
 
 > **関連ドキュメント**:
 > - 基本設計書・基本方針 → [AdlairePlatform_Design.md](AdlairePlatform_Design.md)
 > - エンジン駆動モデルアーキテクチャ基本設計書 → [ARCHITECTURE.md](ARCHITECTURE.md)
 > - 機能一覧・関数リファレンス → [features.md](features.md)
+> - フレームワークルールブック → [FRAMEWORK_RULEBOOK.md](FRAMEWORK_RULEBOOK.md)
+> - Ver.2.0 補遺 → [FRAMEWORK_RULEBOOK_v2.0.md](FRAMEWORK_RULEBOOK_v2.0.md)
 > - 本ドキュメントは **実装レベルの技術仕様（詳細設計）** を定めています。
 
 ---
@@ -19,29 +21,25 @@
 ## 目次
 
 1. [概要](#1-概要)
-2. [エンジン実装仕様](#2-エンジン実装仕様)
+2. [アプリケーション起動フロー](#2-アプリケーション起動フロー)
    - 2.1 [index.php（エントリーポイント）](#21-indexphpエントリーポイント)
-   - 2.2 [AdminEngine](#22-adminengine)
-   - 2.3 [TemplateEngine](#23-templateengine)
-   - 2.4 [ThemeEngine](#24-themeengine)
-   - 2.5 [UpdateEngine](#25-updateengine)
-   - 2.6 [StaticEngine](#26-staticengine)
-   - 2.7 [ApiEngine](#27-apiengine)
-   - 2.8 [CollectionEngine](#28-collectionengine)
-   - 2.9 [MarkdownEngine](#29-markdownengine)
-   - 2.10 [GitEngine](#210-gitengine)
-   - 2.11 [WebhookEngine](#211-webhookengine)
-   - 2.12 [CacheEngine](#212-cacheengine)
-   - 2.13 [ImageOptimizer](#213-imageoptimizer)
-   - 2.14 [AppContext](#214-appcontext)
-   - 2.15 [Logger](#215-logger)
-   - 2.16 [MailerEngine](#216-mailerengine)
-   - 2.17 [JsEngine](#217-jsengine)
-3. [データ層実装仕様](#3-データ層実装仕様)
-4. [セキュリティ実装仕様](#4-セキュリティ実装仕様)
-5. [フック機構実装](#5-フック機構実装)
-6. [定数定義](#6-定数定義)
-7. [変更履歴](#7-変更履歴)
+   - 2.2 [autoload.php（名前空間解決）](#22-autoloadphp名前空間解決)
+   - 2.3 [bootstrap.php（アプリケーション初期化）](#23-bootstrapphpアプリケーション初期化)
+   - 2.4 [routes.php（ルート定義）](#24-routesphpルート定義)
+3. [Framework モジュール実装仕様](#3-framework-モジュール実装仕様)
+   - 3.1 [APF — Adlaire Platform Foundation](#31-apf--adlaire-platform-foundation)
+   - 3.2 [ACE — Adlaire Content Engine](#32-ace--adlaire-content-engine)
+   - 3.3 [AIS — Adlaire Infrastructure Services](#33-ais--adlaire-infrastructure-services)
+   - 3.4 [ASG — Adlaire Static Generator](#34-asg--adlaire-static-generator)
+   - 3.5 [AP — Adlaire Platform Controllers](#35-ap--adlaire-platform-controllers)
+   - 3.6 [AEB — Adlaire Editor & Blocks](#36-aeb--adlaire-editor--blocks)
+   - 3.7 [ADS — Adlaire Design System](#37-ads--adlaire-design-system)
+4. [データ層実装仕様](#4-データ層実装仕様)
+5. [セキュリティ実装仕様](#5-セキュリティ実装仕様)
+6. [イベント・フック機構](#6-イベントフック機構)
+7. [定数定義](#7-定数定義)
+8. [Ver.2.0 破壊的変更](#8-ver20-破壊的変更)
+9. [変更履歴](#9-変更履歴)
 
 ---
 
@@ -50,377 +48,799 @@
 本ドキュメントは AdlairePlatform の **詳細設計書** です。
 基本設計（[AdlairePlatform_Design.md](AdlairePlatform_Design.md)）およびアーキテクチャ基本設計（[ARCHITECTURE.md](ARCHITECTURE.md)）で定められた方針に基づく、実装レベルの技術仕様を記録します。
 
-- **エンジン実装仕様**: 全エンジン（Framework モジュール統合済み）の関数シグネチャ・内部フロー
-- **データ層実装仕様**: ファイルパスマッピング・マイグレーションパス
-- **セキュリティ実装仕様**: 脅威対策マトリクス（脅威 → 対策 → 実装場所）
-- **フック機構実装**: コアフックの実装パターン
-- **定数定義**: アプリケーション定数の値と用途
+### 1.1 対象バージョン
+
+| 項目 | 値 |
+|------|-----|
+| プラットフォームバージョン | Ver.2.0-40 |
+| AP_VERSION 定数 | `'2.0.40'` |
+| PHP 動作要件 | 8.3+ |
+| アーキテクチャ | Router + Controller + Framework モジュール |
+| フレームワーク構成 | 7 フレームワーク・18 エンジン |
+
+### 1.2 ドキュメント範囲
+
+- **アプリケーション起動フロー**: エントリーポイント → オートロード → DI → ルーティング
+- **Framework モジュール実装仕様**: 全 7 フレームワーク（APF/ACE/AIS/ASG/AP/AEB/ADS）のクラス・メソッドシグネチャ
+- **データ層実装仕様**: ファイルパスマッピング
+- **セキュリティ実装仕様**: 脅威対策マトリクス
+- **イベント・フック機構**: イベント駆動パターン
+- **定数定義**: アプリケーション定数
 
 ---
 
-## 2. エンジン実装仕様
+## 2. アプリケーション起動フロー
 
 ### 2.1 index.php（エントリーポイント）
 
-| 機能グループ | 関数 | 説明 |
-|------------|------|------|
-| 起動制御 | ─ | PHP バージョン確認・定数定義・autoload/bootstrap 読み込み・Logger 初期化 |
-| ルーティング | `host()`, `getSlug()` | URL 解析・スラッグ生成・`?admin` ダッシュボードルーティング |
-| データ層 | `json_read()`, `json_write()`, `data_dir()`, `settings_dir()`, `content_dir()` | JSON ファイル読み書き（JsonCache 付き） |
-| キャッシュ | `JsonCache::get/set/invalidate/clear()` | リクエスト内 JSON I/O キャッシュ ⭐ Ver.1.4-pre |
-| マイグレーション | `migrate_from_files()` | 旧データ構造からの自動移行 |
-| ユーティリティ | `h()` | HTMLエスケープ |
-| ラッパー | `is_loggedin()`, `csrf_token()`, `verify_csrf()` | AdminEngine に委譲 |
-
-### 2.2 AdminEngine
-
 ```
-AdminEngine::handle(): void
-  └─ ap_action POST パラメータでディスパッチ（後方互換: fieldname のみでも edit_field として処理）
-     ├─ 'edit_field'        → handleEditField()
-     ├─ 'upload_image'      → handleUploadImage()
-     ├─ 'list_revisions'    → listRevisions()
-     ├─ 'get_revision'      → getRevision()
-     ├─ 'restore_revision'  → restoreRevision()
-     ├─ 'pin_revision'      → pinRevision()
-     └─ 'search_revisions'  → searchRevisions()
+index.php 起動フロー:
 
-AdminEngine::isLoggedIn(): bool
-AdminEngine::login(string $storedHash): string
-AdminEngine::savePassword(string $p): string
-AdminEngine::csrfToken(): string
-AdminEngine::verifyCsrf(): void
-
-AdminEngine::saveRevision(string $fieldname, string $content, bool $restored = false): void
-AdminEngine::renderEditableContent(string $id, string $content): string
-AdminEngine::registerHooks(): void
-AdminEngine::getAdminScripts(): string
-
-AdminEngine::renderDashboard(): string
-  └─ TemplateEngine で AdminEngine/dashboard.html をレンダリング
-AdminEngine::buildDashboardContext(): array
-  └─ ページ一覧・設定フィールド・テーマ選択・システム情報を構築
+1. PHP バージョンチェック（8.3+ 必須）
+2. 定数定義（AP_VERSION, AP_UPDATE_URL, AP_BACKUP_GENERATIONS, AP_REVISION_LIMIT）
+3. autoload.php 読み込み
+4. AP.Bridge.php 読み込み
+5. bootstrap.php 読み込み（Application::boot()）
+6. routes.php 読み込み（ルート登録）
+7. セッション初期化（Config 外部化済み）
+8. セキュリティヘッダー設定
+9. Router ディスパッチ（ErrorBoundary ラップ）
+   ├─ ルート一致 → Response::send() → exit
+   └─ 404 → ページレンダリングへフォールスルー
+10. データ読み込み（settings.json, auth.json, pages.json）
+11. 認証チェック（ACE\Admin\AdminManager::isLoggedIn()）
+12. スラッグ解決 → コンテンツ取得
+13. AppContext グローバルコンテキスト同期
+14. テーマレンダリング（ASG\Template\ThemeService::load()）
 ```
 
-### 2.3 TemplateEngine
+| 機能グループ | 実装 | 委譲先 |
+|------------|------|--------|
+| URL 解析 | `host()` | `AIS\Core\AppContext::resolveHost()` |
+| スラッグ生成 | `getSlug()` | `APF\Utilities\Str::safePath()` |
+| JSON 読み書き | `json_read()`, `json_write()` | `APF\Utilities\JsonStorage` |
+| HTML エスケープ | `h()` | `APF\Utilities\Security::escape()` |
+| ディレクトリパス | `data_dir()`, `settings_dir()`, `content_dir()` | `AIS\Core\AppContext` |
+| 認証チェック | — | `ACE\Admin\AdminManager::isLoggedIn()` |
+| テーマ読み込み | — | `ASG\Template\ThemeService::load()` |
 
-```
-TemplateEngine::render(string $template, array $context, string $partialsDir = ''): string
-  ├─ processPartials() — {{> name}} 部分テンプレート読み込み（最大深度10・循環参照防止）
-  ├─ processEach()     — {{#each items}}...{{/each}} ループ処理（@index, @first, @last 対応）
-  ├─ processIf()       — {{#if var}}...{{else}}...{{/if}} 条件分岐（ネスト対応・@変数対応）
-  ├─ processRawVars()  — {{{var}}} / {{{user.name}}} 生 HTML 出力（ネストプロパティ対応）
-  ├─ processVars()     — {{var}} / {{var|filter}} エスケープ出力（フィルター対応）
-  ├─ resolveValue()    — ドット記法でネスト配列を解決（例: "user.name" → $ctx['user']['name']） ⭐ Ver.1.4-pre
-  ├─ applyFilter()     — フィルター適用（upper, lower, capitalize, trim, nl2br, length, truncate:N, default:value） ⭐ Ver.1.4-pre
-  └─ warnUnprocessed() — 未処理テンプレートタグを Logger::warning() で警告
-```
+### 2.2 autoload.php（名前空間解決）
 
-### 2.4 ThemeEngine
+カスタム名前空間 → ファイルマッピング方式（PSR-4 非準拠、1 ファイル = 複数クラスに対応）。
 
-```
-ThemeEngine::load(string $themeSelect): void
-  ├─ テーマ名バリデーション（英数字・-・_のみ）
-  ├─ theme.html を TemplateEngine::render() でレンダリング
-  └─ theme.html がなければ AP-Default にフォールバック
+```php
+static $map = [
+    /* APF - Adlaire Platform Foundation */
+    'APF\\Core\\'       => 'Framework/APF/APF.Core.php',
+    'APF\\Middleware\\'  => 'Framework/APF/APF.Middleware.php',
+    'APF\\Database\\'   => 'Framework/APF/APF.Database.php',
+    'APF\\Utilities\\'  => 'Framework/APF/APF.Utilities.php',
 
-ThemeEngine::buildContext(): array
-  ├─ 動的 CMS 用テンプレートコンテキストを構築（AppContext から取得） ⭐ Ver.1.4-pre
-  └─ AdminEngine::isLoggedIn() / AdminEngine::getAdminScripts() / AdminEngine::renderEditableContent() に委譲
+    /* ACE - Adlaire Content Engine */
+    'ACE\\Core\\'       => 'Framework/ACE/ACE.Core.php',
+    'ACE\\Admin\\'      => 'Framework/ACE/ACE.Admin.php',
+    'ACE\\Api\\'        => 'Framework/ACE/ACE.Api.php',
 
-ThemeEngine::buildStaticContext(string $slug, string $content, array $settings): array
-  └─ StaticEngine 用コンテキスト（admin=false、管理者 UI 除外）
+    /* AIS - Adlaire Infrastructure Services */
+    'AIS\\Core\\'       => 'Framework/AIS/AIS.Core.php',
+    'AIS\\System\\'     => 'Framework/AIS/AIS.System.php',
+    'AIS\\Deployment\\' => 'Framework/AIS/AIS.Deployment.php',
 
-ThemeEngine::parseMenu(string $menuStr, string $currentPage): array
-  └─ メニュー文字列を [{slug, label, active}] 配列にパース
+    /* ASG - Adlaire Static Generator */
+    'ASG\\Core\\'       => 'Framework/ASG/ASG.Core.php',
+    'ASG\\Template\\'   => 'Framework/ASG/ASG.Template.php',
+    'ASG\\Utilities\\'  => 'Framework/ASG/ASG.Utilities.php',
 
-ThemeEngine::listThemes(): array
-  └─ themes/ ディレクトリ内のサブディレクトリ一覧を返す
-```
+    /* AP - Adlaire Platform Controllers */
+    'AP\\Controllers\\' => 'Framework/AP/AP.Controllers.php',
 
-### 2.5 UpdateEngine
-
-```
-handle_update_action()    ─ POST ap_action のルーティング（要認証・CSRF検証）
-check_update()            ─ GitHub Releases API チェック（1時間キャッシュ）
-check_environment()       ─ ZipArchive / allow_url_fopen / 書き込み権限 / ディスク容量
-backup_current()          ─ 現在ファイルをバックアップ（data/, backup/ 除外）
-prune_old_backups()       ─ バックアップ世代管理（AP_BACKUP_GENERATIONS = 5）
-apply_update()            ─ ZIP ダウンロード・展開・適用
-rollback_to_backup()      ─ バックアップからの復元（data/ 除外）
-delete_backup()           ─ 指定バックアップの削除
+    /* AEB/ADS - Asset Bindings */
+    'AEB\\Assets\\'     => 'Framework/AEB/AEB.Assets.php',
+    'ADS\\Assets\\'     => 'Framework/ADS/ADS.Assets.php',
+];
 ```
 
-### 2.6 StaticEngine
+二重読み込み防止: `$loaded` 配列で require 済みファイルを追跡。
 
-```
-StaticEngine::handle(): void
-  └─ ap_action POST パラメータでディスパッチ（要認証・CSRF検証）
-     ├─ 'generate_static_diff' → buildDiff()
-     ├─ 'generate_static_full' → buildAll()
-     ├─ 'clean_static'         → clean()
-     ├─ 'build_zip'            → serveZip()
-     └─ 'static_status'        → getStatus()
+### 2.3 bootstrap.php（アプリケーション初期化）
 
-StaticEngine::buildDiff(): array
-  ├─ loadBuildState() — static_build.json 読み込み
-  ├─ settings_hash 変化 → 全ページ dirty
-  └─ content_hash 変化ページのみ buildPage() → saveBuildState()
+```php
+class Application {
+    private static ?Container $container = null;
+    private static ?HookManager $hooks = null;
+    private static ?EventDispatcher $events = null;
+    private static bool $booted = false;
+    private static array $providers = [];
 
-StaticEngine::buildAll(): array
-  └─ 全ページを buildPage() → deleteOrphanedFiles() → copyAssets()
-
-StaticEngine::renderPage(string $slug, string $content): string
-  ├─ ThemeEngine::buildStaticContext() でコンテキスト構築（admin=false）
-  ├─ TemplateEngine::render() で HTML 生成（{{#if admin}} ブロックは自動除外）
-  └─ rewriteAssetPaths() でアセットパスを静的配信向けに補正
-
-StaticEngine::copyAssets(): void
-  ├─ テーマ CSS/JS → static/assets/ にコピー
-  ├─ uploads/ → static/assets/uploads/ を filemtime 差分コピー
-  └─ static/.htaccess を自動生成（PHP 実行禁止）
-
-StaticEngine::getStatus(): array
-  └─ ビルド状態・ページ別ステータス（current/outdated/not_built）を返す
-
-StaticEngine::clean(): void
-  └─ static/ ディレクトリを再帰削除 + static_build.json をリセット
+    public static function boot(): void
+    public static function container(): Container
+    public static function hooks(): HookManager
+    public static function events(): EventDispatcher
+    public static function make(string $abstract, array $parameters = []): mixed
+    public static function isBooted(): bool
+    public static function registerProvider(ServiceProvider $provider): void
+    public static function bootProviders(): void
+    public static function reset(): void  // テスト用
+}
 ```
 
-### 2.7 ApiEngine
+**DI コンテナ登録:**
 
-```
-ApiEngine::handle(): void
-  └─ ?ap_api= があれば JSON を返して exit
-     ├─ 'pages'      → getPages()
-     ├─ 'page'       → slug バリデーション → getPage($slug)
-     ├─ 'settings'   → getSettings()
-     ├─ 'search'     → q バリデーション（1〜100文字） → search($q)
-     ├─ 'contact'    → POST 検証 → checkContactRate() → sendContact()
-     ├─ 'collection' → コレクション API
-     └─ default      → jsonError('不明な API エンドポイントです', 400)
-
-CORS: 設定可能なオリジン許可 + Vary: Origin ヘッダー
-API キー認証: Bearer トークン + bcrypt
-レスポンスキャッシュ: CacheEngine 連携
+```php
+singleton(Router::class)          // ルーター
+singleton(Request::class)         // リクエスト
+lazy(Session::class)              // セッション管理
+lazy(HealthMonitor::class)        // 診断ウィジェット
+lazy(RateLimiter::class)          // API レート制限
 ```
 
-### 2.8 CollectionEngine
+**イベントリスナー登録:**
 
-```
-CollectionEngine::handle(): void
-  └─ ap_action POST パラメータでディスパッチ
-     ├─ コレクション CRUD（作成・読取・更新・削除）
-     ├─ アイテム CRUD（Markdown ファイル管理）
-     └─ スキーマ定義（ap-collections.json）
+| イベント | リスナー |
+|---------|---------|
+| `content.changed` | WebhookService ディスパッチ |
+| `auth.login` | Diagnostics ログ記録 |
+| `cache.invalidate` | ApiCache 無効化 |
 
-スラグパターン検証: /^[a-zA-Z0-9][a-zA-Z0-9_-]*$/
-directory フィールド検証: スラグパターン準拠（R14 fix）
-コレクション名検証: 全操作でスラグパターン検証（R15 fix）
-```
+### 2.4 routes.php（ルート定義）
 
-### 2.9 MarkdownEngine
+**クエリ/POST パラメータマッピング:**
 
-```
-MarkdownEngine::parse(string $markdown): array
-  ├─ parseFrontmatter() — YAML フロントマター解析（重複キーは最初の値を優先: R8 fix）
-  └─ toHtml() — Markdown → HTML 変換
-
-MarkdownEngine::parseYamlValue(string $val): mixed
-  └─ YAML 値のパース（文字列・数値・真偽値・配列）
+```php
+$router->mapQuery('login', '/login')
+$router->mapQuery('admin', '/admin')
+$router->mapQuery('ap_api', '/api/{endpoint}', 'endpoint')
+$router->mapPost('ap_action', '/dispatch')
 ```
 
-### 2.10 GitEngine
+**ルート定義:**
 
-```
-GitEngine::handle(): void
-  └─ GitHub リポジトリとのコンテンツ同期
-     ├─ pull()  — リポジトリからコンテンツを取り込み（パストラバーサル防止: R12 fix）
-     └─ push()  — コンテンツをリポジトリに書き出し
-```
+| メソッド | パス | ハンドラ | ミドルウェア |
+|---------|------|---------|------------|
+| GET | `/health` | インライン（バージョン + ステータス） | SecurityHeaders |
+| GET | `/login` | `AuthController::showLogin` | SecurityHeaders |
+| POST | `/login` | `AuthController::authenticate` | SecurityHeaders |
+| ANY | `/api/{endpoint}` | `ApiController::dispatch` | SecurityHeaders |
+| GET | `/admin` | `DashboardController::index` | SecurityHeaders, Auth |
+| POST | `/logout` | `AuthController::logout` | SecurityHeaders, Auth |
+| POST | `/dispatch` | `ActionDispatcher::handle` | SecurityHeaders, Auth, CSRF |
 
-### 2.11 WebhookEngine
+---
 
-```
-WebhookEngine::handle(): void
-  └─ Webhook 管理・送信
-     ├─ register()    — Webhook URL 登録（プライベート IP ブロック）
-     ├─ sendAsync()   — 非同期送信（DNS リバインディング防止: R19 fix）
-     └─ isPrivateHost() — プライベート IP 判定（DNS 解決失敗時ブロック: R20 fix）
-```
+## 3. Framework モジュール実装仕様
 
-### 2.12 CacheEngine
+### 3.1 APF — Adlaire Platform Foundation
 
-```
-CacheEngine::get(string $endpoint, string $key): mixed
-CacheEngine::set(string $endpoint, string $key, mixed $data, int $ttl): void
-CacheEngine::clear(string $endpoint): void
+#### APF.Core.php
 
-エンドポイント名サニタイズ: /[^a-zA-Z0-9_\-]/ を除去（R18 fix）
-```
+**Enum・インターフェース:**
 
-### 2.13 ImageOptimizer
+```php
+enum HttpMethod: string           // GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS
+  ├─ isSafe(): bool
+  └─ isIdempotent(): bool
 
-```
-ImageOptimizer::optimize(string $path, array $options): bool
-  └─ JPEG/PNG/WebP の品質調整・リサイズ（GD ライブラリ使用）
-```
+enum LogLevel: string             // DEBUG, INFO, WARNING, ERROR, CRITICAL
+  └─ fromName(string $name): self
 
-### 2.14 AppContext ⭐ Ver.1.4-pre
+interface EventBusInterface       // listen(), dispatch(), hasListeners()
 
-```
-AppContext — グローバル変数（$c, $d, $host, $lstatus, $apcredit, $hook）を静的クラスに集約
-  ├─ syncFromGlobals() — 初期化完了後にグローバル変数から状態を取り込み（後方互換）
-  ├─ syncToGlobals()   — AppContext の変更をグローバル変数に書き戻し（後方互換）
-  ├─ config($key, $default) / setConfig($key, $value) — 設定値アクセサ
-  ├─ defaults()        — デフォルト値配列の取得
-  ├─ host()            — ホスト URL の取得
-  ├─ loginStatus()     — ログインステータス HTML の取得
-  ├─ credit()          — クレジット HTML の取得
-  └─ addHook($name, $content) / getHooks($name) — フック管理
+abstract class Event              // stopPropagation(), isPropagationStopped()
+  ├─ PluginLoadedEvent
+  ├─ ContentSavedEvent
+  ├─ AuthEvent
+  └─ SettingsChangedEvent
 ```
 
-### 2.15 Logger ⭐ Ver.1.4-pre
+**DI コンテナ:**
 
-```
-Logger — PSR-3 互換の集中ログ管理
-  ├─ init($minLevel, $logDir)  — ログ出力の初期化
-  ├─ debug() / info() / warning() / error() — レベル別ログ出力
-  ├─ log()          — コアログ処理（レベルフィルタ・JSON 構造化・リクエスト ID 付与）
-  ├─ writeToFile()  — 日別ファイルへの書き込み（data/logs/ap-YYYY-MM-DD.log）
-  ├─ rotate()       — サイズベースローテーション（5MB 上限・最大 5 世代）
-  └─ cleanup()      — 古いログの削除（30 日以上経過）
-```
-
-### 2.16 MailerEngine ⭐ Ver.1.4-pre
-
-```
-MailerEngine — メール送信の抽象化
-  ├─ send($to, $subject, $body, $replyTo, $extraHeaders) — リトライ付きメール送信（最大 2 回）
-  ├─ sendContact($to, $name, $email, $message, $siteTitle) — お問い合わせフォーム用ヘルパー
-  ├─ sanitizeHeader($value) — ヘッダインジェクション対策（CR/LF/ヌルバイト除去）
-  ├─ enableTestMode() / disableTestMode() — テストモード制御
-  └─ getSentMails() — テストモード時の送信メール一覧取得
+```php
+class Container
+  ├─ bind(string $abstract, Closure $concrete): void
+  ├─ singleton(string $abstract, Closure $concrete): void
+  ├─ instance(string $abstract, mixed $instance): void
+  ├─ alias(string $alias, string $abstract): void
+  ├─ lazy(string $abstract, Closure $factory): void
+  ├─ bindIf(string $abstract, Closure $concrete): void
+  ├─ make(string $abstract, array $parameters = []): mixed  // 循環依存検出付き
+  ├─ has(string $abstract): bool
+  ├─ getBindings(): array          // デバッグ用
+  └─ flush(): void                 // テスト用
 ```
 
-### 2.17 DiagnosticEngine ⭐ Ver.1.4-pre
+**ルーター:**
+
+```php
+class Router
+  ├─ get/post/put/patch/delete/any(string $uri, callable $action): self
+  ├─ group(array $attributes, Closure $callback): void
+  ├─ middleware(string ...$middleware): self
+  ├─ name(string $name): self
+  ├─ route(string $name): ?string
+  ├─ mapQuery(string $param, string $path, ?string $targetParam): void
+  ├─ mapPost(string $param, string $path): void
+  ├─ dispatch(Request $request): Response
+  └─ count(): int
+```
+
+**HTTP オブジェクト:**
+
+```php
+class Request
+  ├─ method(): string
+  ├─ httpMethod(): HttpMethod
+  ├─ uri(): string
+  ├─ query/post/input/json/cookie/header/param/server(string $key, mixed $default): mixed
+  ├─ file(string $key): ?array
+  ├─ ip(): string
+  ├─ userAgent(): string
+  ├─ requestId(): string           // X-Request-Id 連携
+  └─ isAjax(): bool
+
+class Response
+  ├─ json(mixed $data, int $status): static
+  ├─ html(string $content, int $status): static
+  ├─ redirect(string $url, int $status): static
+  ├─ file(string $path, string $filename, string $contentType): static
+  ├─ withHeader(string $name, string $value): self
+  ├─ withCookie(string $name, string $value, array $options): self  // SameSite/Secure/HttpOnly デフォルト有効
+  ├─ getContent(): mixed
+  └─ send(): void
+```
+
+**イベント・フック:**
+
+```php
+class HookManager implements EventBusInterface
+  ├─ register(string $name, callable $callback, int $priority): void
+  ├─ run(string $name, ...$args): void
+  ├─ filter(string $name, mixed $value, ...$args): mixed
+  ├─ has(string $name): bool
+  ├─ remove(string $name): void
+  ├─ clear(): void
+  └─ dispatchEvent(Event $event): Event
+
+class EventDispatcher implements EventBusInterface
+class PluginManager     // 循環依存検出（DFS トポロジカルソート）
+class DebugCollector    // スコーププロファイリング、メモリデルタ計測
+class ErrorBoundary     // グローバル例外ハンドラ、registerGlobal()
+```
+
+**例外クラス:**
 
 ```
-DiagnosticEngine — リアルタイム診断・テレメトリ
-  ├─ registerErrorHandler() — PHP エラー/例外/Fatal ハンドラ登録
-  ├─ log($category, $message, $context) — カスタムログ記録
-  ├─ logRaceCondition($resource, $detail) — 競合状態ログ
-  ├─ logIntegrationError($service, $code, $message) — 外部連携エラーログ
-  ├─ startTimer($label) / stopTimer($label) — パフォーマンス計測
-  ├─ handle() — ダッシュボード API ハンドラ
-  ├─ getHealthStatus() — ヘルスチェック
-  └─ sendDiagnostics() — テレメトリ送信（サーキットブレーカー付き）
+FrameworkException
+├─ ContainerException
+├─ NotFoundException
+├─ RoutingException
+├─ ValidationException  // errors(): array, first(): ?string
+└─ MiddlewareException
 ```
 
-### 2.18 JsEngine
+#### APF.Middleware.php
+
+```php
+class AuthMiddleware              // セッション認証チェック
+class CsrfMiddleware              // CSRF トークン検証（POST/PUT/PATCH/DELETE）
+class RateLimitMiddleware         // リクエストレート制限
+class SecurityHeadersMiddleware   // X-Content-Type-Options, X-Frame-Options 等
+class RequestLoggingMiddleware    // 構造化リクエストログ + X-Response-Time
+class CorsMiddleware              // CORS ヘッダー制御 + プリフライト対応
+```
+
+#### APF.Database.php
+
+```php
+class Connection
+  ├─ query(string $sql, array $bindings): PDOStatement
+  ├─ insert/update/delete(string $table, array $data, ...): int|bool
+  ├─ transaction(Closure $callback): mixed    // ネスト対応（SAVEPOINT）
+  └─ getQueryLog(): array
+
+class QueryBuilder
+  ├─ select/where/whereBetween/whereNotBetween/whereLike/join/orderBy/limit/offset
+  ├─ having(string $column, string $operator, mixed $value): self  // パラメータ化
+  ├─ paginate(int $page, int $perPage): array   // {data, total, page, per_page, total_pages}
+  ├─ insertBatch(array $rows): int              // 一括 INSERT
+  ├─ get/first/count/exists
+  └─ リクエストスコープクエリキャッシュ（書き込み操作で自動無効化）
+
+class Model          // ORM 基底（all, find, create, save, delete, toArray, toJson）
+class Schema         // スキーマビルダー（create, drop, hasTable）
+class Blueprint      // テーブル定義（id, string, text, integer, timestamps）
+```
+
+#### APF.Utilities.php
+
+```php
+class Config
+  └─ get(string $key, mixed $default): mixed    // 環境変数 → 設定ファイル → デフォルト
+
+class Validator
+  ├─ validate(array $data, array $rules): bool
+  ├─ request(Request $request, array $rules): array  // 失敗時 ValidationException
+  ├─ errors/first/hasError
+  └─ ルール: required, email, min, max, numeric, url, date, confirmed, regex, between, size, array, json, ip, uuid, slug, in
+
+class Cache          // ファイルキャッシュ（get, set, delete, remember, forever, gc）、JSON シリアライズ
+class Logger         // 構造化ログ（JSON対応）、チャネル分離、リクエストコンテキスト自動付与
+class Session        // セッション管理（get, set, flash, regenerate）
+class Security       // hash(Argon2id優先), verify, csrf, encrypt, decrypt, rateLimit, escape
+class Str            // slug, camel, snake, kebab, random(CSPRNG), limit, safePath
+class Arr            // get, set, only, except, flatten, pluck, where
+class JsonStorage    // JSON ファイル I/O（リクエスト内キャッシュ付き）
+```
+
+### 3.2 ACE — Adlaire Content Engine
+
+#### ACE.Core.php
+
+```php
+class CollectionManager
+  ├─ create(string $name, array $schema): bool
+  ├─ delete(string $name): bool
+  ├─ list(): array
+  ├─ getSchema(string $name): array
+  └─ getItems(string $name, array $filters): array
+
+class ContentManager
+  ├─ getPage(string $slug): ?array
+  ├─ savePage(string $slug, string $content): bool
+  ├─ deletePage(string $slug): bool
+  └─ listPages(): array
+
+class CollectionService
+  └─ mergeCollectionPages(): array    // Markdown コレクションをページに統合
+```
+
+#### ACE.Admin.php
+
+```php
+class AdminManager
+  ├─ isLoggedIn(): bool
+  ├─ login(string $password, string $storedHash): bool
+  ├─ savePassword(string $password): string
+  ├─ csrfToken(): string
+  ├─ verifyCsrf(): void
+  └─ renderDashboard(): string
+
+class RevisionManager
+  ├─ save(string $fieldname, string $content, bool $restored): void
+  ├─ list(string $fieldname, int $page, int $limit): array
+  ├─ get(string $fieldname, string $id): ?array
+  ├─ restore(string $fieldname, string $id): bool
+  ├─ pin(string $fieldname, string $id): bool
+  └─ search(string $fieldname, string $query): array
+
+class UserManager
+  ├─ authenticate(string $username, string $password): ?array
+  ├─ add(string $username, string $password, string $role): bool
+  ├─ delete(string $username): bool
+  └─ list(): array
+```
+
+#### ACE.Api.php
+
+```php
+class ApiRouter
+  ├─ handle(): void
+  │   ├─ 'pages'      → getPages()
+  │   ├─ 'page'       → getPage(slug)
+  │   ├─ 'settings'   → getSettings()
+  │   ├─ 'search'     → search(query)
+  │   ├─ 'contact'    → sendContact()
+  │   └─ 'collection' → コレクション API
+  ├─ CORS 対応（設定可能オリジン + Vary: Origin）
+  ├─ API キー認証（Bearer + bcrypt、プレフィックス 12 文字照合）
+  └─ レスポンスキャッシュ（ETag / Last-Modified）
+
+class WebhookManager
+  ├─ register(string $url, array $events): bool
+  ├─ delete(string $id): bool
+  ├─ sendAsync(string $event, array $payload): void  // 指数バックオフリトライ（最大3回）
+  ├─ verifySignature(string $payload, string $signature, string $secret): bool  // HMAC-SHA256
+  └─ isPrivateHost(string $host): bool               // SSRF 防止
+
+class ApiCache
+  ├─ get(string $endpoint, string $key): mixed
+  ├─ set(string $endpoint, string $key, mixed $data, int $ttl): void
+  └─ clear(string $endpoint): void
+
+class RateLimiter
+  └─ check(string $key, int $limit, int $window): bool
+```
+
+### 3.3 AIS — Adlaire Infrastructure Services
+
+#### AIS.Core.php
+
+```php
+class AppContext
+  ├─ syncFromGlobals(): void       // グローバル変数から状態取り込み
+  ├─ syncToGlobals(): void         // 変更をグローバル変数に書き戻し
+  ├─ config(string $key, mixed $default): mixed
+  ├─ setConfig(string $key, mixed $value): void
+  ├─ resolveHost(): array          // ホスト URL・リクエストページ解決
+  ├─ dataDir/settingsDir/contentDir(): string
+  ├─ validate(array $schema): array  // スキーマ検証（型・必須・範囲・許可値）
+  └─ host/loginStatus/credit/addHook/getHooks
+
+class ServiceProvider              // DI サービス登録基底クラス
+class ServiceContainer             // サービスコンテナ
+```
+
+#### AIS.System.php
+
+```php
+class DiagnosticsCollector
+  ├─ registerErrorHandler(): void
+  ├─ log(string $category, string $message, array $context): void
+  ├─ startTimer/stopTimer(string $label): void
+  ├─ getHealthStatus(): array
+  └─ sendDiagnostics(): void       // サーキットブレーカー付き
+
+class HealthMonitor
+  └─ check(bool $detailed): array  // ディスク・メモリ・PHP・権限
+
+class AppLogger
+  ├─ init(string $minLevel, string $logDir): void
+  ├─ debug/info/warning/error/critical(string $message, array $context): void
+  ├─ channel(string $name): self
+  └─ rotate/cleanup(): void        // サイズ/日付ベースローテーション
+
+class CrashReporter
+class ActivityLogger
+```
+
+#### AIS.Deployment.php
+
+```php
+class Updater
+  ├─ checkUpdate(): array          // GitHub Releases API（1 時間キャッシュ）
+  ├─ checkEnvironment(): array     // ZipArchive / allow_url_fopen / ディスク容量
+  ├─ apply(string $url): bool      // ZIP ダウンロード・展開・適用
+  ├─ backup(): string              // 自動バックアップ（data/, backup/ 除外）
+  ├─ rollback(string $name): bool
+  ├─ deleteBackup(string $name): bool
+  └─ pruneOldBackups(): void       // 世代管理（デフォルト 5 世代）
+
+class GitSync
+  ├─ configure(array $config): bool
+  ├─ test(): array
+  ├─ pull(): array                 // パストラバーサル防止付き
+  ├─ push(): array
+  ├─ log(int $limit): array
+  └─ status(): array
+
+class Mailer
+  ├─ send(string $to, string $subject, string $body, ...): bool  // リトライ（最大 2 回）
+  ├─ sendContact(...): bool
+  └─ sanitizeHeader(string $value): string  // ヘッダインジェクション対策
+```
+
+### 3.4 ASG — Adlaire Static Generator
+
+#### ASG.Core.php
+
+```php
+class Generator
+  ├─ buildDiff(): array            // 差分ビルド（ハッシュベース変更検出）
+  ├─ buildAll(): array             // フルビルド
+  ├─ clean(): void                 // static/ 再帰削除
+  ├─ getStatus(): array            // ページ別ステータス（current/outdated/not_built）
+  ├─ copyAssets(): void            // テーマ CSS/JS + uploads を差分コピー
+  └─ deleteOrphanedFiles(): void
+
+class BuildCache
+  ├─ buildManifest(): array        // ハッシュベース差分検出
+  ├─ needsFullRebuild(): bool      // 設定・テーマ変更判定
+  └─ commitManifest(): void        // ビルド後状態更新
+```
+
+#### ASG.Template.php
+
+```php
+class TemplateRenderer
+  ├─ render(string $template, array $context, string $partialsDir): string
+  │   ├─ processPartials()         // {{> name}} 部分テンプレート（最大深度 10・循環参照防止）
+  │   ├─ processEach()             // {{#each items}}...{{/each}}（@index, @first, @last）
+  │   ├─ processIf()               // {{#if var}}...{{else}}...{{/if}}（ネスト対応）
+  │   ├─ processRawVars()          // {{{var}}} 生 HTML 出力
+  │   ├─ processVars()             // {{var|filter}} エスケープ出力
+  │   ├─ resolveValue()            // ドット記法ネスト解決
+  │   ├─ applyFilter()             // upper, lower, capitalize, trim, nl2br, length, truncate:N, default:value
+  │   └─ warnUnprocessed()         // 未処理タグ警告
+  └─ renderPage(string $slug, string $content): string
+
+class ThemeService
+  ├─ load(string $themeSelect): void
+  ├─ buildContext(): array          // 動的 CMS 用テンプレートコンテキスト
+  ├─ buildStaticContext(...): array // StaticEngine 用（admin=false）
+  ├─ parseMenu(string $menuStr, string $currentPage): array
+  └─ listThemes(): array
+
+class MarkdownParser
+  ├─ parse(string $markdown): array  // フロントマター + HTML
+  └─ parseYamlValue(string $val): mixed
+```
+
+#### ASG.Utilities.php
+
+```php
+class ImageOptimizer
+  └─ optimize(string $path, array $options): bool  // JPEG/PNG/WebP（GD ライブラリ）
+
+class FileSystem
+  ├─ read(string $path): ?string    // is_file() / is_readable() 事前チェック
+  ├─ write(string $path, string $content): bool  // Logger 連携エラー記録
+  ├─ ensureDir(string $path): bool  // レースコンディション安全
+  └─ writeJson(string $path, mixed $data): bool  // JSON_THROW_ON_ERROR
+
+class BuildCache                    // ビルド状態管理
+class PathResolver                  // URL 生成・パス解決
+```
+
+### 3.5 AP — Adlaire Platform Controllers
+
+#### AP.Controllers.php
+
+**基底コントローラー:**
+
+```php
+abstract class BaseController
+  ├─ ok(mixed $data = null): Response
+  ├─ error(string $message, int $status = 400): Response
+  ├─ requireRole(string $role): ?Response
+  ├─ validateParam(Request $request, string $key, string $pattern, string $errorMsg): ?Response
+  └─ validate(Request $request, array $rules, array $messages = []): array|Response
+```
+
+**コントローラー一覧:**
+
+| コントローラー | 主要メソッド | 用途 |
+|--------------|------------|------|
+| `AuthController` | `showLogin`, `authenticate`, `logout` | 認証（マルチユーザー対応、Argon2id/bcrypt） |
+| `DashboardController` | `index` | ダッシュボード表示 |
+| `ApiController` | `dispatch` | REST API ルーティング → ACE.Api に委譲 |
+| `AdminController` | `editField`, `uploadImage`, `deletePage`, `listRevisions`, `getRevision`, `restoreRevision`, `pinRevision`, `searchRevisions`, `userAdd`, `userDelete`, `redirectAdd`, `redirectDelete` | コンテンツ管理・ユーザー管理 |
+| `CollectionController` | `create`, `delete`, `itemSave`, `itemDelete`, `migrate` | コレクション CRUD |
+| `GitController` | `configure`, `test`, `pull`, `push`, `log`, `status`, `previewBranch` | Git/GitHub 連携 |
+| `WebhookController` | `add`, `delete`, `toggle`, `test` | Webhook 管理 |
+| `StaticController` | `buildDiff`, `buildAll`, `clean`, `buildZip`, `status`, `deployDiff` | 静的サイト生成 |
+| `UpdateController` | `check`, `checkEnv`, `apply`, `listBackups`, `rollback`, `deleteBackup` | アップデート・バックアップ |
+| `DiagnosticController` | `setEnabled`, `setLevel`, `preview`, `sendNow`, `clearLogs`, `getLogs`, `getSummary`, `health` | 診断・テレメトリ |
+
+**ActionDispatcher（POST ap_action ルーター）:**
+
+```php
+class ActionDispatcher
+  ├─ handle(Request $request): Response
+  └─ registeredActions(): array    // 40+ 登録済みアクション
+```
+
+全 `ap_action` POST 値を対応する Controller メソッドに明示的にルーティング。
+
+#### AP.Bridge.php
+
+**レガシー互換レイヤー:**
+
+```php
+class JsonCache                      // APF\Utilities\JsonStorage のラッパー
+  ├─ get(string $path): ?array
+  ├─ set(string $path, array $data): void
+  └─ clear(): void
+
+function data_dir(): string          → AIS\Core\AppContext::dataDir()
+function settings_dir(): string      → AIS\Core\AppContext::settingsDir()
+function content_dir(): string       → AIS\Core\AppContext::contentDir()
+function json_read(...): array       → APF\Utilities\JsonStorage
+function json_write(...): void       → APF\Utilities\JsonStorage
+function h(string $s): string        → APF\Utilities\Security::escape()
+function getSlug(string $p): string  → APF\Utilities\Str::safePath()
+function host(): array               → AIS\Core\AppContext::resolveHost()
+```
+
+> **Ver.2.0 方針**: AP.Bridge.php のグローバル関数は廃止対象。Framework クラスメソッドへの直接置換を進める。
+
+#### AP/JsEngine/（フロントエンド JavaScript モジュール群）
 
 | ファイル | 役割 |
 |---------|------|
-| `autosize.js` | `apAutosize(el)` 関数を提供。`textarea[data-autosize]` を DOMContentLoaded で自動初期化 |
-| `editInplace.js` | `.editText` スパンのクリックで textarea に変換、blur 時に Fetch API で保存（plain text 用）。`ap_action=edit_field` を送信 |
-| `wysiwyg.js` | `.editRich` スパンのクリックで contenteditable + ツールバーを起動。画像 D&D/貼り付け/ボタン挿入、30秒定期自動保存、Ctrl+Enter/blur で手動保存。`ap_action=edit_field` を送信 |
-| `updater.js` | アップデート確認・適用・バックアップ一覧・ロールバック・削除 UI |
-| `dashboard.js` | ダッシュボード固有のインタラクション（テーマ選択変更時に `ap_action=edit_field` で保存） |
-| `static_builder.js` | 静的書き出し管理 UI（差分ビルド・全件ビルド・クリア・ZIP ダウンロード） |
-| `collection_manager.js` | コレクション管理 UI（CRUD・プレビュー・XSS サニタイズ済み） |
-| `git_manager.js` | Git 連携 UI（Pull/Push 操作） |
-| `webhook_manager.js` | Webhook 管理 UI（登録・削除・テスト送信） |
-| `api_keys.js` | API キー管理 UI（生成・削除・CSRF トークン付き） |
-| `ap-api-client.js` | 静的サイト向け軽量 API クライアント。`window.AP.api(action, params)` で公開 API を呼び出し。依存なし・ES5 互換 |
-| `ap-utils.js` | 共通ユーティリティ（`AP.getCsrf`, `AP.escHtml`, `AP.post`, `AP.postAction`, `AP.apiPost`） |
-| `diagnostics.js` | 診断データ管理 UI（有効/無効切替・レベル変更・ログ表示・ヘルスチェック） |
-| `ap-search.js` | クライアントサイド検索（search-index.json を使用） |
+| `wysiwyg.js` (2,889行) | WYSIWYG エディタ（ブロックベース・9 ブロックタイプ・7 インラインツール） |
+| `editInplace.js` | `.editText` プレーンテキスト編集 |
+| `dashboard.js` | ダッシュボード UI |
+| `updater.js` | アップデート管理 UI |
+| `static_builder.js` | 静的書き出し管理 UI |
+| `collection_manager.js` | コレクション管理 UI |
+| `git_manager.js` | Git 連携 UI |
+| `webhook_manager.js` | Webhook 管理 UI |
+| `api_keys.js` | API キー管理 UI |
+| `diagnostics.js` | 診断データ管理 UI |
+| `ap-api-client.js` | 静的サイト向け API クライアント |
+| `ap-utils.js` | 共通ユーティリティ（`AP.getCsrf`, `AP.escHtml`, `AP.post`） |
+| `ap-events.js` | イベントシステム |
+| `ap-i18n.js` | 国際化 |
+| `ap-search.js` | クライアントサイド検索 |
+| `aeb-adapter.js` | AEB ES6 モジュール → グローバルスコープブリッジ |
+| `autosize.js` | Textarea 自動リサイズ |
+
+### 3.6 AEB — Adlaire Editor & Blocks
+
+#### AEB.Core.js
+
+```javascript
+class Editor          // メインコントローラー
+class EventBus        // Pub/Sub イベントシステム
+class BlockRegistry   // ブロック型管理
+class StateManager    // リアクティブ状態管理
+class HistoryManager  // Undo/Redo（最大 50 操作）
+```
+
+#### AEB.Blocks.js
+
+10 ブロックタイプ: `BaseBlock`（抽象）, `ParagraphBlock`, `HeadingBlock`(H2/H3), `ListBlock`, `QuoteBlock`, `CodeBlock`, `ImageBlock`, `TableBlock`, `ChecklistBlock`, `DelimiterBlock`
+
+#### AEB.Utils.js
+
+```javascript
+sanitizer   // HTML サニタイゼーション（XSS 防御）
+dom         // DOM 操作ヘルパー
+selection   // テキスト選択ユーティリティ
+keyboard    // キーボードショートカット
+```
+
+### 3.7 ADS — Adlaire Design System
+
+#### ADS.Base.css
+
+CSS カスタムプロパティ（`--ads-primary`, `--ads-bg`, `--ads-text` 等）、モダン CSS リセット、タイポグラフィ、ユーティリティクラス
+
+#### ADS.Components.css
+
+`.ads-btn`, `.ads-card`, `.ads-form`, `.ads-modal`, `.ads-alert`, `.ads-badge`, `.ads-tooltip`, `.ads-spinner`
+
+#### ADS.Editor.css
+
+`.aeb-editor`, `.aeb-block`, `.aeb-toolbar` 等エディタ特化スタイル
 
 ---
 
-## 3. データ層実装仕様
+## 4. データ層実装仕様
 
-### 3.1 ファイルパスマッピング
+### 4.1 ファイルパスマッピング
 
-| キー | パス | 読み書き関数 |
-|-----|------|------------|
-| サイト設定 | `data/settings/settings.json` | `json_read/write('settings.json', settings_dir())` |
-| 認証情報 | `data/settings/auth.json` | `json_read/write('auth.json', settings_dir())` |
-| APIキャッシュ | `data/settings/update_cache.json` | `json_read/write('update_cache.json', settings_dir())` |
-| ログイン試行 | `data/settings/login_attempts.json` | `json_read/write('login_attempts.json', settings_dir())` |
-| バージョン履歴 | `data/settings/version.json` | `json_read/write('version.json', settings_dir())` |
-| ページ | `data/content/pages.json` | `json_read/write('pages.json', content_dir())` |
-| 静的ビルド状態 | `data/settings/static_build.json` | `json_read/write('static_build.json', settings_dir())` |
+| データ | パス | 読み書き |
+|-------|------|---------|
+| サイト設定 | `data/settings/settings.json` | `JsonStorage` |
+| 認証情報 | `data/settings/auth.json` | `JsonStorage` |
+| ユーザー一覧 | `data/settings/users.json` | `JsonStorage` |
+| API キャッシュ | `data/settings/update_cache.json` | `JsonStorage` |
+| ログイン試行 | `data/settings/login_attempts.json` | `JsonStorage` |
+| バージョン履歴 | `data/settings/version.json` | `JsonStorage` |
+| ページ | `data/content/pages.json` | `JsonStorage` |
+| 静的ビルド状態 | `data/settings/static_build.json` | `JsonStorage` |
+| コレクション定義 | `data/content/ap-collections.json` | `JsonStorage` |
+| コレクションアイテム | `data/content/collections/{name}/*.md` | `MarkdownParser` |
+| リビジョン | `data/content/revisions/{fieldname}/*.json` | `RevisionManager` |
+| ログ | `data/logs/ap-YYYY-MM-DD.log` | `AppLogger` |
+| バックアップ | `backup/YYYYMMDD_His/` | `Updater` |
 
-### 3.2 マイグレーションパス
+### 4.2 ディレクトリ構造
 
 ```
-Phase 1: files/{key} → data/settings/{key}.json / data/content/pages.json
-Phase 2: data/{file}.json → data/settings/{file}.json / data/content/pages.json
+data/
+├── settings/          # 設定ファイル群
+├── content/           # コンテンツファイル群
+│   ├── pages.json
+│   ├── ap-collections.json
+│   ├── collections/   # Markdown コレクション
+│   └── revisions/     # リビジョン履歴
+├── logs/              # アプリケーションログ
+└── cache/             # ファイルキャッシュ
 ```
-
-Phase 2 は起動時に毎回チェックするが、移行済みの場合は `file_exists` で早期 skip される。
 
 ---
 
-## 4. セキュリティ実装仕様
+## 5. セキュリティ実装仕様
 
-### 4.1 脅威対策マトリクス
+### 5.1 脅威対策マトリクス
 
 | 脅威 | 対策 | 実装場所 |
 |------|------|---------|
-| XSS | `h()` 関数による出力エスケープ | `index.php` / `AdminEngine` 全出力箇所 |
-| CSRF | 32バイトトークン + `empty()` + `hash_equals()` | `AdminEngine::verifyCsrf()` |
-| セッションハイジャック | `session_regenerate_id(true)` | `AdminEngine::login()` |
-| セッション固定 | HttpOnly + SameSite=Lax クッキー | `index.php` |
-| パストラバーサル | 正規表現バリデーション | フィールド名・テーマ名・バックアップ名 |
-| クリックジャッキング | `X-Frame-Options: SAMEORIGIN` | `.htaccess` / server block |
-| MIME スニッフィング | `X-Content-Type-Options: nosniff` | `.htaccess` / server block |
-| ディレクトリ列挙 | `Options -Indexes` | `.htaccess` / `autoindex off` |
-| データ漏洩 | 保護ディレクトリへのアクセス拒否 | `.htaccess` / server block |
-| ブルートフォース | 5回失敗で15分ロックアウト（IP ベース） | `check_login_rate()` |
-| パスワード平文保存 | bcrypt ハッシュ化 | `savePassword()` |
-| コンテンツインジェクション | CSP ヘッダー（`default-src 'self'`） | `.htaccess` / server block |
-| 画像アップロード悪用 | MIME 検証・PHP 実行禁止・ランダムファイル名 | `upload_image()` |
-| SSRF | プライベート IP ブロック・DNS リバインディング防止 | `WebhookEngine` |
-| JSON-LD XSS | `JSON_UNESCAPED_SLASHES` 除去 | `ThemeEngine` |
-| メールヘッダインジェクション | Subject の改行除去 | `ApiEngine` / `MailerEngine` |
-| CORS キャッシュポイズニング | `Vary: Origin` ヘッダー | `ApiEngine` |
-| オープンリダイレクト | リダイレクト先 URL 検証 | `AdminEngine` |
-| API 認証 | Bearer トークン + bcrypt | `ApiEngine` |
-| Framework/ 直接アクセス | `RedirectMatch 403 ^.*/Framework/.*\.php$` | `.htaccess` |
+| XSS | `Security::escape()` による出力エスケープ | 全出力箇所 |
+| CSRF | 32 バイトトークン + `hash_equals()` | `CsrfMiddleware`, `AdminManager` |
+| セッションハイジャック | `session_regenerate_id(true)` | `AuthController::authenticate()` |
+| セッション固定 | HttpOnly + SameSite=Lax + Secure(HTTPS) | `index.php` セッション設定 |
+| パストラバーサル | 正規表現 + `Str::safePath()` | フィールド名・テーマ名・バックアップ名 |
+| クリックジャッキング | `X-Frame-Options: SAMEORIGIN` | `.htaccess` + `SecurityHeadersMiddleware` |
+| MIME スニッフィング | `X-Content-Type-Options: nosniff` | `.htaccess` + `SecurityHeadersMiddleware` |
+| ブルートフォース | 5 回失敗 → 15 分ロックアウト（IP） | `AuthController`, `RateLimiter` |
+| パスワード保存 | Argon2id 優先 / bcrypt フォールバック | `Security::hash()` |
+| CSP | `default-src 'self'` | `.htaccess` |
+| 画像アップロード悪用 | MIME 検証・PHP 実行禁止・ランダムファイル名 | `AdminController::uploadImage()` |
+| SSRF | プライベート IP ブロック・DNS リバインディング防止 | `WebhookManager::isPrivateHost()` |
+| SQL インジェクション | パラメータバインド・ソート方向制限 | `QueryBuilder` |
+| CORS ポイズニング | `Vary: Origin` ヘッダー | `CorsMiddleware`, `ApiRouter` |
+| オープンリダイレクト | リダイレクト先 URL 検証 | `AuthController` |
+| Framework 直接アクセス | `RedirectMatch 403 ^.*/Framework/.*\.php$` | `.htaccess` |
+| Permissions-Policy | `geolocation=(), microphone=(), camera=()` | `index.php`, `.htaccess` |
+| HSTS | `Strict-Transport-Security` (HTTPS 時) | `index.php` |
 
 ---
 
-## 5. フック機構実装
+## 6. イベント・フック機構
+
+### 6.1 イベント駆動パターン
 
 ```php
-// AdminEngine::registerHooks() が admin-head フックに JsEngine スクリプトを登録
-AdminEngine::registerHooks();
+// 型付きイベントディスパッチ
+Application::events()->dispatch('content.changed', $payload);
 
-// AdminEngine::getAdminScripts() がフック内容を文字列で返却
-// ThemeEngine::buildContext() 内で使用（theme.html 方式）
-// editTags() はレガシー theme.php フォールバック用ラッパーとして維持
+// フック登録
+Application::hooks()->register('admin-head', function() {
+    return '<script src="..."></script>';
+}, priority: 10);
+
+// フック実行
+$scripts = Application::hooks()->filter('admin-head', '');
 ```
+
+### 6.2 登録済みイベント
+
+| イベント名 | トリガー | リスナー |
+|-----------|---------|---------|
+| `content.changed` | コンテンツ保存時 | WebhookService |
+| `auth.login` | ログイン成功時 | DiagnosticsCollector |
+| `cache.invalidate` | キャッシュ無効化時 | ApiCache |
+
+### 6.3 型付きイベントクラス
+
+| クラス | プロパティ |
+|-------|-----------|
+| `PluginLoadedEvent` | `name`, `version` |
+| `ContentSavedEvent` | `slug`, `content`, `user` |
+| `AuthEvent` | `username`, `action`, `ip` |
+| `SettingsChangedEvent` | `key`, `oldValue`, `newValue` |
 
 ---
 
-## 6. 定数定義
+## 7. 定数定義
 
 | 定数 | 値 | 説明 |
 |-----|---|------|
-| `AP_VERSION` | `'1.8.38'` | 現在のバージョン |
+| `AP_VERSION` | `'2.0.40'` | 現在のバージョン |
 | `AP_UPDATE_URL` | GitHub API URL | 最新リリース確認先 |
 | `AP_BACKUP_GENERATIONS` | `5` | 保持するバックアップ世代数 |
 | `AP_REVISION_LIMIT` | `30` | リビジョン保持数上限 |
 
 ---
 
-## 7. 変更履歴
+## 8. Ver.2.0 破壊的変更
+
+### 8.1 廃止対象
+
+| 対象 | 状態 | 代替 |
+|------|------|------|
+| `migrate_from_files()` | 廃止 | — （Ver.1.3 以前のデータ構造は非サポート） |
+| グローバル関数 `is_loggedin()` | 廃止 | `ACE\Admin\AdminManager::isLoggedIn()` |
+| グローバル関数 `csrf_token()` | 廃止 | `ACE\Admin\AdminManager::csrfToken()` |
+| グローバル関数 `verify_csrf()` | 廃止 | `CsrfMiddleware` |
+| MD5 パスワード自動移行 | 廃止 | — （Argon2id/bcrypt のみサポート） |
+| 単一パスワード認証（auth.json） | 廃止予定 | `UserManager`（users.json）に統一 |
+| AP.Bridge.php グローバル関数 | 廃止予定 | Framework クラスメソッドに直接置換 |
+
+### 8.2 保留事項
+
+[FRAMEWORK_RULEBOOK_v2.0.md](FRAMEWORK_RULEBOOK_v2.0.md) §4 を参照。
+
+---
+
+## 9. 変更履歴
 
 | バージョン | 日付 | 変更内容 | 担当 |
 |------------|------|----------|------|
 | Ver.0.1-1 | 2026-03-10 | 初版。ARCHITECTURE.md §3/§5/§7/§8 および Design.md §6.2 から実装仕様を統合し新規作成 | Adlaire Group |
+| Ver.2.0-1 | 2026-03-15 | Ver.2.0 全面改訂。旧エンジン名を Framework モジュール名に統一。Controller アーキテクチャ・ルーティング・DI・イベント駆動を反映。Ver.1.9 機能（構造化ログ・Config 外部化・マルチユーザー等）を統合。Ver.2.0 破壊的変更セクション追加 | Adlaire Group |
 
 ---
 

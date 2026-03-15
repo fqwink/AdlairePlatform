@@ -12,25 +12,25 @@ if (PHP_VERSION_ID < 80300) {
 	exit('AdlairePlatform requires PHP 8.3 or later. Current version: ' . PHP_VERSION);
 }
 
-define('AP_VERSION', '1.9.39');
+define('AP_VERSION', '2.0.40');
 define('AP_UPDATE_URL', 'https://api.github.com/repos/win-k/AdlairePlatform/releases/latest');
-/* Ver.1.9: 設定値は Config クラスで管理。定数は後方互換のため残す */
+/* 設定値は Config クラスで管理。定数は後方互換のため残す */
 define('AP_BACKUP_GENERATIONS', 5);
 define('AP_REVISION_LIMIT', 30);
 
-/* ── Ver.1.5: Framework オートローダー ── */
+/* ── Framework オートローダー ── */
 require __DIR__ . '/autoload.php';
 
-/* ── Ver.1.8: グローバルユーティリティ関数（bootstrap.php より先に読み込む） ── */
+/* ── グローバルユーティリティ関数（bootstrap.php より先に読み込む） ── */
 require __DIR__ . '/Framework/AP/AP.Bridge.php';
 
-/* ── Ver.1.5: ブートストラップ（DI コンテナ・イベント初期化） ── */
+/* ── ブートストラップ（DI コンテナ・イベント初期化） ── */
 require __DIR__ . '/bootstrap.php';
 
-/* ── Ver.1.7: ルート定義（Router にルートとミドルウェアを登録） ── */
+/* ── ルート定義（Router にルートとミドルウェアを登録） ── */
 require __DIR__ . '/routes.php';
 
-/* Ver.1.9: セッション設定を Config クラスから取得（環境変数 AP_SESSION_* で上書き可能） */
+/* セッション設定を Config クラスから取得（環境変数 AP_SESSION_* で上書き可能） */
 $_ap_session_timeout = \APF\Utilities\Config::get('session.timeout', 1800);
 
 ini_set('session.cookie_httponly', (int)\APF\Utilities\Config::get('session.cookie_httponly', true));
@@ -42,7 +42,7 @@ if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') {
 }
 session_start();
 
-/* Ver.1.6: アイドルタイムアウト検証（Config で設定可能） */
+/* アイドルタイムアウト検証 */
 if (isset($_SESSION['l']) && $_SESSION['l'] === true) {
 	$_SESSION['ap_last_activity'] = (int)($_SESSION['ap_last_activity'] ?? time());
 	if (time() - $_SESSION['ap_last_activity'] > $_ap_session_timeout) {
@@ -62,15 +62,15 @@ unset($_ap_session_timeout);
 /* i18n 初期化（セッション開始後） */
 \AIS\Core\I18n::init();
 
-/* B-6 fix: 集中ログ管理の初期化 */
+/* 集中ログ管理の初期化 */
 \APF\Utilities\Logger::init();
-/* Ver.1.9: グローバルエラーハンドラ登録（未キャッチ例外の統一処理） */
+/* グローバルエラーハンドラ登録（未キャッチ例外の統一処理） */
 \APF\Core\ErrorBoundary::registerGlobal();
 /* 診断: エラーハンドラ登録（セッション開始後） */
 \AIS\System\DiagnosticsManager::registerErrorHandler();
 \AIS\System\DiagnosticsManager::startTimer('request_total');
 
-/* セキュリティヘッダー（Ver.1.9 強化） */
+/* セキュリティヘッダー */
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: SAMEORIGIN');
 header('Referrer-Policy: strict-origin-when-cross-origin');
@@ -81,7 +81,7 @@ if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') {
 host();
 
 /* ══════════════════════════════════════════════════
- * Ver.1.7: Router ディスパッチ
+ * Router ディスパッチ
  *
  * 全ルート対象: ?login, ?admin, POST ap_action=*, ?ap_api=*
  * 404（ルート未登録）の場合はページレンダリングにフォールスルー。
@@ -102,7 +102,7 @@ unset($_ap_request, $_ap_router, $_ap_response);
  * ページレンダリング（Router 未処理 = 通常ページ表示）
  * ══════════════════════════════════════════════════ */
 
-/* Ver.1.9: デフォルトパスワードを外部化（環境変数 AP_APP_DEFAULT_PASSWORD で上書き可能） */
+/* デフォルトパスワード（環境変数 AP_APP_DEFAULT_PASSWORD で上書き可能） */
 $c['password'] = \APF\Utilities\Config::get('app.default_password', 'admin');
 $c['loggedin'] = false;
 $c['page'] = 'home';
@@ -144,12 +144,6 @@ foreach($c as $key => $val){
 		case 'password':
 			if(empty($_auth['password_hash'])){
 				$c[$key] = \ACE\Admin\AdminManager::savePassword($val);
-			} elseif(strlen($_auth['password_hash']) === 32 && ctype_xdigit($_auth['password_hash'])){
-				/* R2 fix: MD5ハッシュ検出 → デフォルトパスワード 'admin' で bcrypt 化（ログイン可能を維持） */
-				$c[$key] = \ACE\Admin\AdminManager::savePassword('admin');
-				$c['migrate_warning'] = true;
-				\APF\Utilities\Logger::warning('MD5パスワードを検出。デフォルト "admin" で bcrypt 化しました。直ちにパスワードを変更してください。');
-				\AIS\System\DiagnosticsManager::log('security', 'MD5パスワード検出・bcrypt移行実行');
 			} else {
 				$c[$key] = $_auth['password_hash'];
 			}
@@ -159,7 +153,7 @@ foreach($c as $key => $val){
 			}
 			break;
 		case 'loggedin':
-			/* Ver.1.7-37: ログイン/ログアウト/ダッシュボードは Router が処理。
+			/* ログイン/ログアウト/ダッシュボードは Router が処理。
 			   ここではテンプレート変数 $lstatus の組み立てのみ実施。 */
 			if(\ACE\Admin\AdminManager::isLoggedIn())
 				$c[$key] = true;
@@ -189,7 +183,7 @@ foreach($c as $key => $val){
 	}
 }
 
-/* B-3 fix: グローバル変数を AppContext に同期 */
+/* グローバル変数を AppContext に同期 */
 \AIS\Core\AppContext::syncFromGlobals($c, $d, $host, $lstatus, $apcredit, $hook);
 
 \ACE\Admin\AdminManager::registerHooks();

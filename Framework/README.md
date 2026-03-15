@@ -1,6 +1,6 @@
 # Adlaire Framework
 
-**Version 1.9** | 将来的に独立Public化予定
+**Version 2.0** | 将来的に独立Public化予定
 
 ## 概要
 
@@ -353,5 +353,5 @@ Adlaire Platformプロジェクトの一部
 ---
 
 **Last Updated**: 2026-03-15
-**Version**: 1.8
+**Version**: 2.0
 **Status**: Production Ready — 全モジュール AP 統合済み
