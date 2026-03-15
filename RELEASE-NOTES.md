@@ -101,6 +101,69 @@
 - **`BuildCache::needsFullRebuild()`** — 設定・テーマ変更によるフルリビルド判定
 - **`BuildCache::commitManifest()`** — ビルド後の状態一括更新
 
+### バグ修正（全37件・7ラウンド）
+
+**セキュリティ修正**
+- `Str::random()` — `str_shuffle()` を `random_int()` ベースの CSPRNG に置換
+- `unserialize()` → `json_decode()` 置換（AIS.System）— オブジェクトインジェクション防止
+- パストラバーサル防止 — `rollback` / `deleteBackup` のバックアップ名検証強化（`AP.Controllers`）
+- CSRF トークンキー統一 — `csrf` / `csrf_token` の混在を `csrf_token` に統一（ACE.Admin, APF.Middleware）
+- セキュリティヘッダー追加 — `Permissions-Policy`, HSTS（`index.php`）
+
+**フレームワークバグ修正**
+- `Request::json()` — `static $json` 共有問題をインスタンスプロパティ `$jsonCache` に修正
+- `Response::file()` — 存在しないファイルパスの事前チェック追加
+- `Response::json()` / `Response::send()` — `json_encode` に `JSON_THROW_ON_ERROR` 追加
+- `Container::has()` — `$this->lazy` バインディングのチェック漏れ修正
+- `Container::build()` — 非クラス文字列で `ContainerException` スロー（サイレント失敗防止）
+- `Validator` — `errors()` / `first()` / `hasError()` が `validate()` 未呼出時に空を返す問題修正（`ensureValidated()` パターン導入）
+- `Validator::validateIn()` — 厳密比較 `in_array($value, $allowed, true)` に修正
+- `Validator::validateConfirmed()` — null 値のハンドリング追加
+- `Cache::get()` — 破損キャッシュファイルのログ出力追加
+- `ORDER BY` — ソート方向を `ASC` / `DESC` のみに制限（SQL インジェクション防止）
+- `having()` — バインディングパラメータ対応（パラメータ化 HAVING）
+- トランザクション rollback — `Logger::error` でログ記録
+- `ApiEngine::handle()` — `$authenticatedViaApiKey` のリセット漏れ修正
+- `RequestLoggingMiddleware` — リクエスト失敗時の try-catch 追加
+- `CorsMiddleware` — ワイルドカード時に実オリジンを返却 + `Vary: Origin` ヘッダー
+- `AppContext::validate()` — `min` / `max` 検証後の `continue` 追加（エラー上書き防止）
+- `AIS.System` — クラッシュレポート・ApiCache の `json_encode` 戻り値チェック
+- `ASG.Core` / `ASG.Template` — 検索インデックス・JSON-LD・パンくずの `json_encode` に `JSON_THROW_ON_ERROR`
+- `ASG.Utilities` — `BuildCache::set()` / `saveState()` の encode/write エラーハンドリング
+- `editField()` — `json_read` 結果の null チェック追加（`AP.Controllers`）
+- `index.php` — セッション `ap_last_activity` の型キャスト `(int)` 追加
+
+### 改良（全4バッチ）
+
+**Batch 1: 戻り値型宣言・安全性向上**
+- `Container::make()`, `Request::query/post/input/json/cookie/header/param/server`, `Response::getContent` に戻り値型宣言追加
+- `Cache::get(): mixed`, `Cache::remember(): mixed`, `Session::get(): mixed`, `Session::getFlash(): mixed`
+- `Model::all()` にデフォルト `LIMIT 1000` 追加（全件取得の安全弁）
+- `host()` 関数が配列を返すよう変更（グローバル変数との後方互換維持）
+
+**Batch 2: PHP 8.3 モダン構文拡充**
+- `CsrfMiddleware` — `$request->httpMethod()->isSafe()` による安全メソッド判定
+- `CorsMiddleware` — `HttpMethod::OPTIONS` enum 使用
+- `Router` POST マッピング — `HttpMethod::POST` enum 使用
+- `QueryBuilder::connection` — `private readonly` 化
+- `Response::$content` — `private mixed $content` 型宣言
+- `$default` パラメータ — `mixed $default` 統一
+
+**Batch 3: キャッシュ・イベント基盤**
+- `QueryBuilder` — リクエストスコープのクエリキャッシュ（書き込み操作で自動無効化）
+- `Cache::gc()` — 期限切れファイルキャッシュの GC メソッド追加
+- `Event` 基底クラス — `stopPropagation()` サポート付き型付きイベント
+- 型付きイベント: `PluginLoadedEvent`, `ContentSavedEvent`, `AuthEvent`, `SettingsChangedEvent`
+- `HookManager::dispatchEvent()` — 型安全なイベントディスパッチメソッド追加
+- `PluginManager` — `PluginLoadedEvent` 使用に移行
+
+**Batch 4: コード品質・安全性**
+- `FileSystem::read()` — `@file_get_contents` を `is_file()` / `is_readable()` 事前チェックに置換
+- `FileSystem::write()` — `@` 抑制を除去、`Logger::warning` でエラー記録
+- `FileSystem::ensureDir()` — レースコンディション安全な `mkdir` パターン
+- `FileSystem::writeJson()` — `JSON_THROW_ON_ERROR` + `JsonException` ハンドリング
+- `Container`, `Router`, `Request`, `Response` — クラスレベル PHPDoc 追加
+
 ### PHP 8.3 モダン構文
 
 - **HttpMethod Enum** — HTTP メソッド列挙型（isSafe(), isIdempotent() メソッド付き）
