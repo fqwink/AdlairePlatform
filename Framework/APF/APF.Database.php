@@ -129,6 +129,12 @@ class Connection {
             } else {
                 $pdo->exec("ROLLBACK TO SAVEPOINT sp_{$this->transactionDepth}");
             }
+            \APF\Utilities\Logger::error('Transaction rolled back', [
+                'depth'   => $this->transactionDepth,
+                'error'   => $e->getMessage(),
+                'file'    => $e->getFile(),
+                'line'    => $e->getLine(),
+            ]);
             throw $e;
         }
     }

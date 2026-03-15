@@ -119,18 +119,6 @@ class Validator {
         return array_intersect_key($data, $rules);
     }
 
-    public function validate(): bool {
-        foreach ($this->rules as $field => $rules) {
-            $rulesArray = is_string($rules) ? explode('|', $rules) : $rules;
-            
-            foreach ($rulesArray as $rule) {
-                $this->applyRule($field, $rule);
-            }
-        }
-
-        return empty($this->errors);
-    }
-
     private function applyRule(string $field, string $rule): void {
         $value = $this->data[$field] ?? null;
         
@@ -243,8 +231,9 @@ class Validator {
     }
 
     private function validateConfirmed(string $field, $value): void {
-        $confirmation = $this->data[$field . '_confirmation'] ?? null;
-        if ($value !== $confirmation) {
+        if (is_null($value)) return;
+        $confirmKey = $field . '_confirmation';
+        if (!array_key_exists($confirmKey, $this->data) || $value !== $this->data[$confirmKey]) {
             $this->addError($field, 'confirmed', "{$field} confirmation does not match");
         }
     }
@@ -311,19 +300,44 @@ class Validator {
         $this->errors[$field][] = $this->messages[$key] ?? $message;
     }
 
+    /** @var bool バリデーション実行済みフラグ @since Ver.1.9 */
+    private bool $validated = false;
+
+    private function ensureValidated(): void {
+        if (!$this->validated) {
+            $this->validate();
+        }
+    }
+
+    public function validate(): bool {
+        $this->validated = true;
+        foreach ($this->rules as $field => $rules) {
+            $rulesArray = is_string($rules) ? explode('|', $rules) : $rules;
+
+            foreach ($rulesArray as $rule) {
+                $this->applyRule($field, $rule);
+            }
+        }
+
+        return empty($this->errors);
+    }
+
     public function fails(): bool {
         return !$this->validate();
     }
 
     public function errors(): array {
+        $this->ensureValidated();
         return $this->errors;
     }
 
     public function first(string $field): ?string {
+        $this->ensureValidated();
         return $this->errors[$field][0] ?? null;
     }
 
     public function hasError(string $field): bool {
+        $this->ensureValidated();
         return isset($this->errors[$field]);
     }
 }
@@ -359,6 +373,7 @@ class Cache {
 
         $data = json_decode($raw, true);
         if (!is_array($data) || !array_key_exists('value', $data)) {
+            Logger::warning('Cache entry corrupted, removing', ['key' => $key]);
             $this->delete($key);
             return $default;
         }
