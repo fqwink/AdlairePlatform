@@ -44,7 +44,7 @@ session_start();
 
 /* Ver.1.6: アイドルタイムアウト検証（Config で設定可能） */
 if (isset($_SESSION['l']) && $_SESSION['l'] === true) {
-	$_SESSION['ap_last_activity'] = $_SESSION['ap_last_activity'] ?? time();
+	$_SESSION['ap_last_activity'] = (int)($_SESSION['ap_last_activity'] ?? time());
 	if (time() - $_SESSION['ap_last_activity'] > $_ap_session_timeout) {
 		$_SESSION = [];
 		if (ini_get('session.use_cookies')) {
@@ -70,10 +70,14 @@ unset($_ap_session_timeout);
 \AIS\System\DiagnosticsManager::registerErrorHandler();
 \AIS\System\DiagnosticsManager::startTimer('request_total');
 
-/* セキュリティヘッダー */
+/* セキュリティヘッダー（Ver.1.9 強化） */
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: SAMEORIGIN');
 header('Referrer-Policy: strict-origin-when-cross-origin');
+header('Permissions-Policy: geolocation=(), microphone=(), camera=()');
+if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') {
+	header('Strict-Transport-Security: max-age=31536000; includeSubDomains');
+}
 host();
 
 /* ══════════════════════════════════════════════════

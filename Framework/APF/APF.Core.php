@@ -164,7 +164,7 @@ class Container {
 
     public function has(string $abstract): bool {
         $abstract = $this->getAlias($abstract);
-        return isset($this->bindings[$abstract]) || isset($this->instances[$abstract]);
+        return isset($this->bindings[$abstract]) || isset($this->instances[$abstract]) || isset($this->lazy[$abstract]);
     }
 
     /** B1: 遅延ロード — 初回アクセス時にのみインスタンス化 */
@@ -235,7 +235,7 @@ class Container {
             return $reflector->newInstanceArgs($dependencies);
         }
 
-        return $concrete;
+        throw new ContainerException("Unable to build [{$concrete}]: not a Closure or instantiable class");
     }
 
     private function resolveDependencies(array $dependencies, array $parameters): array {
