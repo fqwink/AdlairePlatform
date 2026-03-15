@@ -41,7 +41,7 @@ class CsrfMiddleware extends Middleware {
 
     public function handle(Request $request, \Closure $next): Response {
         /* GET/HEAD/OPTIONS は CSRF 検証不要 */
-        if (in_array($request->method(), ['GET', 'HEAD', 'OPTIONS'], true)) {
+        if ($request->httpMethod()->isSafe()) {
             return $next($request);
         }
 
@@ -180,7 +180,7 @@ class CorsMiddleware extends Middleware {
 
     public function handle(Request $request, \Closure $next): Response {
         /* プリフライトリクエスト */
-        if ($request->method() === 'OPTIONS') {
+        if ($request->httpMethod() === \APF\Core\HttpMethod::OPTIONS) {
             $response = new Response('', 204);
         } else {
             $response = $next($request);

@@ -459,7 +459,7 @@ class Router {
         }
 
         /* POST ボディマッピング（ap_action=edit_field → /dispatch） */
-        if ($request->method() === 'POST') {
+        if ($request->httpMethod() === HttpMethod::POST) {
             foreach ($this->postMappings as $m) {
                 if ($request->post($m['key']) !== null) {
                     return $m['pathParam']
@@ -686,13 +686,13 @@ class Request {
 // ============================================================================
 
 class Response {
-    private $content;
+    private mixed $content;
     private int $statusCode;
     private array $headers = [];
     /** @since Ver.1.7-37 ファイルストリーミング用パス */
     private ?string $filePath = null;
 
-    public function __construct($content = '', int $statusCode = 200, array $headers = []) {
+    public function __construct(mixed $content = '', int $statusCode = 200, array $headers = []) {
         $this->content = $content;
         $this->statusCode = $statusCode;
         $this->headers = $headers;

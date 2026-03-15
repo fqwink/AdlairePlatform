@@ -136,7 +136,7 @@ if (\ACE\Core\CollectionService::isEnabled()) {
 }
 
 foreach($c as $key => $val){
-	if($key == 'content') continue;
+	if($key === 'content') continue;
 	$d['default'][$key] = $c[$key];
 	if(isset($_settings[$key]))
 		$c[$key] = $_settings[$key];
