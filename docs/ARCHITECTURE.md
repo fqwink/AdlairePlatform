@@ -65,7 +65,7 @@ AdlairePlatform/
 │     └─ LICENSE_Ver.2.0.md
 ├─ Framework/
 │  ├─ AP/
-│  │  └─ AP.Controllers.php     # Controller 統合モジュール（Ver.2.0）
+│  │  └─ AP.Controllers.php     # Controller 統合モジュール（Ver.1.8）
 │  ├─ APF/                      # Adlaire Platform Foundation
 │  ├─ ACE/                      # Adlaire Content Engine
 │  ├─ AIS/                      # Adlaire Infrastructure Services

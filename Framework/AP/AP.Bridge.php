@@ -5,7 +5,7 @@
  * index.php のページレンダリングで使用されるグローバル関数を提供する。
  * 各関数は Framework クラスに委譲する。
  *
- * @since Ver.2.0
+ * @since Ver.1.8
  * @license Adlaire License Ver.2.0
  */
 
