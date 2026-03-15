@@ -268,6 +268,7 @@ class AdminController extends BaseController {
 		$settingsKeys = ['title', 'description', 'keywords', 'copyright', 'themeSelect', 'menu', 'subside', 'contact_email'];
 		if (in_array($fieldname, $settingsKeys, true)) {
 			$settings = json_read('settings.json', settings_dir());
+			if (!is_array($settings)) $settings = [];
 			$settings[$fieldname] = $content;
 			json_write('settings.json', $settings, settings_dir());
 			\ACE\Admin\AdminManager::logActivity('設定変更: ' . $fieldname);

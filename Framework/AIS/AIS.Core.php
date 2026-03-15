@@ -259,9 +259,11 @@ class AppContext {
             if (is_numeric($value)) {
                 if (isset($rules['min']) && $value < $rules['min']) {
                     $errors[$key] = "Config '{$key}' must be >= {$rules['min']}, got {$value}";
+                    continue;
                 }
                 if (isset($rules['max']) && $value > $rules['max']) {
                     $errors[$key] = "Config '{$key}' must be <= {$rules['max']}, got {$value}";
+                    continue;
                 }
             }
 
