@@ -6,13 +6,13 @@
 *
 */
 
-if (PHP_VERSION_ID < 80200) {
+if (PHP_VERSION_ID < 80300) {
 	http_response_code(500);
 	header('Content-Type: text/plain; charset=UTF-8');
-	exit('AdlairePlatform requires PHP 8.2 or later. Current version: ' . PHP_VERSION);
+	exit('AdlairePlatform requires PHP 8.3 or later. Current version: ' . PHP_VERSION);
 }
 
-define('AP_VERSION', '1.8.0');
+define('AP_VERSION', '2.0.0');
 define('AP_UPDATE_URL', 'https://api.github.com/repos/win-k/AdlairePlatform/releases/latest');
 define('AP_BACKUP_GENERATIONS', 5);
 define('AP_REVISION_LIMIT', 30);
@@ -21,33 +21,11 @@ define('AP_REVISION_LIMIT', 30);
 require __DIR__ . '/autoload.php';
 require __DIR__ . '/bootstrap.php';
 
-/* ── グローバルユーティリティ関数（後方互換シム） ── */
-require __DIR__ . '/engines/Bridge.php';
+/* ── Ver.2.0: グローバルユーティリティ関数 ── */
+require __DIR__ . '/Framework/AP/AP.Bridge.php';
 
 /* ── Ver.1.7: ルート定義（Router にルートとミドルウェアを登録） ── */
 require __DIR__ . '/routes.php';
-
-/* ── Ver.1.8: エンジンシム読み込み（後方互換） ── */
-require 'engines/EngineTrait.php';
-require 'engines/FileSystem.php';
-require 'engines/AppContext.php';
-require 'engines/Logger.php';
-require 'engines/I18n.php';
-require 'engines/Validator.php';
-require 'engines/TemplateEngine.php';
-require 'engines/ThemeEngine.php';
-require 'engines/MarkdownEngine.php';
-require 'engines/AdminEngine.php';
-require 'engines/CollectionEngine.php';
-require 'engines/CacheEngine.php';
-require 'engines/DiagnosticEngine.php';
-require 'engines/WebhookEngine.php';
-require 'engines/ApiEngine.php';
-require 'engines/StaticEngine.php';
-require 'engines/GitEngine.php';
-require 'engines/UpdateEngine.php';
-require 'engines/ImageOptimizer.php';
-require 'engines/MailerEngine.php';
 
 ini_set('session.cookie_httponly', 1);
 ini_set('session.cookie_samesite', 'Lax');

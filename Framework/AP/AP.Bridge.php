@@ -1,13 +1,11 @@
 <?php
 /**
- * Bridge - グローバルユーティリティ関数（後方互換シム）
+ * AP.Bridge - グローバルユーティリティ関数
  *
- * Ver.1.8: 全ロジックを Framework クラスに移植。
- * このファイルは後方互換のためのグローバル関数シムとして残存。
- * Stage 8 で削除予定。
+ * index.php のページレンダリングで使用されるグローバル関数を提供する。
+ * 各関数は Framework クラスに委譲する。
  *
- * @since Ver.1.5.0
- * @deprecated Ver.1.8 — APF\Utilities\JsonStorage, AIS\Core\AppContext を使用してください
+ * @since Ver.2.0
  * @license Adlaire License Ver.2.0
  */
 

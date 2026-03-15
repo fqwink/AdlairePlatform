@@ -1149,7 +1149,7 @@ class AdminManager {
     /* ── レンダリング ── */
 
     public static function renderLogin(string $message = ''): string {
-        $tplDir = dirname(__DIR__, 2) . '/engines/AdminEngine';
+        $tplDir = __DIR__ . '/AdminEngine';
         $tplPath = $tplDir . '/login.html';
         if (!file_exists($tplPath)) return '<h1>Login template not found</h1>';
         $tpl = \APF\Utilities\FileSystem::read($tplPath);
@@ -1165,7 +1165,7 @@ class AdminManager {
     }
 
     public static function renderDashboard(): string {
-        $tplDir = dirname(__DIR__, 2) . '/engines/AdminEngine';
+        $tplDir = __DIR__ . '/AdminEngine';
         $tplPath = $tplDir . '/dashboard.html';
         if (!file_exists($tplPath)) return '<h1>Dashboard template not found</h1>';
         $tpl = \APF\Utilities\FileSystem::read($tplPath);
@@ -1191,13 +1191,13 @@ class AdminManager {
         \AIS\Core\AppContext::addHook('admin-head', "\n\t<link rel='stylesheet' href='Framework/ADS/ADS.Base.css'>");
         \AIS\Core\AppContext::addHook('admin-head', "\n\t<link rel='stylesheet' href='Framework/ADS/ADS.Components.css'>");
         \AIS\Core\AppContext::addHook('admin-head', "\n\t<link rel='stylesheet' href='Framework/ADS/ADS.Editor.css'>");
-        \AIS\Core\AppContext::addHook('admin-head', "\n\t<script src='engines/JsEngine/aeb-adapter.js' type='module'></script>");
-        \AIS\Core\AppContext::addHook('admin-head', "\n\t<script src='engines/JsEngine/ap-utils.js'></script>");
-        \AIS\Core\AppContext::addHook('admin-head', "\n\t<script src='engines/JsEngine/ap-events.js'></script>");
-        \AIS\Core\AppContext::addHook('admin-head', "\n\t<script src='engines/JsEngine/autosize.js'></script>");
-        \AIS\Core\AppContext::addHook('admin-head', "\n\t<script src='engines/JsEngine/editInplace.js'></script>");
-        \AIS\Core\AppContext::addHook('admin-head', "\n\t<script src='engines/JsEngine/wysiwyg.js'></script>");
-        \AIS\Core\AppContext::addHook('admin-head', "\n\t<script src='engines/JsEngine/updater.js'></script>");
+        \AIS\Core\AppContext::addHook('admin-head', "\n\t<script src='Framework/AP/JsEngine/aeb-adapter.js' type='module'></script>");
+        \AIS\Core\AppContext::addHook('admin-head', "\n\t<script src='Framework/AP/JsEngine/ap-utils.js'></script>");
+        \AIS\Core\AppContext::addHook('admin-head', "\n\t<script src='Framework/AP/JsEngine/ap-events.js'></script>");
+        \AIS\Core\AppContext::addHook('admin-head', "\n\t<script src='Framework/AP/JsEngine/autosize.js'></script>");
+        \AIS\Core\AppContext::addHook('admin-head', "\n\t<script src='Framework/AP/JsEngine/editInplace.js'></script>");
+        \AIS\Core\AppContext::addHook('admin-head', "\n\t<script src='Framework/AP/JsEngine/wysiwyg.js'></script>");
+        \AIS\Core\AppContext::addHook('admin-head', "\n\t<script src='Framework/AP/JsEngine/updater.js'></script>");
     }
 
     public static function getAdminScripts(): string {
