@@ -949,7 +949,7 @@ class WebhookService {
     private static function sendAsync(string $url, string $body, array $headers): void {
         $host = parse_url($url, PHP_URL_HOST);
         if ($host !== null && self::isPrivateHost($host)) {
-            error_log('AdlairePlatform: Webhook SSRF blocked (DNS rebinding): ' . $url);
+            \APF\Utilities\Logger::critical('Webhook SSRF blocked (DNS rebinding)', ['url_host' => parse_url($url, PHP_URL_HOST) ?? '']);
             \AIS\System\DiagnosticsManager::log('security', 'SSRF ブロック (DNS rebinding)', ['url_host' => parse_url($url, PHP_URL_HOST) ?? '']);
             return;
         }
@@ -968,7 +968,7 @@ class WebhookService {
 
         \AIS\System\DiagnosticsManager::log('debug', 'Webhook 配信完了', ['url_host' => parse_url($url, PHP_URL_HOST) ?? '', 'http_code' => $httpCode, 'payload_bytes' => strlen($body), 'total_time_ms' => $totalTime]);
         if ($httpCode < 200 || $httpCode >= 300) {
-            error_log("WebhookService: delivery failed to {$url} (HTTP {$httpCode})");
+            \APF\Utilities\Logger::error('WebhookService: delivery failed', ['url_host' => parse_url($url, PHP_URL_HOST) ?? '', 'http_code' => $httpCode]);
             \AIS\System\DiagnosticsManager::logIntegrationError('Webhook', $httpCode, $curlError ?: ('配信失敗: ' . parse_url($url, PHP_URL_HOST)));
         } elseif ($totalTime > 3000) {
             \AIS\System\DiagnosticsManager::logSlowExecution('Webhook::sendAsync(' . parse_url($url, PHP_URL_HOST) . ')', $totalTime, 3000);

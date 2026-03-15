@@ -60,15 +60,11 @@ class CsrfMiddleware extends Middleware {
 
 class RateLimitMiddleware extends Middleware {
 
-    private int $maxRequests;
-    private int $windowSeconds;
-    private string $sessionKey;
-
-    public function __construct(int $maxRequests = 60, int $windowSeconds = 60, string $sessionKey = '_rate_requests') {
-        $this->maxRequests = $maxRequests;
-        $this->windowSeconds = $windowSeconds;
-        $this->sessionKey = $sessionKey;
-    }
+    public function __construct(
+        private readonly int $maxRequests = 60,
+        private readonly int $windowSeconds = 60,
+        private readonly string $sessionKey = '_rate_requests',
+    ) {}
 
     public function handle(Request $request, \Closure $next): Response {
         $now = time();

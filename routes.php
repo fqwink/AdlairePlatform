@@ -42,6 +42,18 @@ $router->mapQuery('ap_api', '/api/{endpoint}', 'endpoint');
 $router->mapPost('ap_action', '/dispatch');
 
 /* ══════════════════════════════════════════════════
+ * Ver.1.9: ヘルスチェックエンドポイント（認証不要）
+ * ══════════════════════════════════════════════════ */
+$router->get('/health', function (\APF\Core\Request $request): \APF\Core\Response {
+	return \APF\Core\Response::json([
+		'status'  => 'ok',
+		'version' => defined('AP_VERSION') ? AP_VERSION : 'unknown',
+		'php'     => PHP_VERSION,
+		'time'    => date('c'),
+	]);
+})->name('health');
+
+/* ══════════════════════════════════════════════════
  * 認証ルート（ミドルウェアなし — 未認証でアクセス）
  * ══════════════════════════════════════════════════ */
 $router->get('/login', [AuthController::class, 'showLogin']);

@@ -1512,7 +1512,7 @@ class DiagnosticsManager {
         if ($content === false) return ['errors' => [], 'custom' => []];
         $data = json_decode($content, true);
         if (json_last_error() !== JSON_ERROR_NONE) {
-            error_log('DiagnosticsManager: JSON parse error in ' . $file . ': ' . json_last_error_msg());
+            \APF\Utilities\Logger::error('DiagnosticsManager: JSON parse error', ['file' => $file, 'error' => json_last_error_msg()]);
             @rename($path, $path . '.corrupt.' . time());
             return ['errors' => [], 'custom' => []];
         }
@@ -1898,7 +1898,7 @@ class DiagnosticsManager {
             $config['consecutive_failures'] = $failures;
             if ($failures >= self::CIRCUIT_BREAKER_THRESHOLD) {
                 $config['circuit_breaker_until'] = time() + self::CIRCUIT_BREAKER_DURATION;
-                error_log('DiagnosticsManager: サーキットブレーカー発動（' . $failures . '回連続失敗）。24時間送信停止。');
+                \APF\Utilities\Logger::critical('DiagnosticsManager: サーキットブレーカー発動', ['failures' => $failures, 'duration' => '24h']);
             }
             self::saveConfig($config);
         }

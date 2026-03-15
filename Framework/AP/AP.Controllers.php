@@ -45,6 +45,20 @@ abstract class BaseController {
 		}
 		return null;
 	}
+
+	/**
+	 * Request バリデーション統合ヘルパー。
+	 * 成功時はバリデーション済みデータを返し、失敗時は JSON エラーレスポンスを返す。
+	 * @since Ver.1.9
+	 * @return array|Response バリデーション済みデータ or エラーレスポンス
+	 */
+	protected function validate(Request $request, array $rules, array $messages = []): array|Response {
+		try {
+			return \APF\Utilities\Validator::request($request, $rules, $messages);
+		} catch (\APF\Core\ValidationException $e) {
+			return Response::json(['ok' => false, 'error' => 'Validation failed', 'errors' => $e->getErrors()], 422);
+		}
+	}
 }
 
 /* ══════════════════════════════════════════════════

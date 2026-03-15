@@ -6,6 +6,66 @@
 
 ---
 
+## AdlairePlatform Ver.1.9-39（2026-03-15）— 内部品質向上・フレームワーク改良
+
+内部改良主体の開発バージョン。後方互換を維持しつつ、フレームワーク基盤を強化。
+
+### 構造化ログ
+
+- **Logger** を JSON 構造化出力対応に拡張。環境変数 `AP_LOG_LEVEL` / `AP_LOG_FORMAT` でログレベル・出力形式を制御可能に
+- チャネル別ログ分離（`Logger::channel('security')`）を追加
+- リクエストコンテキスト（メソッド・URI・IP）を自動付与
+- 全 `error_log()` 直接呼び出し（9箇所）を `Logger` に統一
+
+### 入力バリデーション層
+
+- `Validator::request()` — Request オブジェクトから直接バリデーション、失敗時 ValidationException スロー
+- `BaseController::validate()` — コントローラー内の統合バリデーションヘルパー
+
+### 設定管理（Config クラス）
+
+- **`APF\Utilities\Config`** — 環境変数 → 設定ファイル → デフォルト値の3段階優先解決
+- デフォルトパスワード外部化（`AP_APP_DEFAULT_PASSWORD`）
+- セッション設定外部化（`AP_SESSION_TIMEOUT` / `AP_SESSION_COOKIE_*`）
+
+### AEB/ADS PHP 統合
+
+- **`AEB\Assets\AssetManifest`** — JavaScript モジュールの PHP バインディング（`<script>` タグ生成）
+- **`ADS\Assets\AssetManifest`** — CSS デザインシステムの PHP バインディング（`<link>` タグ生成）
+- autoload.php に AEB/ADS 名前空間を登録
+
+### ルーティング改善
+
+- 名前付きルート対応（`$router->name('health')`、`$router->route('health')`）
+- `/health` ヘルスチェックエンドポイント追加（認証不要）
+- ErrorBoundary によるルートディスパッチ自動ラップ
+
+### エラーハンドリング統一
+
+- **ErrorBoundary::registerGlobal()** — グローバル例外ハンドラ・致命的エラーハンドラを登録
+- 未キャッチ例外を構造化ログに自動記録
+- Router ディスパッチに ErrorBoundary を統合
+
+### フレームワーク改良
+
+- **ServiceProvider 基底クラス** — DI サービス登録のモジュール化パターンを導入
+- **Application::registerProvider()** / **bootProviders()** — プロバイダ管理 API
+- **Container** — `getBindings()` / `flush()` メソッド追加
+- **Router** — `count()` メソッド追加
+
+### PHP 8.3 モダン構文
+
+- `readonly` プロパティ適用（Request, Validator, Cache, Logger, RateLimitMiddleware）
+- `match` 式適用（Router::callAction, Logger::log, Config::castEnvValue）
+- コンストラクタプロモーション適用（RateLimitMiddleware）
+
+### バージョニング
+
+- AP_VERSION: `'1.9.39'`（コード内ドット区切り）
+- ドキュメント表記: Ver.1.9-39（VERSIONING.md 準拠）
+
+---
+
 ## AdlairePlatform Ver.1.8-38（2026-03-15）— PHP 8.3+ 移行開始
 
 PHP 8.3+ 完全対応への移行開発を開始。Ver.2.2 までにすべてのソースコードを PHP 8.3 以降完全対応とする。
