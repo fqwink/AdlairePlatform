@@ -181,6 +181,91 @@ class BuildCache {
     }
 
     /**
+     * ビルドマニフェストを生成する。
+     *
+     * 全ページのハッシュと前回の状態を比較し、変更・追加・削除されたページを分類する。
+     * 差分ビルドの判断材料として使用する。
+     *
+     * @since Ver.1.9
+     * @param array<string, string> $currentHashes スラッグ => コンテンツハッシュのマップ
+     * @return array{changed: array, added: array, deleted: array, unchanged: array, stats: array} マニフェスト
+     */
+    public function buildManifest(array $currentHashes): array {
+        $state = $this->loadState();
+        $previousHashes = $state['hashes'] ?? [];
+
+        $changed = [];
+        $added = [];
+        $deleted = [];
+        $unchanged = [];
+
+        foreach ($currentHashes as $slug => $hash) {
+            if (!isset($previousHashes[$slug])) {
+                $added[] = $slug;
+            } elseif ($previousHashes[$slug] !== $hash) {
+                $changed[] = $slug;
+            } else {
+                $unchanged[] = $slug;
+            }
+        }
+
+        foreach ($previousHashes as $slug => $_) {
+            if (!isset($currentHashes[$slug])) {
+                $deleted[] = $slug;
+            }
+        }
+
+        return [
+            'changed'   => $changed,
+            'added'     => $added,
+            'deleted'   => $deleted,
+            'unchanged' => $unchanged,
+            'stats'     => [
+                'total'     => count($currentHashes),
+                'changed'   => count($changed),
+                'added'     => count($added),
+                'deleted'   => count($deleted),
+                'unchanged' => count($unchanged),
+                'needs_build' => count($changed) + count($added),
+            ],
+        ];
+    }
+
+    /**
+     * 設定・テーマの変更を検知し、フルリビルドが必要か判定する。
+     *
+     * @since Ver.1.9
+     * @param string $settingsHash 現在の設定ハッシュ
+     * @param string $themeHash    現在のテーマハッシュ
+     * @return bool フルリビルドが必要な場合 true
+     */
+    public function needsFullRebuild(string $settingsHash, string $themeHash): bool {
+        $state = $this->loadState();
+        $prevSettings = $state['settings_hash'] ?? '';
+        $prevTheme = $state['theme_hash'] ?? '';
+
+        return $prevSettings !== $settingsHash || $prevTheme !== $themeHash;
+    }
+
+    /**
+     * マニフェストに基づいて状態を更新する。
+     *
+     * ビルド完了後に呼び出し、ハッシュマップを更新・永続化する。
+     *
+     * @since Ver.1.9
+     * @param array<string, string> $hashes        スラッグ => ハッシュのマップ
+     * @param string                $settingsHash  設定ファイルのハッシュ
+     * @param string                $themeHash     テーマのハッシュ
+     */
+    public function commitManifest(array $hashes, string $settingsHash = '', string $themeHash = ''): void {
+        $this->saveState([
+            'hashes'        => $hashes,
+            'settings_hash' => $settingsHash,
+            'theme_hash'    => $themeHash,
+        ]);
+    }
+
+    /**
      * キャッシュエントリを削除する
      *
      * @param string $key キャッシュキー

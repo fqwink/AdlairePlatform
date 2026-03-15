@@ -946,32 +946,60 @@ class WebhookService {
         }
     }
 
+    /** @var int 最大リトライ回数 @since Ver.1.9 */
+    private const MAX_RETRY_ATTEMPTS = 3;
+
+    /**
+     * @updated Ver.1.9 指数バックオフ付きリトライ対応
+     */
     private static function sendAsync(string $url, string $body, array $headers): void {
         $host = parse_url($url, PHP_URL_HOST);
         if ($host !== null && self::isPrivateHost($host)) {
-            \APF\Utilities\Logger::critical('Webhook SSRF blocked (DNS rebinding)', ['url_host' => parse_url($url, PHP_URL_HOST) ?? '']);
-            \AIS\System\DiagnosticsManager::log('security', 'SSRF ブロック (DNS rebinding)', ['url_host' => parse_url($url, PHP_URL_HOST) ?? '']);
+            \APF\Utilities\Logger::critical('Webhook SSRF blocked (DNS rebinding)', ['url_host' => $host ?? '']);
+            \AIS\System\DiagnosticsManager::log('security', 'SSRF ブロック (DNS rebinding)', ['url_host' => $host ?? '']);
             return;
         }
-        $ch = curl_init($url);
-        if ($ch === false) return;
-        curl_setopt_array($ch, [
-            CURLOPT_POST => true, CURLOPT_POSTFIELDS => $body, CURLOPT_HTTPHEADER => $headers,
-            CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 5, CURLOPT_CONNECTTIMEOUT => 3,
-            CURLOPT_FOLLOWLOCATION => false,
-        ]);
-        $result = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $curlError = curl_error($ch);
-        $totalTime = round(curl_getinfo($ch, CURLINFO_TOTAL_TIME) * 1000, 2);
-        curl_close($ch);
 
-        \AIS\System\DiagnosticsManager::log('debug', 'Webhook 配信完了', ['url_host' => parse_url($url, PHP_URL_HOST) ?? '', 'http_code' => $httpCode, 'payload_bytes' => strlen($body), 'total_time_ms' => $totalTime]);
+        $urlHost = parse_url($url, PHP_URL_HOST) ?? '';
+        $attempt = 0;
+        $httpCode = 0;
+        $curlError = '';
+        $totalTime = 0;
+
+        while ($attempt < self::MAX_RETRY_ATTEMPTS) {
+            $ch = curl_init($url);
+            if ($ch === false) return;
+            curl_setopt_array($ch, [
+                CURLOPT_POST => true, CURLOPT_POSTFIELDS => $body, CURLOPT_HTTPHEADER => $headers,
+                CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 5, CURLOPT_CONNECTTIMEOUT => 3,
+                CURLOPT_FOLLOWLOCATION => false,
+            ]);
+            curl_exec($ch);
+            $httpCode  = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $curlError = curl_error($ch);
+            $totalTime = round(curl_getinfo($ch, CURLINFO_TOTAL_TIME) * 1000, 2);
+            curl_close($ch);
+
+            /* 成功（2xx）ならリトライ不要 */
+            if ($httpCode >= 200 && $httpCode < 300) {
+                break;
+            }
+
+            $attempt++;
+            /* 最終試行でなければ指数バックオフ（1s, 2s） */
+            if ($attempt < self::MAX_RETRY_ATTEMPTS) {
+                usleep((2 ** ($attempt - 1)) * 500_000);
+            }
+        }
+
+        $logContext = ['url_host' => $urlHost, 'http_code' => $httpCode, 'payload_bytes' => strlen($body), 'total_time_ms' => $totalTime, 'attempts' => $attempt + 1];
+        \AIS\System\DiagnosticsManager::log('debug', 'Webhook 配信完了', $logContext);
+
         if ($httpCode < 200 || $httpCode >= 300) {
-            \APF\Utilities\Logger::error('WebhookService: delivery failed', ['url_host' => parse_url($url, PHP_URL_HOST) ?? '', 'http_code' => $httpCode]);
-            \AIS\System\DiagnosticsManager::logIntegrationError('Webhook', $httpCode, $curlError ?: ('配信失敗: ' . parse_url($url, PHP_URL_HOST)));
+            \APF\Utilities\Logger::error('WebhookService: delivery failed after retries', $logContext);
+            \AIS\System\DiagnosticsManager::logIntegrationError('Webhook', $httpCode, $curlError ?: ('配信失敗: ' . $urlHost));
         } elseif ($totalTime > 3000) {
-            \AIS\System\DiagnosticsManager::logSlowExecution('Webhook::sendAsync(' . parse_url($url, PHP_URL_HOST) . ')', $totalTime, 3000);
+            \AIS\System\DiagnosticsManager::logSlowExecution('Webhook::sendAsync(' . $urlHost . ')', $totalTime, 3000);
         }
     }
 

@@ -60,6 +60,47 @@
 - **Request::httpMethod()** — HttpMethod Enum 返却メソッド追加
 - **Cache** — serialize/unserialize を JSON に置換（セキュリティ強化）
 
+### Database 強化（APF.Database）
+
+- **ネストトランザクション** — SAVEPOINT ベースのネスト対応。`transaction()` のネスト時に自動的に SAVEPOINT を使用
+- **QueryBuilder 拡張** — `whereBetween()` / `whereNotBetween()` / `whereLike()` メソッド追加
+- **paginate()** — ページネーション対応。`{data, total, page, per_page, total_pages}` 形式で返却
+- **insertBatch()** — 単一 SQL による複数行一括 INSERT
+- **buildWhere()** — `match` 式によるリファクタリング、BETWEEN 演算子サポート
+
+### API 強化（ACE.Api）
+
+- **Webhook リトライ** — `sendAsync()` で最大3回の指数バックオフリトライ（0.5秒・1秒）
+
+### PluginManager 強化
+
+- **循環依存検出** — DFS トポロジカルソートによるプラグインロード順の自動解決。循環依存時に具体的なサイクルチェーンを含むエラーメッセージをスロー
+- **getDependencyGraph()** — プラグインの依存関係グラフ取得メソッド追加（デバッグ用）
+
+### DebugCollector 強化
+
+- **スコーププロファイリング** — `enterScope()` / `exitScope()` でネスト可能なコールスタック追跡
+- **メモリデルタ計測** — スコープ単位のメモリ使用量差分を自動記録
+- イベント・クエリログにスコープコンテキストを自動付与
+- レポートに `scopes` / `scope_count` / `memory_current` を追加
+
+### I18n 複数形サポート
+
+- **`count` パラメータによる自動複数形選択** — `_zero` / `_one` / `_other` サフィックスバリアント対応
+- 日本語（単複同形）・英語の複数形ルールに対応
+
+### AppContext スキーマ検証
+
+- **`AppContext::validate()`** — 設定スキーマに基づくバリデーション（型・必須・範囲・許可値リスト）
+- 型チェック: `string` / `int` / `float` / `bool` / `array` / `numeric`
+- 数値範囲検証（`min` / `max`）、許可値リスト検証（`in`）
+
+### ASG ビルドマニフェスト
+
+- **`BuildCache::buildManifest()`** — ハッシュベースの差分検出。変更・追加・削除・未変更のページを分類
+- **`BuildCache::needsFullRebuild()`** — 設定・テーマ変更によるフルリビルド判定
+- **`BuildCache::commitManifest()`** — ビルド後の状態一括更新
+
 ### PHP 8.3 モダン構文
 
 - **HttpMethod Enum** — HTTP メソッド列挙型（isSafe(), isIdempotent() メソッド付き）
