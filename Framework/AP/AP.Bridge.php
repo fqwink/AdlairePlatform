@@ -72,9 +72,14 @@ function getSlug(string $p): string {
    ホスト解決 → AIS\Core\AppContext::resolveHost()
    ══════════════════════════════════════════════ */
 
-function host(): void {
+/**
+ * @updated Ver.1.9 戻り値ベースに変更（グローバル変数への後方互換書き込みは維持）
+ * @return array{host: string, rp: string}
+ */
+function host(): array {
 	global $host, $rp;
 	$resolved = \AIS\Core\AppContext::resolveHost();
 	$host = $resolved['host'];
 	$rp = $resolved['rp'];
+	return $resolved;
 }

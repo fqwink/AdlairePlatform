@@ -124,7 +124,7 @@ class Container {
         $this->aliases[$alias] = $abstract;
     }
 
-    public function make(string $abstract, array $parameters = []) {
+    public function make(string $abstract, array $parameters = []): mixed {
         $abstract = $this->getAlias($abstract);
 
         if (isset($this->instances[$abstract])) {
@@ -578,21 +578,21 @@ class Request {
         return parse_url($uri, PHP_URL_PATH) ?? '/';
     }
 
-    public function query(?string $key = null, $default = null) {
+    public function query(?string $key = null, mixed $default = null): mixed {
         if (is_null($key)) {
             return $this->query;
         }
         return $this->query[$key] ?? $default;
     }
 
-    public function post(?string $key = null, $default = null) {
+    public function post(?string $key = null, mixed $default = null): mixed {
         if (is_null($key)) {
             return $this->post;
         }
         return $this->post[$key] ?? $default;
     }
 
-    public function input(?string $key = null, $default = null) {
+    public function input(?string $key = null, mixed $default = null): mixed {
         $input = array_merge($this->query, $this->post);
         
         if (is_null($key)) {
@@ -604,7 +604,7 @@ class Request {
     /** @var array|null インスタンス単位の JSON キャッシュ @since Ver.1.9 */
     private ?array $jsonCache = null;
 
-    public function json(?string $key = null, $default = null) {
+    public function json(?string $key = null, mixed $default = null): mixed {
         if ($this->jsonCache === null) {
             $this->jsonCache = json_decode($this->body, true) ?? [];
         }
@@ -619,11 +619,11 @@ class Request {
         return $this->files[$key] ?? null;
     }
 
-    public function cookie(string $key, $default = null) {
+    public function cookie(string $key, mixed $default = null): mixed {
         return $this->cookies[$key] ?? $default;
     }
 
-    public function header(string $key, $default = null) {
+    public function header(string $key, mixed $default = null): mixed {
         return $this->headers[$key] ?? $default;
     }
 
@@ -647,12 +647,12 @@ class Request {
         $this->params = $params;
     }
 
-    public function param(string $key, $default = null) {
+    public function param(string $key, mixed $default = null): mixed {
         return $this->params[$key] ?? $default;
     }
 
     /** Ver.1.7: サーバー変数アクセス */
-    public function server(?string $key = null, $default = null) {
+    public function server(?string $key = null, mixed $default = null): mixed {
         if (is_null($key)) return $this->server;
         return $this->server[$key] ?? $default;
     }
@@ -782,7 +782,7 @@ class Response {
         }
     }
 
-    public function getContent() {
+    public function getContent(): mixed {
         return $this->content;
     }
 

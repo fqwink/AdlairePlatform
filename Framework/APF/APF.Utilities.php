@@ -361,7 +361,7 @@ class Cache {
     /**
      * @updated Ver.1.9 serialize → JSON に変更（セキュリティ強化）
      */
-    public function get(string $key, $default = null) {
+    public function get(string $key, mixed $default = null): mixed {
         $file = $this->getFilePath($key);
 
         if (!file_exists($file)) {
@@ -427,7 +427,7 @@ class Cache {
         return true;
     }
 
-    public function remember(string $key, int $ttl, \Closure $callback) {
+    public function remember(string $key, int $ttl, \Closure $callback): mixed {
         $value = $this->get($key);
         
         if ($value !== null) {
@@ -665,11 +665,11 @@ class Session {
         }
     }
 
-    public function get(string $key, $default = null) {
+    public function get(string $key, mixed $default = null): mixed {
         return $_SESSION[$key] ?? $default;
     }
 
-    public function set(string $key, $value): void {
+    public function set(string $key, mixed $value): void {
         $_SESSION[$key] = $value;
     }
 
@@ -699,7 +699,7 @@ class Session {
         $this->set('_flash.' . $key, true);
     }
 
-    public function getFlash(string $key, $default = null) {
+    public function getFlash(string $key, mixed $default = null): mixed {
         $value = $this->get($key, $default);
         
         if ($this->has('_flash.' . $key)) {
