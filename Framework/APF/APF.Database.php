@@ -165,7 +165,7 @@ class Connection {
 // ============================================================================
 
 class QueryBuilder {
-    private Connection $connection;
+    private readonly Connection $connection;
     private string $table = '';
     private array $select = ['*'];
     private array $where = [];
