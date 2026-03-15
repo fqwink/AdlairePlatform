@@ -415,6 +415,30 @@ class Cache {
         return false;
     }
 
+    /**
+     * 期限切れキャッシュエントリを削除する（ガベージコレクション）。
+     * @since Ver.1.9
+     * @return int 削除されたエントリ数
+     */
+    public function gc(): int {
+        $files = glob($this->directory . '/*.cache') ?: [];
+        $now = time();
+        $removed = 0;
+
+        foreach ($files as $file) {
+            if (!is_file($file)) continue;
+            $raw = file_get_contents($file);
+            if ($raw === false) continue;
+            $data = json_decode($raw, true);
+            if (is_array($data) && isset($data['expires']) && $data['expires'] > 0 && $data['expires'] < $now) {
+                unlink($file);
+                $removed++;
+            }
+        }
+
+        return $removed;
+    }
+
     public function clear(): bool {
         $files = glob($this->directory . '/*.cache');
         

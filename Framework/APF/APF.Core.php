@@ -91,6 +91,101 @@ interface EventBusInterface {
 }
 
 // ============================================================================
+// Event Contracts - 型付きイベントクラス (Ver.1.9)
+// ============================================================================
+
+/**
+ * 全イベントの基底クラス。
+ * イベント名の定数定義と、データの型安全なアクセスを提供する。
+ * @since Ver.1.9
+ */
+abstract class Event {
+    /** イベント名（サブクラスで定義） */
+    public const NAME = '';
+
+    private bool $propagationStopped = false;
+
+    public function __construct(
+        public readonly array $payload = [],
+    ) {}
+
+    public function stopPropagation(): void {
+        $this->propagationStopped = true;
+    }
+
+    public function isPropagationStopped(): bool {
+        return $this->propagationStopped;
+    }
+
+    /** EventBusInterface::dispatch() に渡すイベント名を返す */
+    public function name(): string {
+        return static::NAME;
+    }
+}
+
+/**
+ * プラグインがロードされた時に発火するイベント。
+ * @since Ver.1.9
+ */
+class PluginLoadedEvent extends Event {
+    public const NAME = 'plugin:loaded';
+
+    public function __construct(
+        public readonly string $pluginName,
+        public readonly object $pluginInstance,
+    ) {
+        parent::__construct(['name' => $pluginName]);
+    }
+}
+
+/**
+ * コンテンツが保存された時に発火するイベント。
+ * @since Ver.1.9
+ */
+class ContentSavedEvent extends Event {
+    public const NAME = 'content:saved';
+
+    public function __construct(
+        public readonly string $page,
+        public readonly string $field,
+        public readonly string $content,
+    ) {
+        parent::__construct(['page' => $page, 'field' => $field]);
+    }
+}
+
+/**
+ * ユーザーがログイン/ログアウトした時に発火するイベント。
+ * @since Ver.1.9
+ */
+class AuthEvent extends Event {
+    public const NAME = 'auth:changed';
+
+    public function __construct(
+        public readonly string $action,
+        public readonly ?string $ip = null,
+    ) {
+        parent::__construct(['action' => $action, 'ip' => $ip]);
+    }
+}
+
+/**
+ * 設定が変更された時に発火するイベント。
+ * @since Ver.1.9
+ */
+class SettingsChangedEvent extends Event {
+    public const NAME = 'settings:changed';
+
+    public function __construct(
+        public readonly string $key,
+        public readonly mixed $oldValue,
+        public readonly mixed $newValue,
+    ) {
+        parent::__construct(['key' => $key]);
+    }
+}
+
+// ============================================================================
 // Container - 依存性注入コンテナ
 // ============================================================================
 
@@ -888,10 +983,35 @@ class HookManager implements EventBusInterface {
         $this->register($event, $listener, $priority);
     }
 
-    /** EventBusInterface::dispatch() の実装 */
+    /** EventBusInterface::dispatch() の実装（Event オブジェクトにも対応） */
     public function dispatch(string $event, array $data = []): mixed {
         $this->run($event, $data);
         return null;
+    }
+
+    /**
+     * 型付き Event オブジェクトをディスパッチする。
+     * stopPropagation() が呼ばれた場合、残りのリスナーはスキップされる。
+     * @since Ver.1.9
+     */
+    public function dispatchEvent(Event $event): Event {
+        $name = $event->name();
+        if (!isset($this->hooks[$name])) return $event;
+
+        $this->sortHooks($name);
+
+        foreach ($this->hooks[$name] as $hook) {
+            if ($event->isPropagationStopped()) break;
+            try {
+                ($hook['callback'])($event);
+            } catch (\Throwable $e) {
+                \APF\Utilities\Logger::debug('Event dispatch failed', [
+                    'event' => $name, 'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        return $event;
     }
 
     /** EventBusInterface::hasListeners() の実装 */
@@ -1077,7 +1197,7 @@ class PluginManager {
 
         $this->loaded[$name] = true;
         unset($this->loading[$name]);
-        $this->hooks->run('plugin:loaded', $name, $plugin);
+        $this->hooks->dispatchEvent(new PluginLoadedEvent($name, (object)$plugin));
     }
 
     public function isLoaded(string $name): bool {

@@ -357,9 +357,28 @@ class QueryBuilder {
         return $this;
     }
 
+    /** @var array<string, array> リクエストスコープのクエリキャッシュ @since Ver.1.9 */
+    private static array $queryCache = [];
+
     public function get(): array {
         $sql = $this->toSql();
-        return $this->connection->query($sql, $this->bindings);
+        $cacheKey = md5($sql . serialize($this->bindings));
+
+        if (isset(self::$queryCache[$cacheKey])) {
+            return self::$queryCache[$cacheKey];
+        }
+
+        $result = $this->connection->query($sql, $this->bindings);
+        self::$queryCache[$cacheKey] = $result;
+        return $result;
+    }
+
+    /**
+     * クエリキャッシュをクリアする（書き込み操作後に呼び出す）。
+     * @since Ver.1.9
+     */
+    public static function clearQueryCache(): void {
+        self::$queryCache = [];
     }
 
     public function first(): ?array {
@@ -440,6 +459,7 @@ class QueryBuilder {
             implode(', ', $placeholders)
         );
 
+        self::clearQueryCache();
         return $this->connection->insert($sql, array_values($data));
     }
 
@@ -459,6 +479,7 @@ class QueryBuilder {
             $sql .= ' WHERE ' . $this->buildWhere();
         }
 
+        self::clearQueryCache();
         return $this->connection->update($sql, array_merge(array_values($data), $this->bindings));
     }
 
@@ -469,6 +490,7 @@ class QueryBuilder {
             $sql .= ' WHERE ' . $this->buildWhere();
         }
 
+        self::clearQueryCache();
         return $this->connection->delete($sql, $this->bindings);
     }
 
