@@ -964,7 +964,10 @@ class FileSystem {
      * @return string|false 成功時は内容、失敗時は false
      */
     public static function read(string $path): string|false {
-        return @file_get_contents($path);
+        if (!is_file($path) || !is_readable($path)) {
+            return false;
+        }
+        return file_get_contents($path);
     }
 
     /**
@@ -973,11 +976,17 @@ class FileSystem {
     public static function write(string $path, string $content): bool {
         $dir = dirname($path);
         if (!is_dir($dir)) {
-            if (!@mkdir($dir, 0755, true)) {
+            if (!mkdir($dir, 0755, true) && !is_dir($dir)) {
+                Logger::warning('Failed to create directory', ['dir' => $dir]);
                 return false;
             }
         }
-        return @file_put_contents($path, $content, LOCK_EX) !== false;
+        $result = file_put_contents($path, $content, LOCK_EX);
+        if ($result === false) {
+            Logger::warning('Failed to write file', ['path' => $path]);
+            return false;
+        }
+        return true;
     }
 
     /**
@@ -994,8 +1003,12 @@ class FileSystem {
      * 配列を JSON ファイルとして書き込む。
      */
     public static function writeJson(string $path, array $data): bool {
-        $json = json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
-        if ($json === false) return false;
+        try {
+            $json = json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+        } catch (\JsonException $e) {
+            Logger::warning('JSON encode failed', ['path' => $path, 'error' => $e->getMessage()]);
+            return false;
+        }
         return self::write($path, $json);
     }
 
@@ -1019,7 +1032,7 @@ class FileSystem {
      */
     public static function ensureDir(string $dir): bool {
         if (is_dir($dir)) return true;
-        return @mkdir($dir, 0755, true);
+        return mkdir($dir, 0755, true) || is_dir($dir);
     }
 }
 
