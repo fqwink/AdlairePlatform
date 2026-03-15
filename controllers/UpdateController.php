@@ -15,13 +15,13 @@ class UpdateController extends BaseController {
 
 	/** アップデート確認 */
 	public function check(Request $request): Response {
-		$result = \UpdateEngine::checkUpdate();
+		$result = \AIS\Deployment\UpdateService::checkUpdate();
 		return Response::json(['ok' => true, 'data' => $result]);
 	}
 
 	/** 環境互換チェック */
 	public function checkEnv(Request $request): Response {
-		$result = \UpdateEngine::checkEnvironment();
+		$result = \AIS\Deployment\UpdateService::checkEnvironment();
 		return Response::json(['ok' => true, 'data' => $result]);
 	}
 
@@ -30,8 +30,8 @@ class UpdateController extends BaseController {
 		if ($err = $this->requireRole('admin')) return $err;
 
 		try {
-			$result = \UpdateEngine::executeApplyUpdate();
-			\AdminEngine::logActivity('アップデート適用');
+			$result = \AIS\Deployment\UpdateService::executeApplyUpdate();
+			\ACE\Admin\AdminManager::logActivity('アップデート適用');
 			return Response::json($result);
 		} catch (\RuntimeException $e) {
 			return $this->error($e->getMessage(), 500);
@@ -49,7 +49,7 @@ class UpdateController extends BaseController {
 				$metaFile = $path . '/meta.json';
 				$meta = null;
 				if (file_exists($metaFile)) {
-					$decoded = \FileSystem::readJson($metaFile);
+					$decoded = \APF\Utilities\FileSystem::readJson($metaFile);
 					if (is_array($decoded)) $meta = $decoded;
 				}
 				$list[] = ['name' => $name, 'meta' => $meta];
@@ -64,8 +64,8 @@ class UpdateController extends BaseController {
 
 		$name = trim($request->post('backup', ''));
 		try {
-			$result = \UpdateEngine::executeRollback($name);
-			\AdminEngine::logActivity('ロールバック実行: ' . basename($name));
+			$result = \AIS\Deployment\UpdateService::executeRollback($name);
+			\ACE\Admin\AdminManager::logActivity('ロールバック実行: ' . basename($name));
 			return Response::json($result);
 		} catch (\RuntimeException $e) {
 			return $this->error($e->getMessage());
@@ -78,8 +78,8 @@ class UpdateController extends BaseController {
 
 		$name = trim($request->post('backup', ''));
 		try {
-			$result = \UpdateEngine::executeDeleteBackup($name);
-			\AdminEngine::logActivity('バックアップ削除: ' . basename($name));
+			$result = \AIS\Deployment\UpdateService::executeDeleteBackup($name);
+			\ACE\Admin\AdminManager::logActivity('バックアップ削除: ' . basename($name));
 			return Response::json($result);
 		} catch (\RuntimeException $e) {
 			return $this->error($e->getMessage());

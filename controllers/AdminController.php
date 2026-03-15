@@ -73,7 +73,7 @@ class AdminController extends BaseController {
 		if (!move_uploaded_file($file['tmp_name'], $dir . $filename)) {
 			return $this->error('ファイル保存に失敗しました', 500);
 		}
-		if (class_exists('ImageOptimizer')) \ImageOptimizer::optimize($dir . $filename);
+		\ASG\Utilities\ImageService::optimize($dir . $filename);
 		\AdminEngine::logActivity('画像アップロード: ' . $filename);
 
 		return Response::json(['url' => $dir . $filename]);

@@ -1244,8 +1244,8 @@ class AdminManager {
 
         $collectionsEnabled = \ACE\Core\CollectionService::isEnabled();
         $collectionList = $collectionsEnabled ? \ACE\Core\CollectionService::listCollections() : [];
-        $gitEnabled = class_exists('GitEngine') && \GitEngine::isEnabled();
-        $gitConfig = class_exists('GitEngine') ? \GitEngine::loadConfig() : [];
+        $gitEnabled = \AIS\Deployment\GitService::isEnabled();
+        $gitConfig = \AIS\Deployment\GitService::loadConfig();
         $users = self::listUsers();
         $webhooks = \ACE\Api\WebhookService::listWebhooks();
         $cacheStats = \AIS\System\ApiCache::getStats();
