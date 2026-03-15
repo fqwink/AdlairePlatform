@@ -12,9 +12,191 @@
 namespace APF\Core;
 
 // ============================================================================
+// Enums - PHP 8.3 列挙型
+// ============================================================================
+
+/**
+ * HTTP メソッド列挙型。ルーティングとリクエスト処理で使用。
+ * @since Ver.1.9
+ */
+enum HttpMethod: string {
+    case GET    = 'GET';
+    case POST   = 'POST';
+    case PUT    = 'PUT';
+    case PATCH  = 'PATCH';
+    case DELETE = 'DELETE';
+    case HEAD   = 'HEAD';
+    case OPTIONS = 'OPTIONS';
+
+    /**
+     * 安全なメソッド（副作用なし）かどうかを返す。
+     */
+    public function isSafe(): bool {
+        return match ($this) {
+            self::GET, self::HEAD, self::OPTIONS => true,
+            default => false,
+        };
+    }
+
+    /**
+     * 冪等なメソッドかどうかを返す。
+     */
+    public function isIdempotent(): bool {
+        return match ($this) {
+            self::POST => false,
+            default => true,
+        };
+    }
+}
+
+/**
+ * ログレベル列挙型。
+ * @since Ver.1.9
+ */
+enum LogLevel: int {
+    case DEBUG    = 0;
+    case INFO     = 1;
+    case WARNING  = 2;
+    case ERROR    = 3;
+    case CRITICAL = 4;
+
+    /**
+     * 文字列名からログレベルを解決する。
+     */
+    public static function fromName(string $name): self {
+        return match (strtolower($name)) {
+            'debug'    => self::DEBUG,
+            'info'     => self::INFO,
+            'warning'  => self::WARNING,
+            'error'    => self::ERROR,
+            'critical' => self::CRITICAL,
+            default    => self::INFO,
+        };
+    }
+
+    public function label(): string {
+        return strtolower($this->name);
+    }
+}
+
+/**
+ * イベントバスインターフェース。
+ * HookManager と EventDispatcher の共通契約を定義する。
+ * @since Ver.1.9
+ */
+interface EventBusInterface {
+    public function listen(string $event, callable $listener, int $priority = 0): void;
+    public function dispatch(string $event, array $data = []): mixed;
+    public function hasListeners(string $event): bool;
+}
+
+// ============================================================================
+// Event Contracts - 型付きイベントクラス (Ver.1.9)
+// ============================================================================
+
+/**
+ * 全イベントの基底クラス。
+ * イベント名の定数定義と、データの型安全なアクセスを提供する。
+ * @since Ver.1.9
+ */
+abstract class Event {
+    /** イベント名（サブクラスで定義） */
+    public const NAME = '';
+
+    private bool $propagationStopped = false;
+
+    public function __construct(
+        public readonly array $payload = [],
+    ) {}
+
+    public function stopPropagation(): void {
+        $this->propagationStopped = true;
+    }
+
+    public function isPropagationStopped(): bool {
+        return $this->propagationStopped;
+    }
+
+    /** EventBusInterface::dispatch() に渡すイベント名を返す */
+    public function name(): string {
+        return static::NAME;
+    }
+}
+
+/**
+ * プラグインがロードされた時に発火するイベント。
+ * @since Ver.1.9
+ */
+class PluginLoadedEvent extends Event {
+    public const NAME = 'plugin:loaded';
+
+    public function __construct(
+        public readonly string $pluginName,
+        public readonly object $pluginInstance,
+    ) {
+        parent::__construct(['name' => $pluginName]);
+    }
+}
+
+/**
+ * コンテンツが保存された時に発火するイベント。
+ * @since Ver.1.9
+ */
+class ContentSavedEvent extends Event {
+    public const NAME = 'content:saved';
+
+    public function __construct(
+        public readonly string $page,
+        public readonly string $field,
+        public readonly string $content,
+    ) {
+        parent::__construct(['page' => $page, 'field' => $field]);
+    }
+}
+
+/**
+ * ユーザーがログイン/ログアウトした時に発火するイベント。
+ * @since Ver.1.9
+ */
+class AuthEvent extends Event {
+    public const NAME = 'auth:changed';
+
+    public function __construct(
+        public readonly string $action,
+        public readonly ?string $ip = null,
+    ) {
+        parent::__construct(['action' => $action, 'ip' => $ip]);
+    }
+}
+
+/**
+ * 設定が変更された時に発火するイベント。
+ * @since Ver.1.9
+ */
+class SettingsChangedEvent extends Event {
+    public const NAME = 'settings:changed';
+
+    public function __construct(
+        public readonly string $key,
+        public readonly mixed $oldValue,
+        public readonly mixed $newValue,
+    ) {
+        parent::__construct(['key' => $key]);
+    }
+}
+
+// ============================================================================
 // Container - 依存性注入コンテナ
 // ============================================================================
 
+/**
+ * シンプルな依存性注入コンテナ。
+ *
+ * バインディング、シングルトン、エイリアス、遅延バインディングをサポート。
+ * Application ファサード経由でグローバルにアクセス可能。
+ *
+ * @since Ver.1.5
+ */
 class Container {
     private array $bindings = [];
     private array $instances = [];
@@ -45,7 +227,7 @@ class Container {
         $this->aliases[$alias] = $abstract;
     }
 
-    public function make(string $abstract, array $parameters = []) {
+    public function make(string $abstract, array $parameters = []): mixed {
         $abstract = $this->getAlias($abstract);
 
         if (isset($this->instances[$abstract])) {
@@ -85,7 +267,7 @@ class Container {
 
     public function has(string $abstract): bool {
         $abstract = $this->getAlias($abstract);
-        return isset($this->bindings[$abstract]) || isset($this->instances[$abstract]);
+        return isset($this->bindings[$abstract]) || isset($this->instances[$abstract]) || isset($this->lazy[$abstract]);
     }
 
     /** B1: 遅延ロード — 初回アクセス時にのみインスタンス化 */
@@ -98,6 +280,25 @@ class Container {
         if (!$this->has($abstract)) {
             $this->bind($abstract, $concrete, $shared);
         }
+    }
+
+    /**
+     * 登録済みバインディング一覧を返す（デバッグ用）。
+     * @since Ver.1.9
+     */
+    public function getBindings(): array {
+        return array_keys($this->bindings + $this->lazy + $this->instances);
+    }
+
+    /**
+     * 全バインディングをリセットする（テスト用）。
+     * @since Ver.1.9
+     */
+    public function flush(): void {
+        $this->bindings = [];
+        $this->instances = [];
+        $this->aliases = [];
+        $this->lazy = [];
     }
 
     private function getAlias(string $abstract): string {
@@ -137,7 +338,7 @@ class Container {
             return $reflector->newInstanceArgs($dependencies);
         }
 
-        return $concrete;
+        throw new ContainerException("Unable to build [{$concrete}]: not a Closure or instantiable class");
     }
 
     private function resolveDependencies(array $dependencies, array $parameters): array {
@@ -168,12 +369,23 @@ class Container {
 // Router - ルーティング
 // ============================================================================
 
+/**
+ * HTTP リクエストルーター。
+ *
+ * GET/POST/PUT/PATCH/DELETE のルート登録、パラメータ付きルート、
+ * ミドルウェアグループ、名前付きルート、ルートキャッシュをサポート。
+ *
+ * @since Ver.1.7
+ * @updated Ver.1.9 ルートキャッシュ機構追加、名前付きルート対応
+ */
 class Router {
     private array $routes = [];
     private array $middlewares = [];
     private array $groupStack = [];
     private array $queryMappings = [];
     private array $postMappings = [];
+    /** @var array<string, int> 名前付きルート → routes インデックス @since Ver.1.9 */
+    private array $namedRoutes = [];
     private Container $container;
 
     public function __construct(Container $container) {
@@ -243,6 +455,42 @@ class Router {
         return $this;
     }
 
+    /**
+     * ルートに名前を付ける。直前に登録したルートが対象。
+     * @since Ver.1.9
+     */
+    public function name(string $name): self {
+        if (!empty($this->routes)) {
+            $index = array_key_last($this->routes);
+            $this->routes[$index]['name'] = $name;
+            $this->namedRoutes[$name] = $index;
+        }
+        return $this;
+    }
+
+    /**
+     * 名前付きルートの URI を生成する。
+     * @since Ver.1.9
+     */
+    public function route(string $name, array $params = []): ?string {
+        if (!isset($this->namedRoutes[$name])) {
+            return null;
+        }
+        $uri = $this->routes[$this->namedRoutes[$name]]['uri'];
+        foreach ($params as $key => $value) {
+            $uri = str_replace('{' . $key . '}', $value, $uri);
+        }
+        return $uri;
+    }
+
+    /**
+     * 登録済みルート数を返す。
+     * @since Ver.1.9
+     */
+    public function count(): int {
+        return count($this->routes);
+    }
+
     private function addRoute(string $method, string $uri, $action): self {
         $uri = $this->applyGroupPrefix($uri);
         $middleware = $this->getGroupMiddleware();
@@ -283,6 +531,9 @@ class Router {
         return '#^' . $pattern . '$#';
     }
 
+    /**
+     * @updated Ver.1.9 ErrorBoundary でルートディスパッチをラップ
+     */
     public function dispatch(Request $request): Response {
         $method = $request->method();
         $uri = $this->resolveUri($request);
@@ -296,7 +547,7 @@ class Router {
                 $params = array_filter($matches, 'is_string', ARRAY_FILTER_USE_KEY);
                 $request->setParams($params);
 
-                return $this->runRoute($route, $request);
+                return ErrorBoundary::wrapResponse(fn() => $this->runRoute($route, $request));
             }
         }
 
@@ -317,7 +568,7 @@ class Router {
         }
 
         /* POST ボディマッピング（ap_action=edit_field → /dispatch） */
-        if ($request->method() === 'POST') {
+        if ($request->httpMethod() === HttpMethod::POST) {
             foreach ($this->postMappings as $m) {
                 if ($request->post($m['key']) !== null) {
                     return $m['pathParam']
@@ -351,26 +602,21 @@ class Router {
         return $pipeline($request);
     }
 
+    /**
+     * @updated Ver.1.9 match 式で分岐を簡潔化
+     */
     private function callAction($action, Request $request): Response {
-        if ($action instanceof \Closure) {
-            $result = $action($request);
-        } elseif (is_array($action)) {
-            [$controller, $method] = $action;
-            $controller = $this->container->make($controller);
-            $result = $controller->$method($request);
-        } elseif (is_string($action) && strpos($action, '@') !== false) {
-            [$controller, $method] = explode('@', $action);
-            $controller = $this->container->make($controller);
-            $result = $controller->$method($request);
-        } else {
-            throw new \Exception('Invalid route action');
-        }
+        $result = match (true) {
+            $action instanceof \Closure => $action($request),
+            is_array($action) => $this->container->make($action[0])->{$action[1]}($request),
+            is_string($action) && str_contains($action, '@') => (function () use ($action, $request) {
+                [$ctrl, $method] = explode('@', $action);
+                return $this->container->make($ctrl)->$method($request);
+            })(),
+            default => throw new RoutingException('Invalid route action'),
+        };
 
-        if ($result instanceof Response) {
-            return $result;
-        }
-
-        return new Response($result);
+        return $result instanceof Response ? $result : new Response($result);
     }
 }
 
@@ -378,15 +624,26 @@ class Router {
 // Request - HTTPリクエスト
 // ============================================================================
 
+/**
+ * HTTP リクエストの抽象化。
+ *
+ * クエリパラメータ、POST データ、ヘッダー、JSON ボディへの
+ * 型安全なアクセスを提供する。各リクエストに一意の相関IDを付与。
+ *
+ * @since Ver.1.7
+ * @updated Ver.1.9 readonly プロパティ適用、リクエスト相関ID追加
+ */
 class Request {
-    private array $query;
-    private array $post;
-    private array $files;
-    private array $cookies;
-    private array $server;
-    private array $headers;
+    private readonly array $query;
+    private readonly array $post;
+    private readonly array $files;
+    private readonly array $cookies;
+    private readonly array $server;
+    private readonly array $headers;
     private array $params = [];
-    private ?string $body = null;
+    private readonly ?string $body;
+    /** @var string リクエスト相関ID（分散トレーシング用） @since Ver.1.9 */
+    private readonly string $requestId;
 
     public function __construct() {
         $this->query = $_GET;
@@ -395,7 +652,9 @@ class Request {
         $this->cookies = $_COOKIE;
         $this->server = $_SERVER;
         $this->headers = $this->parseHeaders();
-        $this->body = file_get_contents('php://input');
+        $this->body = file_get_contents('php://input') ?: null;
+        /* Ver.1.9: リクエスト相関ID — ヘッダーがあれば採用、なければ自動生成 */
+        $this->requestId = $this->headers['X-Request-Id'] ?? bin2hex(random_bytes(8));
     }
 
     private function parseHeaders(): array {
@@ -413,26 +672,42 @@ class Request {
         return strtoupper($this->server['REQUEST_METHOD'] ?? 'GET');
     }
 
+    /**
+     * HTTP メソッドを Enum として返す。
+     * @since Ver.1.9
+     */
+    public function httpMethod(): HttpMethod {
+        return HttpMethod::tryFrom($this->method()) ?? HttpMethod::GET;
+    }
+
+    /**
+     * リクエスト相関IDを返す。
+     * @since Ver.1.9
+     */
+    public function requestId(): string {
+        return $this->requestId;
+    }
+
     public function uri(): string {
         $uri = $this->server['REQUEST_URI'] ?? '/';
         return parse_url($uri, PHP_URL_PATH) ?? '/';
     }
 
-    public function query(?string $key = null, $default = null) {
+    public function query(?string $key = null, mixed $default = null): mixed {
         if (is_null($key)) {
             return $this->query;
         }
         return $this->query[$key] ?? $default;
     }
 
-    public function post(?string $key = null, $default = null) {
+    public function post(?string $key = null, mixed $default = null): mixed {
         if (is_null($key)) {
             return $this->post;
         }
         return $this->post[$key] ?? $default;
     }
 
-    public function input(?string $key = null, $default = null) {
+    public function input(?string $key = null, mixed $default = null): mixed {
         $input = array_merge($this->query, $this->post);
         
         if (is_null($key)) {
@@ -441,28 +716,29 @@ class Request {
         return $input[$key] ?? $default;
     }
 
-    public function json(?string $key = null, $default = null) {
-        static $json = null;
-        
-        if (is_null($json)) {
-            $json = json_decode($this->body, true) ?? [];
+    /** @var array|null インスタンス単位の JSON キャッシュ @since Ver.1.9 */
+    private ?array $jsonCache = null;
+
+    public function json(?string $key = null, mixed $default = null): mixed {
+        if ($this->jsonCache === null) {
+            $this->jsonCache = json_decode($this->body, true) ?? [];
         }
 
         if (is_null($key)) {
-            return $json;
+            return $this->jsonCache;
         }
-        return $json[$key] ?? $default;
+        return $this->jsonCache[$key] ?? $default;
     }
 
     public function file(string $key): ?array {
         return $this->files[$key] ?? null;
     }
 
-    public function cookie(string $key, $default = null) {
+    public function cookie(string $key, mixed $default = null): mixed {
         return $this->cookies[$key] ?? $default;
     }
 
-    public function header(string $key, $default = null) {
+    public function header(string $key, mixed $default = null): mixed {
         return $this->headers[$key] ?? $default;
     }
 
@@ -486,12 +762,12 @@ class Request {
         $this->params = $params;
     }
 
-    public function param(string $key, $default = null) {
+    public function param(string $key, mixed $default = null): mixed {
         return $this->params[$key] ?? $default;
     }
 
     /** Ver.1.7: サーバー変数アクセス */
-    public function server(?string $key = null, $default = null) {
+    public function server(?string $key = null, mixed $default = null): mixed {
         if (is_null($key)) return $this->server;
         return $this->server[$key] ?? $default;
     }
@@ -524,22 +800,30 @@ class Request {
 // Response - HTTPレスポンス
 // ============================================================================
 
+/**
+ * HTTP レスポンスの抽象化。
+ *
+ * JSON、リダイレクト、ファイルダウンロード等の静的ファクトリメソッドを提供。
+ * ステータスコード、ヘッダー、ボディを管理し send() で出力する。
+ *
+ * @since Ver.1.7
+ */
 class Response {
-    private $content;
+    private mixed $content;
     private int $statusCode;
     private array $headers = [];
     /** @since Ver.1.7-37 ファイルストリーミング用パス */
     private ?string $filePath = null;
 
-    public function __construct($content = '', int $statusCode = 200, array $headers = []) {
+    public function __construct(mixed $content = '', int $statusCode = 200, array $headers = []) {
         $this->content = $content;
         $this->statusCode = $statusCode;
         $this->headers = $headers;
     }
 
     public static function json($data, int $statusCode = 200, array $headers = []): self {
-        $headers['Content-Type'] = 'application/json';
-        return new self(json_encode($data), $statusCode, $headers);
+        $headers['Content-Type'] = 'application/json; charset=UTF-8';
+        return new self(json_encode($data, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR), $statusCode, $headers);
     }
 
     public static function html(string $html, int $statusCode = 200, array $headers = []): self {
@@ -565,6 +849,9 @@ class Response {
      * @since Ver.1.7-37
      */
     public static function file(string $path, string $filename, string $contentType = 'application/octet-stream'): self {
+        if (!is_file($path) || !is_readable($path)) {
+            throw new NotFoundException("File not found: {$filename}");
+        }
         $response = new self('', 200, [
             'Content-Type' => $contentType,
             'Content-Disposition' => 'attachment; filename="' . $filename . '"',
@@ -579,8 +866,26 @@ class Response {
         return $this;
     }
 
-    public function withCookie(string $name, string $value, int $expires = 0, string $path = '/'): self {
-        setcookie($name, $value, $expires, $path);
+    /**
+     * @updated Ver.1.9 セキュアなデフォルト（SameSite=Lax, HttpOnly, Secure 自動判定）
+     */
+    public function withCookie(
+        string $name,
+        string $value,
+        int $expires = 0,
+        string $path = '/',
+        bool $secure = true,
+        bool $httpOnly = true,
+        string $sameSite = 'Lax',
+    ): self {
+        $isSecure = $secure && !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off';
+        setcookie($name, $value, [
+            'expires'  => $expires,
+            'path'     => $path,
+            'secure'   => $isSecure,
+            'httponly'  => $httpOnly,
+            'samesite' => $sameSite,
+        ]);
         return $this;
     }
 
@@ -593,15 +898,14 @@ class Response {
 
         if ($this->filePath !== null) {
             readfile($this->filePath);
-            @unlink($this->filePath);
         } elseif (is_array($this->content) || is_object($this->content)) {
-            echo json_encode($this->content);
+            echo json_encode($this->content, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
         } else {
             echo $this->content;
         }
     }
 
-    public function getContent() {
+    public function getContent(): mixed {
         return $this->content;
     }
 
@@ -654,27 +958,107 @@ class ValidationException extends FrameworkException {
 class MiddlewareException extends FrameworkException {}
 
 // ============================================================================
+// ServiceProvider - サービスプロバイダ基底クラス
+// ============================================================================
+
+/**
+ * サービスプロバイダ基底クラス。
+ * DI コンテナへのサービス登録をモジュール化する。
+ * 各モジュールがサービス登録ロジックをカプセル化し、
+ * bootstrap.php の肥大化を防ぐ。
+ * @since Ver.1.9
+ */
+abstract class ServiceProvider {
+
+    protected readonly Container $container;
+
+    public function __construct(Container $container) {
+        $this->container = $container;
+    }
+
+    /**
+     * サービスをコンテナに登録する。
+     * Application::boot() 時に一度だけ呼ばれる。
+     */
+    abstract public function register(): void;
+
+    /**
+     * サービス起動処理（任意）。
+     * 全プロバイダの register() 完了後に呼ばれる。
+     */
+    public function boot(): void {}
+}
+
+// ============================================================================
 // HookManager - フック機構 (D2)
 // ============================================================================
 
-class HookManager {
+/**
+ * @updated Ver.1.9 EventBusInterface を実装、ソート結果キャッシュ追加
+ */
+class HookManager implements EventBusInterface {
     private array $hooks = [];
+    /** @var array<string, bool> ソート済みフラグ @since Ver.1.9 */
+    private array $sorted = [];
 
     public function register(string $name, callable $callback, int $priority = 10): void {
         $this->hooks[$name][] = ['callback' => $callback, 'priority' => $priority];
+        unset($this->sorted[$name]); /* ソートキャッシュ無効化 */
+    }
+
+    /** EventBusInterface::listen() の実装 */
+    public function listen(string $event, callable $listener, int $priority = 0): void {
+        $this->register($event, $listener, $priority);
+    }
+
+    /** EventBusInterface::dispatch() の実装（Event オブジェクトにも対応） */
+    public function dispatch(string $event, array $data = []): mixed {
+        $this->run($event, $data);
+        return null;
+    }
+
+    /**
+     * 型付き Event オブジェクトをディスパッチする。
+     * stopPropagation() が呼ばれた場合、残りのリスナーはスキップされる。
+     * @since Ver.1.9
+     */
+    public function dispatchEvent(Event $event): Event {
+        $name = $event->name();
+        if (!isset($this->hooks[$name])) return $event;
+
+        $this->sortHooks($name);
+
+        foreach ($this->hooks[$name] as $hook) {
+            if ($event->isPropagationStopped()) break;
+            try {
+                ($hook['callback'])($event);
+            } catch (\Throwable $e) {
+                \APF\Utilities\Logger::debug('Event dispatch failed', [
+                    'event' => $name, 'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        return $event;
+    }
+
+    /** EventBusInterface::hasListeners() の実装 */
+    public function hasListeners(string $event): bool {
+        return $this->has($event);
     }
 
     public function run(string $name, mixed ...$args): void {
         if (!isset($this->hooks[$name])) return;
 
-        $sorted = $this->hooks[$name];
-        usort($sorted, fn($a, $b) => $a['priority'] <=> $b['priority']);
+        $this->sortHooks($name);
 
-        foreach ($sorted as $hook) {
+        foreach ($this->hooks[$name] as $hook) {
             try {
                 ($hook['callback'])(...$args);
             } catch (\Throwable $e) {
-                // Hook failure should not break the flow
+                \APF\Utilities\Logger::debug('Hook execution failed', [
+                    'hook' => $name, 'error' => $e->getMessage(),
+                ]);
             }
         }
     }
@@ -682,10 +1066,9 @@ class HookManager {
     public function filter(string $name, mixed $value, mixed ...$args): mixed {
         if (!isset($this->hooks[$name])) return $value;
 
-        $sorted = $this->hooks[$name];
-        usort($sorted, fn($a, $b) => $a['priority'] <=> $b['priority']);
+        $this->sortHooks($name);
 
-        foreach ($sorted as $hook) {
+        foreach ($this->hooks[$name] as $hook) {
             try {
                 $value = ($hook['callback'])($value, ...$args);
             } catch (\Throwable $e) {
@@ -701,11 +1084,22 @@ class HookManager {
     }
 
     public function remove(string $name): void {
-        unset($this->hooks[$name]);
+        unset($this->hooks[$name], $this->sorted[$name]);
     }
 
     public function clear(): void {
         $this->hooks = [];
+        $this->sorted = [];
+    }
+
+    /**
+     * フック配列をプライオリティ順にソートし、結果をキャッシュする。
+     * @since Ver.1.9
+     */
+    private function sortHooks(string $name): void {
+        if (isset($this->sorted[$name])) return;
+        usort($this->hooks[$name], fn($a, $b) => $a['priority'] <=> $b['priority']);
+        $this->sorted[$name] = true;
     }
 }
 
@@ -718,6 +1112,9 @@ class PluginManager {
     private HookManager $hooks;
     private array $plugins = [];
     private array $loaded = [];
+
+    /** @var array<string, bool> 現在ロード中のプラグイン（循環依存検出用） @since Ver.1.9 */
+    private array $loading = [];
 
     public function __construct(Container $container, HookManager $hooks) {
         $this->container = $container;
@@ -734,14 +1131,84 @@ class PluginManager {
         ], $config);
     }
 
+    /**
+     * 有効なプラグインをトポロジカル順にロードする。
+     * @updated Ver.1.9 循環依存検出付きトポロジカルソート
+     */
     public function boot(): void {
-        foreach ($this->plugins as $name => $plugin) {
+        $order = $this->resolveLoadOrder();
+        foreach ($order as $name) {
+            $plugin = $this->plugins[$name];
             if (!$plugin['enabled'] || isset($this->loaded[$name])) continue;
             $this->loadPlugin($name, $plugin);
         }
     }
 
+    /**
+     * トポロジカルソートによりロード順を決定する。
+     * 循環依存を検出した場合は例外をスローする。
+     * @since Ver.1.9
+     * @return array<string> ロード順のプラグイン名配列
+     */
+    private function resolveLoadOrder(): array {
+        $visited = [];
+        $order = [];
+        $visiting = [];
+
+        foreach ($this->plugins as $name => $plugin) {
+            if (!$plugin['enabled']) continue;
+            if (!isset($visited[$name])) {
+                $this->topoSort($name, $visited, $visiting, $order);
+            }
+        }
+
+        return $order;
+    }
+
+    /**
+     * DFS トポロジカルソート（循環依存検出付き）。
+     * @since Ver.1.9
+     */
+    private function topoSort(string $name, array &$visited, array &$visiting, array &$order): void {
+        if (isset($visiting[$name])) {
+            $cycle = array_keys($visiting);
+            $start = array_search($name, $cycle, true);
+            $chain = implode(' -> ', array_slice($cycle, $start)) . " -> {$name}";
+            throw new FrameworkException(
+                "Circular plugin dependency detected: {$chain}",
+                ['plugin' => $name, 'cycle' => array_slice($cycle, $start)]
+            );
+        }
+
+        if (isset($visited[$name])) return;
+
+        $visiting[$name] = true;
+
+        $plugin = $this->plugins[$name] ?? null;
+        if ($plugin === null) {
+            throw new FrameworkException("Plugin dependency not found: {$name}");
+        }
+
+        foreach ($plugin['dependencies'] as $dep) {
+            $this->topoSort($dep, $visited, $visiting, $order);
+        }
+
+        unset($visiting[$name]);
+        $visited[$name] = true;
+        $order[] = $name;
+    }
+
     private function loadPlugin(string $name, array $plugin): void {
+        if (isset($this->loading[$name])) {
+            $chain = implode(' -> ', array_keys($this->loading));
+            throw new FrameworkException(
+                "Circular plugin dependency detected: {$chain} -> {$name}",
+                ['plugin' => $name]
+            );
+        }
+
+        $this->loading[$name] = true;
+
         foreach ($plugin['dependencies'] as $dep) {
             if (!isset($this->loaded[$dep])) {
                 if (isset($this->plugins[$dep])) {
@@ -757,7 +1224,8 @@ class PluginManager {
         }
 
         $this->loaded[$name] = true;
-        $this->hooks->run('plugin:loaded', $name, $plugin);
+        unset($this->loading[$name]);
+        $this->hooks->dispatchEvent(new PluginLoadedEvent($name, (object)$plugin));
     }
 
     public function isLoaded(string $name): bool {
@@ -766,6 +1234,19 @@ class PluginManager {
 
     public function getAll(): array {
         return $this->plugins;
+    }
+
+    /**
+     * プラグインの依存グラフを返す（デバッグ用）。
+     * @since Ver.1.9
+     * @return array<string, array<string>> プラグイン名 => 依存先名の配列
+     */
+    public function getDependencyGraph(): array {
+        $graph = [];
+        foreach ($this->plugins as $name => $plugin) {
+            $graph[$name] = $plugin['dependencies'];
+        }
+        return $graph;
     }
 
     public function disable(string $name): void {
@@ -786,6 +1267,12 @@ class DebugCollector {
     private static array $queries = [];
     private static float $startTime = 0;
 
+    /** @var array<array{name: string, startTime: float, startMemory: int}> スコープスタック @since Ver.1.9 */
+    private static array $scopeStack = [];
+
+    /** @var array<array{name: string, time_ms: float, memory_delta: int, children: int}> 完了したスコープ @since Ver.1.9 */
+    private static array $scopes = [];
+
     public static function enable(): void {
         self::$enabled = true;
         self::$startTime = hrtime(true);
@@ -803,6 +1290,7 @@ class DebugCollector {
             'message' => $message,
             'context' => $context,
             'memory' => memory_get_usage(true),
+            'scope' => self::currentScopeName(),
         ];
     }
 
@@ -819,19 +1307,90 @@ class DebugCollector {
         return $elapsed;
     }
 
+    /**
+     * プロファイルスコープに入る。ネスト可能なコールスタック追跡。
+     * @since Ver.1.9
+     */
+    public static function enterScope(string $name): void {
+        if (!self::$enabled) return;
+        self::$scopeStack[] = [
+            'name'        => $name,
+            'startTime'   => hrtime(true),
+            'startMemory' => memory_get_usage(true),
+            'childCount'  => 0,
+        ];
+    }
+
+    /**
+     * 現在のプロファイルスコープを抜ける。経過時間とメモリ差分を記録。
+     * @since Ver.1.9
+     * @return array{name: string, time_ms: float, memory_delta: int}|null スコープ情報
+     */
+    public static function exitScope(): ?array {
+        if (!self::$enabled || empty(self::$scopeStack)) return null;
+
+        $scope = array_pop(self::$scopeStack);
+        $elapsed = (hrtime(true) - $scope['startTime']) / 1_000_000;
+        $memoryDelta = memory_get_usage(true) - $scope['startMemory'];
+
+        $result = [
+            'name'         => $scope['name'],
+            'time_ms'      => round($elapsed, 3),
+            'memory_delta' => $memoryDelta,
+            'children'     => $scope['childCount'],
+            'depth'        => count(self::$scopeStack),
+        ];
+
+        self::$scopes[] = $result;
+
+        /* 親スコープの子カウントを増加 */
+        if (!empty(self::$scopeStack)) {
+            self::$scopeStack[array_key_last(self::$scopeStack)]['childCount']++;
+        }
+
+        self::logEvent('scope', "{$scope['name']}: {$result['time_ms']}ms, mem:{$memoryDelta}B", $result);
+
+        return $result;
+    }
+
+    /**
+     * 現在のスコープ名を返す。
+     * @since Ver.1.9
+     */
+    private static function currentScopeName(): ?string {
+        if (empty(self::$scopeStack)) return null;
+        return self::$scopeStack[array_key_last(self::$scopeStack)]['name'];
+    }
+
+    /**
+     * 現在のスコープスタックの深さを返す。
+     * @since Ver.1.9
+     */
+    public static function scopeDepth(): int {
+        return count(self::$scopeStack);
+    }
+
     public static function logQuery(string $sql, array $bindings = [], float $time = 0): void {
         if (!self::$enabled) return;
-        self::$queries[] = ['sql' => $sql, 'bindings' => $bindings, 'time_ms' => $time];
+        self::$queries[] = [
+            'sql' => $sql,
+            'bindings' => $bindings,
+            'time_ms' => $time,
+            'scope' => self::currentScopeName(),
+        ];
     }
 
     public static function getReport(): array {
         return [
             'total_time_ms' => (hrtime(true) - self::$startTime) / 1_000_000,
             'memory_peak' => memory_get_peak_usage(true),
+            'memory_current' => memory_get_usage(true),
             'events' => self::$events,
             'queries' => self::$queries,
+            'scopes' => self::$scopes,
             'event_count' => count(self::$events),
             'query_count' => count(self::$queries),
+            'scope_count' => count(self::$scopes),
         ];
     }
 
@@ -839,6 +1398,8 @@ class DebugCollector {
         self::$events = [];
         self::$timers = [];
         self::$queries = [];
+        self::$scopeStack = [];
+        self::$scopes = [];
         self::$startTime = hrtime(true);
     }
 }
@@ -847,17 +1408,73 @@ class DebugCollector {
 // ErrorBoundary - エラー境界 (A1)
 // ============================================================================
 
+/**
+ * @updated Ver.1.9 グローバルエラーハンドラ登録、構造化ログ連携
+ */
 class ErrorBoundary {
     private static array $handlers = [];
+    private static bool $globalRegistered = false;
 
     public static function register(string $type, callable $handler): void {
         self::$handlers[$type] = $handler;
+    }
+
+    /**
+     * グローバル例外ハンドラとして登録する。
+     * 未キャッチ例外・致命的エラーを構造化ログに出力し、
+     * 適切な HTTP レスポンスを返す。
+     * @since Ver.1.9
+     */
+    public static function registerGlobal(): void {
+        if (self::$globalRegistered) return;
+
+        set_exception_handler(function (\Throwable $e): void {
+            self::handleUncaught($e);
+        });
+
+        register_shutdown_function(function (): void {
+            $error = error_get_last();
+            if ($error !== null && in_array($error['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR], true)) {
+                self::handleUncaught(new \ErrorException(
+                    $error['message'], 0, $error['type'], $error['file'], $error['line']
+                ));
+            }
+        });
+
+        self::$globalRegistered = true;
+    }
+
+    /**
+     * 未キャッチ例外の統一ハンドリング。
+     * @since Ver.1.9
+     */
+    private static function handleUncaught(\Throwable $e): void {
+        /* 構造化ログへ出力 */
+        \APF\Utilities\Logger::critical('Uncaught exception', [
+            'class'   => $e::class,
+            'message' => $e->getMessage(),
+            'file'    => $e->getFile(),
+            'line'    => $e->getLine(),
+        ]);
+
+        if (PHP_SAPI !== 'cli' && !headers_sent()) {
+            http_response_code(500);
+            header('Content-Type: application/json; charset=UTF-8');
+            echo json_encode(['error' => 'Internal Server Error'], JSON_UNESCAPED_UNICODE);
+        }
     }
 
     public static function wrap(callable $callback, string $errorType = 'default'): mixed {
         try {
             return $callback();
         } catch (\Throwable $e) {
+            /* Ver.1.9: エラーを構造化ログに記録 */
+            \APF\Utilities\Logger::error('ErrorBoundary caught exception', [
+                'type'    => $errorType,
+                'class'   => $e::class,
+                'message' => $e->getMessage(),
+            ]);
+
             if (isset(self::$handlers[$errorType])) {
                 return (self::$handlers[$errorType])($e);
             }
@@ -872,13 +1489,23 @@ class ErrorBoundary {
         try {
             return $callback();
         } catch (ValidationException $e) {
-            return Response::json(['errors' => $e->getErrors()], 422);
+            return Response::json(['ok' => false, 'error' => 'Validation failed', 'errors' => $e->getErrors()], 422);
         } catch (NotFoundException $e) {
-            return Response::json(['error' => $e->getMessage()], 404);
+            return Response::json(['ok' => false, 'error' => $e->getMessage()], 404);
         } catch (FrameworkException $e) {
-            return Response::json(['error' => $e->getMessage(), 'context' => $e->getContext()], 500);
+            \APF\Utilities\Logger::error('FrameworkException', [
+                'message' => $e->getMessage(),
+                'context' => $e->getContext(),
+            ]);
+            return Response::json(['ok' => false, 'error' => $e->getMessage()], 500);
         } catch (\Throwable $e) {
-            return Response::json(['error' => 'Internal Server Error'], 500);
+            \APF\Utilities\Logger::critical('Unhandled exception in wrapResponse', [
+                'class'   => $e::class,
+                'message' => $e->getMessage(),
+                'file'    => $e->getFile(),
+                'line'    => $e->getLine(),
+            ]);
+            return Response::json(['ok' => false, 'error' => 'Internal Server Error'], 500);
         }
     }
 }

@@ -45,6 +45,20 @@ abstract class BaseController {
 		}
 		return null;
 	}
+
+	/**
+	 * Request バリデーション統合ヘルパー。
+	 * 成功時はバリデーション済みデータを返し、失敗時は JSON エラーレスポンスを返す。
+	 * @since Ver.1.9
+	 * @return array|Response バリデーション済みデータ or エラーレスポンス
+	 */
+	protected function validate(Request $request, array $rules, array $messages = []): array|Response {
+		try {
+			return \APF\Utilities\Validator::request($request, $rules, $messages);
+		} catch (\APF\Core\ValidationException $e) {
+			return Response::json(['ok' => false, 'error' => 'Validation failed', 'errors' => $e->getErrors()], 422);
+		}
+	}
 }
 
 /* ══════════════════════════════════════════════════
@@ -254,12 +268,14 @@ class AdminController extends BaseController {
 		$settingsKeys = ['title', 'description', 'keywords', 'copyright', 'themeSelect', 'menu', 'subside', 'contact_email'];
 		if (in_array($fieldname, $settingsKeys, true)) {
 			$settings = json_read('settings.json', settings_dir());
+			if (!is_array($settings)) $settings = [];
 			$settings[$fieldname] = $content;
 			json_write('settings.json', $settings, settings_dir());
 			\ACE\Admin\AdminManager::logActivity('設定変更: ' . $fieldname);
 		} else {
 			\ACE\Admin\AdminManager::saveRevision($fieldname, $content);
 			$pages = json_read('pages.json', content_dir());
+			if (!is_array($pages)) $pages = [];
 			$pages[$fieldname] = $content;
 			json_write('pages.json', $pages, content_dir());
 			\ACE\Admin\AdminManager::logActivity('ページ編集: ' . $fieldname);
@@ -880,6 +896,9 @@ class UpdateController extends BaseController {
 		if ($err = $this->requireRole('admin')) return $err;
 
 		$name = trim($request->post('backup', ''));
+		if ($name === '' || !preg_match('/^[a-zA-Z0-9_\-\.]+$/', $name)) {
+			return $this->error('Invalid backup name');
+		}
 		try {
 			$result = \AIS\Deployment\UpdateService::executeRollback($name);
 			\ACE\Admin\AdminManager::logActivity('ロールバック実行: ' . basename($name));
@@ -894,6 +913,9 @@ class UpdateController extends BaseController {
 		if ($err = $this->requireRole('admin')) return $err;
 
 		$name = trim($request->post('backup', ''));
+		if ($name === '' || !preg_match('/^[a-zA-Z0-9_\-\.]+$/', $name)) {
+			return $this->error('Invalid backup name');
+		}
 		try {
 			$result = \AIS\Deployment\UpdateService::executeDeleteBackup($name);
 			\ACE\Admin\AdminManager::logActivity('バックアップ削除: ' . basename($name));

@@ -12,14 +12,87 @@
 namespace APF\Utilities;
 
 // ============================================================================
+// Config - アプリケーション設定管理
+// ============================================================================
+
+/**
+ * 環境変数・設定ファイルからの統一的な設定読み込み。
+ * ハードコード値を排除し、外部設定による制御を実現する。
+ * @since Ver.1.9
+ */
+class Config {
+    private static array $cache = [];
+    private static array $defaults = [
+        'app.default_password'    => 'admin',
+        'session.timeout'         => 1800,
+        'session.cookie_lifetime' => 0,
+        'session.cookie_httponly' => true,
+        'session.cookie_samesite' => 'Lax',
+        'log.level'              => 'info',
+        'log.format'             => 'text',
+        'backup.generations'     => 5,
+        'revision.limit'         => 30,
+    ];
+
+    /**
+     * 設定値を取得する。環境変数 → 設定ファイル → デフォルト値の優先順で解決。
+     */
+    public static function get(string $key, mixed $default = null): mixed {
+        if (isset(self::$cache[$key])) {
+            return self::$cache[$key];
+        }
+
+        /* 環境変数を優先（ドット区切りを AP_ プレフィックス + アンダースコアに変換） */
+        $envKey = 'AP_' . strtoupper(str_replace('.', '_', $key));
+        $envVal = getenv($envKey) ?: ($_ENV[$envKey] ?? null);
+        if ($envVal !== null && $envVal !== false) {
+            $resolved = self::castEnvValue($envVal);
+            self::$cache[$key] = $resolved;
+            return $resolved;
+        }
+
+        return self::$defaults[$key] ?? $default;
+    }
+
+    /**
+     * デフォルト値を一括設定する（起動時に使用）。
+     */
+    public static function setDefaults(array $defaults): void {
+        self::$defaults = array_merge(self::$defaults, $defaults);
+    }
+
+    /**
+     * キャッシュをクリアする。
+     */
+    public static function clearCache(): void {
+        self::$cache = [];
+    }
+
+    /**
+     * 環境変数の文字列を適切な型にキャストする。
+     */
+    private static function castEnvValue(string $value): mixed {
+        return match (strtolower($value)) {
+            'true'  => true,
+            'false' => false,
+            'null'  => null,
+            default => is_numeric($value) ? (str_contains($value, '.') ? (float)$value : (int)$value) : $value,
+        };
+    }
+}
+
+// ============================================================================
 // Validator - バリデーション
 // ============================================================================
 
+/**
+ * @updated Ver.1.9 Request バリデーション統合メソッド追加
+ */
 class Validator {
-    private array $data;
-    private array $rules;
+    private readonly array $data;
+    private readonly array $rules;
     private array $errors = [];
-    private array $messages = [];
+    private readonly array $messages;
 
     public function __construct(array $data, array $rules, array $messages = []) {
         $this->data = $data;
@@ -31,16 +104,19 @@ class Validator {
         return new self($data, $rules, $messages);
     }
 
-    public function validate(): bool {
-        foreach ($this->rules as $field => $rules) {
-            $rulesArray = is_string($rules) ? explode('|', $rules) : $rules;
-            
-            foreach ($rulesArray as $rule) {
-                $this->applyRule($field, $rule);
-            }
+    /**
+     * Request オブジェクトから直接バリデーションする。
+     * 失敗時は ValidationException をスローする。
+     * @since Ver.1.9
+     */
+    public static function request(\APF\Core\Request $request, array $rules, array $messages = []): array {
+        $data = array_merge($request->query() ?? [], $request->post() ?? []);
+        $validator = new self($data, $rules, $messages);
+        if ($validator->fails()) {
+            throw new \APF\Core\ValidationException('Validation failed', $validator->errors());
         }
-
-        return empty($this->errors);
+        /* バリデーション済みデータのみ返す */
+        return array_intersect_key($data, $rules);
     }
 
     private function applyRule(string $field, string $rule): void {
@@ -137,7 +213,7 @@ class Validator {
 
         $allowed = explode(',', $parameter);
         
-        if (!in_array($value, $allowed)) {
+        if (!in_array($value, $allowed, true)) {
             $this->addError($field, 'in', "{$field} must be one of: " . implode(', ', $allowed));
         }
     }
@@ -155,8 +231,9 @@ class Validator {
     }
 
     private function validateConfirmed(string $field, $value): void {
-        $confirmation = $this->data[$field . '_confirmation'] ?? null;
-        if ($value !== $confirmation) {
+        if (is_null($value)) return;
+        $confirmKey = $field . '_confirmation';
+        if (!array_key_exists($confirmKey, $this->data) || $value !== $this->data[$confirmKey]) {
             $this->addError($field, 'confirmed', "{$field} confirmation does not match");
         }
     }
@@ -223,19 +300,44 @@ class Validator {
         $this->errors[$field][] = $this->messages[$key] ?? $message;
     }
 
+    /** @var bool バリデーション実行済みフラグ @since Ver.1.9 */
+    private bool $validated = false;
+
+    private function ensureValidated(): void {
+        if (!$this->validated) {
+            $this->validate();
+        }
+    }
+
+    public function validate(): bool {
+        $this->validated = true;
+        foreach ($this->rules as $field => $rules) {
+            $rulesArray = is_string($rules) ? explode('|', $rules) : $rules;
+
+            foreach ($rulesArray as $rule) {
+                $this->applyRule($field, $rule);
+            }
+        }
+
+        return empty($this->errors);
+    }
+
     public function fails(): bool {
         return !$this->validate();
     }
 
     public function errors(): array {
+        $this->ensureValidated();
         return $this->errors;
     }
 
     public function first(string $field): ?string {
+        $this->ensureValidated();
         return $this->errors[$field][0] ?? null;
     }
 
     public function hasError(string $field): bool {
+        $this->ensureValidated();
         return isset($this->errors[$field]);
     }
 }
@@ -245,27 +347,38 @@ class Validator {
 // ============================================================================
 
 class Cache {
-    private string $directory;
+    private readonly string $directory;
     private int $defaultTtl = 3600;
 
     public function __construct(string $directory) {
         $this->directory = rtrim($directory, '/');
-        
+
         if (!is_dir($this->directory)) {
             mkdir($this->directory, 0755, true);
         }
     }
 
-    public function get(string $key, $default = null) {
+    /**
+     * @updated Ver.1.9 serialize → JSON に変更（セキュリティ強化）
+     */
+    public function get(string $key, mixed $default = null): mixed {
         $file = $this->getFilePath($key);
-        
+
         if (!file_exists($file)) {
             return $default;
         }
 
-        $data = unserialize(file_get_contents($file));
-        
-        if ($data['expires'] > 0 && $data['expires'] < time()) {
+        $raw = file_get_contents($file);
+        if ($raw === false) return $default;
+
+        $data = json_decode($raw, true);
+        if (!is_array($data) || !array_key_exists('value', $data)) {
+            Logger::warning('Cache entry corrupted, removing', ['key' => $key]);
+            $this->delete($key);
+            return $default;
+        }
+
+        if (($data['expires'] ?? 0) > 0 && $data['expires'] < time()) {
             $this->delete($key);
             return $default;
         }
@@ -273,16 +386,19 @@ class Cache {
         return $data['value'];
     }
 
+    /**
+     * @updated Ver.1.9 serialize → JSON に変更（セキュリティ強化）
+     */
     public function set(string $key, $value, ?int $ttl = null): bool {
         $ttl = $ttl ?? $this->defaultTtl;
         $file = $this->getFilePath($key);
-        
+
         $data = [
             'value' => $value,
-            'expires' => $ttl > 0 ? time() + $ttl : 0
+            'expires' => $ttl > 0 ? time() + $ttl : 0,
         ];
 
-        return file_put_contents($file, serialize($data)) !== false;
+        return file_put_contents($file, json_encode($data, JSON_UNESCAPED_UNICODE), LOCK_EX) !== false;
     }
 
     public function has(string $key): bool {
@@ -299,6 +415,30 @@ class Cache {
         return false;
     }
 
+    /**
+     * 期限切れキャッシュエントリを削除する（ガベージコレクション）。
+     * @since Ver.1.9
+     * @return int 削除されたエントリ数
+     */
+    public function gc(): int {
+        $files = glob($this->directory . '/*.cache') ?: [];
+        $now = time();
+        $removed = 0;
+
+        foreach ($files as $file) {
+            if (!is_file($file)) continue;
+            $raw = file_get_contents($file);
+            if ($raw === false) continue;
+            $data = json_decode($raw, true);
+            if (is_array($data) && isset($data['expires']) && $data['expires'] > 0 && $data['expires'] < $now) {
+                unlink($file);
+                $removed++;
+            }
+        }
+
+        return $removed;
+    }
+
     public function clear(): bool {
         $files = glob($this->directory . '/*.cache');
         
@@ -311,7 +451,7 @@ class Cache {
         return true;
     }
 
-    public function remember(string $key, int $ttl, \Closure $callback) {
+    public function remember(string $key, int $ttl, \Closure $callback): mixed {
         $value = $this->get($key);
         
         if ($value !== null) {
@@ -341,15 +481,39 @@ class Cache {
 // Logger - ログシステム
 // ============================================================================
 
+/**
+ * 構造化ログ対応ロガー。
+ *
+ * - JSON / テキスト 2形式出力（format プロパティで切替）
+ * - 環境変数 AP_LOG_LEVEL / AP_LOG_FORMAT による制御
+ * - チャネル別ログ分離
+ * - リクエストコンテキスト自動付与
+ * @since Ver.1.8
+ * @updated Ver.1.9 構造化ログ（JSON形式）・ログレベル環境変数制御を追加
+ */
 class Logger {
     private static ?self $instance = null;
 
-    private string $logFile;
-    private string $level = 'info';
-    private array $levels = ['debug', 'info', 'warning', 'error', 'critical'];
+    private readonly string $logFile;
+    private string $level;
+    private string $format;
+    private string $channel;
 
-    public function __construct(string $logFile) {
+    private const LEVELS = [
+        'debug'    => 0,
+        'info'     => 1,
+        'warning'  => 2,
+        'error'    => 3,
+        'critical' => 4,
+    ];
+
+    public function __construct(string $logFile, string $channel = 'app') {
         $this->logFile = $logFile;
+        $this->channel = $channel;
+
+        /* 環境変数によるレベル・フォーマット制御 */
+        $this->level  = self::resolveLevel();
+        $this->format = self::resolveFormat();
 
         $dir = dirname($logFile);
         if (!is_dir($dir)) {
@@ -375,59 +539,135 @@ class Logger {
     }
 
     /**
+     * チャネル別ロガーを生成する。
+     * 例: Logger::channel('security')->warning('...');
+     * @since Ver.1.9
+     */
+    public static function channel(string $name): self {
+        $base = self::getInstance();
+        $dir  = dirname($base->logFile);
+        return new self($dir . '/' . $name . '.log', $name);
+    }
+
+    /**
      * 静的ファサードメソッド群
      * 全プロジェクトから \APF\Utilities\Logger::info() 等で呼び出し可能
      */
     public static function __callStatic(string $name, array $arguments): void {
         $instance = self::getInstance();
-        if (method_exists($instance, $name) && in_array($name, ['debug', 'info', 'warning', 'error', 'critical'])) {
-            $instance->$name(...$arguments);
+        if (isset(self::LEVELS[$name])) {
+            $instance->log($name, ...$arguments);
         }
     }
 
     public function debug(string $message, array $context = []): void {
-        $this->writeLog('debug', $message, $context);
+        $this->log('debug', $message, $context);
     }
 
     public function info(string $message, array $context = []): void {
-        $this->writeLog('info', $message, $context);
+        $this->log('info', $message, $context);
     }
 
     public function warning(string $message, array $context = []): void {
-        $this->writeLog('warning', $message, $context);
+        $this->log('warning', $message, $context);
     }
 
     public function error(string $message, array $context = []): void {
-        $this->writeLog('error', $message, $context);
+        $this->log('error', $message, $context);
     }
 
     public function critical(string $message, array $context = []): void {
-        $this->writeLog('critical', $message, $context);
+        $this->log('critical', $message, $context);
     }
 
-    private function writeLog(string $level, string $message, array $context = []): void {
+    /**
+     * 統一ログ書き込み。
+     * @since Ver.1.9
+     */
+    public function log(string $level, string $message, array $context = []): void {
         if (!$this->shouldLog($level)) {
             return;
         }
 
-        $timestamp = date('Y-m-d H:i:s');
-        $contextString = empty($context) ? '' : ' ' . json_encode($context);
-        $logMessage = "[{$timestamp}] [{$level}] {$message}{$contextString}" . PHP_EOL;
+        $entry = match ($this->format) {
+            'json'  => $this->buildJsonEntry($level, $message, $context),
+            default => $this->buildTextEntry($level, $message, $context),
+        };
 
-        file_put_contents($this->logFile, $logMessage, FILE_APPEND);
+        file_put_contents($this->logFile, $entry . PHP_EOL, FILE_APPEND | LOCK_EX);
+    }
+
+    /**
+     * JSON 構造化ログエントリを生成。
+     * @since Ver.1.9
+     */
+    private function buildJsonEntry(string $level, string $message, array $context): string {
+        $entry = [
+            'timestamp' => date('c'),
+            'level'     => $level,
+            'channel'   => $this->channel,
+            'message'   => $message,
+        ];
+
+        if (!empty($context)) {
+            $entry['context'] = $context;
+        }
+
+        /* リクエストコンテキスト（CLI 実行時は付与しない） */
+        if (PHP_SAPI !== 'cli' && isset($_SERVER['REQUEST_METHOD'])) {
+            $entry['request'] = [
+                'request_id' => $_SERVER['HTTP_X_REQUEST_ID'] ?? substr(bin2hex(random_bytes(4)), 0, 8),
+                'method' => $_SERVER['REQUEST_METHOD'],
+                'uri'    => $_SERVER['REQUEST_URI'] ?? '/',
+                'ip'     => $_SERVER['REMOTE_ADDR'] ?? 'unknown',
+            ];
+        }
+
+        return json_encode($entry, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    }
+
+    /**
+     * テキスト形式ログエントリを生成（従来互換）。
+     */
+    private function buildTextEntry(string $level, string $message, array $context): string {
+        $timestamp = date('Y-m-d H:i:s');
+        $contextString = empty($context) ? '' : ' ' . json_encode($context, JSON_UNESCAPED_UNICODE);
+        return "[{$timestamp}] [{$this->channel}.{$level}] {$message}{$contextString}";
     }
 
     private function shouldLog(string $level): bool {
-        $currentIndex = array_search($this->level, $this->levels);
-        $requestedIndex = array_search($level, $this->levels);
-
-        return $requestedIndex >= $currentIndex;
+        return (self::LEVELS[$level] ?? 0) >= (self::LEVELS[$this->level] ?? 0);
     }
 
     public function setLevel(string $level): void {
-        if (in_array($level, $this->levels)) {
+        if (isset(self::LEVELS[$level])) {
             $this->level = $level;
         }
+    }
+
+    public function setFormat(string $format): void {
+        if (in_array($format, ['text', 'json'], true)) {
+            $this->format = $format;
+        }
+    }
+
+    /**
+     * 環境変数 AP_LOG_LEVEL からログレベルを解決。
+     * @since Ver.1.9
+     */
+    private static function resolveLevel(): string {
+        $env = getenv('AP_LOG_LEVEL') ?: ($_ENV['AP_LOG_LEVEL'] ?? '');
+        $env = strtolower($env);
+        return isset(self::LEVELS[$env]) ? $env : 'info';
+    }
+
+    /**
+     * 環境変数 AP_LOG_FORMAT からフォーマットを解決。
+     * @since Ver.1.9
+     */
+    private static function resolveFormat(): string {
+        $env = getenv('AP_LOG_FORMAT') ?: ($_ENV['AP_LOG_FORMAT'] ?? '');
+        return $env === 'json' ? 'json' : 'text';
     }
 }
 
@@ -449,11 +689,11 @@ class Session {
         }
     }
 
-    public function get(string $key, $default = null) {
+    public function get(string $key, mixed $default = null): mixed {
         return $_SESSION[$key] ?? $default;
     }
 
-    public function set(string $key, $value): void {
+    public function set(string $key, mixed $value): void {
         $_SESSION[$key] = $value;
     }
 
@@ -483,7 +723,7 @@ class Session {
         $this->set('_flash.' . $key, true);
     }
 
-    public function getFlash(string $key, $default = null) {
+    public function getFlash(string $key, mixed $default = null): mixed {
         $value = $this->get($key, $default);
         
         if ($this->has('_flash.' . $key)) {
@@ -603,7 +843,13 @@ class Str {
     }
 
     public static function random(int $length = 16): string {
-        return substr(str_shuffle('0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'), 0, $length);
+        $chars = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        $max = strlen($chars) - 1;
+        $result = '';
+        for ($i = 0; $i < $length; $i++) {
+            $result .= $chars[random_int(0, $max)];
+        }
+        return $result;
     }
 
     public static function limit(string $string, int $limit = 100, string $end = '...'): string {
@@ -718,7 +964,10 @@ class FileSystem {
      * @return string|false 成功時は内容、失敗時は false
      */
     public static function read(string $path): string|false {
-        return @file_get_contents($path);
+        if (!is_file($path) || !is_readable($path)) {
+            return false;
+        }
+        return file_get_contents($path);
     }
 
     /**
@@ -727,11 +976,17 @@ class FileSystem {
     public static function write(string $path, string $content): bool {
         $dir = dirname($path);
         if (!is_dir($dir)) {
-            if (!@mkdir($dir, 0755, true)) {
+            if (!mkdir($dir, 0755, true) && !is_dir($dir)) {
+                Logger::warning('Failed to create directory', ['dir' => $dir]);
                 return false;
             }
         }
-        return @file_put_contents($path, $content, LOCK_EX) !== false;
+        $result = file_put_contents($path, $content, LOCK_EX);
+        if ($result === false) {
+            Logger::warning('Failed to write file', ['path' => $path]);
+            return false;
+        }
+        return true;
     }
 
     /**
@@ -748,8 +1003,12 @@ class FileSystem {
      * 配列を JSON ファイルとして書き込む。
      */
     public static function writeJson(string $path, array $data): bool {
-        $json = json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
-        if ($json === false) return false;
+        try {
+            $json = json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+        } catch (\JsonException $e) {
+            Logger::warning('JSON encode failed', ['path' => $path, 'error' => $e->getMessage()]);
+            return false;
+        }
         return self::write($path, $json);
     }
 
@@ -773,7 +1032,7 @@ class FileSystem {
      */
     public static function ensureDir(string $dir): bool {
         if (is_dir($dir)) return true;
-        return @mkdir($dir, 0755, true);
+        return mkdir($dir, 0755, true) || is_dir($dir);
     }
 }
 

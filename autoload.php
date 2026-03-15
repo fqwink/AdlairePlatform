@@ -41,6 +41,12 @@ spl_autoload_register(function (string $class): void {
 
         /* AP - Adlaire Platform Controllers */
         'AP\\Controllers\\' => 'Framework/AP/AP.Controllers.php',
+
+        /* AEB - Adlaire Editor & Blocks (PHP アセットマニフェスト) */
+        'AEB\\Assets\\'     => 'Framework/AEB/AEB.Assets.php',
+
+        /* ADS - Adlaire Design System (PHP アセットマニフェスト) */
+        'ADS\\Assets\\'     => 'Framework/ADS/ADS.Assets.php',
     ];
 
     /* 読み込み済みファイルの追跡（同一ファイルの二重 require を防止） */

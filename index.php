@@ -12,8 +12,9 @@ if (PHP_VERSION_ID < 80300) {
 	exit('AdlairePlatform requires PHP 8.3 or later. Current version: ' . PHP_VERSION);
 }
 
-define('AP_VERSION', '1.8.38');
+define('AP_VERSION', '1.9.39');
 define('AP_UPDATE_URL', 'https://api.github.com/repos/win-k/AdlairePlatform/releases/latest');
+/* Ver.1.9: 設定値は Config クラスで管理。定数は後方互換のため残す */
 define('AP_BACKUP_GENERATIONS', 5);
 define('AP_REVISION_LIMIT', 30);
 
@@ -29,20 +30,22 @@ require __DIR__ . '/bootstrap.php';
 /* ── Ver.1.7: ルート定義（Router にルートとミドルウェアを登録） ── */
 require __DIR__ . '/routes.php';
 
-ini_set('session.cookie_httponly', 1);
-ini_set('session.cookie_samesite', 'Lax');
-/* Ver.1.6: セッションタイムアウト（30分） */
-ini_set('session.gc_maxlifetime', 1800);
-ini_set('session.cookie_lifetime', 0); /* ブラウザ閉じで消去 */
+/* Ver.1.9: セッション設定を Config クラスから取得（環境変数 AP_SESSION_* で上書き可能） */
+$_ap_session_timeout = \APF\Utilities\Config::get('session.timeout', 1800);
+
+ini_set('session.cookie_httponly', (int)\APF\Utilities\Config::get('session.cookie_httponly', true));
+ini_set('session.cookie_samesite', \APF\Utilities\Config::get('session.cookie_samesite', 'Lax'));
+ini_set('session.gc_maxlifetime', $_ap_session_timeout);
+ini_set('session.cookie_lifetime', \APF\Utilities\Config::get('session.cookie_lifetime', 0));
 if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') {
 	ini_set('session.cookie_secure', 1);
 }
 session_start();
 
-/* Ver.1.6: アイドルタイムアウト検証（30分非操作で自動ログアウト） */
+/* Ver.1.6: アイドルタイムアウト検証（Config で設定可能） */
 if (isset($_SESSION['l']) && $_SESSION['l'] === true) {
-	$_SESSION['ap_last_activity'] = $_SESSION['ap_last_activity'] ?? time();
-	if (time() - $_SESSION['ap_last_activity'] > 1800) {
+	$_SESSION['ap_last_activity'] = (int)($_SESSION['ap_last_activity'] ?? time());
+	if (time() - $_SESSION['ap_last_activity'] > $_ap_session_timeout) {
 		$_SESSION = [];
 		if (ini_get('session.use_cookies')) {
 			$p = session_get_cookie_params();
@@ -54,20 +57,27 @@ if (isset($_SESSION['l']) && $_SESSION['l'] === true) {
 		$_SESSION['ap_last_activity'] = time();
 	}
 }
+unset($_ap_session_timeout);
 
 /* i18n 初期化（セッション開始後） */
 \AIS\Core\I18n::init();
 
 /* B-6 fix: 集中ログ管理の初期化 */
 \APF\Utilities\Logger::init();
+/* Ver.1.9: グローバルエラーハンドラ登録（未キャッチ例外の統一処理） */
+\APF\Core\ErrorBoundary::registerGlobal();
 /* 診断: エラーハンドラ登録（セッション開始後） */
 \AIS\System\DiagnosticsManager::registerErrorHandler();
 \AIS\System\DiagnosticsManager::startTimer('request_total');
 
-/* セキュリティヘッダー */
+/* セキュリティヘッダー（Ver.1.9 強化） */
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: SAMEORIGIN');
 header('Referrer-Policy: strict-origin-when-cross-origin');
+header('Permissions-Policy: geolocation=(), microphone=(), camera=()');
+if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') {
+	header('Strict-Transport-Security: max-age=31536000; includeSubDomains');
+}
 host();
 
 /* ══════════════════════════════════════════════════
@@ -92,7 +102,8 @@ unset($_ap_request, $_ap_router, $_ap_response);
  * ページレンダリング（Router 未処理 = 通常ページ表示）
  * ══════════════════════════════════════════════════ */
 
-$c['password'] = 'admin';
+/* Ver.1.9: デフォルトパスワードを外部化（環境変数 AP_APP_DEFAULT_PASSWORD で上書き可能） */
+$c['password'] = \APF\Utilities\Config::get('app.default_password', 'admin');
 $c['loggedin'] = false;
 $c['page'] = 'home';
 $d['page']['home'] = "<h3>Your website is now powered by Adlaire Platform.</h3><br />\nLogin with the 'Login' link below. The password is admin.<br />\nChange the password as soon as possible.<br /><br />\n\nClick on the content to edit and click outside to save it.<br />";
@@ -125,7 +136,7 @@ if (\ACE\Core\CollectionService::isEnabled()) {
 }
 
 foreach($c as $key => $val){
-	if($key == 'content') continue;
+	if($key === 'content') continue;
 	$d['default'][$key] = $c[$key];
 	if(isset($_settings[$key]))
 		$c[$key] = $_settings[$key];
@@ -138,7 +149,6 @@ foreach($c as $key => $val){
 				$c[$key] = \ACE\Admin\AdminManager::savePassword('admin');
 				$c['migrate_warning'] = true;
 				\APF\Utilities\Logger::warning('MD5パスワードを検出。デフォルト "admin" で bcrypt 化しました。直ちにパスワードを変更してください。');
-				error_log('AdlairePlatform: MD5パスワードを検出。デフォルト "admin" で bcrypt 化しました。直ちにパスワードを変更してください。');
 				\AIS\System\DiagnosticsManager::log('security', 'MD5パスワード検出・bcrypt移行実行');
 			} else {
 				$c[$key] = $_auth['password_hash'];

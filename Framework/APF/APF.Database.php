@@ -97,18 +97,54 @@ class Connection {
         return $stmt->rowCount();
     }
 
-    public function transaction(\Closure $callback) {
+    /** @var int ネストされたトランザクションの深度 @since Ver.1.9 */
+    private int $transactionDepth = 0;
+
+    /**
+     * @updated Ver.1.9 ネストトランザクション対応（SAVEPOINT）
+     */
+    public function transaction(\Closure $callback): mixed {
         $pdo = $this->connect();
-        
-        try {
+
+        if ($this->transactionDepth === 0) {
             $pdo->beginTransaction();
+        } else {
+            $pdo->exec("SAVEPOINT sp_{$this->transactionDepth}");
+        }
+        $this->transactionDepth++;
+
+        try {
             $result = $callback($this);
-            $pdo->commit();
+            $this->transactionDepth--;
+            if ($this->transactionDepth === 0) {
+                $pdo->commit();
+            } else {
+                $pdo->exec("RELEASE SAVEPOINT sp_{$this->transactionDepth}");
+            }
             return $result;
-        } catch (\Exception $e) {
-            $pdo->rollBack();
+        } catch (\Throwable $e) {
+            $this->transactionDepth--;
+            if ($this->transactionDepth === 0) {
+                $pdo->rollBack();
+            } else {
+                $pdo->exec("ROLLBACK TO SAVEPOINT sp_{$this->transactionDepth}");
+            }
+            \APF\Utilities\Logger::error('Transaction rolled back', [
+                'depth'   => $this->transactionDepth,
+                'error'   => $e->getMessage(),
+                'file'    => $e->getFile(),
+                'line'    => $e->getLine(),
+            ]);
             throw $e;
         }
+    }
+
+    /**
+     * 現在のトランザクション深度を返す。
+     * @since Ver.1.9
+     */
+    public function transactionDepth(): int {
+        return $this->transactionDepth;
     }
 
     public function enableQueryLog(): void {
@@ -129,7 +165,7 @@ class Connection {
 // ============================================================================
 
 class QueryBuilder {
-    private Connection $connection;
+    private readonly Connection $connection;
     private string $table = '';
     private array $select = ['*'];
     private array $where = [];
@@ -223,6 +259,46 @@ class QueryBuilder {
         return $this;
     }
 
+    /**
+     * BETWEEN 条件を追加する。
+     * @since Ver.1.9
+     */
+    public function whereBetween(string $column, array $range): self {
+        $this->where[] = [
+            'type' => 'AND',
+            'column' => $column,
+            'operator' => 'BETWEEN',
+            'value' => null,
+        ];
+        $this->bindings[] = $range[0];
+        $this->bindings[] = $range[1];
+        return $this;
+    }
+
+    /**
+     * NOT BETWEEN 条件を追加する。
+     * @since Ver.1.9
+     */
+    public function whereNotBetween(string $column, array $range): self {
+        $this->where[] = [
+            'type' => 'AND',
+            'column' => $column,
+            'operator' => 'NOT BETWEEN',
+            'value' => null,
+        ];
+        $this->bindings[] = $range[0];
+        $this->bindings[] = $range[1];
+        return $this;
+    }
+
+    /**
+     * LIKE 条件を追加する。
+     * @since Ver.1.9
+     */
+    public function whereLike(string $column, string $pattern): self {
+        return $this->where($column, 'LIKE', $pattern);
+    }
+
     public function join(string $table, string $first, string $operator, string $second): self {
         $this->joins[] = [
             'type' => 'INNER',
@@ -246,7 +322,11 @@ class QueryBuilder {
     }
 
     public function orderBy(string $column, string $direction = 'ASC'): self {
-        $this->orderBy[] = [$column, strtoupper($direction)];
+        $dir = strtoupper($direction);
+        if (!in_array($dir, ['ASC', 'DESC'], true)) {
+            throw new \InvalidArgumentException("Invalid ORDER BY direction: {$direction}");
+        }
+        $this->orderBy[] = [$column, $dir];
         return $this;
     }
 
@@ -255,8 +335,15 @@ class QueryBuilder {
         return $this;
     }
 
-    public function having(string $condition): self {
+    /**
+     * HAVING 条件を設定する。
+     * @updated Ver.1.9 プレースホルダバインディング対応
+     */
+    public function having(string $condition, array $bindings = []): self {
         $this->having = $condition;
+        if (!empty($bindings)) {
+            $this->bindings = array_merge($this->bindings, $bindings);
+        }
         return $this;
     }
 
@@ -270,9 +357,28 @@ class QueryBuilder {
         return $this;
     }
 
+    /** @var array<string, array> リクエストスコープのクエリキャッシュ @since Ver.1.9 */
+    private static array $queryCache = [];
+
     public function get(): array {
         $sql = $this->toSql();
-        return $this->connection->query($sql, $this->bindings);
+        $cacheKey = md5($sql . serialize($this->bindings));
+
+        if (isset(self::$queryCache[$cacheKey])) {
+            return self::$queryCache[$cacheKey];
+        }
+
+        $result = $this->connection->query($sql, $this->bindings);
+        self::$queryCache[$cacheKey] = $result;
+        return $result;
+    }
+
+    /**
+     * クエリキャッシュをクリアする（書き込み操作後に呼び出す）。
+     * @since Ver.1.9
+     */
+    public static function clearQueryCache(): void {
+        self::$queryCache = [];
     }
 
     public function first(): ?array {
@@ -295,6 +401,53 @@ class QueryBuilder {
         return $this->count() > 0;
     }
 
+    /**
+     * ページネーション付きで結果を取得する。
+     * @since Ver.1.9
+     * @return array{data: array, total: int, page: int, per_page: int, total_pages: int}
+     */
+    public function paginate(int $page = 1, int $perPage = 15): array {
+        $total = (clone $this)->count();
+        $data  = $this->offset(($page - 1) * $perPage)->limit($perPage)->get();
+
+        return [
+            'data'        => $data,
+            'total'       => $total,
+            'page'        => $page,
+            'per_page'    => $perPage,
+            'total_pages' => $total > 0 ? (int)ceil($total / $perPage) : 0,
+        ];
+    }
+
+    /**
+     * 複数行を一括挿入する。
+     * @since Ver.1.9
+     * @return int 挿入された行数
+     */
+    public function insertBatch(array $records): int {
+        if (empty($records)) return 0;
+
+        $columns = array_keys($records[0]);
+        $rowPlaceholder = '(' . implode(',', array_fill(0, count($columns), '?')) . ')';
+        $allPlaceholders = implode(', ', array_fill(0, count($records), $rowPlaceholder));
+        $allValues = [];
+        foreach ($records as $record) {
+            foreach ($columns as $col) {
+                $allValues[] = $record[$col] ?? null;
+            }
+        }
+
+        $sql = sprintf(
+            'INSERT INTO %s (%s) VALUES %s',
+            $this->table,
+            implode(', ', $columns),
+            $allPlaceholders
+        );
+
+        $this->connection->execute($sql, $allValues);
+        return count($records);
+    }
+
     public function insert(array $data): int {
         $columns = array_keys($data);
         $placeholders = array_fill(0, count($data), '?');
@@ -306,6 +459,7 @@ class QueryBuilder {
             implode(', ', $placeholders)
         );
 
+        self::clearQueryCache();
         return $this->connection->insert($sql, array_values($data));
     }
 
@@ -325,6 +479,7 @@ class QueryBuilder {
             $sql .= ' WHERE ' . $this->buildWhere();
         }
 
+        self::clearQueryCache();
         return $this->connection->update($sql, array_merge(array_values($data), $this->bindings));
     }
 
@@ -335,6 +490,7 @@ class QueryBuilder {
             $sql .= ' WHERE ' . $this->buildWhere();
         }
 
+        self::clearQueryCache();
         return $this->connection->delete($sql, $this->bindings);
     }
 
@@ -386,19 +542,25 @@ class QueryBuilder {
         return $sql;
     }
 
+    /**
+     * @updated Ver.1.9 BETWEEN / NOT BETWEEN サポート追加
+     */
     private function buildWhere(): string {
         $conditions = [];
-        
+
         foreach ($this->where as $index => $where) {
             $prefix = $index === 0 ? '' : " {$where['type']} ";
-            
-            if ($where['operator'] === 'IN') {
-                $conditions[] = $prefix . "{$where['column']} IN ({$where['value']})";
-            } elseif ($where['operator'] === 'IS NULL' || $where['operator'] === 'IS NOT NULL') {
-                $conditions[] = $prefix . "{$where['column']} {$where['operator']}";
-            } else {
-                $conditions[] = $prefix . "{$where['column']} {$where['operator']} ?";
-            }
+
+            $conditions[] = match (true) {
+                $where['operator'] === 'IN'
+                    => $prefix . "{$where['column']} IN ({$where['value']})",
+                $where['operator'] === 'IS NULL' || $where['operator'] === 'IS NOT NULL'
+                    => $prefix . "{$where['column']} {$where['operator']}",
+                $where['operator'] === 'BETWEEN' || $where['operator'] === 'NOT BETWEEN'
+                    => $prefix . "{$where['column']} {$where['operator']} ? AND ?",
+                default
+                    => $prefix . "{$where['column']} {$where['operator']} ?",
+            };
         }
 
         return implode('', $conditions);
@@ -441,8 +603,15 @@ abstract class Model {
         return strtolower($class) . 's';
     }
 
-    public static function all(): array {
-        $results = static::query()->get();
+    /**
+     * @updated Ver.1.9 デフォルト LIMIT 追加（OOM 防止）
+     */
+    public static function all(int $limit = 1000): array {
+        $query = static::query();
+        if ($limit > 0) {
+            $query->limit($limit);
+        }
+        $results = $query->get();
         return array_map(fn($data) => new static($data), $results);
     }
 
@@ -574,11 +743,11 @@ abstract class Model {
         $this->attributes[$key] = $value;
     }
 
-    public function getAttribute(string $key) {
+    public function getAttribute(string $key): mixed {
         return $this->attributes[$key] ?? null;
     }
 
-    public function __get(string $key) {
+    public function __get(string $key): mixed {
         return $this->getAttribute($key);
     }
 

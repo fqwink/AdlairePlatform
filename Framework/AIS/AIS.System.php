@@ -65,9 +65,14 @@ class CacheStore {
             return null;
         }
 
-        $data = @unserialize($content);
-        if ($data === false || !is_array($data)) {
-            return null;
+        /* Ver.1.9: unserialize → JSON に置換（オブジェクトインジェクション防止） */
+        $data = json_decode($content, true);
+        if (!is_array($data)) {
+            /* レガシー serialize 形式のフォールバック読み取り（読み取り専用、次回保存時にJSON化） */
+            $data = @unserialize($content, ['allowed_classes' => false]);
+            if ($data === false || !is_array($data)) {
+                return null;
+            }
         }
 
         /* TTL チェック */
@@ -95,7 +100,8 @@ class CacheStore {
             'expires_at' => $ttl > 0 ? time() + $ttl : 0,
         ];
 
-        file_put_contents($path, serialize($data), LOCK_EX);
+        /* Ver.1.9: JSON 形式で保存（serialize 廃止） */
+        file_put_contents($path, json_encode($data, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR), LOCK_EX);
     }
 
     /**
@@ -647,10 +653,10 @@ class DiagnosticsCollector {
 
                 /* レポートをファイルに保存 */
                 $reportPath = $collector->getDataDir() . '/crash-' . date('Ymd-His') . '.json';
-                @file_put_contents(
-                    $reportPath,
-                    json_encode($collector->getReport(), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)
-                );
+                $reportJson = json_encode($collector->getReport(), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+                if ($reportJson !== false) {
+                    @file_put_contents($reportPath, $reportJson);
+                }
 
                 if (is_callable($previousExHandler)) {
                     $previousExHandler($e);
@@ -1000,7 +1006,10 @@ class ApiCache {
         }
         $result = $callback();
         \APF\Utilities\FileSystem::ensureDir(self::CACHE_DIR);
-        \APF\Utilities\FileSystem::write($path, json_encode($result, JSON_UNESCAPED_UNICODE));
+        $json = json_encode($result, JSON_UNESCAPED_UNICODE);
+        if ($json !== false) {
+            \APF\Utilities\FileSystem::write($path, $json);
+        }
         return $result;
     }
 
@@ -1512,7 +1521,7 @@ class DiagnosticsManager {
         if ($content === false) return ['errors' => [], 'custom' => []];
         $data = json_decode($content, true);
         if (json_last_error() !== JSON_ERROR_NONE) {
-            error_log('DiagnosticsManager: JSON parse error in ' . $file . ': ' . json_last_error_msg());
+            \APF\Utilities\Logger::error('DiagnosticsManager: JSON parse error', ['file' => $file, 'error' => json_last_error_msg()]);
             @rename($path, $path . '.corrupt.' . time());
             return ['errors' => [], 'custom' => []];
         }
@@ -1898,7 +1907,7 @@ class DiagnosticsManager {
             $config['consecutive_failures'] = $failures;
             if ($failures >= self::CIRCUIT_BREAKER_THRESHOLD) {
                 $config['circuit_breaker_until'] = time() + self::CIRCUIT_BREAKER_DURATION;
-                error_log('DiagnosticsManager: サーキットブレーカー発動（' . $failures . '回連続失敗）。24時間送信停止。');
+                \APF\Utilities\Logger::critical('DiagnosticsManager: サーキットブレーカー発動', ['failures' => $failures, 'duration' => '24h']);
             }
             self::saveConfig($config);
         }

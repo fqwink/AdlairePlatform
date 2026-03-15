@@ -6,6 +6,185 @@
 
 ---
 
+## AdlairePlatform Ver.1.9-39（2026-03-15）— 内部品質向上・フレームワーク改良
+
+内部改良主体の開発バージョン。後方互換を維持しつつ、フレームワーク基盤を強化。
+
+### 構造化ログ
+
+- **Logger** を JSON 構造化出力対応に拡張。環境変数 `AP_LOG_LEVEL` / `AP_LOG_FORMAT` でログレベル・出力形式を制御可能に
+- チャネル別ログ分離（`Logger::channel('security')`）を追加
+- リクエストコンテキスト（メソッド・URI・IP）を自動付与
+- 全 `error_log()` 直接呼び出し（9箇所）を `Logger` に統一
+
+### 入力バリデーション層
+
+- `Validator::request()` — Request オブジェクトから直接バリデーション、失敗時 ValidationException スロー
+- `BaseController::validate()` — コントローラー内の統合バリデーションヘルパー
+
+### 設定管理（Config クラス）
+
+- **`APF\Utilities\Config`** — 環境変数 → 設定ファイル → デフォルト値の3段階優先解決
+- デフォルトパスワード外部化（`AP_APP_DEFAULT_PASSWORD`）
+- セッション設定外部化（`AP_SESSION_TIMEOUT` / `AP_SESSION_COOKIE_*`）
+
+### AEB/ADS PHP 統合
+
+- **`AEB\Assets\AssetManifest`** — JavaScript モジュールの PHP バインディング（`<script>` タグ生成）
+- **`ADS\Assets\AssetManifest`** — CSS デザインシステムの PHP バインディング（`<link>` タグ生成）
+- autoload.php に AEB/ADS 名前空間を登録
+
+### ルーティング改善
+
+- 名前付きルート対応（`$router->name('health')`、`$router->route('health')`）
+- `/health` ヘルスチェックエンドポイント追加（認証不要）
+- ErrorBoundary によるルートディスパッチ自動ラップ
+
+### エラーハンドリング統一
+
+- **ErrorBoundary::registerGlobal()** — グローバル例外ハンドラ・致命的エラーハンドラを登録
+- 未キャッチ例外を構造化ログに自動記録
+- Router ディスパッチに ErrorBoundary を統合
+
+### フレームワーク改良
+
+- **ServiceProvider 基底クラス** — DI サービス登録のモジュール化パターンを導入
+- **Application::registerProvider()** / **bootProviders()** — プロバイダ管理 API
+- **Container** — `getBindings()` / `flush()` メソッド追加
+- **Router** — `count()` メソッド追加
+- **EventBusInterface** — HookManager と EventDispatcher の共通インターフェースを定義
+- **HookManager** — EventBusInterface 実装、ソート結果キャッシュ追加
+- **EventDispatcher** — EventBusInterface 実装
+- **Response::withCookie()** — SameSite/Secure/HttpOnly をデフォルトで有効化
+- **Request::requestId()** — リクエスト相関ID（X-Request-Id ヘッダー連携）
+- **Request::httpMethod()** — HttpMethod Enum 返却メソッド追加
+- **Cache** — serialize/unserialize を JSON に置換（セキュリティ強化）
+
+### Database 強化（APF.Database）
+
+- **ネストトランザクション** — SAVEPOINT ベースのネスト対応。`transaction()` のネスト時に自動的に SAVEPOINT を使用
+- **QueryBuilder 拡張** — `whereBetween()` / `whereNotBetween()` / `whereLike()` メソッド追加
+- **paginate()** — ページネーション対応。`{data, total, page, per_page, total_pages}` 形式で返却
+- **insertBatch()** — 単一 SQL による複数行一括 INSERT
+- **buildWhere()** — `match` 式によるリファクタリング、BETWEEN 演算子サポート
+
+### API 強化（ACE.Api）
+
+- **Webhook リトライ** — `sendAsync()` で最大3回の指数バックオフリトライ（0.5秒・1秒）
+
+### PluginManager 強化
+
+- **循環依存検出** — DFS トポロジカルソートによるプラグインロード順の自動解決。循環依存時に具体的なサイクルチェーンを含むエラーメッセージをスロー
+- **getDependencyGraph()** — プラグインの依存関係グラフ取得メソッド追加（デバッグ用）
+
+### DebugCollector 強化
+
+- **スコーププロファイリング** — `enterScope()` / `exitScope()` でネスト可能なコールスタック追跡
+- **メモリデルタ計測** — スコープ単位のメモリ使用量差分を自動記録
+- イベント・クエリログにスコープコンテキストを自動付与
+- レポートに `scopes` / `scope_count` / `memory_current` を追加
+
+### I18n 複数形サポート
+
+- **`count` パラメータによる自動複数形選択** — `_zero` / `_one` / `_other` サフィックスバリアント対応
+- 日本語（単複同形）・英語の複数形ルールに対応
+
+### AppContext スキーマ検証
+
+- **`AppContext::validate()`** — 設定スキーマに基づくバリデーション（型・必須・範囲・許可値リスト）
+- 型チェック: `string` / `int` / `float` / `bool` / `array` / `numeric`
+- 数値範囲検証（`min` / `max`）、許可値リスト検証（`in`）
+
+### ASG ビルドマニフェスト
+
+- **`BuildCache::buildManifest()`** — ハッシュベースの差分検出。変更・追加・削除・未変更のページを分類
+- **`BuildCache::needsFullRebuild()`** — 設定・テーマ変更によるフルリビルド判定
+- **`BuildCache::commitManifest()`** — ビルド後の状態一括更新
+
+### バグ修正（全37件・7ラウンド）
+
+**セキュリティ修正**
+- `Str::random()` — `str_shuffle()` を `random_int()` ベースの CSPRNG に置換
+- `unserialize()` → `json_decode()` 置換（AIS.System）— オブジェクトインジェクション防止
+- パストラバーサル防止 — `rollback` / `deleteBackup` のバックアップ名検証強化（`AP.Controllers`）
+- CSRF トークンキー統一 — `csrf` / `csrf_token` の混在を `csrf_token` に統一（ACE.Admin, APF.Middleware）
+- セキュリティヘッダー追加 — `Permissions-Policy`, HSTS（`index.php`）
+
+**フレームワークバグ修正**
+- `Request::json()` — `static $json` 共有問題をインスタンスプロパティ `$jsonCache` に修正
+- `Response::file()` — 存在しないファイルパスの事前チェック追加
+- `Response::json()` / `Response::send()` — `json_encode` に `JSON_THROW_ON_ERROR` 追加
+- `Container::has()` — `$this->lazy` バインディングのチェック漏れ修正
+- `Container::build()` — 非クラス文字列で `ContainerException` スロー（サイレント失敗防止）
+- `Validator` — `errors()` / `first()` / `hasError()` が `validate()` 未呼出時に空を返す問題修正（`ensureValidated()` パターン導入）
+- `Validator::validateIn()` — 厳密比較 `in_array($value, $allowed, true)` に修正
+- `Validator::validateConfirmed()` — null 値のハンドリング追加
+- `Cache::get()` — 破損キャッシュファイルのログ出力追加
+- `ORDER BY` — ソート方向を `ASC` / `DESC` のみに制限（SQL インジェクション防止）
+- `having()` — バインディングパラメータ対応（パラメータ化 HAVING）
+- トランザクション rollback — `Logger::error` でログ記録
+- `ApiEngine::handle()` — `$authenticatedViaApiKey` のリセット漏れ修正
+- `RequestLoggingMiddleware` — リクエスト失敗時の try-catch 追加
+- `CorsMiddleware` — ワイルドカード時に実オリジンを返却 + `Vary: Origin` ヘッダー
+- `AppContext::validate()` — `min` / `max` 検証後の `continue` 追加（エラー上書き防止）
+- `AIS.System` — クラッシュレポート・ApiCache の `json_encode` 戻り値チェック
+- `ASG.Core` / `ASG.Template` — 検索インデックス・JSON-LD・パンくずの `json_encode` に `JSON_THROW_ON_ERROR`
+- `ASG.Utilities` — `BuildCache::set()` / `saveState()` の encode/write エラーハンドリング
+- `editField()` — `json_read` 結果の null チェック追加（`AP.Controllers`）
+- `index.php` — セッション `ap_last_activity` の型キャスト `(int)` 追加
+
+### 改良（全4バッチ）
+
+**Batch 1: 戻り値型宣言・安全性向上**
+- `Container::make()`, `Request::query/post/input/json/cookie/header/param/server`, `Response::getContent` に戻り値型宣言追加
+- `Cache::get(): mixed`, `Cache::remember(): mixed`, `Session::get(): mixed`, `Session::getFlash(): mixed`
+- `Model::all()` にデフォルト `LIMIT 1000` 追加（全件取得の安全弁）
+- `host()` 関数が配列を返すよう変更（グローバル変数との後方互換維持）
+
+**Batch 2: PHP 8.3 モダン構文拡充**
+- `CsrfMiddleware` — `$request->httpMethod()->isSafe()` による安全メソッド判定
+- `CorsMiddleware` — `HttpMethod::OPTIONS` enum 使用
+- `Router` POST マッピング — `HttpMethod::POST` enum 使用
+- `QueryBuilder::connection` — `private readonly` 化
+- `Response::$content` — `private mixed $content` 型宣言
+- `$default` パラメータ — `mixed $default` 統一
+
+**Batch 3: キャッシュ・イベント基盤**
+- `QueryBuilder` — リクエストスコープのクエリキャッシュ（書き込み操作で自動無効化）
+- `Cache::gc()` — 期限切れファイルキャッシュの GC メソッド追加
+- `Event` 基底クラス — `stopPropagation()` サポート付き型付きイベント
+- 型付きイベント: `PluginLoadedEvent`, `ContentSavedEvent`, `AuthEvent`, `SettingsChangedEvent`
+- `HookManager::dispatchEvent()` — 型安全なイベントディスパッチメソッド追加
+- `PluginManager` — `PluginLoadedEvent` 使用に移行
+
+**Batch 4: コード品質・安全性**
+- `FileSystem::read()` — `@file_get_contents` を `is_file()` / `is_readable()` 事前チェックに置換
+- `FileSystem::write()` — `@` 抑制を除去、`Logger::warning` でエラー記録
+- `FileSystem::ensureDir()` — レースコンディション安全な `mkdir` パターン
+- `FileSystem::writeJson()` — `JSON_THROW_ON_ERROR` + `JsonException` ハンドリング
+- `Container`, `Router`, `Request`, `Response` — クラスレベル PHPDoc 追加
+
+### PHP 8.3 モダン構文
+
+- **HttpMethod Enum** — HTTP メソッド列挙型（isSafe(), isIdempotent() メソッド付き）
+- **LogLevel Enum** — ログレベル列挙型（fromName() 静的メソッド付き）
+- `readonly` プロパティ適用（Request, Validator, Cache, Logger, RateLimitMiddleware）
+- `match` 式適用（Router::callAction, Logger::log, Config::castEnvValue, HttpMethod）
+- コンストラクタプロモーション適用（RateLimitMiddleware, CorsMiddleware）
+
+### ミドルウェア追加
+
+- **RequestLoggingMiddleware** — 全リクエスト/レスポンスを構造化ログに記録、X-Response-Time ヘッダー付与
+- **CorsMiddleware** — CORS ヘッダー制御（オリジン制限、プリフライト対応、Max-Age 設定）
+- **SecurityHeadersMiddleware** — X-Request-Id レスポンスヘッダー追加
+
+### バージョニング
+
+- AP_VERSION: `'1.9.39'`（コード内ドット区切り）
+- ドキュメント表記: Ver.1.9-39（VERSIONING.md 準拠）
+
+---
+
 ## AdlairePlatform Ver.1.8-38（2026-03-15）— PHP 8.3+ 移行開始
 
 PHP 8.3+ 完全対応への移行開発を開始。Ver.2.2 までにすべてのソースコードを PHP 8.3 以降完全対応とする。

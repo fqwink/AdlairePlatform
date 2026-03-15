@@ -215,6 +215,69 @@ class AppContext {
     }
 
     /**
+     * 設定スキーマに基づくバリデーションを実行する。
+     *
+     * スキーマは連想配列で、各キーに対して型・必須・範囲などのルールを定義する。
+     * ルール形式: ['type' => 'string|int|float|bool|array', 'required' => true, 'min' => 0, 'max' => 100]
+     *
+     * @since Ver.1.9
+     * @param array<string, array{type?: string, required?: bool, min?: int|float, max?: int|float, in?: array}> $schema スキーマ定義
+     * @return array<string, string> バリデーションエラー（キー => エラーメッセージ）。空なら成功
+     */
+    public function validate(array $schema): array {
+        $errors = [];
+
+        foreach ($schema as $key => $rules) {
+            $value = $this->get($key);
+            $required = $rules['required'] ?? false;
+
+            if ($value === null) {
+                if ($required) {
+                    $errors[$key] = "Required config key '{$key}' is missing";
+                }
+                continue;
+            }
+
+            /* 型チェック */
+            if (isset($rules['type'])) {
+                $valid = match ($rules['type']) {
+                    'string'  => is_string($value),
+                    'int'     => is_int($value),
+                    'float'   => is_float($value) || is_int($value),
+                    'bool'    => is_bool($value),
+                    'array'   => is_array($value),
+                    'numeric' => is_numeric($value),
+                    default   => true,
+                };
+                if (!$valid) {
+                    $errors[$key] = "Config '{$key}' must be of type {$rules['type']}, got " . get_debug_type($value);
+                    continue;
+                }
+            }
+
+            /* 数値範囲チェック */
+            if (is_numeric($value)) {
+                if (isset($rules['min']) && $value < $rules['min']) {
+                    $errors[$key] = "Config '{$key}' must be >= {$rules['min']}, got {$value}";
+                    continue;
+                }
+                if (isset($rules['max']) && $value > $rules['max']) {
+                    $errors[$key] = "Config '{$key}' must be <= {$rules['max']}, got {$value}";
+                    continue;
+                }
+            }
+
+            /* 許可値リスト */
+            if (isset($rules['in']) && !in_array($value, $rules['in'], true)) {
+                $allowed = implode(', ', array_map(fn($v) => var_export($v, true), $rules['in']));
+                $errors[$key] = "Config '{$key}' must be one of [{$allowed}]";
+            }
+        }
+
+        return $errors;
+    }
+
+    /**
      * 現在の設定値をJSONファイルに保存する
      *
      * @param string $path 保存先ファイルのパス
@@ -334,6 +397,11 @@ class I18n {
             ?? self::$fallback[$key]
             ?? $key;
 
+        /* Ver.1.9: 複数形サポート — count パラメータによる自動選択 */
+        if (isset($params['count']) && is_numeric($params['count'])) {
+            $text = self::resolvePlural($key, (int)$params['count'], $text);
+        }
+
         if (!empty($params)) {
             foreach ($params as $k => $v) {
                 $text = str_replace('{' . $k . '}', (string)$v, $text);
@@ -341,6 +409,34 @@ class I18n {
         }
 
         return $text;
+    }
+
+    /**
+     * 複数形ルールを解決する。
+     *
+     * 翻訳キーに `_zero`, `_one`, `_other` サフィックスのバリアントが
+     * 存在する場合、count の値に応じて適切なバリアントを選択する。
+     * バリアントが存在しない場合は元のテキストをそのまま返す。
+     *
+     * 日本語は単複同形のためフォールバックは常に `_other` → 元テキスト。
+     * 英語: 0 → `_zero` → `_other`, 1 → `_one`, 2+ → `_other`
+     *
+     * @since Ver.1.9
+     */
+    private static function resolvePlural(string $key, int $count, string $fallback): string {
+        $all = array_merge(self::$fallback, self::$translations);
+
+        if ($count === 0 && isset($all["{$key}_zero"])) {
+            return $all["{$key}_zero"];
+        }
+        if ($count === 1 && isset($all["{$key}_one"])) {
+            return $all["{$key}_one"];
+        }
+        if (isset($all["{$key}_other"])) {
+            return $all["{$key}_other"];
+        }
+
+        return $fallback;
     }
 
     /**
@@ -602,7 +698,7 @@ class ServiceContainer {
  * dispatch() で全リスナーを優先度順に実行する。
  * APF の HookManager を汎用イベントシステムとして再設計。
  */
-class EventDispatcher {
+class EventDispatcher implements \APF\Core\EventBusInterface {
 
     /**
      * @var array<string, array<array{listener: callable, priority: int}>>
