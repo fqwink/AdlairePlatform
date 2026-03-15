@@ -97,18 +97,48 @@ class Connection {
         return $stmt->rowCount();
     }
 
-    public function transaction(\Closure $callback) {
+    /** @var int ネストされたトランザクションの深度 @since Ver.1.9 */
+    private int $transactionDepth = 0;
+
+    /**
+     * @updated Ver.1.9 ネストトランザクション対応（SAVEPOINT）
+     */
+    public function transaction(\Closure $callback): mixed {
         $pdo = $this->connect();
-        
-        try {
+
+        if ($this->transactionDepth === 0) {
             $pdo->beginTransaction();
+        } else {
+            $pdo->exec("SAVEPOINT sp_{$this->transactionDepth}");
+        }
+        $this->transactionDepth++;
+
+        try {
             $result = $callback($this);
-            $pdo->commit();
+            $this->transactionDepth--;
+            if ($this->transactionDepth === 0) {
+                $pdo->commit();
+            } else {
+                $pdo->exec("RELEASE SAVEPOINT sp_{$this->transactionDepth}");
+            }
             return $result;
-        } catch (\Exception $e) {
-            $pdo->rollBack();
+        } catch (\Throwable $e) {
+            $this->transactionDepth--;
+            if ($this->transactionDepth === 0) {
+                $pdo->rollBack();
+            } else {
+                $pdo->exec("ROLLBACK TO SAVEPOINT sp_{$this->transactionDepth}");
+            }
             throw $e;
         }
+    }
+
+    /**
+     * 現在のトランザクション深度を返す。
+     * @since Ver.1.9
+     */
+    public function transactionDepth(): int {
+        return $this->transactionDepth;
     }
 
     public function enableQueryLog(): void {
@@ -223,6 +253,46 @@ class QueryBuilder {
         return $this;
     }
 
+    /**
+     * BETWEEN 条件を追加する。
+     * @since Ver.1.9
+     */
+    public function whereBetween(string $column, array $range): self {
+        $this->where[] = [
+            'type' => 'AND',
+            'column' => $column,
+            'operator' => 'BETWEEN',
+            'value' => null,
+        ];
+        $this->bindings[] = $range[0];
+        $this->bindings[] = $range[1];
+        return $this;
+    }
+
+    /**
+     * NOT BETWEEN 条件を追加する。
+     * @since Ver.1.9
+     */
+    public function whereNotBetween(string $column, array $range): self {
+        $this->where[] = [
+            'type' => 'AND',
+            'column' => $column,
+            'operator' => 'NOT BETWEEN',
+            'value' => null,
+        ];
+        $this->bindings[] = $range[0];
+        $this->bindings[] = $range[1];
+        return $this;
+    }
+
+    /**
+     * LIKE 条件を追加する。
+     * @since Ver.1.9
+     */
+    public function whereLike(string $column, string $pattern): self {
+        return $this->where($column, 'LIKE', $pattern);
+    }
+
     public function join(string $table, string $first, string $operator, string $second): self {
         $this->joins[] = [
             'type' => 'INNER',
@@ -293,6 +363,53 @@ class QueryBuilder {
 
     public function exists(): bool {
         return $this->count() > 0;
+    }
+
+    /**
+     * ページネーション付きで結果を取得する。
+     * @since Ver.1.9
+     * @return array{data: array, total: int, page: int, per_page: int, total_pages: int}
+     */
+    public function paginate(int $page = 1, int $perPage = 15): array {
+        $total = (clone $this)->count();
+        $data  = $this->offset(($page - 1) * $perPage)->limit($perPage)->get();
+
+        return [
+            'data'        => $data,
+            'total'       => $total,
+            'page'        => $page,
+            'per_page'    => $perPage,
+            'total_pages' => $total > 0 ? (int)ceil($total / $perPage) : 0,
+        ];
+    }
+
+    /**
+     * 複数行を一括挿入する。
+     * @since Ver.1.9
+     * @return int 挿入された行数
+     */
+    public function insertBatch(array $records): int {
+        if (empty($records)) return 0;
+
+        $columns = array_keys($records[0]);
+        $rowPlaceholder = '(' . implode(',', array_fill(0, count($columns), '?')) . ')';
+        $allPlaceholders = implode(', ', array_fill(0, count($records), $rowPlaceholder));
+        $allValues = [];
+        foreach ($records as $record) {
+            foreach ($columns as $col) {
+                $allValues[] = $record[$col] ?? null;
+            }
+        }
+
+        $sql = sprintf(
+            'INSERT INTO %s (%s) VALUES %s',
+            $this->table,
+            implode(', ', $columns),
+            $allPlaceholders
+        );
+
+        $this->connection->execute($sql, $allValues);
+        return count($records);
     }
 
     public function insert(array $data): int {
@@ -386,19 +503,25 @@ class QueryBuilder {
         return $sql;
     }
 
+    /**
+     * @updated Ver.1.9 BETWEEN / NOT BETWEEN サポート追加
+     */
     private function buildWhere(): string {
         $conditions = [];
-        
+
         foreach ($this->where as $index => $where) {
             $prefix = $index === 0 ? '' : " {$where['type']} ";
-            
-            if ($where['operator'] === 'IN') {
-                $conditions[] = $prefix . "{$where['column']} IN ({$where['value']})";
-            } elseif ($where['operator'] === 'IS NULL' || $where['operator'] === 'IS NOT NULL') {
-                $conditions[] = $prefix . "{$where['column']} {$where['operator']}";
-            } else {
-                $conditions[] = $prefix . "{$where['column']} {$where['operator']} ?";
-            }
+
+            $conditions[] = match (true) {
+                $where['operator'] === 'IN'
+                    => $prefix . "{$where['column']} IN ({$where['value']})",
+                $where['operator'] === 'IS NULL' || $where['operator'] === 'IS NOT NULL'
+                    => $prefix . "{$where['column']} {$where['operator']}",
+                $where['operator'] === 'BETWEEN' || $where['operator'] === 'NOT BETWEEN'
+                    => $prefix . "{$where['column']} {$where['operator']} ? AND ?",
+                default
+                    => $prefix . "{$where['column']} {$where['operator']} ?",
+            };
         }
 
         return implode('', $conditions);

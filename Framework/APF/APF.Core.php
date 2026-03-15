@@ -962,6 +962,9 @@ class PluginManager {
     private array $plugins = [];
     private array $loaded = [];
 
+    /** @var array<string, bool> 現在ロード中のプラグイン（循環依存検出用） @since Ver.1.9 */
+    private array $loading = [];
+
     public function __construct(Container $container, HookManager $hooks) {
         $this->container = $container;
         $this->hooks = $hooks;
@@ -977,14 +980,84 @@ class PluginManager {
         ], $config);
     }
 
+    /**
+     * 有効なプラグインをトポロジカル順にロードする。
+     * @updated Ver.1.9 循環依存検出付きトポロジカルソート
+     */
     public function boot(): void {
-        foreach ($this->plugins as $name => $plugin) {
+        $order = $this->resolveLoadOrder();
+        foreach ($order as $name) {
+            $plugin = $this->plugins[$name];
             if (!$plugin['enabled'] || isset($this->loaded[$name])) continue;
             $this->loadPlugin($name, $plugin);
         }
     }
 
+    /**
+     * トポロジカルソートによりロード順を決定する。
+     * 循環依存を検出した場合は例外をスローする。
+     * @since Ver.1.9
+     * @return array<string> ロード順のプラグイン名配列
+     */
+    private function resolveLoadOrder(): array {
+        $visited = [];
+        $order = [];
+        $visiting = [];
+
+        foreach ($this->plugins as $name => $plugin) {
+            if (!$plugin['enabled']) continue;
+            if (!isset($visited[$name])) {
+                $this->topoSort($name, $visited, $visiting, $order);
+            }
+        }
+
+        return $order;
+    }
+
+    /**
+     * DFS トポロジカルソート（循環依存検出付き）。
+     * @since Ver.1.9
+     */
+    private function topoSort(string $name, array &$visited, array &$visiting, array &$order): void {
+        if (isset($visiting[$name])) {
+            $cycle = array_keys($visiting);
+            $start = array_search($name, $cycle, true);
+            $chain = implode(' -> ', array_slice($cycle, $start)) . " -> {$name}";
+            throw new FrameworkException(
+                "Circular plugin dependency detected: {$chain}",
+                ['plugin' => $name, 'cycle' => array_slice($cycle, $start)]
+            );
+        }
+
+        if (isset($visited[$name])) return;
+
+        $visiting[$name] = true;
+
+        $plugin = $this->plugins[$name] ?? null;
+        if ($plugin === null) {
+            throw new FrameworkException("Plugin dependency not found: {$name}");
+        }
+
+        foreach ($plugin['dependencies'] as $dep) {
+            $this->topoSort($dep, $visited, $visiting, $order);
+        }
+
+        unset($visiting[$name]);
+        $visited[$name] = true;
+        $order[] = $name;
+    }
+
     private function loadPlugin(string $name, array $plugin): void {
+        if (isset($this->loading[$name])) {
+            $chain = implode(' -> ', array_keys($this->loading));
+            throw new FrameworkException(
+                "Circular plugin dependency detected: {$chain} -> {$name}",
+                ['plugin' => $name]
+            );
+        }
+
+        $this->loading[$name] = true;
+
         foreach ($plugin['dependencies'] as $dep) {
             if (!isset($this->loaded[$dep])) {
                 if (isset($this->plugins[$dep])) {
@@ -1000,6 +1073,7 @@ class PluginManager {
         }
 
         $this->loaded[$name] = true;
+        unset($this->loading[$name]);
         $this->hooks->run('plugin:loaded', $name, $plugin);
     }
 
@@ -1009,6 +1083,19 @@ class PluginManager {
 
     public function getAll(): array {
         return $this->plugins;
+    }
+
+    /**
+     * プラグインの依存グラフを返す（デバッグ用）。
+     * @since Ver.1.9
+     * @return array<string, array<string>> プラグイン名 => 依存先名の配列
+     */
+    public function getDependencyGraph(): array {
+        $graph = [];
+        foreach ($this->plugins as $name => $plugin) {
+            $graph[$name] = $plugin['dependencies'];
+        }
+        return $graph;
     }
 
     public function disable(string $name): void {
@@ -1029,6 +1116,12 @@ class DebugCollector {
     private static array $queries = [];
     private static float $startTime = 0;
 
+    /** @var array<array{name: string, startTime: float, startMemory: int}> スコープスタック @since Ver.1.9 */
+    private static array $scopeStack = [];
+
+    /** @var array<array{name: string, time_ms: float, memory_delta: int, children: int}> 完了したスコープ @since Ver.1.9 */
+    private static array $scopes = [];
+
     public static function enable(): void {
         self::$enabled = true;
         self::$startTime = hrtime(true);
@@ -1046,6 +1139,7 @@ class DebugCollector {
             'message' => $message,
             'context' => $context,
             'memory' => memory_get_usage(true),
+            'scope' => self::currentScopeName(),
         ];
     }
 
@@ -1062,19 +1156,90 @@ class DebugCollector {
         return $elapsed;
     }
 
+    /**
+     * プロファイルスコープに入る。ネスト可能なコールスタック追跡。
+     * @since Ver.1.9
+     */
+    public static function enterScope(string $name): void {
+        if (!self::$enabled) return;
+        self::$scopeStack[] = [
+            'name'        => $name,
+            'startTime'   => hrtime(true),
+            'startMemory' => memory_get_usage(true),
+            'childCount'  => 0,
+        ];
+    }
+
+    /**
+     * 現在のプロファイルスコープを抜ける。経過時間とメモリ差分を記録。
+     * @since Ver.1.9
+     * @return array{name: string, time_ms: float, memory_delta: int}|null スコープ情報
+     */
+    public static function exitScope(): ?array {
+        if (!self::$enabled || empty(self::$scopeStack)) return null;
+
+        $scope = array_pop(self::$scopeStack);
+        $elapsed = (hrtime(true) - $scope['startTime']) / 1_000_000;
+        $memoryDelta = memory_get_usage(true) - $scope['startMemory'];
+
+        $result = [
+            'name'         => $scope['name'],
+            'time_ms'      => round($elapsed, 3),
+            'memory_delta' => $memoryDelta,
+            'children'     => $scope['childCount'],
+            'depth'        => count(self::$scopeStack),
+        ];
+
+        self::$scopes[] = $result;
+
+        /* 親スコープの子カウントを増加 */
+        if (!empty(self::$scopeStack)) {
+            self::$scopeStack[array_key_last(self::$scopeStack)]['childCount']++;
+        }
+
+        self::logEvent('scope', "{$scope['name']}: {$result['time_ms']}ms, mem:{$memoryDelta}B", $result);
+
+        return $result;
+    }
+
+    /**
+     * 現在のスコープ名を返す。
+     * @since Ver.1.9
+     */
+    private static function currentScopeName(): ?string {
+        if (empty(self::$scopeStack)) return null;
+        return self::$scopeStack[array_key_last(self::$scopeStack)]['name'];
+    }
+
+    /**
+     * 現在のスコープスタックの深さを返す。
+     * @since Ver.1.9
+     */
+    public static function scopeDepth(): int {
+        return count(self::$scopeStack);
+    }
+
     public static function logQuery(string $sql, array $bindings = [], float $time = 0): void {
         if (!self::$enabled) return;
-        self::$queries[] = ['sql' => $sql, 'bindings' => $bindings, 'time_ms' => $time];
+        self::$queries[] = [
+            'sql' => $sql,
+            'bindings' => $bindings,
+            'time_ms' => $time,
+            'scope' => self::currentScopeName(),
+        ];
     }
 
     public static function getReport(): array {
         return [
             'total_time_ms' => (hrtime(true) - self::$startTime) / 1_000_000,
             'memory_peak' => memory_get_peak_usage(true),
+            'memory_current' => memory_get_usage(true),
             'events' => self::$events,
             'queries' => self::$queries,
+            'scopes' => self::$scopes,
             'event_count' => count(self::$events),
             'query_count' => count(self::$queries),
+            'scope_count' => count(self::$scopes),
         ];
     }
 
@@ -1082,6 +1247,8 @@ class DebugCollector {
         self::$events = [];
         self::$timers = [];
         self::$queries = [];
+        self::$scopeStack = [];
+        self::$scopes = [];
         self::$startTime = hrtime(true);
     }
 }
