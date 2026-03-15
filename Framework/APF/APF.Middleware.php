@@ -106,6 +106,83 @@ class SecurityHeadersMiddleware extends Middleware {
         $response->withHeader('X-Content-Type-Options', 'nosniff');
         $response->withHeader('X-Frame-Options', 'SAMEORIGIN');
         $response->withHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+        /* Ver.1.9: リクエスト相関IDをレスポンスヘッダーに付与 */
+        $response->withHeader('X-Request-Id', $request->requestId());
+        return $response;
+    }
+}
+
+// ============================================================================
+// RequestLoggingMiddleware - リクエストログ (Ver.1.9)
+// ============================================================================
+
+/**
+ * 全リクエスト/レスポンスを構造化ログに記録する。
+ * @since Ver.1.9
+ */
+class RequestLoggingMiddleware extends Middleware {
+
+    public function handle(Request $request, \Closure $next): Response {
+        $start = hrtime(true);
+
+        $response = $next($request);
+
+        $elapsed = (hrtime(true) - $start) / 1_000_000; /* ms */
+
+        \APF\Utilities\Logger::info('HTTP request', [
+            'request_id' => $request->requestId(),
+            'method'     => $request->method(),
+            'uri'        => $request->uri(),
+            'status'     => $response->getStatusCode(),
+            'elapsed_ms' => round($elapsed, 2),
+            'ip'         => $request->ip(),
+        ]);
+
+        /* レスポンスタイムヘッダー付与 */
+        $response->withHeader('X-Response-Time', round($elapsed, 2) . 'ms');
+
+        return $response;
+    }
+}
+
+// ============================================================================
+// CorsMiddleware - CORS 制御 (Ver.1.9)
+// ============================================================================
+
+/**
+ * Cross-Origin Resource Sharing (CORS) ヘッダーを制御する。
+ * API エンドポイントで外部オリジンからのアクセスを許可する場合に使用。
+ * @since Ver.1.9
+ */
+class CorsMiddleware extends Middleware {
+
+    public function __construct(
+        private readonly array $allowedOrigins = ['*'],
+        private readonly array $allowedMethods = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
+        private readonly array $allowedHeaders = ['Content-Type', 'Authorization', 'X-Csrf-Token', 'X-Request-Id'],
+        private readonly int $maxAge = 86400,
+    ) {}
+
+    public function handle(Request $request, \Closure $next): Response {
+        /* プリフライトリクエスト */
+        if ($request->method() === 'OPTIONS') {
+            $response = new Response('', 204);
+        } else {
+            $response = $next($request);
+        }
+
+        $origin = $request->header('Origin', '');
+        $allowOrigin = in_array('*', $this->allowedOrigins, true)
+            ? '*'
+            : (in_array($origin, $this->allowedOrigins, true) ? $origin : '');
+
+        if ($allowOrigin !== '') {
+            $response->withHeader('Access-Control-Allow-Origin', $allowOrigin);
+            $response->withHeader('Access-Control-Allow-Methods', implode(', ', $this->allowedMethods));
+            $response->withHeader('Access-Control-Allow-Headers', implode(', ', $this->allowedHeaders));
+            $response->withHeader('Access-Control-Max-Age', (string)$this->maxAge);
+        }
+
         return $response;
     }
 }

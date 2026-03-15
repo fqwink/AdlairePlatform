@@ -344,16 +344,26 @@ class Cache {
         }
     }
 
+    /**
+     * @updated Ver.1.9 serialize → JSON に変更（セキュリティ強化）
+     */
     public function get(string $key, $default = null) {
         $file = $this->getFilePath($key);
-        
+
         if (!file_exists($file)) {
             return $default;
         }
 
-        $data = unserialize(file_get_contents($file));
-        
-        if ($data['expires'] > 0 && $data['expires'] < time()) {
+        $raw = file_get_contents($file);
+        if ($raw === false) return $default;
+
+        $data = json_decode($raw, true);
+        if (!is_array($data) || !array_key_exists('value', $data)) {
+            $this->delete($key);
+            return $default;
+        }
+
+        if (($data['expires'] ?? 0) > 0 && $data['expires'] < time()) {
             $this->delete($key);
             return $default;
         }
@@ -361,16 +371,19 @@ class Cache {
         return $data['value'];
     }
 
+    /**
+     * @updated Ver.1.9 serialize → JSON に変更（セキュリティ強化）
+     */
     public function set(string $key, $value, ?int $ttl = null): bool {
         $ttl = $ttl ?? $this->defaultTtl;
         $file = $this->getFilePath($key);
-        
+
         $data = [
             'value' => $value,
-            'expires' => $ttl > 0 ? time() + $ttl : 0
+            'expires' => $ttl > 0 ? time() + $ttl : 0,
         ];
 
-        return file_put_contents($file, serialize($data)) !== false;
+        return file_put_contents($file, json_encode($data, JSON_UNESCAPED_UNICODE), LOCK_EX) !== false;
     }
 
     public function has(string $key): bool {
@@ -564,6 +577,7 @@ class Logger {
         /* リクエストコンテキスト（CLI 実行時は付与しない） */
         if (PHP_SAPI !== 'cli' && isset($_SERVER['REQUEST_METHOD'])) {
             $entry['request'] = [
+                'request_id' => $_SERVER['HTTP_X_REQUEST_ID'] ?? substr(bin2hex(random_bytes(4)), 0, 8),
                 'method' => $_SERVER['REQUEST_METHOD'],
                 'uri'    => $_SERVER['REQUEST_URI'] ?? '/',
                 'ip'     => $_SERVER['REMOTE_ADDR'] ?? 'unknown',
