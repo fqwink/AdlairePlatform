@@ -52,12 +52,27 @@
 - **Application::registerProvider()** / **bootProviders()** — プロバイダ管理 API
 - **Container** — `getBindings()` / `flush()` メソッド追加
 - **Router** — `count()` メソッド追加
+- **EventBusInterface** — HookManager と EventDispatcher の共通インターフェースを定義
+- **HookManager** — EventBusInterface 実装、ソート結果キャッシュ追加
+- **EventDispatcher** — EventBusInterface 実装
+- **Response::withCookie()** — SameSite/Secure/HttpOnly をデフォルトで有効化
+- **Request::requestId()** — リクエスト相関ID（X-Request-Id ヘッダー連携）
+- **Request::httpMethod()** — HttpMethod Enum 返却メソッド追加
+- **Cache** — serialize/unserialize を JSON に置換（セキュリティ強化）
 
 ### PHP 8.3 モダン構文
 
+- **HttpMethod Enum** — HTTP メソッド列挙型（isSafe(), isIdempotent() メソッド付き）
+- **LogLevel Enum** — ログレベル列挙型（fromName() 静的メソッド付き）
 - `readonly` プロパティ適用（Request, Validator, Cache, Logger, RateLimitMiddleware）
-- `match` 式適用（Router::callAction, Logger::log, Config::castEnvValue）
-- コンストラクタプロモーション適用（RateLimitMiddleware）
+- `match` 式適用（Router::callAction, Logger::log, Config::castEnvValue, HttpMethod）
+- コンストラクタプロモーション適用（RateLimitMiddleware, CorsMiddleware）
+
+### ミドルウェア追加
+
+- **RequestLoggingMiddleware** — 全リクエスト/レスポンスを構造化ログに記録、X-Response-Time ヘッダー付与
+- **CorsMiddleware** — CORS ヘッダー制御（オリジン制限、プリフライト対応、Max-Age 設定）
+- **SecurityHeadersMiddleware** — X-Request-Id レスポンスヘッダー追加
 
 ### バージョニング
 

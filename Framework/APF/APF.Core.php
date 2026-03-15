@@ -12,6 +12,85 @@
 namespace APF\Core;
 
 // ============================================================================
+// Enums - PHP 8.3 列挙型
+// ============================================================================
+
+/**
+ * HTTP メソッド列挙型。ルーティングとリクエスト処理で使用。
+ * @since Ver.1.9
+ */
+enum HttpMethod: string {
+    case GET    = 'GET';
+    case POST   = 'POST';
+    case PUT    = 'PUT';
+    case PATCH  = 'PATCH';
+    case DELETE = 'DELETE';
+    case HEAD   = 'HEAD';
+    case OPTIONS = 'OPTIONS';
+
+    /**
+     * 安全なメソッド（副作用なし）かどうかを返す。
+     */
+    public function isSafe(): bool {
+        return match ($this) {
+            self::GET, self::HEAD, self::OPTIONS => true,
+            default => false,
+        };
+    }
+
+    /**
+     * 冪等なメソッドかどうかを返す。
+     */
+    public function isIdempotent(): bool {
+        return match ($this) {
+            self::POST => false,
+            default => true,
+        };
+    }
+}
+
+/**
+ * ログレベル列挙型。
+ * @since Ver.1.9
+ */
+enum LogLevel: int {
+    case DEBUG    = 0;
+    case INFO     = 1;
+    case WARNING  = 2;
+    case ERROR    = 3;
+    case CRITICAL = 4;
+
+    /**
+     * 文字列名からログレベルを解決する。
+     */
+    public static function fromName(string $name): self {
+        return match (strtolower($name)) {
+            'debug'    => self::DEBUG,
+            'info'     => self::INFO,
+            'warning'  => self::WARNING,
+            'error'    => self::ERROR,
+            'critical' => self::CRITICAL,
+            default    => self::INFO,
+        };
+    }
+
+    public function label(): string {
+        return strtolower($this->name);
+    }
+}
+
+/**
+ * イベントバスインターフェース。
+ * HookManager と EventDispatcher の共通契約を定義する。
+ * @since Ver.1.9
+ */
+interface EventBusInterface {
+    public function listen(string $event, callable $listener, int $priority = 0): void;
+    public function dispatch(string $event, array $data = []): mixed;
+    public function hasListeners(string $event): bool;
+}
+
+// ============================================================================
 // Container - 依存性注入コンテナ
 // ============================================================================
 
@@ -437,7 +516,7 @@ class Router {
 // ============================================================================
 
 /**
- * @updated Ver.1.9 readonly プロパティ適用
+ * @updated Ver.1.9 readonly プロパティ適用、リクエスト相関ID追加
  */
 class Request {
     private readonly array $query;
@@ -448,6 +527,8 @@ class Request {
     private readonly array $headers;
     private array $params = [];
     private readonly ?string $body;
+    /** @var string リクエスト相関ID（分散トレーシング用） @since Ver.1.9 */
+    private readonly string $requestId;
 
     public function __construct() {
         $this->query = $_GET;
@@ -457,6 +538,8 @@ class Request {
         $this->server = $_SERVER;
         $this->headers = $this->parseHeaders();
         $this->body = file_get_contents('php://input') ?: null;
+        /* Ver.1.9: リクエスト相関ID — ヘッダーがあれば採用、なければ自動生成 */
+        $this->requestId = $this->headers['X-Request-Id'] ?? bin2hex(random_bytes(8));
     }
 
     private function parseHeaders(): array {
@@ -472,6 +555,22 @@ class Request {
 
     public function method(): string {
         return strtoupper($this->server['REQUEST_METHOD'] ?? 'GET');
+    }
+
+    /**
+     * HTTP メソッドを Enum として返す。
+     * @since Ver.1.9
+     */
+    public function httpMethod(): HttpMethod {
+        return HttpMethod::tryFrom($this->method()) ?? HttpMethod::GET;
+    }
+
+    /**
+     * リクエスト相関IDを返す。
+     * @since Ver.1.9
+     */
+    public function requestId(): string {
+        return $this->requestId;
     }
 
     public function uri(): string {
@@ -640,8 +739,26 @@ class Response {
         return $this;
     }
 
-    public function withCookie(string $name, string $value, int $expires = 0, string $path = '/'): self {
-        setcookie($name, $value, $expires, $path);
+    /**
+     * @updated Ver.1.9 セキュアなデフォルト（SameSite=Lax, HttpOnly, Secure 自動判定）
+     */
+    public function withCookie(
+        string $name,
+        string $value,
+        int $expires = 0,
+        string $path = '/',
+        bool $secure = true,
+        bool $httpOnly = true,
+        string $sameSite = 'Lax',
+    ): self {
+        $isSecure = $secure && !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off';
+        setcookie($name, $value, [
+            'expires'  => $expires,
+            'path'     => $path,
+            'secure'   => $isSecure,
+            'httponly'  => $httpOnly,
+            'samesite' => $sameSite,
+        ]);
         return $this;
     }
 
@@ -750,24 +867,47 @@ abstract class ServiceProvider {
 // HookManager - フック機構 (D2)
 // ============================================================================
 
-class HookManager {
+/**
+ * @updated Ver.1.9 EventBusInterface を実装、ソート結果キャッシュ追加
+ */
+class HookManager implements EventBusInterface {
     private array $hooks = [];
+    /** @var array<string, bool> ソート済みフラグ @since Ver.1.9 */
+    private array $sorted = [];
 
     public function register(string $name, callable $callback, int $priority = 10): void {
         $this->hooks[$name][] = ['callback' => $callback, 'priority' => $priority];
+        unset($this->sorted[$name]); /* ソートキャッシュ無効化 */
+    }
+
+    /** EventBusInterface::listen() の実装 */
+    public function listen(string $event, callable $listener, int $priority = 0): void {
+        $this->register($event, $listener, $priority);
+    }
+
+    /** EventBusInterface::dispatch() の実装 */
+    public function dispatch(string $event, array $data = []): mixed {
+        $this->run($event, $data);
+        return null;
+    }
+
+    /** EventBusInterface::hasListeners() の実装 */
+    public function hasListeners(string $event): bool {
+        return $this->has($event);
     }
 
     public function run(string $name, mixed ...$args): void {
         if (!isset($this->hooks[$name])) return;
 
-        $sorted = $this->hooks[$name];
-        usort($sorted, fn($a, $b) => $a['priority'] <=> $b['priority']);
+        $this->sortHooks($name);
 
-        foreach ($sorted as $hook) {
+        foreach ($this->hooks[$name] as $hook) {
             try {
                 ($hook['callback'])(...$args);
             } catch (\Throwable $e) {
-                // Hook failure should not break the flow
+                \APF\Utilities\Logger::debug('Hook execution failed', [
+                    'hook' => $name, 'error' => $e->getMessage(),
+                ]);
             }
         }
     }
@@ -775,10 +915,9 @@ class HookManager {
     public function filter(string $name, mixed $value, mixed ...$args): mixed {
         if (!isset($this->hooks[$name])) return $value;
 
-        $sorted = $this->hooks[$name];
-        usort($sorted, fn($a, $b) => $a['priority'] <=> $b['priority']);
+        $this->sortHooks($name);
 
-        foreach ($sorted as $hook) {
+        foreach ($this->hooks[$name] as $hook) {
             try {
                 $value = ($hook['callback'])($value, ...$args);
             } catch (\Throwable $e) {
@@ -794,11 +933,22 @@ class HookManager {
     }
 
     public function remove(string $name): void {
-        unset($this->hooks[$name]);
+        unset($this->hooks[$name], $this->sorted[$name]);
     }
 
     public function clear(): void {
         $this->hooks = [];
+        $this->sorted = [];
+    }
+
+    /**
+     * フック配列をプライオリティ順にソートし、結果をキャッシュする。
+     * @since Ver.1.9
+     */
+    private function sortHooks(string $name): void {
+        if (isset($this->sorted[$name])) return;
+        usort($this->hooks[$name], fn($a, $b) => $a['priority'] <=> $b['priority']);
+        $this->sorted[$name] = true;
     }
 }
 

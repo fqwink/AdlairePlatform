@@ -602,7 +602,7 @@ class ServiceContainer {
  * dispatch() で全リスナーを優先度順に実行する。
  * APF の HookManager を汎用イベントシステムとして再設計。
  */
-class EventDispatcher {
+class EventDispatcher implements \APF\Core\EventBusInterface {
 
     /**
      * @var array<string, array<array{listener: callable, priority: int}>>
