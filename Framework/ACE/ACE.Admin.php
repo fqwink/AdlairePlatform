@@ -831,3 +831,463 @@ class ActivityLogger
         );
     }
 }
+
+// ============================================================================
+// RevisionManager - コンテンツリビジョン管理
+// ============================================================================
+
+/**
+ * コンテンツのリビジョン（版管理）を保存・取得・削除する。
+ *
+ * フィールドごとにリビジョンファイルを保持し、ファイルロックによる
+ * 競合状態の防止、世代数制限による自動クリーンアップに対応。
+ *
+ * @since Ver.1.8
+ */
+class RevisionManager {
+
+    /** @var string リビジョン保存ベースディレクトリ */
+    private string $baseDir;
+
+    /** @var int 最大保持リビジョン数 */
+    private int $maxRevisions;
+
+    public function __construct(string $baseDir, int $maxRevisions = 20) {
+        $this->baseDir = rtrim($baseDir, '/');
+        $this->maxRevisions = $maxRevisions;
+    }
+
+    /**
+     * リビジョンを保存する
+     */
+    public function save(string $fieldname, string $content, bool $restored = false): void {
+        if (!preg_match('/^[a-zA-Z0-9_\-]+$/', $fieldname)) return;
+        $dir = $this->baseDir . '/' . $fieldname . '/';
+        if (!is_dir($dir)) @mkdir($dir, 0755, true);
+
+        $lockFile = $dir . '.lock';
+        $lf = fopen($lockFile, 'c');
+        if ($lf === false) return;
+
+        try {
+            if (!flock($lf, LOCK_EX)) return;
+            $ts = date('Ymd_His') . '_' . bin2hex(random_bytes(2));
+            $rev = [
+                'timestamp' => date('c'),
+                'content'   => $content,
+                'size'      => strlen($content),
+                'user'      => $_SESSION['ap_username'] ?? '',
+                'restored'  => $restored,
+            ];
+            \APF\Utilities\FileSystem::writeJson($dir . 'rev_' . $ts . '.json', $rev);
+            $this->prune($dir);
+        } finally {
+            flock($lf, LOCK_UN);
+            fclose($lf);
+        }
+    }
+
+    /**
+     * 古いリビジョンを削除（ピン留め以外）
+     */
+    private function prune(string $dir): void {
+        $files = glob($dir . 'rev_*.json') ?: [];
+        sort($files);
+        $unpinned = [];
+        foreach ($files as $f) {
+            $data = \APF\Utilities\FileSystem::readJson($f);
+            if ($data === null || !empty($data['pinned'])) continue;
+            $unpinned[] = $f;
+        }
+        while (count($unpinned) > $this->maxRevisions) {
+            unlink(array_shift($unpinned));
+        }
+    }
+}
+
+// ============================================================================
+// AdminManager - 管理エンジン統合ファサード
+// ============================================================================
+
+/**
+ * AdminEngine のロジックを Framework 化した静的ファサード。
+ *
+ * 認証・CSRF・ユーザー管理・アクティビティログ・リビジョン管理・
+ * ダッシュボードコンテキスト構築を統合する。
+ *
+ * @since Ver.1.8
+ */
+class AdminManager {
+
+    public const USERS_FILE = 'users.json';
+
+    /* ── 認証 ── */
+
+    public static function isLoggedIn(): bool {
+        return isset($_SESSION['l']) && $_SESSION['l'] === true;
+    }
+
+    public static function currentRole(): string {
+        return self::isLoggedIn() ? ($_SESSION['ap_role'] ?? 'admin') : '';
+    }
+
+    public static function currentUsername(): string {
+        return self::isLoggedIn() ? ($_SESSION['ap_username'] ?? 'admin') : '';
+    }
+
+    public static function hasRole(string $requiredRole): bool {
+        if (!self::isLoggedIn()) return false;
+        $roleLevel = ['viewer' => 1, 'editor' => 2, 'admin' => 3];
+        return ($roleLevel[self::currentRole()] ?? 0) >= ($roleLevel[$requiredRole] ?? 0);
+    }
+
+    /* ── マルチユーザー管理 ── */
+
+    public static function listUsers(): array {
+        $users = \APF\Utilities\JsonStorage::read(self::USERS_FILE, \AIS\Core\AppContext::settingsDir());
+        if (empty($users)) return [];
+        $result = [];
+        foreach ($users as $username => $user) {
+            $result[] = [
+                'username' => $username, 'role' => $user['role'] ?? 'editor',
+                'created_at' => $user['created_at'] ?? '', 'active' => $user['active'] ?? true,
+            ];
+        }
+        return $result;
+    }
+
+    public static function addUser(string $username, string $password, string $role = 'editor'): bool {
+        if (!preg_match('/^[a-zA-Z0-9_\-]{3,30}$/', $username)) return false;
+        if (!in_array($role, ['admin', 'editor', 'viewer'], true)) return false;
+        $dir = \AIS\Core\AppContext::settingsDir();
+        $users = \APF\Utilities\JsonStorage::read(self::USERS_FILE, $dir);
+        if (isset($users[$username])) return false;
+        $users[$username] = [
+            'password_hash' => password_hash($password, self::preferredHashAlgo()),
+            'role' => $role, 'created_at' => date('c'), 'active' => true,
+        ];
+        \APF\Utilities\JsonStorage::write(self::USERS_FILE, $users, $dir);
+        return true;
+    }
+
+    public static function deleteUser(string $username): bool {
+        $dir = \AIS\Core\AppContext::settingsDir();
+        $users = \APF\Utilities\JsonStorage::read(self::USERS_FILE, $dir);
+        if (!isset($users[$username])) return false;
+        unset($users[$username]);
+        \APF\Utilities\JsonStorage::write(self::USERS_FILE, $users, $dir);
+        return true;
+    }
+
+    private static function tryMultiUserLogin(string $username, string $password): ?array {
+        $dir = \AIS\Core\AppContext::settingsDir();
+        $users = \APF\Utilities\JsonStorage::read(self::USERS_FILE, $dir);
+        if (empty($users) || !isset($users[$username])) return null;
+        $user = $users[$username];
+        if (!($user['active'] ?? true)) return null;
+        if (!password_verify($password, $user['password_hash'] ?? '')) return null;
+        if (password_needs_rehash($user['password_hash'] ?? '', self::preferredHashAlgo())) {
+            $users[$username]['password_hash'] = password_hash($password, self::preferredHashAlgo());
+            \APF\Utilities\JsonStorage::write(self::USERS_FILE, $users, $dir);
+        }
+        return ['username' => $username, 'role' => $user['role'] ?? 'editor'];
+    }
+
+    /**
+     * ログイン処理
+     */
+    public static function login(string $passwordHash): string {
+        self::verifyCsrf();
+        $ip = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+        if (!self::checkLoginRate($ip)) {
+            $remaining = self::getLockoutRemaining($ip);
+            return \AIS\Core\I18n::t('auth.too_many_attempts', ['remaining' => $remaining]);
+        }
+
+        $password = $_POST['password'] ?? '';
+        $username = $_POST['username'] ?? '';
+
+        /* マルチユーザーログイン試行 */
+        if ($username !== '') {
+            $multiUser = self::tryMultiUserLogin($username, $password);
+            if ($multiUser !== null) {
+                self::clearLoginRate($ip);
+                session_regenerate_id(true);
+                $_SESSION['l'] = true;
+                $_SESSION['ap_username'] = $multiUser['username'];
+                $_SESSION['ap_role'] = $multiUser['role'];
+                self::logActivity('ログイン: ' . $multiUser['username'] . ' (' . $multiUser['role'] . ')');
+                if (class_exists('DiagnosticEngine')) \DiagnosticEngine::log('security', 'ログイン成功', ['username' => $multiUser['username']]);
+                header('Location: ./');
+                exit;
+            }
+        }
+
+        /* 従来の単一パスワード認証 */
+        if (!password_verify($password, $passwordHash)) {
+            self::recordLoginFailure($ip);
+            if (class_exists('DiagnosticEngine')) \DiagnosticEngine::log('security', 'ログイン失敗（パスワード不一致）');
+            $attemptsLeft = self::getRemainingAttempts($ip);
+            if ($attemptsLeft > 0) {
+                return \AIS\Core\I18n::t('auth.wrong_password', ['attempts' => $attemptsLeft]);
+            }
+            return \AIS\Core\I18n::t('auth.wrong_password_final');
+        }
+
+        self::clearLoginRate($ip);
+        if (password_needs_rehash($passwordHash, self::preferredHashAlgo())) {
+            self::savePassword($_POST['new'] ?? $password);
+        }
+        if (!empty($_POST['new'])) {
+            self::savePassword($_POST['new']);
+            return \AIS\Core\I18n::t('auth.password_changed');
+        }
+        session_regenerate_id(true);
+        $_SESSION['l'] = true;
+        $_SESSION['ap_username'] = 'admin';
+        $_SESSION['ap_role'] = 'admin';
+        if (class_exists('DiagnosticEngine')) \DiagnosticEngine::log('security', 'ログイン成功', ['username' => 'admin']);
+        header('Location: ./');
+        exit;
+    }
+
+    private static function preferredHashAlgo(): string|int {
+        return defined('PASSWORD_ARGON2ID') ? PASSWORD_ARGON2ID : PASSWORD_BCRYPT;
+    }
+
+    public static function savePassword(string $p): string {
+        $hash = password_hash($p, self::preferredHashAlgo());
+        \APF\Utilities\JsonStorage::write('auth.json', ['password_hash' => $hash], \AIS\Core\AppContext::settingsDir());
+        return $hash;
+    }
+
+    /* ── レート制限 ── */
+
+    private static function checkLoginRate(string $ip): bool {
+        $data = \APF\Utilities\JsonStorage::read('login_attempts.json', \AIS\Core\AppContext::settingsDir());
+        $attempts = $data[$ip] ?? ['count' => 0, 'locked_until' => 0];
+        return time() >= (int)$attempts['locked_until'];
+    }
+
+    private static function recordLoginFailure(string $ip): void {
+        $dir = \AIS\Core\AppContext::settingsDir();
+        $data = \APF\Utilities\JsonStorage::read('login_attempts.json', $dir);
+        $attempts = $data[$ip] ?? ['count' => 0, 'locked_until' => 0];
+        if (time() >= (int)$attempts['locked_until']) $attempts['count']++;
+        if ($attempts['count'] >= 5) {
+            $attempts['locked_until'] = time() + 900;
+            $attempts['count'] = 0;
+            if (class_exists('DiagnosticEngine')) \DiagnosticEngine::log('security', 'ロックアウト発動');
+        }
+        $data[$ip] = $attempts;
+        \APF\Utilities\JsonStorage::write('login_attempts.json', $data, $dir);
+    }
+
+    private static function clearLoginRate(string $ip): void {
+        $dir = \AIS\Core\AppContext::settingsDir();
+        $data = \APF\Utilities\JsonStorage::read('login_attempts.json', $dir);
+        unset($data[$ip]);
+        \APF\Utilities\JsonStorage::write('login_attempts.json', $data, $dir);
+    }
+
+    private static function getLockoutRemaining(string $ip): int {
+        $data = \APF\Utilities\JsonStorage::read('login_attempts.json', \AIS\Core\AppContext::settingsDir());
+        $attempts = $data[$ip] ?? ['count' => 0, 'locked_until' => 0];
+        return max(1, (int)ceil(((int)$attempts['locked_until'] - time()) / 60));
+    }
+
+    private static function getRemainingAttempts(string $ip): int {
+        $data = \APF\Utilities\JsonStorage::read('login_attempts.json', \AIS\Core\AppContext::settingsDir());
+        $attempts = $data[$ip] ?? ['count' => 0, 'locked_until' => 0];
+        return max(0, 5 - (int)$attempts['count']);
+    }
+
+    /* ── CSRF ── */
+
+    public static function csrfToken(): string {
+        if (empty($_SESSION['csrf'])) $_SESSION['csrf'] = bin2hex(random_bytes(32));
+        return $_SESSION['csrf'];
+    }
+
+    public static function verifyCsrf(): void {
+        $token = $_POST['csrf'] ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? '');
+        if (empty($_SESSION['csrf']) || !hash_equals($_SESSION['csrf'], $token)) {
+            if (class_exists('DiagnosticEngine')) \DiagnosticEngine::log('security', 'CSRF 検証失敗');
+            header('HTTP/1.1 403 Forbidden');
+            exit;
+        }
+    }
+
+    /* ── アクティビティログ ── */
+
+    public static function logActivity(string $message): void {
+        $dir = \AIS\Core\AppContext::settingsDir();
+        $log = \APF\Utilities\JsonStorage::read('activity.json', $dir);
+        $entry = ['time' => date('c'), 'message' => $message];
+        $username = $_SESSION['ap_username'] ?? '';
+        if ($username !== '') $entry['user'] = $username;
+        array_unshift($log, $entry);
+        $log = array_slice($log, 0, 100);
+        \APF\Utilities\JsonStorage::write('activity.json', $log, $dir);
+    }
+
+    public static function getRecentActivity(int $limit = 20): array {
+        return array_slice(
+            \APF\Utilities\JsonStorage::read('activity.json', \AIS\Core\AppContext::settingsDir()),
+            0, $limit
+        );
+    }
+
+    /* ── リビジョン管理 ── */
+
+    public static function saveRevision(string $fieldname, string $content, bool $restored = false): void {
+        $revLimit = defined('AP_REVISION_LIMIT') ? AP_REVISION_LIMIT : 20;
+        $mgr = new RevisionManager(\AIS\Core\AppContext::contentDir() . '/revisions', $revLimit);
+        $mgr->save($fieldname, $content, $restored);
+    }
+
+    /* ── レンダリング ── */
+
+    public static function renderLogin(string $message = ''): string {
+        $tplDir = dirname(__DIR__, 2) . '/engines/AdminEngine';
+        $tplPath = $tplDir . '/login.html';
+        if (!file_exists($tplPath)) return '<h1>Login template not found</h1>';
+        $tpl = \APF\Utilities\FileSystem::read($tplPath);
+        if ($tpl === false) return '<h1>Login template read error</h1>';
+        $ctx = [
+            'title' => \AIS\Core\AppContext::config('title', 'Login'),
+            'csrf_token' => self::csrfToken(),
+            'login_message' => $message,
+            'html_lang' => \AIS\Core\I18n::htmlLang(),
+            'i18n' => \AIS\Core\I18n::allNested(),
+        ];
+        return \TemplateEngine::render($tpl, $ctx, $tplDir);
+    }
+
+    public static function renderDashboard(): string {
+        $tplDir = dirname(__DIR__, 2) . '/engines/AdminEngine';
+        $tplPath = $tplDir . '/dashboard.html';
+        if (!file_exists($tplPath)) return '<h1>Dashboard template not found</h1>';
+        $tpl = \APF\Utilities\FileSystem::read($tplPath);
+        if ($tpl === false) return '<h1>Dashboard template read error</h1>';
+        $ctx = self::buildDashboardContext();
+        if (class_exists('DiagnosticEngine') && \DiagnosticEngine::shouldShowNotice()) {
+            \DiagnosticEngine::markNoticeShown();
+        }
+        return \TemplateEngine::render($tpl, $ctx, $tplDir);
+    }
+
+    public static function renderEditableContent(string $id, string $content, string $placeholder = 'Click to edit!'): string {
+        if (self::isLoggedIn()) {
+            return "<span title='" . \APF\Utilities\Security::escape($placeholder)
+                . "' id='" . \APF\Utilities\Security::escape($id) . "' class='editRich'>" . $content . "</span>";
+        }
+        return $content;
+    }
+
+    /* ── フック管理 ── */
+
+    public static function registerHooks(): void {
+        \AIS\Core\AppContext::addHook('admin-head', "\n\t<link rel='stylesheet' href='Framework/ADS/ADS.Base.css'>");
+        \AIS\Core\AppContext::addHook('admin-head', "\n\t<link rel='stylesheet' href='Framework/ADS/ADS.Components.css'>");
+        \AIS\Core\AppContext::addHook('admin-head', "\n\t<link rel='stylesheet' href='Framework/ADS/ADS.Editor.css'>");
+        \AIS\Core\AppContext::addHook('admin-head', "\n\t<script src='engines/JsEngine/aeb-adapter.js' type='module'></script>");
+        \AIS\Core\AppContext::addHook('admin-head', "\n\t<script src='engines/JsEngine/ap-utils.js'></script>");
+        \AIS\Core\AppContext::addHook('admin-head', "\n\t<script src='engines/JsEngine/ap-events.js'></script>");
+        \AIS\Core\AppContext::addHook('admin-head', "\n\t<script src='engines/JsEngine/autosize.js'></script>");
+        \AIS\Core\AppContext::addHook('admin-head', "\n\t<script src='engines/JsEngine/editInplace.js'></script>");
+        \AIS\Core\AppContext::addHook('admin-head', "\n\t<script src='engines/JsEngine/wysiwyg.js'></script>");
+        \AIS\Core\AppContext::addHook('admin-head', "\n\t<script src='engines/JsEngine/updater.js'></script>");
+    }
+
+    public static function getAdminScripts(): string {
+        $scripts = '';
+        foreach (\AIS\Core\AppContext::getHooks('admin-head') as $o) {
+            $scripts .= "\t" . $o . "\n";
+        }
+        return $scripts;
+    }
+
+    /* ── ダッシュボードコンテキスト ── */
+
+    public static function buildDashboardContext(): array {
+        $selectHtml = "<select name='themeSelect' id='ap-theme-select'>";
+        foreach (\ThemeEngine::listThemes() as $val) {
+            $selected = ($val == \AIS\Core\AppContext::config('themeSelect', '')) ? ' selected' : '';
+            $selectHtml .= '<option value="' . \APF\Utilities\Security::escape($val) . '"' . $selected . '>' . \APF\Utilities\Security::escape($val) . "</option>\n";
+        }
+        $selectHtml .= '</select>';
+
+        $fields = [];
+        foreach (['title', 'description', 'keywords', 'copyright'] as $key) {
+            $fields[] = [
+                'key' => $key,
+                'default_value' => \AIS\Core\AppContext::defaults('default', $key, ''),
+                'value' => \AIS\Core\AppContext::config($key, ''),
+            ];
+        }
+
+        $_s = \APF\Utilities\JsonStorage::read('settings.json', \AIS\Core\AppContext::settingsDir());
+        $pages = \APF\Utilities\JsonStorage::read('pages.json', \AIS\Core\AppContext::contentDir());
+        $pageList = [];
+        foreach ($pages as $slug => $content) {
+            $pageList[] = [
+                'slug' => $slug,
+                'preview' => mb_substr(strip_tags((string)$content), 0, 80, 'UTF-8'),
+            ];
+        }
+
+        $diskFree = @disk_free_space('.');
+        $diskFreeStr = ($diskFree !== false)
+            ? number_format($diskFree / 1024 / 1024, 0) . ' MB'
+            : \AIS\Core\I18n::t('disk.unavailable');
+
+        $collectionsEnabled = class_exists('CollectionEngine') && \CollectionEngine::isEnabled();
+        $collectionList = $collectionsEnabled ? \CollectionEngine::listCollections() : [];
+        $gitEnabled = class_exists('GitEngine') && \GitEngine::isEnabled();
+        $gitConfig = class_exists('GitEngine') ? \GitEngine::loadConfig() : [];
+        $users = self::listUsers();
+        $webhooks = class_exists('WebhookEngine') ? \WebhookEngine::listWebhooks() : [];
+        $cacheStats = class_exists('CacheEngine') ? \CacheEngine::getStats() : ['files' => 0, 'size_human' => '0 B'];
+        $redirects = \APF\Utilities\JsonStorage::read('redirects.json', \AIS\Core\AppContext::settingsDir());
+        $redirectList = [];
+        foreach ($redirects as $i => $r) {
+            $redirectList[] = ['from' => $r['from'] ?? '', 'to' => $r['to'] ?? '', 'code' => $r['code'] ?? 301, 'index' => $i];
+        }
+
+        return [
+            'title' => \AIS\Core\AppContext::config('title', ''),
+            'host' => \AIS\Core\AppContext::host(),
+            'ap_version' => AP_VERSION,
+            'csrf_token' => self::csrfToken(),
+            'theme_select_html' => $selectHtml,
+            'menu_raw' => preg_replace('/\s+on\w+\s*=\s*["\'][^"\']*["\']/i', '', strip_tags(\AIS\Core\AppContext::config('menu', ''), '<br>')),
+            'settings_fields' => $fields, 'pages' => $pageList,
+            'has_pages' => !empty($pageList),
+            'php_version' => PHP_VERSION, 'disk_free' => $diskFreeStr,
+            'migrate_warning' => (bool)\AIS\Core\AppContext::config('migrate_warning', false),
+            'contact_email' => $_s['contact_email'] ?? '',
+            'activity_log' => ($activityLog = self::getRecentActivity(20)),
+            'has_activity' => !empty($activityLog),
+            'collections_enabled' => $collectionsEnabled,
+            'collections' => $collectionList, 'has_collections' => !empty($collectionList),
+            'git_enabled' => $gitEnabled,
+            'git_repository' => $gitConfig['repository'] ?? '',
+            'git_branch' => $gitConfig['branch'] ?? 'main',
+            'git_content_dir' => $gitConfig['content_dir'] ?? 'content',
+            'git_last_sync' => $gitConfig['last_sync'] ?? '',
+            'git_issues_enabled' => !empty($gitConfig['issues_enabled']),
+            'git_webhook_secret' => $gitConfig['webhook_secret'] ?? '',
+            'current_user' => self::currentUsername(), 'current_role' => self::currentRole(),
+            'users' => $users, 'has_users' => !empty($users),
+            'webhooks' => $webhooks, 'has_webhooks' => !empty($webhooks),
+            'cache_files' => $cacheStats['files'] ?? 0, 'cache_size' => $cacheStats['size_human'] ?? '0 B',
+            'redirects' => $redirectList, 'has_redirects' => !empty($redirectList),
+            'diag_show_notice' => class_exists('DiagnosticEngine') && \DiagnosticEngine::shouldShowNotice(),
+            'html_lang' => \AIS\Core\I18n::htmlLang(),
+            'ap_locale' => \AIS\Core\I18n::getLocale(),
+            'i18n' => \AIS\Core\I18n::allNested(),
+            'i18n_json' => json_encode(\AIS\Core\I18n::all(), JSON_UNESCAPED_UNICODE | JSON_HEX_TAG),
+        ];
+    }
+}

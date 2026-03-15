@@ -1,15 +1,12 @@
-﻿<?php
+<?php
 /**
- * WebhookEngine - Outgoing Webhook 配信エンジン
+ * WebhookEngine - Outgoing Webhook 配信エンジン（後方互換シム）
  *
- * コンテンツ変更時に外部サービスへ HTTP POST 通知を送信。
- * Vercel / Netlify デプロイフック等の Jamstack 連携に使用。
+ * Ver.1.8: 全ロジックを ACE\Api\WebhookService に移植。
+ * このファイルは後方互換のためのシムとして残存。
+ * Stage 8 で削除予定。
  *
- * イベント:
- *   item.created, item.updated, item.deleted,
- *   page.updated, build.completed
- *
- * 署名: HMAC-SHA256（X-AP-Signature ヘッダー）
+ * @deprecated Ver.1.8 — ACE\Api\WebhookService を使用してください
  */
 class WebhookEngine {
 	use EngineTrait;
@@ -27,205 +24,35 @@ class WebhookEngine {
 		return self::$webhookManager;
 	}
 
-	private const CONFIG_FILE = 'webhooks.json';
-
-	/**
-	 * Webhook 設定を読み込み
-	 * @return array{webhooks: array}
-	 */
 	public static function loadConfig(): array {
-		$config = json_read(self::CONFIG_FILE, settings_dir());
-		if (empty($config['webhooks'])) {
-			$config['webhooks'] = [];
-		}
-		return $config;
+		return \ACE\Api\WebhookService::loadConfig();
 	}
 
-	/** 設定を保存 */
 	public static function saveConfig(array $config): void {
-		json_write(self::CONFIG_FILE, $config, settings_dir());
+		\ACE\Api\WebhookService::saveConfig($config);
 	}
 
-	/**
-	 * Webhook エンドポイントを追加
-	 */
 	public static function addWebhook(string $url, string $label = '', array $events = [], string $secret = ''): bool {
-		if (filter_var($url, FILTER_VALIDATE_URL) === false) return false;
-		/* SSRF 防止: http/https のみ許可、プライベート IP をブロック */
-		$scheme = strtolower(parse_url($url, PHP_URL_SCHEME) ?? '');
-		if (!in_array($scheme, ['http', 'https'], true)) return false;
-		$host = parse_url($url, PHP_URL_HOST);
-		if ($host !== null && self::isPrivateHost($host)) return false;
-
-		$config = self::loadConfig();
-		$config['webhooks'][] = [
-			'url'        => $url,
-			'label'      => $label ?: parse_url($url, PHP_URL_HOST),
-			'events'     => $events ?: ['item.created', 'item.updated', 'item.deleted', 'page.updated', 'build.completed'],
-			'secret'     => $secret,
-			'active'     => true,
-			'created_at' => date('c'),
-		];
-		self::saveConfig($config);
-		return true;
+		return \ACE\Api\WebhookService::addWebhook($url, $label, $events, $secret);
 	}
 
-	/** Webhook を削除 */
 	public static function deleteWebhook(int $index): bool {
-		$config = self::loadConfig();
-		if (!isset($config['webhooks'][$index])) return false;
-		array_splice($config['webhooks'], $index, 1);
-		self::saveConfig($config);
-		return true;
+		return \ACE\Api\WebhookService::deleteWebhook($index);
 	}
 
-	/** Webhook の有効/無効を切り替え */
 	public static function toggleWebhook(int $index): bool {
-		$config = self::loadConfig();
-		if (!isset($config['webhooks'][$index])) return false;
-		$config['webhooks'][$index]['active'] = !($config['webhooks'][$index]['active'] ?? true);
-		self::saveConfig($config);
-		return true;
+		return \ACE\Api\WebhookService::toggleWebhook($index);
 	}
 
-	/** Webhook 一覧を取得（シークレットは伏字） */
 	public static function listWebhooks(): array {
-		$config = self::loadConfig();
-		$result = [];
-		foreach ($config['webhooks'] as $i => $wh) {
-			$result[] = [
-				'index'      => $i,
-				'url'        => $wh['url'] ?? '',
-				'label'      => $wh['label'] ?? '',
-				'events'     => $wh['events'] ?? [],
-				'has_secret' => !empty($wh['secret']),
-				'active'     => $wh['active'] ?? true,
-				'created_at' => $wh['created_at'] ?? '',
-			];
-		}
-		return $result;
+		return \ACE\Api\WebhookService::listWebhooks();
 	}
 
-	/**
-	 * イベントを発火し、該当する Webhook に非同期通知を送信。
-	 *
-	 * @param string $event   イベント名
-	 * @param array  $payload ペイロードデータ
-	 */
 	public static function dispatch(string $event, array $payload = []): void {
-		$config = self::loadConfig();
-		if (empty($config['webhooks'])) return;
-
-		$body = json_encode([
-			'event'     => $event,
-			'timestamp' => date('c'),
-			'data'      => $payload,
-		], JSON_UNESCAPED_UNICODE);
-
-		foreach ($config['webhooks'] as $wh) {
-			if (!($wh['active'] ?? true)) {
-				if (class_exists('DiagnosticEngine')) DiagnosticEngine::log('debug', 'Webhook スキップ（非アクティブ）', ['label' => $wh['label'] ?? '', 'event' => $event]);
-				continue;
-			}
-			$events = $wh['events'] ?? [];
-			if (!empty($events) && !in_array($event, $events, true)) {
-				if (class_exists('DiagnosticEngine')) DiagnosticEngine::log('debug', 'Webhook スキップ（イベント不一致）', ['label' => $wh['label'] ?? '', 'event' => $event, 'subscribed' => implode(',', $events)]);
-				continue;
-			}
-
-			$url = $wh['url'] ?? '';
-			if ($url === '') continue;
-
-			$headers = [
-				'Content-Type: application/json',
-				'User-Agent: AdlairePlatform/' . (defined('AP_VERSION') ? AP_VERSION : '1.0'),
-				'X-AP-Event: ' . $event,
-			];
-
-			/* HMAC-SHA256 署名 */
-			$secret = $wh['secret'] ?? '';
-			if ($secret !== '') {
-				$sig = hash_hmac('sha256', $body, $secret);
-				$headers[] = 'X-AP-Signature: sha256=' . $sig;
-			}
-
-			self::sendAsync($url, $body, $headers);
-		}
+		\ACE\Api\WebhookService::dispatch($event, $payload);
 	}
 
-	/**
-	 * 非同期 cURL で POST 送信（レスポンス待ちなし、タイムアウト5秒）
-	 */
-	private static function sendAsync(string $url, string $body, array $headers): void {
-		/* R19 fix: DNS リバインディング防止 — 送信時にもホストの IP を再検証 */
-		$host = parse_url($url, PHP_URL_HOST);
-		if ($host !== null && self::isPrivateHost($host)) {
-			error_log('AdlairePlatform: Webhook SSRF blocked (DNS rebinding): ' . $url);
-			if (class_exists('DiagnosticEngine')) DiagnosticEngine::log('security', 'SSRF ブロック (DNS rebinding)', ['url_host' => parse_url($url, PHP_URL_HOST) ?? '']);
-			return;
-		}
-
-		$ch = curl_init($url);
-		if ($ch === false) return;
-
-		curl_setopt_array($ch, [
-			CURLOPT_POST           => true,
-			CURLOPT_POSTFIELDS     => $body,
-			CURLOPT_HTTPHEADER     => $headers,
-			CURLOPT_RETURNTRANSFER => true,
-			CURLOPT_TIMEOUT        => 5,
-			CURLOPT_CONNECTTIMEOUT => 3,
-			/* SSRF 防止: リダイレクトを無効化 */
-			CURLOPT_FOLLOWLOCATION => false,
-		]);
-
-		$result = curl_exec($ch);
-		$httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-		$curlError = curl_error($ch);
-		$totalTime = round(curl_getinfo($ch, CURLINFO_TOTAL_TIME) * 1000, 2);
-		curl_close($ch);
-
-		/* 配信ログ（デバッグ用） */
-		if (class_exists('DiagnosticEngine')) {
-			DiagnosticEngine::log('debug', 'Webhook 配信完了', ['url_host' => parse_url($url, PHP_URL_HOST) ?? '', 'http_code' => $httpCode, 'payload_bytes' => strlen($body), 'total_time_ms' => $totalTime]);
-		}
-		if ($httpCode < 200 || $httpCode >= 300) {
-			error_log("WebhookEngine: delivery failed to {$url} (HTTP {$httpCode})");
-			if (class_exists('DiagnosticEngine')) {
-				DiagnosticEngine::logIntegrationError('Webhook', $httpCode, $curlError ?: ('配信失敗: ' . parse_url($url, PHP_URL_HOST)));
-			}
-		} elseif ($totalTime > 3000 && class_exists('DiagnosticEngine')) {
-			DiagnosticEngine::logSlowExecution('Webhook::sendAsync(' . parse_url($url, PHP_URL_HOST) . ')', $totalTime, 3000);
-		}
-	}
-
-
-	/**
-	 * Ver.1.6: 受信 Webhook の HMAC-SHA256 署名を検証する。
-	 *
-	 * @param string $payload    リクエストボディ
-	 * @param string $signature  受信した署名ヘッダー値（"sha256=..." 形式）
-	 * @param string $secret     共有シークレット
-	 * @return bool 署名が有効なら true
-	 */
 	public static function verifySignature(string $payload, string $signature, string $secret): bool {
-		if ($secret === '' || $signature === '') return false;
-		$expected = 'sha256=' . hash_hmac('sha256', $payload, $secret);
-		return hash_equals($expected, $signature);
-	}
-
-	/**
-	 * ホストがプライベート/内部 IP かどうかチェック（SSRF 防止）
-	 */
-	private static function isPrivateHost(string $host): bool {
-		/* localhost 系 */
-		if (in_array(strtolower($host), ['localhost', '127.0.0.1', '::1', '0.0.0.0'], true)) {
-			return true;
-		}
-		/* DNS 解決して IP を確認 */
-		$ip = gethostbyname($host);
-		/* R20 fix: DNS 解決失敗時はブロック（安全側に倒す） */
-		if ($ip === $host) return true;
-		return filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) === false;
+		return \ACE\Api\WebhookService::verifySignature($payload, $signature, $secret);
 	}
 }

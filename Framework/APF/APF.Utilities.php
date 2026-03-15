@@ -544,6 +544,22 @@ class Str {
         return trim($string, '-');
     }
 
+    /**
+     * パストラバーサルを除去した安全なパスを生成する。
+     * engines/Bridge.php の getSlug() 相当。
+     * @since Ver.1.8
+     */
+    public static function safePath(string $path): string {
+        $slug = mb_convert_case(str_replace(' ', '-', $path), MB_CASE_LOWER, 'UTF-8');
+        $slug = str_replace("\0", '', $slug);
+        do {
+            $prev = $slug;
+            $slug = str_replace(['../', '..\\'], '', $slug);
+        } while ($slug !== $prev);
+        $slug = preg_replace('#/+#', '/', $slug);
+        return ltrim($slug, '/');
+    }
+
     public static function startsWith(string $haystack, string $needle): bool {
         return str_starts_with($haystack, $needle);
     }
@@ -653,5 +669,160 @@ class Arr {
 
     public static function where(array $array, \Closure $callback): array {
         return array_filter($array, $callback, ARRAY_FILTER_USE_BOTH);
+    }
+}
+
+// ============================================================================
+// FileSystem - ファイル I/O 抽象化
+// ============================================================================
+
+/**
+ * ファイル I/O の安全な抽象化レイヤー。
+ * engines/FileSystem.php のロジックを Framework に移植。
+ * @since Ver.1.8
+ */
+class FileSystem {
+
+    /**
+     * ファイルを安全に読み込む。
+     * @return string|false 成功時は内容、失敗時は false
+     */
+    public static function read(string $path): string|false {
+        return @file_get_contents($path);
+    }
+
+    /**
+     * ファイルを安全に書き込む（LOCK_EX 付き）。
+     */
+    public static function write(string $path, string $content): bool {
+        $dir = dirname($path);
+        if (!is_dir($dir)) {
+            if (!@mkdir($dir, 0755, true)) {
+                return false;
+            }
+        }
+        return @file_put_contents($path, $content, LOCK_EX) !== false;
+    }
+
+    /**
+     * JSON ファイルを読み込んで配列として返す。
+     */
+    public static function readJson(string $path): ?array {
+        $content = self::read($path);
+        if ($content === false) return null;
+        $data = json_decode($content, true);
+        return is_array($data) ? $data : null;
+    }
+
+    /**
+     * 配列を JSON ファイルとして書き込む。
+     */
+    public static function writeJson(string $path, array $data): bool {
+        $json = json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+        if ($json === false) return false;
+        return self::write($path, $json);
+    }
+
+    /**
+     * ファイルが存在するか確認。
+     */
+    public static function exists(string $path): bool {
+        return file_exists($path);
+    }
+
+    /**
+     * ファイルを安全に削除。
+     */
+    public static function delete(string $path): bool {
+        if (!file_exists($path)) return true;
+        return @unlink($path);
+    }
+
+    /**
+     * ディレクトリが存在しなければ作成。
+     */
+    public static function ensureDir(string $dir): bool {
+        if (is_dir($dir)) return true;
+        return @mkdir($dir, 0755, true);
+    }
+}
+
+// ============================================================================
+// JsonStorage - JSON I/O + リクエスト内キャッシュ
+// ============================================================================
+
+/**
+ * JSON ファイルの読み書きとリクエスト内キャッシュを提供する。
+ * engines/Bridge.php の json_read/json_write/JsonCache を統合。
+ * @since Ver.1.8
+ */
+class JsonStorage {
+
+    /** @var array<string, array> パス → データの読み込みキャッシュ */
+    private static array $cache = [];
+
+    /**
+     * JSON ファイルを読み込む。キャッシュヒット時はキャッシュから返す。
+     */
+    public static function read(string $file, string $dir = ''): array {
+        $path = ($dir ?: 'data') . '/' . $file;
+
+        if (isset(self::$cache[$path])) {
+            return self::$cache[$path];
+        }
+
+        if (!file_exists($path)) return [];
+        $raw = file_get_contents($path);
+        if ($raw === false) return [];
+        $decoded = json_decode($raw, true);
+        $result = is_array($decoded) ? $decoded : [];
+
+        self::$cache[$path] = $result;
+        return $result;
+    }
+
+    /**
+     * JSON ファイルに書き込む。キャッシュも同時に更新。
+     */
+    public static function write(string $file, array $data, string $dir = ''): void {
+        $path = ($dir ?: 'data') . '/' . $file;
+
+        $dirPath = dirname($path);
+        if (!is_dir($dirPath)) {
+            @mkdir($dirPath, 0755, true);
+        }
+
+        $result = file_put_contents(
+            $path,
+            json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT),
+            LOCK_EX
+        );
+        if ($result === false) {
+            http_response_code(500);
+            exit;
+        }
+
+        self::$cache[$path] = $data;
+    }
+
+    /**
+     * キャッシュをクリアする。
+     */
+    public static function clearCache(): void {
+        self::$cache = [];
+    }
+
+    /**
+     * キャッシュからエントリを取得する（直接アクセス用）。
+     */
+    public static function getCached(string $path): ?array {
+        return self::$cache[$path] ?? null;
+    }
+
+    /**
+     * キャッシュにエントリをセットする（直接アクセス用）。
+     */
+    public static function setCached(string $path, array $data): void {
+        self::$cache[$path] = $data;
     }
 }

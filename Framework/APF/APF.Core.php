@@ -552,6 +552,15 @@ class Response {
     }
 
     /**
+     * JSON エラーレスポンスを生成。
+     * EngineTrait::jsonError() の Response 版。
+     * @since Ver.1.8
+     */
+    public static function jsonError(string $msg, int $status = 400): self {
+        return self::json(['ok' => false, 'error' => $msg], $status);
+    }
+
+    /**
      * ファイルダウンロードレスポンスを生成
      * @since Ver.1.7-37
      */

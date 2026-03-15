@@ -65,7 +65,23 @@
       "Bash(cmd.exe /c \"where /r C:\\\\ php.exe 2>nul\")",
       "Bash(for dir in \"C:/Program Files\" \"C:/Program Files \\(x86\\)\" \"C:/Users/user/AppData/Local/Programs\" \"C:/tools\" \"C:/dev\")",
       "Bash(do ls \"$dir\"/*php*/php.exe)",
-      "Read(//c/Users/user/Desktop/Locale_Rpository_DATA/AdlairePlatform/$dir/php/**)"
+      "Read(//c/Users/user/Desktop/Locale_Rpository_DATA/AdlairePlatform/$dir/php/**)",
+      "Bash(where python)",
+      "Bash(where python3)",
+      "Bash(where py)",
+      "Bash(where node)",
+      "Bash(where powershell)",
+      "Bash(powershell -Command \":*)",
+      "Bash(powershell -ExecutionPolicy Bypass -File \"C:\\\\Users\\\\user\\\\Desktop\\\\Locale_Rpository_DATA\\\\AdlairePlatform\\\\_cleanup.ps1\")",
+      "Bash(powershell -ExecutionPolicy Bypass -File \"C:\\\\Users\\\\user\\\\Desktop\\\\Locale_Rpository_DATA\\\\AdlairePlatform\\\\_cleanup.ps1\" \"C:\\\\Users\\\\user\\\\Desktop\\\\Locale_Rpository_DATA\\\\AdlairePlatform\\\\engines\\\\CollectionEngine.php\" 472 586)",
+      "Bash(powershell -ExecutionPolicy Bypass -File \"C:\\\\Users\\\\user\\\\Desktop\\\\Locale_Rpository_DATA\\\\AdlairePlatform\\\\_cleanup.ps1\" \"C:\\\\Users\\\\user\\\\Desktop\\\\Locale_Rpository_DATA\\\\AdlairePlatform\\\\engines\\\\GitEngine.php\" 639 721)",
+      "Bash(powershell -ExecutionPolicy Bypass -File \"C:\\\\Users\\\\user\\\\Desktop\\\\Locale_Rpository_DATA\\\\AdlairePlatform\\\\_cleanup.ps1\" -File \"C:\\\\Users\\\\user\\\\Desktop\\\\Locale_Rpository_DATA\\\\AdlairePlatform\\\\engines\\\\StaticEngine.php\" -Ranges \"41-66,392-422,1137-1176,1342-1355\")",
+      "Bash(powershell -ExecutionPolicy Bypass -File \"C:\\\\Users\\\\user\\\\Desktop\\\\Locale_Rpository_DATA\\\\AdlairePlatform\\\\_cleanup.ps1\" -File \"C:\\\\Users\\\\user\\\\Desktop\\\\Locale_Rpository_DATA\\\\AdlairePlatform\\\\engines\\\\UpdateEngine.php\" -Ranges \"173-239\")",
+      "Bash(powershell -ExecutionPolicy Bypass -File \"C:\\\\Users\\\\user\\\\Desktop\\\\Locale_Rpository_DATA\\\\AdlairePlatform\\\\_cleanup.ps1\" -File \"C:\\\\Users\\\\user\\\\Desktop\\\\Locale_Rpository_DATA\\\\AdlairePlatform\\\\engines\\\\DiagnosticEngine.php\" -Ranges \"1656-1766\")",
+      "Bash(powershell -ExecutionPolicy Bypass -File \"C:\\\\Users\\\\user\\\\Desktop\\\\Locale_Rpository_DATA\\\\AdlairePlatform\\\\_cleanup.ps1\" -File \"C:\\\\Users\\\\user\\\\Desktop\\\\Locale_Rpository_DATA\\\\AdlairePlatform\\\\engines\\\\WebhookEngine.php\" -Ranges \"202-279\")",
+      "Bash(where gh)",
+      "Read(//c/Program Files/GitHub CLI/**)",
+      "Bash(wc -l \"C:\\\\Users\\\\user\\\\Desktop\\\\Locale_Rpository_DATA\\\\AdlairePlatform\\\\engines\"/*.php)"
     ]
   }
 }

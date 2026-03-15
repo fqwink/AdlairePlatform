@@ -1,21 +1,11 @@
 <?php
 /**
- * Validator - 入力バリデーション
+ * Validator - 入力バリデーション（後方互換シム）
  *
- * AFE.Utilities.php の Validator を AdlairePlatform エンジンパターンに適応。
+ * Ver.1.8: APF\Utilities\Validator と並行。
+ * Stage 8 で削除予定。
  *
- * Ver.1.5: APF\Utilities\Validator に内部委譲。既存 static API は完全維持。
- *
- * 使用例:
- *   $v = Validator::make($data, [
- *       'name'  => 'required|min:2|max:100',
- *       'email' => 'required|email',
- *   ]);
- *   if ($v->fails()) { $errors = $v->errors(); }
- *
- * 対応ルール:
- *   required, email, min:N, max:N, numeric, integer,
- *   alpha, alphaNum, url, in:a,b,c, date, boolean, slug, regex:pattern
+ * @deprecated Ver.1.8 — APF\Utilities\Validator を使用してください
  */
 class Validator {
 
