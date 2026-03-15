@@ -1017,7 +1017,7 @@ class AdminManager {
                 $_SESSION['ap_username'] = $multiUser['username'];
                 $_SESSION['ap_role'] = $multiUser['role'];
                 self::logActivity('ログイン: ' . $multiUser['username'] . ' (' . $multiUser['role'] . ')');
-                if (class_exists('DiagnosticEngine')) \DiagnosticEngine::log('security', 'ログイン成功', ['username' => $multiUser['username']]);
+                \AIS\System\DiagnosticsManager::log('security', 'ログイン成功', ['username' => $multiUser['username']]);
                 header('Location: ./');
                 exit;
             }
@@ -1026,7 +1026,7 @@ class AdminManager {
         /* 従来の単一パスワード認証 */
         if (!password_verify($password, $passwordHash)) {
             self::recordLoginFailure($ip);
-            if (class_exists('DiagnosticEngine')) \DiagnosticEngine::log('security', 'ログイン失敗（パスワード不一致）');
+            \AIS\System\DiagnosticsManager::log('security', 'ログイン失敗（パスワード不一致）');
             $attemptsLeft = self::getRemainingAttempts($ip);
             if ($attemptsLeft > 0) {
                 return \AIS\Core\I18n::t('auth.wrong_password', ['attempts' => $attemptsLeft]);
@@ -1046,7 +1046,7 @@ class AdminManager {
         $_SESSION['l'] = true;
         $_SESSION['ap_username'] = 'admin';
         $_SESSION['ap_role'] = 'admin';
-        if (class_exists('DiagnosticEngine')) \DiagnosticEngine::log('security', 'ログイン成功', ['username' => 'admin']);
+        \AIS\System\DiagnosticsManager::log('security', 'ログイン成功', ['username' => 'admin']);
         header('Location: ./');
         exit;
     }
@@ -1077,7 +1077,7 @@ class AdminManager {
         if ($attempts['count'] >= 5) {
             $attempts['locked_until'] = time() + 900;
             $attempts['count'] = 0;
-            if (class_exists('DiagnosticEngine')) \DiagnosticEngine::log('security', 'ロックアウト発動');
+            \AIS\System\DiagnosticsManager::log('security', 'ロックアウト発動');
         }
         $data[$ip] = $attempts;
         \APF\Utilities\JsonStorage::write('login_attempts.json', $data, $dir);
@@ -1112,7 +1112,7 @@ class AdminManager {
     public static function verifyCsrf(): void {
         $token = $_POST['csrf'] ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? '');
         if (empty($_SESSION['csrf']) || !hash_equals($_SESSION['csrf'], $token)) {
-            if (class_exists('DiagnosticEngine')) \DiagnosticEngine::log('security', 'CSRF 検証失敗');
+            \AIS\System\DiagnosticsManager::log('security', 'CSRF 検証失敗');
             header('HTTP/1.1 403 Forbidden');
             exit;
         }
@@ -1161,7 +1161,7 @@ class AdminManager {
             'html_lang' => \AIS\Core\I18n::htmlLang(),
             'i18n' => \AIS\Core\I18n::allNested(),
         ];
-        return \TemplateEngine::render($tpl, $ctx, $tplDir);
+        return \ASG\Template\TemplateService::render($tpl, $ctx, $tplDir);
     }
 
     public static function renderDashboard(): string {
@@ -1171,10 +1171,10 @@ class AdminManager {
         $tpl = \APF\Utilities\FileSystem::read($tplPath);
         if ($tpl === false) return '<h1>Dashboard template read error</h1>';
         $ctx = self::buildDashboardContext();
-        if (class_exists('DiagnosticEngine') && \DiagnosticEngine::shouldShowNotice()) {
-            \DiagnosticEngine::markNoticeShown();
+        if (\AIS\System\DiagnosticsManager::shouldShowNotice()) {
+            \AIS\System\DiagnosticsManager::markNoticeShown();
         }
-        return \TemplateEngine::render($tpl, $ctx, $tplDir);
+        return \ASG\Template\TemplateService::render($tpl, $ctx, $tplDir);
     }
 
     public static function renderEditableContent(string $id, string $content, string $placeholder = 'Click to edit!'): string {
@@ -1212,7 +1212,7 @@ class AdminManager {
 
     public static function buildDashboardContext(): array {
         $selectHtml = "<select name='themeSelect' id='ap-theme-select'>";
-        foreach (\ThemeEngine::listThemes() as $val) {
+        foreach (\ASG\Template\ThemeService::listThemes() as $val) {
             $selected = ($val == \AIS\Core\AppContext::config('themeSelect', '')) ? ' selected' : '';
             $selectHtml .= '<option value="' . \APF\Utilities\Security::escape($val) . '"' . $selected . '>' . \APF\Utilities\Security::escape($val) . "</option>\n";
         }
@@ -1242,13 +1242,13 @@ class AdminManager {
             ? number_format($diskFree / 1024 / 1024, 0) . ' MB'
             : \AIS\Core\I18n::t('disk.unavailable');
 
-        $collectionsEnabled = class_exists('CollectionEngine') && \CollectionEngine::isEnabled();
-        $collectionList = $collectionsEnabled ? \CollectionEngine::listCollections() : [];
+        $collectionsEnabled = \ACE\Core\CollectionService::isEnabled();
+        $collectionList = $collectionsEnabled ? \ACE\Core\CollectionService::listCollections() : [];
         $gitEnabled = class_exists('GitEngine') && \GitEngine::isEnabled();
         $gitConfig = class_exists('GitEngine') ? \GitEngine::loadConfig() : [];
         $users = self::listUsers();
-        $webhooks = class_exists('WebhookEngine') ? \WebhookEngine::listWebhooks() : [];
-        $cacheStats = class_exists('CacheEngine') ? \CacheEngine::getStats() : ['files' => 0, 'size_human' => '0 B'];
+        $webhooks = \ACE\Api\WebhookService::listWebhooks();
+        $cacheStats = \AIS\System\ApiCache::getStats();
         $redirects = \APF\Utilities\JsonStorage::read('redirects.json', \AIS\Core\AppContext::settingsDir());
         $redirectList = [];
         foreach ($redirects as $i => $r) {
@@ -1283,7 +1283,7 @@ class AdminManager {
             'webhooks' => $webhooks, 'has_webhooks' => !empty($webhooks),
             'cache_files' => $cacheStats['files'] ?? 0, 'cache_size' => $cacheStats['size_human'] ?? '0 B',
             'redirects' => $redirectList, 'has_redirects' => !empty($redirectList),
-            'diag_show_notice' => class_exists('DiagnosticEngine') && \DiagnosticEngine::shouldShowNotice(),
+            'diag_show_notice' => \AIS\System\DiagnosticsManager::shouldShowNotice(),
             'html_lang' => \AIS\Core\I18n::htmlLang(),
             'ap_locale' => \AIS\Core\I18n::getLocale(),
             'i18n' => \AIS\Core\I18n::allNested(),
