@@ -17,12 +17,14 @@ define('AP_UPDATE_URL', 'https://api.github.com/repos/win-k/AdlairePlatform/rele
 define('AP_BACKUP_GENERATIONS', 5);
 define('AP_REVISION_LIMIT', 30);
 
-/* ── Ver.1.5: Framework オートローダー & ブートストラップ ── */
+/* ── Ver.1.5: Framework オートローダー ── */
 require __DIR__ . '/autoload.php';
-require __DIR__ . '/bootstrap.php';
 
-/* ── Ver.2.0: グローバルユーティリティ関数 ── */
+/* ── Ver.2.0: グローバルユーティリティ関数（bootstrap.php より先に読み込む） ── */
 require __DIR__ . '/Framework/AP/AP.Bridge.php';
+
+/* ── Ver.1.5: ブートストラップ（DI コンテナ・イベント初期化） ── */
+require __DIR__ . '/bootstrap.php';
 
 /* ── Ver.1.7: ルート定義（Router にルートとミドルウェアを登録） ── */
 require __DIR__ . '/routes.php';
