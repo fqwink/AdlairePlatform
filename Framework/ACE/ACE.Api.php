@@ -1048,6 +1048,9 @@ class ApiService {
     /* ── エントリーポイント ── */
 
     public static function handle(): void {
+        /* Ver.1.9: リクエスト毎に認証状態をリセット（静的変数リーク防止） */
+        self::$authenticatedViaApiKey = false;
+
         $action = $_GET['ap_api'] ?? null;
         if ($action === null) return;
 

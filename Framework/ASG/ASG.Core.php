@@ -1677,7 +1677,7 @@ class StaticService {
         \APF\Utilities\FileSystem::ensureDir(self::OUTPUT_DIR);
         \APF\Utilities\FileSystem::write(
             self::OUTPUT_DIR . '/search-index.json',
-            json_encode($index, JSON_UNESCAPED_UNICODE)
+            json_encode($index, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)
         );
         self::$changedFiles[] = self::OUTPUT_DIR . '/search-index.json';
 
@@ -1808,7 +1808,7 @@ class StaticService {
         foreach ($keys as $k) {
             $data[$k] = self::$settings[$k] ?? '';
         }
-        return md5(json_encode($data));
+        return md5(json_encode($data, JSON_THROW_ON_ERROR));
     }
 
     private static function computeContentHash(string $slug, string $content, string $settingsHash): string {

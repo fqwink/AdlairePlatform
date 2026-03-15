@@ -653,10 +653,10 @@ class DiagnosticsCollector {
 
                 /* レポートをファイルに保存 */
                 $reportPath = $collector->getDataDir() . '/crash-' . date('Ymd-His') . '.json';
-                @file_put_contents(
-                    $reportPath,
-                    json_encode($collector->getReport(), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)
-                );
+                $reportJson = json_encode($collector->getReport(), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+                if ($reportJson !== false) {
+                    @file_put_contents($reportPath, $reportJson);
+                }
 
                 if (is_callable($previousExHandler)) {
                     $previousExHandler($e);
@@ -1006,7 +1006,10 @@ class ApiCache {
         }
         $result = $callback();
         \APF\Utilities\FileSystem::ensureDir(self::CACHE_DIR);
-        \APF\Utilities\FileSystem::write($path, json_encode($result, JSON_UNESCAPED_UNICODE));
+        $json = json_encode($result, JSON_UNESCAPED_UNICODE);
+        if ($json !== false) {
+            \APF\Utilities\FileSystem::write($path, $json);
+        }
         return $result;
     }
 

@@ -1105,13 +1105,16 @@ class AdminManager {
     /* ── CSRF ── */
 
     public static function csrfToken(): string {
-        if (empty($_SESSION['csrf'])) $_SESSION['csrf'] = bin2hex(random_bytes(32));
-        return $_SESSION['csrf'];
+        /* Ver.1.9: キー名を csrf_token に統一 */
+        if (empty($_SESSION['csrf_token'])) $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+        return $_SESSION['csrf_token'];
     }
 
     public static function verifyCsrf(): void {
         $token = $_POST['csrf'] ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? '');
-        if (empty($_SESSION['csrf']) || !hash_equals($_SESSION['csrf'], $token)) {
+        /* Ver.1.9: キー名を csrf_token に統一（後方互換フォールバック付き） */
+        $sessionCsrf = $_SESSION['csrf_token'] ?? $_SESSION['csrf'] ?? '';
+        if ($sessionCsrf === '' || $token === '' || !hash_equals($sessionCsrf, $token)) {
             \AIS\System\DiagnosticsManager::log('security', 'CSRF 検証失敗');
             header('HTTP/1.1 403 Forbidden');
             exit;

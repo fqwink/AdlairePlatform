@@ -98,7 +98,8 @@ class BuildCache {
             'created' => time(),
         ];
 
-        file_put_contents($file, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE), LOCK_EX);
+        $json = json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+        file_put_contents($file, $json, LOCK_EX);
     }
 
     /**
