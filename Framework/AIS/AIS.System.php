@@ -65,9 +65,14 @@ class CacheStore {
             return null;
         }
 
-        $data = @unserialize($content);
-        if ($data === false || !is_array($data)) {
-            return null;
+        /* Ver.1.9: unserialize → JSON に置換（オブジェクトインジェクション防止） */
+        $data = json_decode($content, true);
+        if (!is_array($data)) {
+            /* レガシー serialize 形式のフォールバック読み取り（読み取り専用、次回保存時にJSON化） */
+            $data = @unserialize($content, ['allowed_classes' => false]);
+            if ($data === false || !is_array($data)) {
+                return null;
+            }
         }
 
         /* TTL チェック */
@@ -95,7 +100,8 @@ class CacheStore {
             'expires_at' => $ttl > 0 ? time() + $ttl : 0,
         ];
 
-        file_put_contents($path, serialize($data), LOCK_EX);
+        /* Ver.1.9: JSON 形式で保存（serialize 廃止） */
+        file_put_contents($path, json_encode($data, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR), LOCK_EX);
     }
 
     /**

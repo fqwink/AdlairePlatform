@@ -46,7 +46,8 @@ class CsrfMiddleware extends Middleware {
         }
 
         $token = $request->post('csrf') ?? $request->header('X-Csrf-Token', '');
-        $sessionCsrf = $_SESSION['csrf'] ?? '';
+        /* Ver.1.9: キー名を Security::csrfToken() と統一 (csrf → csrf_token) */
+        $sessionCsrf = $_SESSION['csrf_token'] ?? $_SESSION['csrf'] ?? '';
         if ($sessionCsrf === '' || $token === '' || !hash_equals($sessionCsrf, (string)$token)) {
             return Response::json(['error' => 'CSRF verification failed'], 403);
         }
