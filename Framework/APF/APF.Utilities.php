@@ -225,7 +225,7 @@ class Validator {
 
         $allowed = explode(',', $parameter);
         
-        if (!in_array($value, $allowed)) {
+        if (!in_array($value, $allowed, true)) {
             $this->addError($field, 'in', "{$field} must be one of: " . implode(', ', $allowed));
         }
     }

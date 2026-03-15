@@ -125,7 +125,20 @@ class RequestLoggingMiddleware extends Middleware {
     public function handle(Request $request, \Closure $next): Response {
         $start = hrtime(true);
 
-        $response = $next($request);
+        try {
+            $response = $next($request);
+        } catch (\Throwable $e) {
+            $elapsed = (hrtime(true) - $start) / 1_000_000;
+            \APF\Utilities\Logger::error('HTTP request failed', [
+                'request_id' => $request->requestId(),
+                'method'     => $request->method(),
+                'uri'        => $request->uri(),
+                'elapsed_ms' => round($elapsed, 2),
+                'ip'         => $request->ip(),
+                'error'      => $e->getMessage(),
+            ]);
+            throw $e;
+        }
 
         $elapsed = (hrtime(true) - $start) / 1_000_000; /* ms */
 
@@ -172,15 +185,21 @@ class CorsMiddleware extends Middleware {
         }
 
         $origin = $request->header('Origin', '');
-        $allowOrigin = in_array('*', $this->allowedOrigins, true)
-            ? '*'
-            : (in_array($origin, $this->allowedOrigins, true) ? $origin : '');
+        if (in_array('*', $this->allowedOrigins, true)) {
+            /* ワイルドカード時は実オリジンを返す（credentials 互換） */
+            $allowOrigin = $origin !== '' ? $origin : '*';
+        } else {
+            $allowOrigin = in_array($origin, $this->allowedOrigins, true) ? $origin : '';
+        }
 
         if ($allowOrigin !== '') {
             $response->withHeader('Access-Control-Allow-Origin', $allowOrigin);
             $response->withHeader('Access-Control-Allow-Methods', implode(', ', $this->allowedMethods));
             $response->withHeader('Access-Control-Allow-Headers', implode(', ', $this->allowedHeaders));
             $response->withHeader('Access-Control-Max-Age', (string)$this->maxAge);
+            if ($allowOrigin !== '*') {
+                $response->withHeader('Vary', 'Origin');
+            }
         }
 
         return $response;
