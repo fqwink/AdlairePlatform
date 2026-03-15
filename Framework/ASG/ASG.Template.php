@@ -2096,7 +2096,7 @@ class ThemeService {
                     'url'      => $canonicalUrl,
                 ];
             }
-            $jsonLd = '<script type="application/ld+json">' . json_encode($ld, JSON_UNESCAPED_UNICODE) . '</script>';
+            $jsonLd = '<script type="application/ld+json">' . json_encode($ld, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . '</script>';
         }
 
         $breadcrumbLd = '';
@@ -2115,7 +2115,7 @@ class ThemeService {
                 '@context'        => 'https://schema.org',
                 '@type'           => 'BreadcrumbList',
                 'itemListElement' => $crumbs,
-            ], JSON_UNESCAPED_UNICODE) . '</script>';
+            ], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . '</script>';
         }
 
         return [
