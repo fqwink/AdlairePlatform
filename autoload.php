@@ -39,19 +39,13 @@ spl_autoload_register(function (string $class): void {
         'ASG\\Core\\'       => 'Framework/ASG/ASG.Core.php',
         'ASG\\Template\\'   => 'Framework/ASG/ASG.Template.php',
         'ASG\\Utilities\\'  => 'Framework/ASG/ASG.Utilities.php',
+
+        /* AP - Adlaire Platform Controllers */
+        'AP\\Controllers\\' => 'Framework/AP/AP.Controllers.php',
     ];
 
     /* 読み込み済みファイルの追跡（同一ファイルの二重 require を防止） */
     static $loaded = [];
-
-    /* Ver.1.7: Controller PSR-4 オートロード（1クラス = 1ファイル） */
-    if (str_starts_with($class, 'AP\\Controllers\\')) {
-        $file = __DIR__ . '/controllers/' . substr($class, strlen('AP\\Controllers\\')) . '.php';
-        if (is_file($file)) {
-            require $file;
-        }
-        return;
-    }
 
     foreach ($map as $prefix => $file) {
         if (str_starts_with($class, $prefix)) {
