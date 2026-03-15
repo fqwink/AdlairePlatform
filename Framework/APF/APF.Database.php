@@ -581,8 +581,15 @@ abstract class Model {
         return strtolower($class) . 's';
     }
 
-    public static function all(): array {
-        $results = static::query()->get();
+    /**
+     * @updated Ver.1.9 デフォルト LIMIT 追加（OOM 防止）
+     */
+    public static function all(int $limit = 1000): array {
+        $query = static::query();
+        if ($limit > 0) {
+            $query->limit($limit);
+        }
+        $results = $query->get();
         return array_map(fn($data) => new static($data), $results);
     }
 
@@ -714,11 +721,11 @@ abstract class Model {
         $this->attributes[$key] = $value;
     }
 
-    public function getAttribute(string $key) {
+    public function getAttribute(string $key): mixed {
         return $this->attributes[$key] ?? null;
     }
 
-    public function __get(string $key) {
+    public function __get(string $key): mixed {
         return $this->getAttribute($key);
     }
 
