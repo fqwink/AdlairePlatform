@@ -142,8 +142,13 @@ class BuildCache {
         $state['version'] = '1.0.0';
 
         $json = json_encode($state, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
-        if ($json !== false) {
-            file_put_contents($this->stateFile, $json, LOCK_EX);
+        if ($json === false) {
+            throw new \RuntimeException('Failed to encode build state as JSON');
+        }
+
+        $written = file_put_contents($this->stateFile, $json, LOCK_EX);
+        if ($written === false) {
+            throw new \RuntimeException("Failed to write build state: {$this->stateFile}");
         }
 
         $this->stateCache = $state;

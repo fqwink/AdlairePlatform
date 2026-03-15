@@ -274,6 +274,7 @@ class AdminController extends BaseController {
 		} else {
 			\ACE\Admin\AdminManager::saveRevision($fieldname, $content);
 			$pages = json_read('pages.json', content_dir());
+			if (!is_array($pages)) $pages = [];
 			$pages[$fieldname] = $content;
 			json_write('pages.json', $pages, content_dir());
 			\ACE\Admin\AdminManager::logActivity('ページ編集: ' . $fieldname);
@@ -894,6 +895,9 @@ class UpdateController extends BaseController {
 		if ($err = $this->requireRole('admin')) return $err;
 
 		$name = trim($request->post('backup', ''));
+		if ($name === '' || !preg_match('/^[a-zA-Z0-9_\-\.]+$/', $name)) {
+			return $this->error('Invalid backup name');
+		}
 		try {
 			$result = \AIS\Deployment\UpdateService::executeRollback($name);
 			\ACE\Admin\AdminManager::logActivity('ロールバック実行: ' . basename($name));
@@ -908,6 +912,9 @@ class UpdateController extends BaseController {
 		if ($err = $this->requireRole('admin')) return $err;
 
 		$name = trim($request->post('backup', ''));
+		if ($name === '' || !preg_match('/^[a-zA-Z0-9_\-\.]+$/', $name)) {
+			return $this->error('Invalid backup name');
+		}
 		try {
 			$result = \AIS\Deployment\UpdateService::executeDeleteBackup($name);
 			\ACE\Admin\AdminManager::logActivity('バックアップ削除: ' . basename($name));
