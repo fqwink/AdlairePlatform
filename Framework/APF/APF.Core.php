@@ -699,8 +699,8 @@ class Response {
     }
 
     public static function json($data, int $statusCode = 200, array $headers = []): self {
-        $headers['Content-Type'] = 'application/json';
-        return new self(json_encode($data), $statusCode, $headers);
+        $headers['Content-Type'] = 'application/json; charset=UTF-8';
+        return new self(json_encode($data, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR), $statusCode, $headers);
     }
 
     public static function html(string $html, int $statusCode = 200, array $headers = []): self {
@@ -775,9 +775,8 @@ class Response {
 
         if ($this->filePath !== null) {
             readfile($this->filePath);
-            @unlink($this->filePath);
         } elseif (is_array($this->content) || is_object($this->content)) {
-            echo json_encode($this->content);
+            echo json_encode($this->content, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
         } else {
             echo $this->content;
         }
