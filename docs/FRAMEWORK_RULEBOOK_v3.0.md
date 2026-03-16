@@ -362,3 +362,29 @@ ACS の詳細仕様は §3 を参照すること。
 | `AEB.Core.ts` | エディタのブロックシステムを実装する |
 | `AEB.Blocks.ts` | ブロックの型定義と実装を提供する |
 | `AEB.Utils.ts` | ユーティリティ関数を提供する |
+
+### 5.3 言語別フレームワークリスト
+
+#### TypeScript
+
+| 接頭辞 | 正式名称 | ファイル数 |
+|--------|---------|-----------|
+| **APF** | Adlaire Platform Foundation | 5 |
+| **ACS** | Adlaire Client Services | 5 |
+| **ACE** | Adlaire Content Engine | 5 + アセット |
+| **AIS** | Adlaire Infrastructure Services | 5 |
+| **AP** | Adlaire Platform | 5 + JsEngine |
+| **ASG** | Adlaire Static Generator | 5 |
+| **AEB** | Adlaire Editor & Blocks | 3 |
+
+#### PHP
+
+| 接頭辞 | 正式名称 | ファイル数 |
+|--------|---------|-----------|
+| **ASS** | Adlaire Server System | 5 |
+
+#### CSS
+
+| 接頭辞 | 正式名称 | ファイル数 |
+|--------|---------|-----------|
+| **ADS** | Adlaire Design System | 3 |
