@@ -387,11 +387,84 @@ Ver.2.1-41 | 最終更新: 2026-03-16
 
 ---
 
+## ASS — Adlaire Server System（PHP 8.3+）
+
+| 機能 | ステータス | 備考 |
+|------|-----------|------|
+| **Application (エントリポイント)** | ✅ | boot/run、CORS・セキュリティヘッダー自動付与 |
+| **Router** | ✅ | GET/POST ルーティング、OPTIONS プリフライト対応 |
+| **Request** | ✅ | fromGlobals()、JSON/FormData 両対応、ヘッダー/クッキー/ファイル取得 |
+| **Response** | ✅ | json/file レスポンス、Cookie 設定/クリア、ヘッダー設定 |
+| **ApiResponse** | ✅ | ACS 契約準拠の ok/error レスポンスビルダー |
+| **AuthService.authenticate()** | ✅ | SHA-256 パスワードハッシュ検証、セッション発行 |
+| **AuthService.logout()** | ✅ | セッション破棄、Cookie クリア |
+| **AuthService.getSession()** | ✅ | セッション情報取得（有効期限チェック付き） |
+| **AuthService.verifyToken()** | ✅ | トークン検証、ユーザー情報返却 |
+| **AuthService CSRF** | ✅ | 使い捨てトークン生成/検証（1時間TTL） |
+| **StorageService.read()** | ✅ | JSONファイル読み込み（パストラバーサル防止） |
+| **StorageService.write()** | ✅ | JSONファイル書き込み（ディレクトリ自動作成、LOCK_EX） |
+| **StorageService.delete()** | ✅ | ファイル削除 |
+| **StorageService.exists()** | ✅ | ファイル存在確認 |
+| **StorageService.list()** | ✅ | ディレクトリ一覧（拡張子フィルタ対応） |
+| **FileService.upload()** | ✅ | バイナリファイルアップロード（is_uploaded_file 検証） |
+| **FileService.uploadImage()** | ✅ | 画像アップロード + サムネイル自動生成（GD ライブラリ使用） |
+| **FileService.resolve()** | ✅ | ファイルパス解決（realpath でトラバーサル防止） |
+| **FileService.deleteFile()** | ✅ | ファイル削除 |
+| **FileService.fileExists()** | ✅ | ファイル存在確認 |
+| **FileService.getImageInfo()** | ✅ | 画像メタデータ取得（width/height/mime/size/aspect） |
+| **GitService.configure()** | ✅ | Git 設定保存 + user.name/user.email 適用 |
+| **GitService.getConfig()** | ✅ | Git 設定取得 |
+| **GitService.testConnection()** | ✅ | git ls-remote による接続テスト |
+| **GitService.pull()** | ✅ | git pull origin {branch} |
+| **GitService.push()** | ✅ | git push origin {branch} |
+| **GitService.log()** | ✅ | コミットログ取得（hash/message/author/date） |
+| **GitService.status()** | ✅ | git status --porcelain パース |
+| **Health check** | ✅ | ファイルシステム・Git 可用性チェック |
+| **SessionManager** | ✅ | ファイルベースセッション管理（TTL・purge 対応） |
+| **CsrfManager** | ✅ | 使い捨てCSRFトークン管理 |
+| **PathSecurity** | ✅ | ディレクトリトラバーサル防止、許可ディレクトリ検証 |
+| **GitCommand** | ✅ | proc_open による安全な Git コマンド実行 |
+| **MimeType** | ✅ | 拡張子ベースの MIME タイプ判定 |
+| **Token** | ✅ | 暗号論的に安全なトークン生成、SHA-256 ハッシュ |
+| **Bearer 認証ミドルウェア** | ✅ | Authorization ヘッダー + Cookie フォールバック |
+
+### ASS API エンドポイント一覧
+
+| メソッド | エンドポイント | 機能 |
+|---------|---------------|------|
+| POST | `/login` | ログイン |
+| POST | `/logout` | ログアウト |
+| GET | `/api/session` | セッション取得 |
+| POST | `/api/session/verify` | トークン検証 |
+| GET | `/api/csrf` | CSRFトークン取得 |
+| POST | `/api/csrf/verify` | CSRFトークン検証 |
+| GET | `/api/storage/read` | JSONファイル読み込み |
+| POST | `/api/storage/write` | JSONファイル書き込み |
+| POST | `/api/storage/delete` | ファイル削除 |
+| GET | `/api/storage/exists` | ファイル存在確認 |
+| GET | `/api/storage/list` | ディレクトリ一覧 |
+| POST | `/api/files/upload` | ファイルアップロード |
+| POST | `/api/files/upload-image` | 画像アップロード（サムネイル生成） |
+| GET | `/api/files/download` | ファイルダウンロード |
+| POST | `/api/files/delete` | ファイル削除 |
+| GET | `/api/files/exists` | ファイル存在確認 |
+| GET | `/api/files/info` | 画像メタデータ取得 |
+| POST | `/api/git/configure` | Git 設定保存 |
+| GET | `/api/git/config` | Git 設定取得 |
+| GET | `/api/git/test` | Git 接続テスト |
+| POST | `/api/git/pull` | Git pull |
+| POST | `/api/git/push` | Git push |
+| GET | `/api/git/log` | コミットログ取得 |
+| GET | `/api/git/status` | ワーキングツリー状態取得 |
+| GET | `/health` | ヘルスチェック |
+
+---
+
 ## 統計サマリー
 
 | カテゴリ | 件数 |
 |---------|------|
-| ✅ 実装済み機能 | 約 130 |
+| ✅ 実装済み機能 | 約 165 |
 | ⚠️ 部分実装 | 約 10 |
 | 🔧 スタブ/プレースホルダ | 約 25 |
 | ❌ 未実装（インターフェースのみ） | 約 15 |
@@ -408,4 +481,5 @@ Ver.2.1-41 | 最終更新: 2026-03-16
 | AP | 60% | GitController/StaticController/DiagnosticController大半がスタブ（サービス層は実装済みだが未接続） |
 | ACS | 95% | StorageService.watch()のスタブ除きほぼ完成 |
 | AEB | 100% | ブロックエディタ完全実装 |
+| ASS | 100% | PHP 8.3+ サーバ（認証・ストレージ・Git）全機能実装 |
 | JsEngine | 100% | ブラウザサイドUI完全実装 |
