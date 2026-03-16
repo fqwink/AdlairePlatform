@@ -56,24 +56,6 @@ export class BuildStatus {
 }
 
 // ============================================================================
-// Build Mode
-// ============================================================================
-
-/**
- * ビルドモード — フル or 差分
- */
-export class BuildMode {
-  static readonly FULL = new BuildMode("full");
-  static readonly DIFF = new BuildMode("diff");
-
-  private constructor(public readonly value: "full" | "diff") {}
-
-  toString(): string {
-    return this.value;
-  }
-}
-
-// ============================================================================
 // URL Style
 // ============================================================================
 
@@ -150,17 +132,6 @@ export class ThemeError extends Error {
 // ============================================================================
 // Constants
 // ============================================================================
-
-/** デフォルトの画像最大寸法 */
-export const IMAGE_DEFAULTS = {
-  MAX_WIDTH: 1920,
-  MAX_HEIGHT: 1920,
-  THUMB_WIDTH: 400,
-  THUMB_HEIGHT: 400,
-  JPEG_QUALITY: 85,
-  WEBP_QUALITY: 80,
-  MAX_FILE_SIZE: 52_428_800, // 50MB
-} as const;
 
 /** パーシャル展開の最大ネスト深度 */
 export const PARTIAL_MAX_DEPTH = 10;

@@ -1,7 +1,7 @@
 /**
  * AdlairePlatform — Deno HTTP Server Entry Point
  *
- * PHP index.php からの移植。Deno.serve() で HTTP サーバを起動し、
+ * Deno.serve() で HTTP サーバを起動し、
  * Router ディスパッチ → ページレンダリングのフローを実行する。
  *
  * 起動: deno task start

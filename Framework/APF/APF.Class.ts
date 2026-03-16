@@ -146,33 +146,11 @@ export class ValidationError extends FrameworkError {
 }
 
 /**
- * 認証エラー
- */
-export class AuthenticationError extends FrameworkError {
-  constructor(message: string = "Unauthorized") {
-    super(message, "AUTH_ERROR");
-    this.name = "AuthenticationError";
-  }
-}
-
-/**
  * Not Found エラー
  */
 export class NotFoundError extends FrameworkError {
   constructor(message: string = "Not Found") {
     super(message, "NOT_FOUND");
     this.name = "NotFoundError";
-  }
-}
-
-/**
- * レートリミットエラー
- */
-export class RateLimitError extends FrameworkError {
-  constructor(
-    public readonly retryAfter: number,
-  ) {
-    super("Too Many Requests", "RATE_LIMIT");
-    this.name = "RateLimitError";
   }
 }

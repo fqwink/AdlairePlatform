@@ -2,7 +2,6 @@
  * AdlairePlatform — ルート定義
  *
  * Router にルートとミドルウェアを登録する。
- * PHP routes.php からの移植。
  *
  * @since 2.0.0
  * @license Adlaire License Ver.2.0

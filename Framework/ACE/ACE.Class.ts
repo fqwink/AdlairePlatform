@@ -8,63 +8,6 @@
  * @license Adlaire License Ver.2.0
  */
 
-import type { FieldType } from "../types.ts";
-
-// ============================================================================
-// Content Format
-// ============================================================================
-
-/**
- * コンテンツフォーマット
- */
-export class ContentFormat {
-  static readonly MARKDOWN = new ContentFormat("markdown", ".md");
-  static readonly HTML = new ContentFormat("html", ".html");
-  static readonly JSON = new ContentFormat("json", ".json");
-
-  private constructor(
-    public readonly value: string,
-    public readonly extension: string,
-  ) {}
-
-  toString(): string {
-    return this.value;
-  }
-
-  static from(name: string): ContentFormat {
-    switch (name.toLowerCase()) {
-      case "markdown":
-      case "md":
-        return ContentFormat.MARKDOWN;
-      case "html":
-        return ContentFormat.HTML;
-      case "json":
-        return ContentFormat.JSON;
-      default:
-        throw new Error(`Unknown content format: ${name}`);
-    }
-  }
-}
-
-// ============================================================================
-// Sort Order
-// ============================================================================
-
-export class SortOrder {
-  static readonly ASC = new SortOrder("asc");
-  static readonly DESC = new SortOrder("desc");
-
-  private constructor(public readonly value: "asc" | "desc") {}
-
-  static from(name: string): SortOrder {
-    return name.toLowerCase() === "desc" ? SortOrder.DESC : SortOrder.ASC;
-  }
-
-  toString(): string {
-    return this.value;
-  }
-}
-
 // ============================================================================
 // Errors
 // ============================================================================
@@ -110,23 +53,8 @@ export class DuplicateSlugError extends Error {
 }
 
 // ============================================================================
-// Field Type Helpers
+// Helpers
 // ============================================================================
-
-/**
- * フィールドタイプのデフォルト値マッピング
- */
-export const FIELD_TYPE_DEFAULTS: Record<FieldType, unknown> = {
-  string: "",
-  text: "",
-  number: 0,
-  boolean: false,
-  date: "",
-  datetime: "",
-  array: [],
-  image: "",
-  select: "",
-};
 
 /**
  * スラッグとして許可される文字パターン

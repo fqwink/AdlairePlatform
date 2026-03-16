@@ -2,7 +2,6 @@
  * AdlairePlatform — ブートストラップ
  *
  * DI コンテナ初期化、サービス登録、イベントリスナー設定。
- * PHP bootstrap.php からの移植。
  *
  * @since 2.0.0
  * @license Adlaire License Ver.2.0
