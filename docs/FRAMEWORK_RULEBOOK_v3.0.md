@@ -135,7 +135,7 @@ globalThis.__acs = {
 
 ### §3.4 型定義規則
 
-ACS の公開型定義は `Framework/ACS/ACS.d.ts` に配置する。各フレームワークは、この `ACS.d.ts` を `import type` でのみ参照できる。値を伴う `import`（実装の `import`）は禁止する。
+ACS が外部に公開する型定義は、すべて `Framework/ACS/ACS.d.ts` に集約して配置する。各フレームワークがこの型定義を利用する際は、TypeScript の `import type` 構文による型のみの参照に限定しなければならない。実行時に値を伴う通常の `import` 文で ACS の実装コードを参照することは禁止する。
 
 ```typescript
 // 許可: 型のみの参照
