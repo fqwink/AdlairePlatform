@@ -84,9 +84,13 @@ export abstract class BaseController implements BaseControllerInterface {
   }
 
   /**
-   * POST body から JSON をパースする
+   * POST body からパース済みデータを取得する
    */
   protected parseBody(request: RequestContext): Record<string, unknown> {
+    // Prefer pre-parsed postData (handles JSON, URL-encoded, FormData)
+    if (request.postData && Object.keys(request.postData).length > 0) {
+      return request.postData;
+    }
     if (!request.body) return {};
     try {
       return JSON.parse(request.body);
@@ -185,16 +189,19 @@ export class ApiController extends BaseController implements ApiControllerInterf
 export class AdminController extends BaseController implements AdminControllerInterface {
   async editField(request: RequestContext): Promise<ResponseData> {
     const body = this.parseBody(request);
-    const page = String(body.page ?? "");
-    const field = String(body.field ?? "");
-    const value = body.value;
+    // Browser scripts send 'fieldname' and 'content'; also support 'page'/'field'/'value'
+    const fieldname = String(body.fieldname ?? "");
+    const content = body.content;
+    const page = String(body.page ?? "home");
+    const field = String(body.field ?? fieldname ?? "");
+    const value = content ?? body.value;
 
-    if (!page || !field) {
-      return this.error("page and field are required");
+    if (!field) {
+      return this.error("fieldname is required");
     }
 
     // Validate page slug to prevent path traversal
-    if (/[^a-zA-Z0-9_-]/.test(page)) {
+    if (/[^a-zA-Z0-9_\-/]/.test(page)) {
       return this.error("Invalid page slug");
     }
 
@@ -210,14 +217,17 @@ export class AdminController extends BaseController implements AdminControllerIn
 
   async uploadImage(request: RequestContext): Promise<ResponseData> {
     const body = this.parseBody(request);
-    const filename = String(body.filename ?? "");
-    const data = String(body.data ?? "");
+    // Browser scripts send 'image' as File via FormData
+    const imageFile = body.image;
+    const filename = String(body.filename ?? (imageFile instanceof File ? imageFile.name : ""));
+    const data = body.data;
 
-    if (!filename || !data) {
-      return this.error("filename and data are required");
+    if (!filename) {
+      return this.error("filename is required");
     }
 
-    const result = await this.client.files.upload(new Blob([data]), filename);
+    const uploadBlob = imageFile instanceof Blob ? imageFile : new Blob([String(data ?? "")]);
+    const result = await this.client.files.upload(uploadBlob, filename);
     return result.success
       ? this.ok({ path: result.path })
       : this.error(result.error ?? "Upload failed");
@@ -812,15 +822,11 @@ export class ActionDispatcher implements ActionDispatcherInterface {
   }
 
   handle(request: RequestContext): Promise<ResponseData> {
-    let body: Record<string, unknown> = {};
-    if (request.body) {
-      try {
-        body = JSON.parse(request.body);
-      } catch {
-        // non-JSON body, use empty
-      }
-    }
-    const actionName = String(body.action ?? request.query["action"] ?? "");
+    // Use pre-parsed postData (supports JSON, URL-encoded, and FormData)
+    const body = request.postData ?? {};
+    const actionName = String(
+      body.ap_action ?? body.action ?? request.query["ap_action"] ?? "",
+    );
 
     if (!actionName) {
       throw new UnknownActionError("(empty)");
@@ -841,7 +847,8 @@ export class ActionDispatcher implements ActionDispatcherInterface {
       throw new ControllerError(`Action not found: ${mapping.controller}.${mapping.method}`);
     }
 
-    return action(request);
+    const result = action(request);
+    return result instanceof Promise ? result : Promise.resolve(result);
   }
 
   registeredActions(): ActionDefinition[] {

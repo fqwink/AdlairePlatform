@@ -38,7 +38,8 @@ function wrapController(
   fn: (ctx: RequestContext) => ResponseData | Promise<ResponseData>,
 ): (req: RequestInterface) => Promise<ResponseInterface> {
   return async (req: RequestInterface): Promise<ResponseInterface> => {
-    const data = await fn(req.toContext());
+    const result = fn(req.toContext());
+    const data = result instanceof Promise ? await result : result;
     return new Response(data.body, data.statusCode, data.headers);
   };
 }
@@ -78,14 +79,25 @@ export function registerPlatformRoutes(
   router.post("/login", wrapController((ctx) => auth.authenticate(ctx)));
   router.post("/logout", wrapController((ctx) => auth.logout(ctx)));
 
+  // ── POST アクションディスパッチ ──
+  // Browser scripts POST to '/' or './' (relative to /admin/) with ap_action in body.
+  const dispatchHandler = wrapController((ctx) => api.dispatch(ctx));
+
   // ── 認証必須エリア ──
   const mwOptions = authMiddleware ? { middleware: [authMiddleware] } : {};
+
+  // POST to root '/' for scripts using absolute path (wysiwyg, editInplace, updater)
+  const rootPost = router.post("/", dispatchHandler);
+  if (authMiddleware) rootPost.middleware(authMiddleware);
 
   router.group({ prefix: "/admin", ...mwOptions }, (r) => {
     r.get("/", wrapController((ctx) => dashboard.index(ctx)));
 
-    // 統合 POST アクションディスパッチャ
-    r.post("/api", wrapController((ctx) => api.dispatch(ctx)));
+    // POST to '/admin/' for scripts using './' relative path (ap-utils post/postAction)
+    r.post("/", dispatchHandler);
+
+    // 統合 POST アクションディスパッチャ (explicit API path)
+    r.post("/api", dispatchHandler);
 
     // Git
     r.get("/git/status", wrapController((ctx) => git.status(ctx)));

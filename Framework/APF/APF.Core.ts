@@ -337,6 +337,24 @@ export class Request implements RequestInterface {
     } else if (body && headers["content-type"]?.includes("application/x-www-form-urlencoded")) {
       const params = new URLSearchParams(body);
       params.forEach((v, k) => { postData[k] = v; });
+    } else if (headers["content-type"]?.includes("multipart/form-data")) {
+      // Re-create the request to parse FormData (body was consumed as text above)
+      try {
+        const formReq = new globalThis.Request(req.url, {
+          method: req.method,
+          headers: req.headers,
+          body: new TextEncoder().encode(body),
+        });
+        const formData = await formReq.formData();
+        for (const [k, v] of formData.entries()) {
+          if (typeof v === "string") {
+            postData[k] = v;
+          } else {
+            // File objects are kept as-is for upload handlers
+            postData[k] = v;
+          }
+        }
+      } catch { /* FormData parse failed */ }
     }
 
     return new Request({
@@ -418,6 +436,7 @@ export class Request implements RequestInterface {
       method: this._method,
       path: this._path,
       query: this._query,
+      postData: this._postData,
       headers: this._headers,
       body: this._body,
       ip: this.ip(),

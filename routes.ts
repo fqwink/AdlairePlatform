@@ -80,17 +80,17 @@ export function registerRoutes(app: ApplicationFacade): void {
   router.middleware(new RequestLoggingMiddleware());
 
   // ══════════════════════════════════════════════════
-  // クエリ/POST パラメータ → URI パスのマッピング（後方互換）
+  // クエリパラメータ → URI パスのマッピング（後方互換）
   //
-  //   ?login         → /login
-  //   ?admin         → /admin
-  //   POST ap_action → /dispatch
-  //   ?ap_api=X      → /api/X
+  //   ?login    → /login
+  //   ?admin    → /admin
+  //   ?ap_api=X → /api/X
+  //
+  // POST ap_action dispatch は registerPlatformRoutes で処理
   // ══════════════════════════════════════════════════
   router.mapQuery("login", "/login");
   router.mapQuery("admin", "/admin");
   router.mapQuery("ap_api", "/api/{endpoint}", "endpoint");
-  router.mapPost("ap_action", "/dispatch");
 
   // ══════════════════════════════════════════════════
   // ヘルスチェック（認証不要）

@@ -11,18 +11,17 @@
 
 import type { ActionDefinition, RequestContext, ResponseData } from "../types.ts";
 
+/** コントローラーメソッドの戻り値型（同期/非同期どちらも可） */
+type ControllerResult = ResponseData | Promise<ResponseData>;
+
 // ============================================================================
 // Base Controller
 // ============================================================================
 
 /**
  * コントローラーのハンドラ型
- *
- * APF の RequestInterface/ResponseInterface に依存しないよう、
- * types.ts のプリミティブ型で表現。
- * 実装時に APF.Interface の型でラップする。
  */
-export type ControllerAction = (request: RequestContext) => Promise<ResponseData>;
+export type ControllerAction = (request: RequestContext) => ControllerResult;
 
 export interface BaseControllerInterface {
   /** アクションメソッドの存在確認 */
@@ -36,9 +35,9 @@ export interface BaseControllerInterface {
 // ============================================================================
 
 export interface AuthControllerInterface extends BaseControllerInterface {
-  showLogin(request: RequestContext): Promise<ResponseData>;
-  authenticate(request: RequestContext): Promise<ResponseData>;
-  logout(request: RequestContext): Promise<ResponseData>;
+  showLogin(request: RequestContext): ControllerResult;
+  authenticate(request: RequestContext): ControllerResult;
+  logout(request: RequestContext): ControllerResult;
 }
 
 // ============================================================================
@@ -46,7 +45,7 @@ export interface AuthControllerInterface extends BaseControllerInterface {
 // ============================================================================
 
 export interface DashboardControllerInterface extends BaseControllerInterface {
-  index(request: RequestContext): Promise<ResponseData>;
+  index(request: RequestContext): ControllerResult;
 }
 
 // ============================================================================
@@ -54,7 +53,7 @@ export interface DashboardControllerInterface extends BaseControllerInterface {
 // ============================================================================
 
 export interface ApiControllerInterface extends BaseControllerInterface {
-  dispatch(request: RequestContext): Promise<ResponseData>;
+  dispatch(request: RequestContext): ControllerResult;
 }
 
 // ============================================================================
@@ -62,18 +61,18 @@ export interface ApiControllerInterface extends BaseControllerInterface {
 // ============================================================================
 
 export interface AdminControllerInterface extends BaseControllerInterface {
-  editField(request: RequestContext): Promise<ResponseData>;
-  uploadImage(request: RequestContext): Promise<ResponseData>;
-  deletePage(request: RequestContext): Promise<ResponseData>;
-  listRevisions(request: RequestContext): Promise<ResponseData>;
-  getRevision(request: RequestContext): Promise<ResponseData>;
-  restoreRevision(request: RequestContext): Promise<ResponseData>;
-  pinRevision(request: RequestContext): Promise<ResponseData>;
-  searchRevisions(request: RequestContext): Promise<ResponseData>;
-  userAdd(request: RequestContext): Promise<ResponseData>;
-  userDelete(request: RequestContext): Promise<ResponseData>;
-  redirectAdd(request: RequestContext): Promise<ResponseData>;
-  redirectDelete(request: RequestContext): Promise<ResponseData>;
+  editField(request: RequestContext): ControllerResult;
+  uploadImage(request: RequestContext): ControllerResult;
+  deletePage(request: RequestContext): ControllerResult;
+  listRevisions(request: RequestContext): ControllerResult;
+  getRevision(request: RequestContext): ControllerResult;
+  restoreRevision(request: RequestContext): ControllerResult;
+  pinRevision(request: RequestContext): ControllerResult;
+  searchRevisions(request: RequestContext): ControllerResult;
+  userAdd(request: RequestContext): ControllerResult;
+  userDelete(request: RequestContext): ControllerResult;
+  redirectAdd(request: RequestContext): ControllerResult;
+  redirectDelete(request: RequestContext): ControllerResult;
 }
 
 // ============================================================================
@@ -81,11 +80,11 @@ export interface AdminControllerInterface extends BaseControllerInterface {
 // ============================================================================
 
 export interface CollectionControllerInterface extends BaseControllerInterface {
-  create(request: RequestContext): Promise<ResponseData>;
-  delete(request: RequestContext): Promise<ResponseData>;
-  itemSave(request: RequestContext): Promise<ResponseData>;
-  itemDelete(request: RequestContext): Promise<ResponseData>;
-  migrate(request: RequestContext): Promise<ResponseData>;
+  create(request: RequestContext): ControllerResult;
+  delete(request: RequestContext): ControllerResult;
+  itemSave(request: RequestContext): ControllerResult;
+  itemDelete(request: RequestContext): ControllerResult;
+  migrate(request: RequestContext): ControllerResult;
 }
 
 // ============================================================================
@@ -93,13 +92,13 @@ export interface CollectionControllerInterface extends BaseControllerInterface {
 // ============================================================================
 
 export interface GitControllerInterface extends BaseControllerInterface {
-  configure(request: RequestContext): Promise<ResponseData>;
-  test(request: RequestContext): Promise<ResponseData>;
-  pull(request: RequestContext): Promise<ResponseData>;
-  push(request: RequestContext): Promise<ResponseData>;
-  log(request: RequestContext): Promise<ResponseData>;
-  status(request: RequestContext): Promise<ResponseData>;
-  previewBranch(request: RequestContext): Promise<ResponseData>;
+  configure(request: RequestContext): ControllerResult;
+  test(request: RequestContext): ControllerResult;
+  pull(request: RequestContext): ControllerResult;
+  push(request: RequestContext): ControllerResult;
+  log(request: RequestContext): ControllerResult;
+  status(request: RequestContext): ControllerResult;
+  previewBranch(request: RequestContext): ControllerResult;
 }
 
 // ============================================================================
@@ -107,10 +106,10 @@ export interface GitControllerInterface extends BaseControllerInterface {
 // ============================================================================
 
 export interface WebhookControllerInterface extends BaseControllerInterface {
-  add(request: RequestContext): Promise<ResponseData>;
-  delete(request: RequestContext): Promise<ResponseData>;
-  toggle(request: RequestContext): Promise<ResponseData>;
-  test(request: RequestContext): Promise<ResponseData>;
+  add(request: RequestContext): ControllerResult;
+  delete(request: RequestContext): ControllerResult;
+  toggle(request: RequestContext): ControllerResult;
+  test(request: RequestContext): ControllerResult;
 }
 
 // ============================================================================
@@ -118,12 +117,12 @@ export interface WebhookControllerInterface extends BaseControllerInterface {
 // ============================================================================
 
 export interface StaticControllerInterface extends BaseControllerInterface {
-  buildDiff(request: RequestContext): Promise<ResponseData>;
-  buildAll(request: RequestContext): Promise<ResponseData>;
-  clean(request: RequestContext): Promise<ResponseData>;
-  buildZip(request: RequestContext): Promise<ResponseData>;
-  status(request: RequestContext): Promise<ResponseData>;
-  deployDiff(request: RequestContext): Promise<ResponseData>;
+  buildDiff(request: RequestContext): ControllerResult;
+  buildAll(request: RequestContext): ControllerResult;
+  clean(request: RequestContext): ControllerResult;
+  buildZip(request: RequestContext): ControllerResult;
+  status(request: RequestContext): ControllerResult;
+  deployDiff(request: RequestContext): ControllerResult;
 }
 
 // ============================================================================
@@ -131,12 +130,12 @@ export interface StaticControllerInterface extends BaseControllerInterface {
 // ============================================================================
 
 export interface UpdateControllerInterface extends BaseControllerInterface {
-  check(request: RequestContext): Promise<ResponseData>;
-  checkEnv(request: RequestContext): Promise<ResponseData>;
-  apply(request: RequestContext): Promise<ResponseData>;
-  listBackups(request: RequestContext): Promise<ResponseData>;
-  rollback(request: RequestContext): Promise<ResponseData>;
-  deleteBackup(request: RequestContext): Promise<ResponseData>;
+  check(request: RequestContext): ControllerResult;
+  checkEnv(request: RequestContext): ControllerResult;
+  apply(request: RequestContext): ControllerResult;
+  listBackups(request: RequestContext): ControllerResult;
+  rollback(request: RequestContext): ControllerResult;
+  deleteBackup(request: RequestContext): ControllerResult;
 }
 
 // ============================================================================
@@ -144,14 +143,14 @@ export interface UpdateControllerInterface extends BaseControllerInterface {
 // ============================================================================
 
 export interface DiagnosticControllerInterface extends BaseControllerInterface {
-  setEnabled(request: RequestContext): Promise<ResponseData>;
-  setLevel(request: RequestContext): Promise<ResponseData>;
-  preview(request: RequestContext): Promise<ResponseData>;
-  sendNow(request: RequestContext): Promise<ResponseData>;
-  clearLogs(request: RequestContext): Promise<ResponseData>;
-  getLogs(request: RequestContext): Promise<ResponseData>;
-  getSummary(request: RequestContext): Promise<ResponseData>;
-  health(request: RequestContext): Promise<ResponseData>;
+  setEnabled(request: RequestContext): ControllerResult;
+  setLevel(request: RequestContext): ControllerResult;
+  preview(request: RequestContext): ControllerResult;
+  sendNow(request: RequestContext): ControllerResult;
+  clearLogs(request: RequestContext): ControllerResult;
+  getLogs(request: RequestContext): ControllerResult;
+  getSummary(request: RequestContext): ControllerResult;
+  health(request: RequestContext): ControllerResult;
 }
 
 // ============================================================================
@@ -159,6 +158,6 @@ export interface DiagnosticControllerInterface extends BaseControllerInterface {
 // ============================================================================
 
 export interface ActionDispatcherInterface {
-  handle(request: RequestContext): Promise<ResponseData>;
+  handle(request: RequestContext): ControllerResult;
   registeredActions(): ActionDefinition[];
 }

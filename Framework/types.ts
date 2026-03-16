@@ -71,6 +71,7 @@ export interface RequestContext {
   readonly method: HttpMethodValue;
   readonly path: string;
   readonly query: Record<string, string>;
+  readonly postData: Record<string, unknown>;
   readonly headers: Record<string, string>;
   readonly body: string;
   readonly ip: string;
