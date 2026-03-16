@@ -250,3 +250,115 @@ ADS.Components.css  # CSS コンポーネント
 | **目的限定** | サブディレクトリはクライアントモジュールやアセットなど、コンポーネント以外のファイルを格納する目的でのみ使用する |
 | **5 ファイル上限の対象外** | サブディレクトリ内のファイルは §2.1 の「1 エンジン 5 ファイル原則」の上限に含めない |
 | **命名の独立性** | サブディレクトリ内のファイルはコンポーネントの命名規則（`{PREFIX}.{Name}.{ext}`）に従う必要はない |
+
+---
+
+## 5. フレームワーク一覧
+
+### 5.1 一覧表
+
+AdlairePlatform を構成するフレームワークは以下の通りである。
+
+| 接頭辞 | 正式名称 | 用途 | 言語 | ファイル数 |
+|--------|---------|------|------|-----------|
+| **APF** | Adlaire Platform Foundation | DI コンテナ、EventBus、Router 等のプラットフォーム基盤を提供する | TypeScript | 5 |
+| **ACS** | Adlaire Client Services | サーバとの通信を一元的に担うクライアントエンジン（§3 参照） | TypeScript | 5 |
+| **ACE** | Adlaire Content Engine | コレクション、コンテンツ、メタデータの管理を行う | TypeScript | 5 + アセット |
+| **AIS** | Adlaire Infrastructure Services | アプリケーションコンテキスト、i18n、API キャッシュ、診断を提供する | TypeScript | 5 |
+| **AP** | Adlaire Platform | 認証、ロギング、セキュリティヘッダー等のミドルウェアとクライアントモジュールを提供する | TypeScript | 5 + JsEngine |
+| **ASG** | Adlaire Static Generator | Markdown パース、テンプレートレンダリング、静的サイトビルドを行う | TypeScript | 5 |
+| **ASS** | Adlaire Server System | 認証、ストレージ、ファイル、Git 等のサーバサイドサービスを実装する | PHP | 5 |
+| **ADS** | Adlaire Design System | ベーススタイル、コンポーネントスタイル、エディタスタイルを定義する | CSS | 3 |
+| **AEB** | Adlaire Editor & Blocks | エディタのブロックシステムを提供する | TypeScript | 3 |
+
+### 5.2 各フレームワークの構成
+
+#### APF — Adlaire Platform Foundation
+
+| ファイル | 概要 |
+|---------|------|
+| `APF.Core.ts` | Container、EventBus、Request、Response、Router を定義する |
+| `APF.Interface.ts` | プラットフォーム基盤のインターフェースを定義する |
+| `APF.Class.ts` | 定数およびクラスを定義する |
+| `APF.Api.ts` | システムルートの登録を行う |
+| `APF.Utilities.ts` | FileSystem ユーティリティを提供する |
+
+#### ACS — Adlaire Client Services
+
+ACS の詳細仕様は §3 を参照すること。
+
+| ファイル | 概要 |
+|---------|------|
+| `ACS.Core.ts` | HTTP クライアント、認証モジュール、ストレージモジュールを実装する |
+| `ACS.Interface.ts` | 公開インターフェースを定義する |
+| `ACS.Class.ts` | API エンドポイント定数、ストレージディレクトリ定数を定義する |
+| `ACS.Api.ts` | API ルートの登録を行う |
+| `ACS.Utilities.ts` | ユーティリティ関数を提供する |
+
+#### ACE — Adlaire Content Engine
+
+| ファイル | 概要 |
+|---------|------|
+| `ACE.Core.ts` | CollectionManager、ContentManager、MetaManager を実装する |
+| `ACE.Interface.ts` | コンテンツ管理のインターフェースを定義する |
+| `ACE.Class.ts` | 定数およびクラスを定義する |
+| `ACE.Api.ts` | コレクションルートの登録を行う |
+| `ACE.Utilities.ts` | ユーティリティ関数を提供する |
+| `AdminEngine/` | 管理画面の HTML および CSS アセットを格納する |
+
+#### AIS — Adlaire Infrastructure Services
+
+| ファイル | 概要 |
+|---------|------|
+| `AIS.Core.ts` | AppContext、I18n を実装する |
+| `AIS.Interface.ts` | インフラストラクチャのインターフェースを定義する |
+| `AIS.Class.ts` | 定数およびクラスを定義する |
+| `AIS.Api.ts` | インフラルートの登録を行う |
+| `AIS.Utilities.ts` | ApiCache、DiagnosticsManager を提供する |
+
+#### AP — Adlaire Platform
+
+| ファイル | 概要 |
+|---------|------|
+| `AP.Core.ts` | AuthMiddleware、RequestLoggingMiddleware、SecurityHeadersMiddleware を実装する |
+| `AP.Interface.ts` | プラットフォームのインターフェースを定義する |
+| `AP.Class.ts` | 定数およびクラスを定義する |
+| `AP.Api.ts` | プラットフォームルートの登録を行う |
+| `AP.Utilities.ts` | ユーティリティ関数を提供する |
+| `JsEngine/` | ブラウザ向けクライアントモジュール群を格納する（API クライアント、ダッシュボード、エディタ等） |
+
+#### ASG — Adlaire Static Generator
+
+| ファイル | 概要 |
+|---------|------|
+| `ASG.Core.ts` | Builder、MarkdownService、TemplateRenderer を実装する |
+| `ASG.Interface.ts` | 静的生成のインターフェースを定義する |
+| `ASG.Class.ts` | 定数およびクラスを定義する |
+| `ASG.Api.ts` | ジェネレータルートの登録を行う |
+| `ASG.Utilities.ts` | ユーティリティ関数を提供する |
+
+#### ASS — Adlaire Server System
+
+| ファイル | 概要 |
+|---------|------|
+| `ASS.Core.php` | AuthService、StorageService、FileService、GitService を実装する |
+| `ASS.Interface.php` | サーバサイドのインターフェースを定義する |
+| `ASS.Class.php` | 定数およびクラスを定義する |
+| `ASS.Api.php` | API ハンドラの登録を行う |
+| `ASS.Utilities.php` | ユーティリティ関数を提供する |
+
+#### ADS — Adlaire Design System
+
+| ファイル | 概要 |
+|---------|------|
+| `ADS.Base.css` | ベーススタイルおよびリセットを定義する |
+| `ADS.Components.css` | コンポーネント固有のスタイルを定義する |
+| `ADS.Editor.css` | エディタ・管理画面向けのスタイルを定義する |
+
+#### AEB — Adlaire Editor & Blocks
+
+| ファイル | 概要 |
+|---------|------|
+| `AEB.Core.ts` | エディタのブロックシステムを実装する |
+| `AEB.Blocks.ts` | ブロックの型定義と実装を提供する |
+| `AEB.Utils.ts` | ユーティリティ関数を提供する |
