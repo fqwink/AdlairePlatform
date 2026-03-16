@@ -46,7 +46,10 @@ interface Window {
       off(event: string, callback: (...args: unknown[]) => void): void;
       emit(event: string, ...args: unknown[]): void;
     };
-    blocks: Record<string, unknown>;
+    StateManager: unknown;
+    HistoryManager: unknown;
+    Blocks: Record<string, unknown>;
+    Utils: Record<string, unknown>;
   };
   __AP_I18N__: Record<string, string>;
   __AP_LOCALE__: string;

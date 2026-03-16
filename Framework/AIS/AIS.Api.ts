@@ -8,17 +8,24 @@
  * @license Adlaire License Ver.2.0
  */
 
-import type { RequestInterface, RouterInterface } from "../APF/APF.Interface.ts";
+import type {
+  RequestInterface,
+  ResponseConstructor,
+  RouterInterface,
+} from "../types.ts";
 import type { AppContextInterface, I18nInterface } from "./AIS.Interface.ts";
-import { Response } from "../APF/APF.Core.ts";
 
 /**
  * AIS REST エンドポイントを Router に登録する
+ *
+ * FRAMEWORK_RULEBOOK §2.1「フレームワーク間依存ゼロ」準拠:
+ * APF を直接 import せず、Response を DI で受け取る。
  */
 export function registerInfraRoutes(
   router: RouterInterface,
   context: AppContextInterface,
   i18n: I18nInterface,
+  Response: ResponseConstructor,
 ): void {
   // サイト設定取得
   router.get("/api/settings", () => {

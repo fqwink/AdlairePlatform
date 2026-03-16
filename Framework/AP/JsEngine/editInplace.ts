@@ -24,7 +24,7 @@
 			.forEach(el => el.remove());
 		/* on* イベント属性を除去 */
 		tmp.querySelectorAll('*').forEach(el => {
-			[...el.attributes].forEach(attr => {
+			Array.from(el.attributes).forEach(attr => {
 				if (/^on/i.test(attr.name)) el.removeAttribute(attr.name);
 			});
 			/* R27 fix: javascript: スキームの href をブロック */

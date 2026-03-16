@@ -64,22 +64,25 @@ export class WebhookService implements WebhookServiceInterface {
     return this.client.storage.write("webhooks.json", updated, "settings");
   }
 
+  /**
+   * Webhook ディスパッチ
+   *
+   * FRAMEWORK_RULEBOOK §3.5「直接 fetch 禁止」準拠:
+   * ACS の http モジュール経由で外部 URL に POST する。
+   * HttpTransport は絶対 URL をそのまま通過させるため、
+   * 外部 Webhook エンドポイントへの送信が可能。
+   */
   async dispatch(event: WebhookEvent, data: Record<string, unknown>): Promise<void> {
     const hooks = await this.listWebhooks();
     const targets = hooks.filter((h) => h.enabled && h.events.includes(event));
 
-    const payload = JSON.stringify({ event, data, timestamp: new Date().toISOString() });
+    const payload = { event, data, timestamp: new Date().toISOString() };
 
     await Promise.allSettled(
       targets.map((hook) =>
-        fetch(hook.url, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(hook.secret ? { "X-Webhook-Secret": hook.secret } : {}),
-          },
-          body: payload,
-          signal: AbortSignal.timeout(10000),
+        this.client.http.post(hook.url, {
+          ...payload,
+          ...(hook.secret ? { _webhookSecret: hook.secret } : {}),
         })
       ),
     );
