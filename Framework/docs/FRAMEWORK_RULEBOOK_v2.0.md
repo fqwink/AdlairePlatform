@@ -1,0 +1,220 @@
+# AdlairePlatform フレームワークルールブック
+
+## §1 目的
+
+本ルールブックは、AdlairePlatform におけるフレームワークの設計・開発・運用に関する統一規則を定める。
+
+---
+
+## §2 基本方針
+
+### §2.1 エンジン駆動モデルフレームワーク
+
+| 方針 | 内容 |
+|------|------|
+| 設計モデル | すべてのフレームワークはエンジン駆動モデルを採用する |
+| ファイル構成 | 5 ファイル構成（Core / Api / Utils / Interface / Class） |
+| ファイル内設計 | 1 ファイルに複数クラスを格納 |
+| フレームワーク間依存 | 依存性を最小化、疎結合を維持 |
+| 外部依存 | 外部ライブラリへの依存ゼロ |
+
+### §2.2 設計原則
+
+| 原則 | 内容 |
+|------|------|
+| 独立性 | 各エンジンファイルは独立して機能する |
+| 疎結合 | エンジン間・フレームワーク間の依存を最小限にする |
+| 自己完結 | 外部ライブラリ不要で動作する |
+| インターフェース経由必須 | フレームワーク間の依存はインターフェース経由とし、具象クラスへの直接依存を禁止する |
+| API 経由 | フロントエンド ↔ バックエンド間の通信はすべて API 経由とする |
+| 責務分離 | バックエンドはデータ提供に専念、描画はフロントエンド側で実行する |
+
+### §2.3 言語要件
+
+| 言語 | バージョン | 用途 |
+|------|----------|------|
+| PHP | 8.3 以上 | サーバ（ASS） |
+| TypeScript | Deno 2.x 以上 | バックエンド・クライアント |
+| JavaScript | ES6+ | フロントエンド（AEB） |
+| CSS | CSS3 | フロントエンド（ADS） |
+
+---
+
+## §3 アーキテクチャ分類
+
+### §3.1 分類定義
+
+```
+┌──────────────────────────────────────────────────────┐
+│                  AdlairePlatform                      │
+│                                                      │
+│  ┌────────────┐  ┌──────────┐  ┌──────────────────┐  │
+│  │フロントエンド│  │クライアント│  │   バックエンド    │  │
+│  │ AEB, ADS   │  │   ACS    │  │ APF,ACE,AIS,ASG,AP│  │
+│  └────────────┘  └─────┬────┘  └──────────────────┘  │
+│                        │                              │
+│                        ▼                              │
+│                  ┌──────────┐                          │
+│                  │  サーバ   │                          │
+│                  │   ASS    │                          │
+│                  └──────────┘                          │
+└──────────────────────────────────────────────────────┘
+```
+
+### §3.2 分類一覧
+
+| 分類 | 役割 | フレームワーク |
+|------|------|--------------|
+| フロントエンド | UI 描画・ブラウザ側処理 | AEB, ADS |
+| クライアント | サーバとの通信抽象化 | ACS |
+| バックエンド | ビジネスロジック・CMS 機能 | APF, ACE, AIS, ASG, AP |
+| サーバ | 認証・データストレージ・ファイル管理 | ASS |
+
+### §3.3 分類規則
+
+| 規則 | 内容 |
+|------|------|
+| 通信経路 | バックエンド ↔ サーバの通信は必ず ACS 経由 |
+| 直接参照禁止 | フロントエンドからサーバのクラス・関数を直接呼び出すことは禁止 |
+| ACS の役割 | サーバ実装の詳細を隠蔽し、統一インターフェースを提供する |
+| フロントエンドの独立性 | サーバ言語に依存しない |
+| バックエンドの独立性 | ブラウザ API に依存しない（Deno 環境分岐は許容） |
+| サーバの独立性 | 他フレームワークに依存しない。ACS のインターフェース契約のみに準拠 |
+
+---
+
+## §4 エンジン駆動モデル
+
+### §4.1 ファイル構成
+
+各フレームワークは **5 ファイル構成**とする。
+
+| エンジン | 役割 |
+|---------|------|
+| **Engine 1 — Core** | ビジネスロジック |
+| **Engine 2 — Api** | ACS（Client SDK）との接続を担うアダプター層 |
+| **Engine 3 — Utils** | ユーティリティ・補助機能 |
+| **Engine 4 — Interface** | インターフェース定義 |
+| **Engine 5 — Class** | データモデル・型定義 |
+
+### §4.2 例外規定
+
+| 条件 | 許容内容 | 承認 |
+|------|---------|------|
+| 構成の縮小（1〜4 ファイル） | 単一責務のフレームワークに限り許容 | Adlaire Group 承認必須 |
+| 構成の拡張（6〜7 ファイル） | 明確な責務分離理由がある場合に許容 | Adlaire Group 承認必須 |
+| 8 ファイル以上 | **禁止** — 新規フレームワーク化を検討する | ❌ 禁止 |
+
+### §4.3 フレームワーク間依存規則
+
+フレームワーク間の直接依存はゼロとする。
+
+| 規則 | 内容 |
+|------|------|
+| フレームワーク間依存 | 禁止。フレームワーク間で直接 import / 参照してはならない |
+| 共有層 | 全フレームワークが共通で使う型定義・インターフェースは `Framework/types.ts` に集約する |
+| 参照先 | 各フレームワークが参照してよいのは `Framework/types.ts` のみ |
+| 相互依存 | 禁止 |
+
+---
+
+## §5 命名規則
+
+### §5.1 フレームワーク略称
+
+3 文字固定。正式名称の頭文字に基づく英大文字。全フレームワーク間で一意。`AP` のみ 2 文字例外。
+
+### §5.2 ファイル
+
+形式: `{略称}.{エンジン名}.{拡張子}`（PascalCase）
+
+拡張子: `.php` / `.ts` / `.js` / `.css`
+
+### §5.3 名前空間・エクスポート
+
+PHP: `{略称}\{エンジン名}\{クラス名}`
+
+TypeScript: named export のみ。デフォルトエクスポート禁止。
+
+### §5.4 ディレクトリ
+
+`Framework/{略称}/`（略称は大文字）
+
+---
+
+## §6 フレームワーク登録簿
+
+### §6.1 登録済みフレームワーク
+
+| 略称 | 正式名称 | 分類 | 言語 |
+|------|---------|------|------|
+| APF | Adlaire Platform Foundation | バックエンド | TypeScript |
+| ACE | Adlaire Content Engine | バックエンド | TypeScript |
+| AIS | Adlaire Infrastructure Services | バックエンド | TypeScript |
+| ASG | Adlaire Static Generator | バックエンド | TypeScript |
+| AP | Adlaire Platform (Controllers) | バックエンド | TypeScript |
+| AEB | Adlaire Editor & Blocks | フロントエンド | JavaScript |
+| ADS | Adlaire Design System | フロントエンド | CSS |
+| ACS | Adlaire Client Services | クライアント | TypeScript |
+| ASS | Adlaire Server System | サーバ | PHP |
+
+登録済みフレームワークの削除は禁止。略称の変更は禁止。
+
+### §6.2 エンジンファイル登録簿
+
+| フレームワーク | PHP | TypeScript / JS / CSS |
+|--------------|-----|----------------------|
+| APF | `APF.Core.php`, `APF.Api.php`, `APF.Utilities.php`, `APF.Interface.php`, `APF.Class.php` | `APF.Core.ts`, `APF.Api.ts`, `APF.Utilities.ts`, `APF.Interface.ts`, `APF.Class.ts` |
+| ACE | `ACE.Core.php`, `ACE.Api.php`, `ACE.Utilities.php`, `ACE.Interface.php`, `ACE.Class.php` | `ACE.Core.ts`, `ACE.Api.ts`, `ACE.Utilities.ts`, `ACE.Interface.ts`, `ACE.Class.ts` |
+| AIS | `AIS.Core.php`, `AIS.Api.php`, `AIS.Utilities.php`, `AIS.Interface.php`, `AIS.Class.php` | `AIS.Core.ts`, `AIS.Api.ts`, `AIS.Utilities.ts`, `AIS.Interface.ts`, `AIS.Class.ts` |
+| ASG | `ASG.Core.php`, `ASG.Api.php`, `ASG.Utilities.php`, `ASG.Interface.php`, `ASG.Class.php` | `ASG.Core.ts`, `ASG.Api.ts`, `ASG.Utilities.ts`, `ASG.Interface.ts`, `ASG.Class.ts` |
+| AP | `AP.Core.php`, `AP.Api.php`, `AP.Utilities.php`, `AP.Interface.php`, `AP.Class.php` | `AP.Core.ts`, `AP.Api.ts`, `AP.Utilities.ts`, `AP.Interface.ts`, `AP.Class.ts` |
+| AEB | — | `AEB.Core.js`, `AEB.Api.js`, `AEB.Utils.js`, `AEB.Interface.js`, `AEB.Class.js` |
+| ADS | — | `ADS.Core.css`, `ADS.Api.css`, `ADS.Utils.css`, `ADS.Interface.css`, `ADS.Class.css` |
+| ACS | — | `ACS.Core.ts`, `ACS.Api.ts`, `ACS.Utilities.ts`, `ACS.Interface.ts`, `ACS.Class.ts` |
+| ASS | `ASS.Core.php`, `ASS.Api.php`, `ASS.Utilities.php`, `ASS.Interface.php`, `ASS.Class.php` | — |
+
+登録済みエンジンファイルの削除は禁止。
+
+### §6.3 予約済み略称
+
+AP, APF, ACE, AIS, ASG, AEB, ADS, ACS, ASS — 使用禁止。
+
+---
+
+## §7 API 規則
+
+すべてのサーバ通信は ACS の `AdlaireClient` インターフェース経由とする。サーバ側 API は ASS が一元管理する。
+
+| 規則 | 内容 |
+|------|------|
+| 通信プロトコル | HTTP/HTTPS |
+| データ形式 | JSON |
+| 認証 | すべての API リクエストに認証を要求（公開 API を除く） |
+
+禁止事項:
+
+- ACS を経由しないサーバアクセス
+- フロントエンドからサーバ言語の直接呼び出し
+- バックエンドからブラウザ DOM の直接操作
+- ASS 以外の独自サーバ API エンドポイント作成
+
+---
+
+## §8 インポート規則
+
+### §8.1 PHP
+
+名前空間プレフィックス → 物理ファイルの直接マッピング。PSR-4 非準拠（1 ファイル = 複数クラスのため）。
+
+### §8.2 TypeScript
+
+| 規則 | 内容 |
+|------|------|
+| 形式 | named import のみ |
+| デフォルトエクスポート | 禁止 |
+| パス | フレームワーク間は相対参照 |
+| 拡張子 | `.ts` を必ず含める |
+| re-export | 重複クラス統合時に使用。統合元が正 |
+
+
