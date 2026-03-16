@@ -8,14 +8,14 @@ Ver.2.0 | 最終更新: 2026-03-16
 
 | ファイル | 役割 | 分類 |
 |---------|------|------|
-| `README.md` | プロジェクト紹介 | 公開 |
-| `RELEASE-NOTES.md` | リリースノート | 公開 |
-| `docs/VERSIONING.md` | バージョニング規則 | 社内限定 |
-| `docs/DOC_RULEBOOK.md` | ドキュメント管理ルール（本書） | 社内限定 |
-| `docs/AdlairePlatform_DetailedDesign.md` | 詳細設計（**開発の最上位準拠文書**） | 社内限定 |
-| `docs/FRAMEWORK_RULEBOOK_v2.0.md` | フレームワーク規約 | 社内限定 |
-| `docs/Licenses/LICENSE_Ver.2.0.md` | Adlaire License Ver.2.0 | 公開 |
-| `docs/Licenses/RELEASE-NOTES.md` | ライセンス用リリースノート | 公開 |
+| `README.md` | プロジェクトを紹介する | 公開 |
+| `RELEASE-NOTES.md` | リリースノートを記載する | 公開 |
+| `docs/VERSIONING.md` | バージョニング規則を定める | 社内限定 |
+| `docs/DOC_RULEBOOK.md` | ドキュメント管理ルールを定める（本書） | 社内限定 |
+| `docs/AdlairePlatform_DetailedDesign.md` | 詳細設計を記載する（**開発の最上位準拠文書**） | 社内限定 |
+| `docs/FRAMEWORK_RULEBOOK_v2.0.md` | フレームワーク規約を定める | 社内限定 |
+| `docs/Licenses/LICENSE_Ver.2.0.md` | Adlaire License Ver.2.0 を記載する | 公開 |
+| `docs/Licenses/RELEASE-NOTES.md` | ライセンス用リリースノートを記載する | 公開 |
 
 上記以外のドキュメントファイルを追加する場合は、本表を更新すること。
 
@@ -23,7 +23,7 @@ Ver.2.0 | 最終更新: 2026-03-16
 
 ## §2 メタデータブロック
 
-管理対象ドキュメント（分類「社内限定」）の冒頭に記載する。
+管理対象ドキュメント（分類が「社内限定」のもの）の冒頭には、以下の形式で記載する。
 
 ```markdown
 # ドキュメントタイトル
@@ -31,8 +31,8 @@ Ver.2.0 | 最終更新: 2026-03-16
 Ver.X.Y-Z | 最終更新: YYYY-MM-DD
 ```
 
-- バージョン番号は `docs/VERSIONING.md` の累積ルールに準拠
-- 1行で完結させる（複数行のフロントマターブロックは使用しない）
+- バージョン番号は `docs/VERSIONING.md` の累積ルールに準拠する
+- メタデータは 1 行で完結させる（複数行のフロントマターブロックは使用しない）
 
 ---
 
