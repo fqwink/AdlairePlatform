@@ -1045,3 +1045,1233 @@ function _renderChecklistBlock(el: HTMLElement, block: WysiwygBlock): void {
 	_buildChecklist();
 	el.appendChild(content);
 }
+
+/* ══════════════════════════════════════════════
+   ブロック操作 & キーハンドラ
+   ══════════════════════════════════════════════ */
+
+function _attachBlockInput(content: HTMLElement, block: WysiwygBlock): void {
+	content.addEventListener('input', (): void => {
+		block.data.text = content.innerHTML.trim();
+		if (block.data.text === '<br>') block.data.text = '';
+	});
+}
+
+function _attachBlockKeyHandler(contentWrap: HTMLElement, block: WysiwygBlock, editableEl?: HTMLElement): void {
+	const target: HTMLElement = editableEl || contentWrap;
+	target.addEventListener('keydown', (e: KeyboardEvent): void => {
+		/* スラッシュコマンド */
+		if (_slashMenu) {
+			if (e.key === 'ArrowDown') { e.preventDefault(); _slashNav(1); return; }
+			if (e.key === 'ArrowUp')   { e.preventDefault(); _slashNav(-1); return; }
+			if (e.key === 'Enter')     { e.preventDefault(); _applySlashCmd(); return; }
+			if (e.key === 'Escape')    { e.preventDefault(); _hideSlashMenu(); return; }
+		}
+
+		/* Enter: ブロック分割（リストは除外） */
+		if (e.key === 'Enter' && !e.shiftKey && block.type !== 'list' && block.type !== 'code'
+			&& block.type !== 'table' && block.type !== 'checklist') {
+			e.preventDefault();
+			/* カーソル以降のコンテンツを抽出 */
+			const sel = window.getSelection();
+			if (!sel || !sel.rangeCount) return;
+			const range = sel.getRangeAt(0);
+			range.deleteContents();
+
+			const afterRange = document.createRange();
+			afterRange.setStartBefore(range.startContainer.nodeType === 3 ? range.startContainer : (range.startContainer.childNodes[range.startOffset] || range.startContainer));
+			afterRange.setStart(range.startContainer, range.startOffset);
+			afterRange.setEndAfter(target.lastChild || target);
+			const frag = afterRange.extractContents();
+			const tmp = document.createElement('div');
+			tmp.appendChild(frag);
+			const afterHtml: string = tmp.innerHTML.trim();
+
+			/* 現在のブロックデータ更新 */
+			block.data.text = target.innerHTML.trim();
+			if (block.data.text === '<br>') block.data.text = '';
+
+			/* 新ブロック作成 */
+			_addBlockAfter(block, 'paragraph', { text: afterHtml || '' });
+			return;
+		}
+
+		/* Shift+Enter: <br>挿入（code以外） */
+		if (e.key === 'Enter' && e.shiftKey && block.type === 'code') {
+			/* codeブロックでは通常Enter = 改行 */
+		}
+		if (e.key === 'Enter' && !e.shiftKey && block.type === 'code') {
+			/* codeブロック内ではEnter = 改行（分割しない） */
+			e.preventDefault();
+			document.execCommand('insertText', false, '\n');
+			block.data.text = target.textContent || '';
+			return;
+		}
+
+		/* Backspace: ブロック結合 */
+		if (e.key === 'Backspace' && _isCursorAtStart(target)) {
+			const idx: number = _blocks.indexOf(block);
+			if (idx > 0) {
+				e.preventDefault();
+				const prev: WysiwygBlock = _blocks[idx - 1];
+				if (['paragraph','heading','quote'].includes(prev.type) && ['paragraph','heading','quote'].includes(block.type)) {
+					/* テキスト系ブロック同士を結合 */
+					const prevEl = _getBlockEl(prev);
+					const prevContent = prevEl?.querySelector('.ap-wy-block-content') as HTMLElement | null;
+					if (prevContent) {
+						const prevLen: number = (String(prev.data.text || '')).length;
+						prevContent.innerHTML = String(prev.data.text || '') + String(block.data.text || '');
+						prev.data.text = prevContent.innerHTML;
+
+						/* ブロック削除 */
+						_removeBlock(block);
+
+						/* カーソルを結合点に配置 */
+						prevContent.focus();
+						_setCursorAtOffset(prevContent, prevLen);
+					}
+				} else {
+					/* 前のブロックにフォーカス移動のみ */
+					_focusBlock(prev, 'end');
+				}
+			}
+			return;
+		}
+
+		/* Delete: 次のブロックと結合 */
+		if (e.key === 'Delete' && _isCursorAtEnd(target)) {
+			const idx: number = _blocks.indexOf(block);
+			if (idx < _blocks.length - 1) {
+				e.preventDefault();
+				const next: WysiwygBlock = _blocks[idx + 1];
+				if (['paragraph','heading','quote'].includes(block.type) && ['paragraph','heading','quote'].includes(next.type)) {
+					block.data.text = String(block.data.text || '') + String(next.data.text || '');
+					target.innerHTML = String(block.data.text) || '<br>';
+					_removeBlock(next);
+				}
+			}
+			return;
+		}
+
+		/* ArrowUp: 前のブロックへ移動 */
+		if (e.key === 'ArrowUp' && _isCursorAtStart(target)) {
+			const idx: number = _blocks.indexOf(block);
+			if (idx > 0) { e.preventDefault(); _focusBlock(_blocks[idx - 1], 'end'); }
+			return;
+		}
+
+		/* ArrowDown: 次のブロックへ移動 */
+		if (e.key === 'ArrowDown' && _isCursorAtEnd(target)) {
+			const idx: number = _blocks.indexOf(block);
+			if (idx < _blocks.length - 1) { e.preventDefault(); _focusBlock(_blocks[idx + 1], 'start'); }
+			return;
+		}
+
+		/* "/" スラッシュコマンド検出 */
+		if (e.key === '/' && block.type !== 'code') {
+			const text: string = (target.textContent || '').trim();
+			if (text === '' || text === '/') {
+				/* _showSlashMenu は input イベントで処理 */
+			}
+		}
+	});
+
+	/* input で "/" 検出 */
+	if (block.type !== 'code' && block.type !== 'table') {
+		target.addEventListener('input', (): void => {
+			const text: string = target.textContent || '';
+			if (text.startsWith('/')) {
+				_slashFilter = text.slice(1).toLowerCase();
+				_slashBlock = block;
+				_showSlashMenu(target);
+			} else if (_slashMenu) {
+				_hideSlashMenu();
+			}
+		});
+	}
+}
+
+/* ── ブロック追加・削除・フォーカス ── */
+
+function _addBlockAfter(afterBlock: WysiwygBlock, type: string, data: Record<string, unknown>): WysiwygBlock {
+	_saveSnapshot();
+	const idx: number = _blocks.indexOf(afterBlock);
+	const newBlock: WysiwygBlock = { id: _uid(), type, data };
+	_blocks.splice(idx + 1, 0, newBlock);
+	const newEl = _renderBlock(newBlock);
+	const afterEl = _getBlockEl(afterBlock);
+	if (afterEl && afterEl.nextSibling) {
+		_blocksEl!.insertBefore(newEl, afterEl.nextSibling);
+	} else {
+		_blocksEl!.appendChild(newEl);
+	}
+	_focusBlock(newBlock, 'start');
+	return newBlock;
+}
+
+function _removeBlock(block: WysiwygBlock): void {
+	_saveSnapshot();
+	const idx: number = _blocks.indexOf(block);
+	if (idx === -1) return;
+	_blocks.splice(idx, 1);
+	const el = _getBlockEl(block);
+	if (el) el.remove();
+	/* 全ブロック削除されたら空段落を追加 */
+	if (_blocks.length === 0) {
+		const empty: WysiwygBlock = { id: _uid(), type: 'paragraph', data: { text: '' } };
+		_blocks.push(empty);
+		_blocksEl!.appendChild(_renderBlock(empty));
+		_focusBlock(empty, 'start');
+	}
+}
+
+function _getBlockEl(block: WysiwygBlock): HTMLElement | null {
+	return _blocksEl?.querySelector(`[data-id="${block.id}"]`) as HTMLElement | null;
+}
+
+function _focusBlock(block: WysiwygBlock, pos?: string): void {
+	const el = _getBlockEl(block);
+	if (!el) return;
+	const content = (el.querySelector('.ap-wy-block-content[contenteditable="true"]')
+		|| el.querySelector('[contenteditable="true"]')) as HTMLElement | null;
+	if (content) {
+		content.focus();
+		if (pos === 'start') _setCursorToStart(content);
+		else if (pos === 'end') _setCursorToEnd(content);
+	}
+}
+
+/* ── カーソルユーティリティ ── */
+
+function _isCursorAtStart(el: HTMLElement): boolean {
+	const sel = window.getSelection();
+	if (!sel || !sel.rangeCount) return false;
+	const range = sel.getRangeAt(0);
+	if (!range.collapsed) return false;
+	const pre = document.createRange();
+	pre.selectNodeContents(el);
+	pre.setEnd(range.startContainer, range.startOffset);
+	return pre.toString().length === 0;
+}
+
+function _isCursorAtEnd(el: HTMLElement): boolean {
+	const sel = window.getSelection();
+	if (!sel || !sel.rangeCount) return false;
+	const range = sel.getRangeAt(0);
+	if (!range.collapsed) return false;
+	const post = document.createRange();
+	post.selectNodeContents(el);
+	post.setStart(range.endContainer, range.endOffset);
+	return post.toString().length === 0;
+}
+
+function _setCursorToStart(el: HTMLElement): void {
+	const range = document.createRange();
+	const sel = window.getSelection();
+	if (!sel) return;
+	range.selectNodeContents(el);
+	range.collapse(true);
+	sel.removeAllRanges();
+	sel.addRange(range);
+}
+
+function _setCursorToEnd(el: HTMLElement): void {
+	const range = document.createRange();
+	const sel = window.getSelection();
+	if (!sel) return;
+	range.selectNodeContents(el);
+	range.collapse(false);
+	sel.removeAllRanges();
+	sel.addRange(range);
+}
+
+function _setCursorAtOffset(el: HTMLElement, htmlOffset: number): void {
+	/* HTML文字列のオフセット位置にカーソルを配置するため、
+	   一時的にマーカーを挿入して位置を特定する */
+	const html: string = el.innerHTML;
+	const marker = '\u200B\u200B\u200B';
+	el.innerHTML = html.slice(0, htmlOffset) + marker + html.slice(htmlOffset);
+	const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+	while (walker.nextNode()) {
+		const idx = (walker.currentNode.textContent || '').indexOf(marker);
+		if (idx !== -1) {
+			walker.currentNode.textContent = (walker.currentNode.textContent || '').replace(marker, '');
+			const range = document.createRange();
+			range.setStart(walker.currentNode, idx);
+			range.collapse(true);
+			const sel = window.getSelection();
+			if (sel) {
+				sel.removeAllRanges();
+				sel.addRange(range);
+			}
+			return;
+		}
+	}
+	_setCursorToEnd(el);
+}
+
+/* ── Undo / Redo ── */
+
+function _saveSnapshot(): void {
+	_syncAllBlocks();
+	const snap: string = JSON.stringify(_blocks);
+	const last = _undoStack[_undoStack.length - 1];
+	if (last && last.snap === snap) return;
+	_undoStack.push({ snap, time: Date.now(), blockCount: _blocks.length });
+	if (_undoStack.length > _UNDO_LIMIT) _undoStack.shift();
+	_redoStack.length = 0;
+}
+
+function _undo(): void {
+	if (_undoStack.length === 0) return;
+	_syncAllBlocks();
+	_redoStack.push({ snap: JSON.stringify(_blocks), time: Date.now(), blockCount: _blocks.length });
+	const entry = _undoStack.pop()!;
+	_restoreSnapshot(entry.snap);
+	_setStatus('↩ 元に戻しました');
+	setTimeout((): void => { _setStatus(''); }, 2000);
+}
+
+function _redo(): void {
+	if (_redoStack.length === 0) return;
+	_syncAllBlocks();
+	_undoStack.push({ snap: JSON.stringify(_blocks), time: Date.now(), blockCount: _blocks.length });
+	const entry = _redoStack.pop()!;
+	_restoreSnapshot(entry.snap);
+	_setStatus('↪ やり直しました');
+	setTimeout((): void => { _setStatus(''); }, 2000);
+}
+
+function _restoreSnapshot(snap: string): void {
+	_blocks = JSON.parse(snap) as WysiwygBlock[];
+	_blocksEl!.innerHTML = '';
+	_blocks.forEach((b: WysiwygBlock): void => { _blocksEl!.appendChild(_renderBlock(b)); });
+	if (_blocks.length > 0) _focusBlock(_blocks[0], 'start');
+}
+
+/* ══════════════════════════════════════════════
+   ツールバーコマンド実行
+   ══════════════════════════════════════════════ */
+
+function _exec(cmd: string, span: HTMLElement, originalHtml: string): void {
+	switch (cmd) {
+		case 'bold':
+		case 'italic':
+		case 'underline':
+		case 'removeFormat':
+			document.execCommand(cmd, false, undefined);
+			break;
+		case 'strike':
+			_toggleInline('strikeThrough');
+			break;
+		case 'inlineCode':
+			_toggleInlineCode();
+			break;
+		case 'marker':
+			_toggleMarker();
+			break;
+		case 'insertUnorderedList':
+		case 'insertOrderedList': {
+			const focused = _getFocusedBlock();
+			if (focused && ['paragraph','heading','quote'].includes(focused.type)) {
+				const style: string = cmd === 'insertOrderedList' ? 'ordered' : 'unordered';
+				const text: string = String(focused.data.text || '');
+				focused.type = 'list';
+				focused.data = { style, items: [text] };
+				_rerenderBlock(focused);
+			}
+			break;
+		}
+		case 'h2':
+		case 'h3':
+		case 'p':
+		case 'quote':
+		case 'codeBlock':
+		case 'delimiter': {
+			const focused = _getFocusedBlock();
+			if (focused) {
+				const typeMap: Record<string, string> = { h2:'heading', h3:'heading', p:'paragraph', quote:'quote', codeBlock:'code', delimiter:'delimiter' };
+				const newType: string = typeMap[cmd] || 'paragraph';
+				const extra: Record<string, unknown> = {};
+				if (cmd === 'h2') extra.level = 2;
+				if (cmd === 'h3') extra.level = 3;
+				_changeBlockType(focused, newType, extra);
+			}
+			break;
+		}
+		case 'link':
+			_showLinkInput();
+			break;
+		case 'img': {
+			const input: HTMLInputElement = document.createElement('input');
+			input.type = 'file';
+			input.accept = 'image/jpeg,image/png,image/gif,image/webp';
+			input.onchange = (): void => { if (input.files?.[0]) _insertImageBlock(input.files[0]); };
+			input.click();
+			break;
+		}
+		case 'table': {
+			const focused = _getFocusedBlock();
+			if (focused) {
+				_addBlockAfter(focused, 'table', { rows: [['','',''],['','',''],['','','']] });
+			}
+			break;
+		}
+		case 'history':
+			_showHistoryPanel(span);
+			break;
+		case 'save':
+			_manualSave(span);
+			break;
+		case 'cancel':
+			_cancel(span, originalHtml);
+			break;
+	}
+}
+
+function _getFocusedBlock(): WysiwygBlock | null {
+	const active = document.activeElement;
+	if (!active || !_blocksEl?.contains(active)) return _blocks[_blocks.length - 1] || null;
+	const blockEl = (active as HTMLElement).closest('.ap-wy-block') as HTMLElement | null;
+	if (!blockEl) return null;
+	return _blocks.find((b: WysiwygBlock) => b.id === blockEl.dataset.id) || null;
+}
+
+function _changeBlockType(block: WysiwygBlock, newType: string, extra: Record<string, unknown> = {}): void {
+	_saveSnapshot();
+	const oldEl = _getBlockEl(block);
+	if (!oldEl) return;
+
+	/* テキスト内容を保持 */
+	let text: string = String(block.data.text || '');
+	if (block.type === 'list') text = ((block.data.items || []) as string[]).join('<br>');
+	if (block.type === 'code') text = _escHtml(String(block.data.text || ''));
+
+	if (newType === 'delimiter') {
+		block.type = 'delimiter';
+		block.data = {};
+	} else if (newType === 'list') {
+		block.type = 'list';
+		const rawText: string = newType === 'list' ? text.replace(/<br\s*\/?>/gi, '\n') : text;
+		const items: string[] = rawText.split('\n').filter((s: string) => s.trim());
+		block.data = { style: extra.style || 'unordered', items: items.length ? items : [''] };
+	} else if (newType === 'code') {
+		const tmp = document.createElement('div');
+		tmp.innerHTML = text;
+		block.type = 'code';
+		block.data = { text: tmp.textContent || '' };
+	} else {
+		block.type = newType;
+		block.data = { text, ...extra };
+	}
+
+	_rerenderBlock(block);
+}
+
+function _rerenderBlock(block: WysiwygBlock): void {
+	const oldEl = _getBlockEl(block);
+	if (!oldEl) return;
+	const newEl = _renderBlock(block);
+	oldEl.replaceWith(newEl);
+	_focusBlock(block, 'end');
+}
+
+/* ══════════════════════════════════════════════
+   インラインツール（S / Code / Marker / Link）
+   ══════════════════════════════════════════════ */
+
+function _toggleInline(cmd: string): void {
+	document.execCommand(cmd, false, undefined);
+}
+
+function _toggleInlineCode(): void {
+	const sel = window.getSelection();
+	if (!sel || !sel.rangeCount || sel.isCollapsed) return;
+	const range = sel.getRangeAt(0);
+
+	/* 既に<code>内にいるかチェック */
+	let codeParent: Node | null = range.commonAncestorContainer;
+	while (codeParent && codeParent !== _blocksEl) {
+		if (codeParent.nodeType === 1 && (codeParent as Element).tagName === 'CODE') {
+			/* 解除: <code>の中身をテキストノードに置換 */
+			const text = document.createTextNode(codeParent.textContent || '');
+			codeParent.parentNode!.replaceChild(text, codeParent);
+			return;
+		}
+		codeParent = codeParent.parentNode;
+	}
+
+	/* 新規適用 */
+	const code = document.createElement('code');
+	try {
+		code.appendChild(range.extractContents());
+		range.insertNode(code);
+		sel.removeAllRanges();
+		const newRange = document.createRange();
+		newRange.selectNodeContents(code);
+		sel.addRange(newRange);
+	} catch (e: unknown) { console.warn('[AP WYSIWYG] inlineCode:', (e as Error).message); }
+}
+
+function _toggleMarker(): void {
+	const sel = window.getSelection();
+	if (!sel || !sel.rangeCount || sel.isCollapsed) return;
+	const range = sel.getRangeAt(0);
+
+	let markParent: Node | null = range.commonAncestorContainer;
+	while (markParent && markParent !== _blocksEl) {
+		if (markParent.nodeType === 1 && (markParent as Element).tagName === 'MARK') {
+			const text = document.createTextNode(markParent.textContent || '');
+			markParent.parentNode!.replaceChild(text, markParent);
+			return;
+		}
+		markParent = markParent.parentNode;
+	}
+
+	const mark = document.createElement('mark');
+	try {
+		mark.appendChild(range.extractContents());
+		range.insertNode(mark);
+		sel.removeAllRanges();
+		const newRange = document.createRange();
+		newRange.selectNodeContents(mark);
+		sel.addRange(newRange);
+	} catch (e: unknown) { console.warn('[AP WYSIWYG] marker:', (e as Error).message); }
+}
+
+function _showLinkInput(): void {
+	const sel = window.getSelection();
+	if (!sel || !sel.rangeCount || sel.isCollapsed) {
+		const url = prompt('URL を入力してください:');
+		if (url?.trim()) {
+			if (!_isSafeUrl(url)) { _setStatus('⚠ 安全でないURLです'); return; }
+			document.execCommand('createLink', false, url.trim());
+		}
+		return;
+	}
+
+	/* 既存のリンクをチェック */
+	let anchor: Node | null = sel.anchorNode;
+	while (anchor && (anchor as Element).tagName !== 'A' && anchor !== _blocksEl) anchor = anchor.parentNode;
+
+	if (anchor && (anchor as Element).tagName === 'A') {
+		/* リンク解除 */
+		document.execCommand('unlink', false, undefined);
+	} else {
+		const url = prompt('URL を入力してください:');
+		if (url?.trim()) {
+			if (!_isSafeUrl(url)) { _setStatus('⚠ 安全でないURLです'); return; }
+			document.execCommand('createLink', false, url.trim());
+		}
+	}
+}
+
+/* ══════════════════════════════════════════════
+   フローティングインラインツールバー
+   ══════════════════════════════════════════════ */
+
+const INLINE_TB_TOOLS: InlineTool[] = [
+	{ cmd:'bold',          label:'<b>B</b>',  aria:'太字' },
+	{ cmd:'italic',        label:'<i>I</i>',  aria:'斜体' },
+	{ cmd:'underline',     label:'<u>U</u>',  aria:'下線' },
+	{ cmd:'strikeThrough', label:'<s>S</s>',  aria:'取消線' },
+	{ cmd:'inlineCode',    label:'&lt;&gt;',   aria:'コード' },
+	{ cmd:'marker',        label:'<mark>M</mark>', aria:'マーカー' },
+	{ cmd:'link',          label:'🔗',         aria:'リンク' },
+];
+
+function _onSelectionChange(): void {
+	if (!_active || !_blocksEl) return;
+	const sel = window.getSelection();
+	if (!sel || !sel.rangeCount || sel.isCollapsed) { _hideInlineToolbar(); return; }
+
+	/* 選択がブロックコンテナ内かチェック */
+	const range = sel.getRangeAt(0);
+	if (!_blocksEl.contains(range.commonAncestorContainer)) { _hideInlineToolbar(); return; }
+
+	/* コードブロック内では表示しない */
+	const blockEl = range.commonAncestorContainer.nodeType === 1
+		? (range.commonAncestorContainer as Element).closest('.ap-wy-block')
+		: range.commonAncestorContainer.parentElement?.closest('.ap-wy-block');
+	if ((blockEl as HTMLElement)?.dataset.type === 'code') { _hideInlineToolbar(); return; }
+
+	_showInlineToolbar(range);
+}
+
+function _showInlineToolbar(range: Range): void {
+	if (!_inlineToolbar) {
+		_inlineToolbar = document.createElement('div');
+		_inlineToolbar.className = 'ap-wy-inline-tb';
+		INLINE_TB_TOOLS.forEach((t: InlineTool): void => {
+			const btn: HTMLButtonElement = document.createElement('button');
+			btn.type = 'button';
+			btn.className = 'ap-wy-btn';
+			btn.dataset.cmd = t.cmd;
+			btn.innerHTML = t.label;
+			btn.setAttribute('aria-label', t.aria);
+			btn.addEventListener('mousedown', (e: MouseEvent): void => {
+				e.preventDefault();
+				if (t.cmd === 'inlineCode') _toggleInlineCode();
+				else if (t.cmd === 'marker') _toggleMarker();
+				else if (t.cmd === 'link') _showLinkInput();
+				else _toggleInline(t.cmd);
+			});
+			_inlineToolbar!.appendChild(btn);
+		});
+		document.body.appendChild(_inlineToolbar);
+	}
+
+	/* アクティブ状態を更新 */
+	_inlineToolbar.querySelectorAll('.ap-wy-btn').forEach((btn: Element): void => {
+		const cmd = (btn as HTMLElement).dataset.cmd;
+		let active = false;
+		try {
+			if (cmd === 'bold') active = document.queryCommandState('bold');
+			else if (cmd === 'italic') active = document.queryCommandState('italic');
+			else if (cmd === 'underline') active = document.queryCommandState('underline');
+			else if (cmd === 'strikeThrough') active = document.queryCommandState('strikeThrough');
+		} catch (_e) { /* ignore */ }
+		btn.classList.toggle('ap-wy-active', active);
+	});
+
+	const rect = range.getBoundingClientRect();
+	_inlineToolbar.style.display = 'flex';
+	let top: number = window.scrollY + rect.top - 40;
+	let left: number = window.scrollX + rect.left + rect.width / 2;
+	_inlineToolbar.style.top = top + 'px';
+	_inlineToolbar.style.left = left + 'px';
+	/* ビューポートクランプ */
+	requestAnimationFrame((): void => {
+		if (!_inlineToolbar) return;
+		const tbRect = _inlineToolbar.getBoundingClientRect();
+		if (tbRect.top < 0) _inlineToolbar!.style.top = (window.scrollY + rect.bottom + 4) + 'px';
+		if (tbRect.right > window.innerWidth) _inlineToolbar!.style.left = (window.innerWidth - tbRect.width - 8) + 'px';
+		if (tbRect.left < 0) _inlineToolbar!.style.left = '4px';
+	});
+}
+
+function _hideInlineToolbar(): void {
+	if (_inlineToolbar) _inlineToolbar.style.display = 'none';
+}
+
+/* ══════════════════════════════════════════════
+   "/" スラッシュコマンドメニュー
+   ══════════════════════════════════════════════ */
+
+function _showSlashMenu(target: HTMLElement): void {
+	const filtered = SLASH_COMMANDS.filter((c: SlashCommand): boolean =>
+		_slashFilter === '' ||
+		c.label.toLowerCase().includes(_slashFilter) ||
+		c.keywords.includes(_slashFilter) ||
+		c.type.includes(_slashFilter)
+	);
+	if (filtered.length === 0) { _hideSlashMenu(); return; }
+
+	if (!_slashMenu) {
+		_slashMenu = document.createElement('div');
+		_slashMenu.className = 'ap-wy-slash-menu';
+		_slashMenu.setAttribute('role', 'listbox');
+		_slashMenu.setAttribute('aria-label', 'ブロックタイプ選択');
+		document.body.appendChild(_slashMenu);
+	}
+
+	_slashIdx = 0;
+	_slashMenu.innerHTML = '';
+	filtered.forEach((c: SlashCommand, i: number): void => {
+		const item: HTMLDivElement = document.createElement('div');
+		item.className = 'ap-wy-slash-item' + (i === 0 ? ' active' : '');
+		item.setAttribute('role', 'option');
+		item.innerHTML = `<span class="ap-wy-slash-item-icon">${c.icon}</span><span class="ap-wy-slash-item-label">${c.label}</span>`;
+		item.addEventListener('mousedown', (e: MouseEvent): void => {
+			e.preventDefault();
+			_slashIdx = i;
+			_applySlashCmd();
+		});
+		_slashMenu!.appendChild(item);
+	});
+
+	/* 位置計算 */
+	const sel = window.getSelection();
+	if (sel && sel.rangeCount) {
+		const rect = sel.getRangeAt(0).getBoundingClientRect();
+		_slashMenu.style.display = 'block';
+		let top: number = window.scrollY + rect.bottom + 4;
+		let left: number = window.scrollX + rect.left;
+
+		/* DOM追加後に実寸でビューポートクランプ (Ph3-F) */
+		_slashMenu.style.top = top + 'px';
+		_slashMenu.style.left = Math.max(4, left) + 'px';
+		requestAnimationFrame((): void => {
+			if (!_slashMenu) return;
+			const menuRect = _slashMenu.getBoundingClientRect();
+			if (menuRect.bottom > window.innerHeight) top = window.scrollY + rect.top - menuRect.height - 4;
+			if (menuRect.right > window.innerWidth) left = window.innerWidth - menuRect.width - 8;
+			_slashMenu!.style.top = top + 'px';
+			_slashMenu!.style.left = Math.max(4, left) + 'px';
+		});
+	}
+}
+
+function _hideSlashMenu(): void {
+	if (_slashMenu) { _slashMenu.remove(); _slashMenu = null; }
+	_slashFilter = '';
+	_slashBlock = null;
+}
+
+function _slashNav(dir: number): void {
+	if (!_slashMenu) return;
+	const items = _slashMenu.querySelectorAll('.ap-wy-slash-item');
+	if (items.length === 0) return;
+	items[_slashIdx]?.classList.remove('active');
+	_slashIdx = (_slashIdx + dir + items.length) % items.length;
+	items[_slashIdx]?.classList.add('active');
+	items[_slashIdx]?.scrollIntoView({ block: 'nearest' });
+}
+
+function _applySlashCmd(): void {
+	if (!_slashMenu || !_slashBlock) return;
+	const filtered = SLASH_COMMANDS.filter((c: SlashCommand): boolean =>
+		_slashFilter === '' ||
+		c.label.toLowerCase().includes(_slashFilter) ||
+		c.keywords.includes(_slashFilter) ||
+		c.type.includes(_slashFilter)
+	);
+	if (_slashIdx >= filtered.length) _slashIdx = Math.max(0, filtered.length - 1);
+	const selected = filtered[_slashIdx];
+	if (!selected) { _hideSlashMenu(); return; }
+
+	const block: WysiwygBlock = _slashBlock;
+	_hideSlashMenu();
+
+	/* 現在のブロックの "/" テキストをクリア */
+	const el = _getBlockEl(block);
+	const content = el?.querySelector('.ap-wy-block-content[contenteditable="true"]') as HTMLElement | null;
+	if (content) content.innerHTML = '';
+	block.data.text = '';
+
+	switch (selected.type) {
+		case 'paragraph':
+			_changeBlockType(block, 'paragraph');
+			break;
+		case 'h2':
+			_changeBlockType(block, 'heading', { level: 2 });
+			break;
+		case 'h3':
+			_changeBlockType(block, 'heading', { level: 3 });
+			break;
+		case 'ul':
+			block.type = 'list'; block.data = { style: 'unordered', items: [''] };
+			_rerenderBlock(block);
+			break;
+		case 'ol':
+			block.type = 'list'; block.data = { style: 'ordered', items: [''] };
+			_rerenderBlock(block);
+			break;
+		case 'quote':
+			_changeBlockType(block, 'quote');
+			break;
+		case 'code':
+			_changeBlockType(block, 'code');
+			break;
+		case 'delimiter':
+			_changeBlockType(block, 'delimiter');
+			/* 区切り線の後に新段落を追加 (Ph3-F) */
+			_addBlockAfter(block, 'paragraph', { text: '' });
+			break;
+		case 'table':
+			block.type = 'table'; block.data = { rows: [['','',''],['','',''],['','','']] };
+			_rerenderBlock(block);
+			break;
+		case 'image': {
+			const input: HTMLInputElement = document.createElement('input');
+			input.type = 'file';
+			input.accept = 'image/jpeg,image/png,image/gif,image/webp';
+			input.onchange = (): void => {
+				if (input.files?.[0]) {
+					_removeBlock(block);
+					_insertImageBlock(input.files[0]);
+				}
+			};
+			input.click();
+			break;
+		}
+		case 'checklist':
+			block.type = 'checklist'; block.data = { items: [{ text: '', checked: false }] };
+			_rerenderBlock(block);
+			break;
+	}
+}
+
+/* ══════════════════════════════════════════════
+   ブロックハンドル・タイプ変換ポップアップ
+   ══════════════════════════════════════════════ */
+
+function _showTypePopup(block: WysiwygBlock, blockEl: HTMLElement): void {
+	_hideTypePopup();
+
+	_typePopup = document.createElement('div');
+	_typePopup.className = 'ap-wy-type-popup';
+
+	const options: TypePopupOption[] = [
+		{ label: '¶ 段落',         type: 'paragraph' },
+		{ label: 'H2 見出し2',     type: 'heading', extra: { level: 2 } },
+		{ label: 'H3 見出し3',     type: 'heading', extra: { level: 3 } },
+		{ label: '❝ 引用',         type: 'quote' },
+		{ label: '{} コード',       type: 'code' },
+		{ label: '— 区切り線',     type: 'delimiter' },
+		{ label: '•≡ 箇条書き',    type: 'list', extra: { style: 'unordered' } },
+		{ label: '1≡ 番号リスト',  type: 'list', extra: { style: 'ordered' } },
+	];
+
+	/* Block Tunes: テキスト配置 */
+	const alignOptions: AlignOption[] = [
+		{ label: '← 左揃え',   align: 'left' },
+		{ label: '↔ 中央揃え', align: 'center' },
+		{ label: '→ 右揃え',   align: 'right' },
+	];
+
+	options.forEach((opt: TypePopupOption): void => {
+		const item: HTMLDivElement = document.createElement('div');
+		item.className = 'ap-wy-type-popup-item';
+		item.textContent = opt.label;
+		if (block.type === opt.type && (!opt.extra?.level || block.data.level === opt.extra.level)
+			&& (!opt.extra?.style || block.data.style === opt.extra.style)) {
+			item.style.fontWeight = 'bold';
+		}
+		item.addEventListener('mousedown', (e: MouseEvent): void => {
+			e.preventDefault();
+			_hideTypePopup();
+			if (opt.type === 'list') {
+				const text: string = String(block.data.text || '');
+				block.type = 'list';
+				block.data = { style: opt.extra!.style, items: text ? [text] : [''] };
+				_rerenderBlock(block);
+			} else {
+				_changeBlockType(block, opt.type, opt.extra || {});
+			}
+		});
+		_typePopup!.appendChild(item);
+	});
+
+	/* 配置セパレータ */
+	if (['paragraph','heading','quote'].includes(block.type)) {
+		const sep: HTMLDivElement = document.createElement('div');
+		sep.className = 'ap-wy-type-popup-sep';
+		_typePopup.appendChild(sep);
+
+		alignOptions.forEach((opt: AlignOption): void => {
+			const item: HTMLDivElement = document.createElement('div');
+			item.className = 'ap-wy-type-popup-item';
+			item.textContent = opt.label;
+			if ((block.data.align || 'left') === opt.align) item.style.fontWeight = 'bold';
+			item.addEventListener('mousedown', (e: MouseEvent): void => {
+				e.preventDefault();
+				_hideTypePopup();
+				block.data.align = opt.align;
+				blockEl.dataset.align = opt.align;
+			});
+			_typePopup!.appendChild(item);
+		});
+	}
+
+	/* 削除ボタン */
+	const sep2: HTMLDivElement = document.createElement('div');
+	sep2.className = 'ap-wy-type-popup-sep';
+	_typePopup.appendChild(sep2);
+	const delItem: HTMLDivElement = document.createElement('div');
+	delItem.className = 'ap-wy-type-popup-item danger';
+	delItem.textContent = '🗑 ブロック削除';
+	delItem.addEventListener('mousedown', (e: MouseEvent): void => {
+		e.preventDefault();
+		_hideTypePopup();
+		_removeBlock(block);
+	});
+	_typePopup.appendChild(delItem);
+
+	document.body.appendChild(_typePopup);
+
+	/* 位置計算 */
+	const handleEl = blockEl.querySelector('.ap-wy-block-handle') as HTMLElement | null;
+	if (!handleEl) return;
+	const handleRect = handleEl.getBoundingClientRect();
+	let top: number = window.scrollY + handleRect.bottom + 2;
+	let left: number = window.scrollX + handleRect.left;
+
+	/* ビューポートクランプ (Ph3-G) */
+	_typePopup.style.top = top + 'px';
+	_typePopup.style.left = Math.max(4, left) + 'px';
+	requestAnimationFrame((): void => {
+		if (!_typePopup) return;
+		const popRect = _typePopup.getBoundingClientRect();
+		if (popRect.bottom > window.innerHeight) top = window.scrollY + handleRect.top - popRect.height - 2;
+		if (popRect.right > window.innerWidth) left = window.innerWidth - popRect.width - 8;
+		_typePopup!.style.top = top + 'px';
+		_typePopup!.style.left = Math.max(4, left) + 'px';
+	});
+
+	/* キーボード操作 */
+	let _popIdx = -1;
+	const allItems = _typePopup.querySelectorAll('.ap-wy-type-popup-item');
+	_typePopupKeyHandler = (e: KeyboardEvent): void => {
+		if (e.key === 'ArrowDown') {
+			e.preventDefault();
+			if (_popIdx >= 0) (allItems[_popIdx] as HTMLElement).style.background = '';
+			_popIdx = (_popIdx + 1) % allItems.length;
+			(allItems[_popIdx] as HTMLElement).style.background = '#0ad';
+			(allItems[_popIdx] as HTMLElement).style.color = '#000';
+			allItems[_popIdx]?.scrollIntoView({ block: 'nearest' });
+		} else if (e.key === 'ArrowUp') {
+			e.preventDefault();
+			if (_popIdx >= 0) { (allItems[_popIdx] as HTMLElement).style.background = ''; (allItems[_popIdx] as HTMLElement).style.color = ''; }
+			_popIdx = (_popIdx - 1 + allItems.length) % allItems.length;
+			(allItems[_popIdx] as HTMLElement).style.background = '#0ad';
+			(allItems[_popIdx] as HTMLElement).style.color = '#000';
+			allItems[_popIdx]?.scrollIntoView({ block: 'nearest' });
+		} else if (e.key === 'Enter' && _popIdx >= 0) {
+			e.preventDefault();
+			allItems[_popIdx].dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+		} else if (e.key === 'Escape') {
+			e.preventDefault();
+			_hideTypePopup();
+		}
+	};
+	setTimeout((): void => { document.addEventListener('keydown', _typePopupKeyHandler!); }, 0);
+
+	/* 外部クリックで閉じる */
+	_typePopupCloseHandler = (e: MouseEvent): void => {
+		if (!_typePopup?.contains(e.target as Node)) {
+			_hideTypePopup();
+		}
+	};
+	setTimeout((): void => { document.addEventListener('mousedown', _typePopupCloseHandler!); }, 0);
+}
+
+function _hideTypePopup(): void {
+	if (_typePopupKeyHandler) { document.removeEventListener('keydown', _typePopupKeyHandler); _typePopupKeyHandler = null; }
+	if (_typePopupCloseHandler) { document.removeEventListener('mousedown', _typePopupCloseHandler); _typePopupCloseHandler = null; }
+	if (_typePopup) { _typePopup.remove(); _typePopup = null; }
+}
+
+/* ══════════════════════════════════════════════
+   ドラッグ並べ替え
+   ══════════════════════════════════════════════ */
+
+function _startDrag(block: WysiwygBlock, blockEl: HTMLElement, startEvent: MouseEvent | Touch, isTouch: boolean): void {
+	_dragStarted = false;
+	_dragBlock = block;
+
+	const startY: number = startEvent.clientY;
+	let moved = false;
+
+	if (!_dropLine) {
+		_dropLine = document.createElement('div');
+		_dropLine.className = 'ap-wy-drop-line';
+		_dropLine.style.display = 'none';
+	}
+
+	const _onMove = (e: MouseEvent | TouchEvent): void => {
+		const y: number = isTouch ? ((e as TouchEvent).touches?.[0]?.clientY ?? startY) : (e as MouseEvent).clientY;
+		if (!moved && Math.abs(y - startY) < 5) return;
+
+		if (!moved) {
+			moved = true;
+			_dragStarted = true;
+			blockEl.classList.add('dragging');
+			_blocksEl!.appendChild(_dropLine!);
+		}
+
+		/* ドロップ位置計算 */
+		const blockEls = Array.from(_blocksEl!.querySelectorAll('.ap-wy-block')) as HTMLElement[];
+		let insertBefore: HTMLElement | null = null;
+		let lineTop = 0;
+
+		for (const el of blockEls) {
+			if (el === blockEl) continue;
+			const rect = el.getBoundingClientRect();
+			const mid: number = rect.top + rect.height / 2;
+			if (y < mid) {
+				insertBefore = el;
+				lineTop = rect.top - _blocksEl!.getBoundingClientRect().top - 2;
+				break;
+			}
+			lineTop = rect.bottom - _blocksEl!.getBoundingClientRect().top;
+		}
+
+		_dropLine!.style.display = 'block';
+		_dropLine!.style.top = lineTop + 'px';
+		_dropLine!.dataset.beforeId = insertBefore?.dataset.id || '';
+	};
+
+	const moveEvt: string = isTouch ? 'touchmove' : 'mousemove';
+	const upEvt: string = isTouch ? 'touchend' : 'mouseup';
+
+	const _onUp = (): void => {
+		document.removeEventListener(moveEvt, _onMove as EventListener);
+		document.removeEventListener(upEvt, _onUp);
+
+		if (moved) {
+			_saveSnapshot();
+			blockEl.classList.remove('dragging');
+			_dropLine!.style.display = 'none';
+
+			const beforeId: string = _dropLine!.dataset.beforeId || '';
+			const fromIdx: number = _blocks.indexOf(block);
+			_blocks.splice(fromIdx, 1);
+
+			let toIdx: number = _blocks.length;
+			if (beforeId) {
+				toIdx = _blocks.findIndex((b: WysiwygBlock) => b.id === beforeId);
+				if (toIdx === -1) toIdx = _blocks.length;
+			}
+			_blocks.splice(toIdx, 0, block);
+
+			/* DOM 移動 */
+			if (beforeId) {
+				const beforeEl = _blocksEl!.querySelector(`[data-id="${beforeId}"]`);
+				if (beforeEl) _blocksEl!.insertBefore(blockEl, beforeEl);
+			} else {
+				_blocksEl!.appendChild(blockEl);
+			}
+		}
+
+		/* ドラッグフラグリセット（clickイベント防止のため遅延） */
+		setTimeout((): void => { _dragStarted = false; _dragBlock = null; }, 50);
+	};
+
+	document.addEventListener(moveEvt, _onMove as EventListener, isTouch ? { passive: false } : undefined);
+	document.addEventListener(upEvt, _onUp);
+}
+
+/* ══════════════════════════════════════════════
+   画像アップロード & 画像ブロック挿入
+   ══════════════════════════════════════════════ */
+
+function _insertImageBlock(file: File): void {
+	if (!file || !file.type.match(/^image\//)) {
+		_setStatus('⚠ 画像ファイルのみ対応 (JPEG/PNG/GIF/WebP)');
+		setTimeout((): void => { _setStatus(''); }, 5000);
+		return;
+	}
+	const csrf = _getCsrf();
+	if (!csrf) { console.error('[AP WYSIWYG] CSRF token not found'); return; }
+
+	_setStatus('アップロード中...');
+
+	const fd = new FormData();
+	fd.append('ap_action', 'upload_image');
+	fd.append('image', file);
+	fd.append('csrf', csrf);
+
+	fetch('/', {
+		method: 'POST',
+		headers: { 'X-CSRF-TOKEN': csrf },
+		body: fd,
+	}).then((r: Response): Promise<Record<string, unknown>> => {
+		if (!r.ok) throw new Error('HTTP ' + r.status);
+		return r.json() as Promise<Record<string, unknown>>;
+	}).then((data: Record<string, unknown>): void => {
+		if (data.error) throw new Error(String(data.error));
+		_setStatus('');
+		const focused = _getFocusedBlock() || _blocks[_blocks.length - 1];
+		if (focused) {
+			_addBlockAfter(focused, 'image', { src: data.url, alt: '', caption: '', width: '100%' });
+		} else {
+			const b: WysiwygBlock = { id: _uid(), type: 'image', data: { src: data.url, alt: '', caption: '', width: '100%' } };
+			_blocks.push(b);
+			_blocksEl!.appendChild(_renderBlock(b));
+		}
+	}).catch((e: Error): void => {
+		_setStatus('⚠ アップロード失敗: ' + e.message);
+		setTimeout((): void => { _setStatus(''); }, 5000);
+	});
+}
+
+/* ══════════════════════════════════════════════
+   編集履歴パネル
+   ══════════════════════════════════════════════ */
+
+/* D1: リビジョン間比較用の選択状態 */
+let _diffCompareA: Revision | null = null;
+
+function _showHistoryPanel(span: HTMLElement): void {
+	if (_historyPanel) { _closeHistoryPanel(); return; }
+	_diffCompareA = null;
+
+	const overlay: HTMLDivElement = document.createElement('div');
+	overlay.className = 'ap-wy-history-overlay';
+	overlay.addEventListener('click', _closeHistoryPanel);
+
+	const panel: HTMLDivElement = document.createElement('div');
+	panel.className = 'ap-wy-history-panel';
+	panel.setAttribute('role', 'dialog');
+	panel.setAttribute('aria-label', '編集履歴');
+
+	/* ヘッダー */
+	const header: HTMLDivElement = document.createElement('div');
+	header.className = 'ap-wy-history-header';
+	const title: HTMLSpanElement = document.createElement('span');
+	title.textContent = '編集履歴';
+	header.appendChild(title);
+	const closeBtn: HTMLButtonElement = document.createElement('button');
+	closeBtn.className = 'ap-wy-history-close';
+	closeBtn.textContent = '✕';
+	closeBtn.setAttribute('aria-label', '閉じる');
+	closeBtn.addEventListener('click', _closeHistoryPanel);
+	header.appendChild(closeBtn);
+
+	/* C5: タブ（説明テキスト付き） */
+	const tabs: HTMLDivElement = document.createElement('div');
+	tabs.className = 'ap-wy-history-tabs';
+	tabs.setAttribute('role', 'tablist');
+	const tabSession: HTMLButtonElement = document.createElement('button');
+	tabSession.className = 'ap-wy-history-tab active';
+	tabSession.setAttribute('role', 'tab');
+	tabSession.setAttribute('aria-selected', 'true');
+	tabSession.innerHTML = 'セッション<small>ブラウザ内の操作履歴</small>';
+	tabSession.dataset.tab = 'session';
+	const tabRevision: HTMLButtonElement = document.createElement('button');
+	tabRevision.className = 'ap-wy-history-tab';
+	tabRevision.setAttribute('role', 'tab');
+	tabRevision.setAttribute('aria-selected', 'false');
+	tabRevision.innerHTML = 'リビジョン<small>サーバー保存の版管理</small>';
+	tabRevision.dataset.tab = 'revision';
+	tabs.appendChild(tabSession);
+	tabs.appendChild(tabRevision);
+
+	/* ボディ */
+	const body: HTMLDivElement = document.createElement('div');
+	body.className = 'ap-wy-history-body';
+	body.setAttribute('role', 'tabpanel');
+
+	panel.appendChild(header);
+	panel.appendChild(tabs);
+	panel.appendChild(body);
+
+	document.body.appendChild(overlay);
+	document.body.appendChild(panel);
+
+	_historyPanel = { panel, overlay, body, span };
+
+	/* タブ切り替え */
+	tabSession.addEventListener('click', (): void => {
+		tabSession.classList.add('active');
+		tabSession.setAttribute('aria-selected', 'true');
+		tabRevision.classList.remove('active');
+		tabRevision.setAttribute('aria-selected', 'false');
+		_diffCompareA = null;
+		_renderSessionHistory(body);
+	});
+	tabRevision.addEventListener('click', (): void => {
+		tabRevision.classList.add('active');
+		tabRevision.setAttribute('aria-selected', 'true');
+		tabSession.classList.remove('active');
+		tabSession.setAttribute('aria-selected', 'false');
+		_diffCompareA = null;
+		_renderRevisionTab(body, span);
+	});
+
+	/* C1: キーボード操作 */
+	panel.addEventListener('keydown', (e: KeyboardEvent): void => {
+		if (e.key === 'Escape') { _closeHistoryPanel(); e.preventDefault(); return; }
+		if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+			const active = panel.querySelector('.ap-wy-history-tab.active') as HTMLButtonElement;
+			const other: HTMLButtonElement = active === tabSession ? tabRevision : tabSession;
+			other.click();
+			other.focus();
+			e.preventDefault();
+			return;
+		}
+		/* リスト内の上下移動 */
+		if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+			const items = Array.from(body.querySelectorAll('.ap-wy-history-item[tabindex]')) as HTMLElement[];
+			if (items.length === 0) return;
+			const cur = document.activeElement as HTMLElement;
+			let idx: number = items.indexOf(cur);
+			if (e.key === 'ArrowDown') idx = Math.min(idx + 1, items.length - 1);
+			else idx = Math.max(idx - 1, 0);
+			items[idx].focus();
+			e.preventDefault();
+		}
+	});
+
+	/* フォーカストラップ */
+	closeBtn.focus();
+
+	/* 初期表示: セッションタブ */
+	_renderSessionHistory(body);
+}
+
+function _closeHistoryPanel(): void {
+	if (!_historyPanel) return;
+	_historyPanel.panel.remove();
+	_historyPanel.overlay.remove();
+	_historyPanel = null;
+	_diffCompareA = null;
+}
+
+/* ── セッション履歴タブ ── */
+
+function _renderSessionHistory(container: HTMLElement): void {
+	container.innerHTML = '';
+	const total: number = _undoStack.length;
+	if (total === 0) {
+		container.innerHTML = '<div style="padding:16px;color:#999;">操作履歴がありません</div>';
+		return;
+	}
+
+	/* 現在の状態 */
+	const currentItem: HTMLDivElement = document.createElement('div');
+	currentItem.className = 'ap-wy-history-item';
+	currentItem.style.borderLeft = '3px solid #0ad';
+	const curInfo: HTMLDivElement = document.createElement('div');
+	curInfo.innerHTML = '<strong>\u25B6 現在の状態</strong>';
+	const curDetail: HTMLElement = document.createElement('small');
+	curDetail.className = 'ap-wy-history-item-time';
+	curDetail.textContent = 'ブロック数: ' + _blocks.length;
+	currentItem.appendChild(curInfo);
+	currentItem.appendChild(curDetail);
+	container.appendChild(currentItem);
+
+	/* undoStack を新しい順に */
+	for (let i = total - 1; i >= 0; i--) {
+		const entry: UndoEntry = _undoStack[i];
+		const item: HTMLDivElement = document.createElement('div');
+		item.className = 'ap-wy-history-item';
+		item.setAttribute('tabindex', '0');
+		item.setAttribute('role', 'button');
+		item.setAttribute('aria-label', '操作 #' + (i + 1) + ' に戻す');
+		const time: string = entry.time ? new Date(entry.time).toLocaleTimeString('ja-JP') : '';
+		const bc: number | string = entry.blockCount || '?';
+		const info: HTMLDivElement = document.createElement('div');
+		info.className = 'ap-wy-history-item-info';
+		info.textContent = '操作 #' + (i + 1);
+		const detail: HTMLElement = document.createElement('small');
+		detail.className = 'ap-wy-history-item-time';
+		detail.textContent = time + '  ブロック: ' + bc;
+		item.appendChild(info);
+		item.appendChild(detail);
+		item.style.cursor = 'pointer';
+		const handler = ((idx: number) => (e: Event): void => {
+			if (e.type === 'keydown' && (e as KeyboardEvent).key !== 'Enter') return;
+			_jumpToSnapshot(idx);
+			_closeHistoryPanel();
+		})(i);
+		item.addEventListener('click', handler);
+		item.addEventListener('keydown', handler);
+		container.appendChild(item);
+	}
+}
+
+function _jumpToSnapshot(targetIdx: number): void {
+	_syncAllBlocks();
+	const currentSnap: string = JSON.stringify(_blocks);
+	const moveCount: number = _undoStack.length - targetIdx - 1;
+	_redoStack.push({ snap: currentSnap, time: Date.now(), blockCount: _blocks.length });
+	for (let i = 0; i < moveCount; i++) {
+		_redoStack.push(_undoStack.pop()!);
+	}
+	const entry = _undoStack.pop()!;
+	_restoreSnapshot(entry.snap);
+	_setStatus('\u21A9 スナップショット #' + (targetIdx + 1) + ' に戻しました');
+	setTimeout((): void => { _setStatus(''); }, 3000);
+}

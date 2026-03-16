@@ -551,15 +551,33 @@ export class EventSourceService implements EventSourceInterface {
     this.listeners.get(event)!.add(callback);
 
     if (this.source && event !== "message") {
-      this.source.addEventListener(event, (e) => {
-        const data = JSON.parse((e as MessageEvent).data);
-        callback(data);
-      });
+      const wrapper = (e: Event) => {
+        try {
+          const data = JSON.parse((e as MessageEvent).data);
+          callback(data);
+        } catch {
+          // Non-JSON message data — skip
+        }
+      };
+      if (!this.nativeListeners.has(event)) {
+        this.nativeListeners.set(event, new Map());
+      }
+      this.nativeListeners.get(event)!.set(callback, wrapper);
+      this.source.addEventListener(event, wrapper);
     }
   }
 
   off(event: string, callback: (data: unknown) => void): void {
     this.listeners.get(event)?.delete(callback);
+
+    const eventMap = this.nativeListeners.get(event);
+    if (eventMap && this.source) {
+      const wrapper = eventMap.get(callback);
+      if (wrapper) {
+        this.source.removeEventListener(event, wrapper as EventListener);
+        eventMap.delete(callback);
+      }
+    }
   }
 
   isConnected(): boolean {
