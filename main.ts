@@ -7,7 +7,7 @@
  * 起動: deno task start
  * 開発: deno task dev
  *
- * @since 2.0.0
+ * @since Ver.2.1-41
  * @license Adlaire License Ver.2.0
  */
 
@@ -19,7 +19,7 @@ import { MarkdownService, Request, Response, TemplateRenderer } from "./Framewor
 // Constants
 // ============================================================================
 
-const AP_VERSION = "2.0.0";
+const AP_VERSION = "Ver.2.1-41";
 const DEFAULT_PORT = 8080;
 
 // ============================================================================

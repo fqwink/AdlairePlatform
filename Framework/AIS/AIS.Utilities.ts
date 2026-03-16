@@ -109,7 +109,7 @@ export class DiagnosticsManager implements DiagnosticsManagerInterface {
 
     return {
       status: hasError ? "error" : hasWarning ? "degraded" : "ok",
-      version: "2.0.0",
+      version: "Ver.2.1-41",
       php: `deno/${Deno.version.deno}`,
       time: new Date().toISOString(),
       checks,
@@ -343,15 +343,15 @@ export class UpdateService implements UpdateServiceInterface {
   checkUpdate(): Promise<UpdateInfo> {
     return Promise.resolve({
       available: false,
-      currentVersion: "2.0.0",
-      latestVersion: "2.0.0",
+      currentVersion: "Ver.2.1-41",
+      latestVersion: "Ver.2.1-41",
     });
   }
 
   checkEnvironment(): Promise<EnvironmentCheck> {
     return Promise.resolve({
       phpVersion: `deno/${Deno.version.deno}`,
-      requiredVersion: "2.0.0",
+      requiredVersion: "Ver.2.1-41",
       writable: true,
       diskSpace: 0,
       issues: [],
@@ -361,8 +361,8 @@ export class UpdateService implements UpdateServiceInterface {
   executeApplyUpdate(): Promise<UpdateApplyResult> {
     return Promise.resolve({
       success: false,
-      fromVersion: "2.0.0",
-      toVersion: "2.0.0",
+      fromVersion: "Ver.2.1-41",
+      toVersion: "Ver.2.1-41",
       error: "No update available",
     });
   }

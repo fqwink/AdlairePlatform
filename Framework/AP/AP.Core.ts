@@ -632,7 +632,7 @@ export class StaticController extends BaseController implements StaticController
 
 export class UpdateController extends BaseController implements UpdateControllerInterface {
   check(_request: RequestContext): ResponseData {
-    return this.ok({ available: false, currentVersion: "2.0.0" });
+    return this.ok({ available: false, currentVersion: "Ver.2.1-41" });
   }
 
   checkEnv(_request: RequestContext): ResponseData {
