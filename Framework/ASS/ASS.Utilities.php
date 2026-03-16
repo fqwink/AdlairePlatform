@@ -20,6 +20,8 @@ final class PathSecurity
     public static function sanitize(string $path): string
     {
         $path = str_replace("\0", '', $path);
+        // Decode URL-encoded sequences to prevent bypass via %2e%2e%2f
+        $path = rawurldecode($path);
         $path = str_replace(['\\', '../', '..\\'], ['/', '', ''], $path);
         $path = preg_replace('#/+#', '/', $path) ?? $path;
         $path = ltrim($path, '/');
@@ -39,15 +41,14 @@ final class PathSecurity
     /** 許可ディレクトリ名を検証する */
     public static function isAllowedDir(string $dir): bool
     {
-        return in_array($dir, [
-            'settings',
-            'content',
-            'collections',
-            'uploads',
-            'cache',
-            'backups',
-            'logs',
-        ], true);
+        $allowed = ['settings', 'content', 'collections', 'uploads', 'cache', 'backups', 'logs'];
+        // Allow exact match
+        if (in_array($dir, $allowed, true)) {
+            return true;
+        }
+        // Allow subdirectories of allowed dirs (e.g., "revisions/page", "collections/blog")
+        $topDir = explode('/', $dir)[0] ?? '';
+        return in_array($topDir, $allowed, true) && self::sanitize($dir) === $dir;
     }
 }
 
@@ -86,7 +87,9 @@ final class SessionManager
         ];
 
         $path = $this->sessionPath($id);
-        file_put_contents($path, json_encode($session, JSON_UNESCAPED_UNICODE), LOCK_EX);
+        $tmpPath = $path . '.tmp';
+        file_put_contents($tmpPath, json_encode($session, JSON_UNESCAPED_UNICODE), LOCK_EX);
+        rename($tmpPath, $path);
 
         return $id;
     }
@@ -519,10 +522,12 @@ final class AdminTemplate
 final class GitCommand
 {
     private string $workDir;
+    private int $timeout;
 
-    public function __construct(string $workDir)
+    public function __construct(string $workDir, int $timeout = 30)
     {
         $this->workDir = $workDir;
+        $this->timeout = $timeout;
     }
 
     /**
@@ -545,8 +550,34 @@ final class GitCommand
             return ['exitCode' => -1, 'stdout' => '', 'stderr' => 'Failed to execute git'];
         }
 
-        $stdout = stream_get_contents($pipes[1]) ?: '';
-        $stderr = stream_get_contents($pipes[2]) ?: '';
+        // Set non-blocking and enforce timeout
+        stream_set_blocking($pipes[1], false);
+        stream_set_blocking($pipes[2], false);
+
+        $stdout = '';
+        $stderr = '';
+        $startTime = time();
+
+        while (true) {
+            $status = proc_get_status($process);
+            if (!$status['running']) {
+                break;
+            }
+            if ((time() - $startTime) >= $this->timeout) {
+                proc_terminate($process, 9);
+                fclose($pipes[1]);
+                fclose($pipes[2]);
+                proc_close($process);
+                return ['exitCode' => -1, 'stdout' => '', 'stderr' => "Git command timed out after {$this->timeout}s"];
+            }
+            $stdout .= stream_get_contents($pipes[1]) ?: '';
+            $stderr .= stream_get_contents($pipes[2]) ?: '';
+            usleep(50000); // 50ms
+        }
+
+        // Read remaining output
+        $stdout .= stream_get_contents($pipes[1]) ?: '';
+        $stderr .= stream_get_contents($pipes[2]) ?: '';
         fclose($pipes[1]);
         fclose($pipes[2]);
         $exitCode = proc_close($process);

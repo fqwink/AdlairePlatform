@@ -46,7 +46,7 @@ final class AuthService implements AuthServiceInterface
         $passwordHash = Token::sha256($password);
 
         foreach ($users as $user) {
-            if (($user['username'] ?? '') === $username && ($user['password'] ?? '') === $passwordHash) {
+            if (strcasecmp($user['username'] ?? '', $username) === 0 && ($user['password'] ?? '') === $passwordHash) {
                 $sessionId = $this->sessions->create($user['id'], $user['role'] ?? 'admin');
 
                 return [
@@ -191,9 +191,15 @@ final class StorageService implements StorageServiceInterface
         $ext = pathinfo($file, PATHINFO_EXTENSION);
         if ($ext === 'json' || !is_string($data)) {
             $encoded = json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
-            file_put_contents($path, $encoded, LOCK_EX);
+            if ($encoded === false) {
+                throw new \RuntimeException('Failed to encode data as JSON: ' . json_last_error_msg());
+            }
+            $result = file_put_contents($path, $encoded, LOCK_EX);
         } else {
-            file_put_contents($path, $data, LOCK_EX);
+            $result = file_put_contents($path, $data, LOCK_EX);
+        }
+        if ($result === false) {
+            throw new \RuntimeException("Failed to write file: {$file}");
         }
     }
 
@@ -297,6 +303,16 @@ final class FileService implements FileServiceInterface
 
     public function uploadImage(array $file, string $path, array $options = []): array
     {
+        // Validate MIME type before upload
+        if (isset($file['tmp_name']) && is_uploaded_file($file['tmp_name'])) {
+            $finfo = new \finfo(FILEINFO_MIME_TYPE);
+            $mime = $finfo->file($file['tmp_name']);
+            $allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+            if (!in_array($mime, $allowed, true)) {
+                return ['success' => false, 'path' => $path, 'size' => 0, 'error' => 'Invalid image MIME type: ' . $mime];
+            }
+        }
+
         $result = $this->upload($file, $path);
         if (!$result['success']) {
             return $result;
@@ -374,11 +390,14 @@ final class FileService implements FileServiceInterface
             return;
         }
 
-        $maxWidth = $options['maxWidth'] ?? 300;
-        $maxHeight = $options['maxHeight'] ?? 300;
-        $quality = $options['quality'] ?? 80;
+        $maxWidth = max(1, (int) ($options['maxWidth'] ?? 300));
+        $maxHeight = max(1, (int) ($options['maxHeight'] ?? 300));
+        $quality = max(1, min(100, (int) ($options['quality'] ?? 80)));
 
         [$origW, $origH] = $info;
+        if ($origW <= 0 || $origH <= 0) {
+            return;
+        }
         $ratio = min($maxWidth / $origW, $maxHeight / $origH, 1.0);
         $newW = (int) round($origW * $ratio);
         $newH = (int) round($origH * $ratio);

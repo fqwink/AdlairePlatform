@@ -132,7 +132,7 @@ export class RateLimitMiddleware implements MiddlewareInterface {
     const now = Date.now();
 
     // Periodic cleanup of stale entries
-    if (this.requests.size > 1000) {
+    if (this.requests.size > 100) {
       for (const [ip, entry] of this.requests) {
         if (now > entry.resetAt) this.requests.delete(ip);
       }
@@ -229,7 +229,7 @@ export class SecurityHeadersMiddleware implements MiddlewareInterface {
       .withHeader("X-Frame-Options", "DENY")
       .withHeader("X-XSS-Protection", "1; mode=block")
       .withHeader("Referrer-Policy", "strict-origin-when-cross-origin")
-      .withHeader("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'")
+      .withHeader("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self'")
       .withHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
   }
 }

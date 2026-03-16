@@ -91,11 +91,17 @@ export class BaseBlock {
   config: Partial<EditorConfig>;
   wrapper: HTMLElement | null;
   element!: HTMLElement;
+  protected _boundListeners: Array<{ el: EventTarget; event: string; fn: EventListener }> = [];
 
   constructor(data: Record<string, unknown> = {}, config: Partial<EditorConfig> = {}) {
     this.data = data;
     this.config = config;
     this.wrapper = null;
+  }
+
+  protected _addListener(el: EventTarget, event: string, fn: EventListener): void {
+    el.addEventListener(event, fn);
+    this._boundListeners.push({ el, event, fn });
   }
 
   render(): HTMLElement {
@@ -112,7 +118,12 @@ export class BaseBlock {
 
   onFocus(): void {}
   onBlur(): void {}
-  onDestroy(): void {}
+  onDestroy(): void {
+    for (const { el, event, fn } of this._boundListeners) {
+      el.removeEventListener(event, fn);
+    }
+    this._boundListeners = [];
+  }
 
   static get config(): BlockConfig {
     return {
@@ -154,7 +165,7 @@ export class ParagraphBlock extends BaseBlock {
     }
     this.wrapper.appendChild(this.element);
     if (!this.config.readOnly) {
-      this.element.addEventListener('input', () => {
+      this._addListener(this.element, 'input', () => {
         this.data.text = this.element.innerHTML;
       });
     }
@@ -206,9 +217,10 @@ export class HeadingBlock extends BaseBlock {
 
   constructor(data: Partial<HeadingData> = {}, config: Partial<EditorConfig> = {}) {
     super(data as Record<string, unknown>, config);
+    const level = [2, 3].includes(data.level ?? 0) ? data.level! : 2;
     this.data = {
       text: data.text || '',
-      level: data.level || 2,
+      level,
       alignment: data.alignment || 'left'
     };
   }
@@ -229,7 +241,7 @@ export class HeadingBlock extends BaseBlock {
     }
     this.wrapper.appendChild(this.element);
     if (!this.config.readOnly) {
-      this.element.addEventListener('input', () => {
+      this._addListener(this.element, 'input', () => {
         this.data.text = this.element.innerHTML;
       });
     }
@@ -321,7 +333,7 @@ export class ListBlock extends BaseBlock {
     });
     this.wrapper.appendChild(this.element);
     if (!this.config.readOnly) {
-      this.element.addEventListener('input', () => {
+      this._addListener(this.element, 'input', () => {
         this.data.items = Array.from(this.element.querySelectorAll('li')).map(li => li.innerHTML);
       });
     }
@@ -381,7 +393,7 @@ export class QuoteBlock extends BaseBlock {
     this.element.innerHTML = this._sanitize(this.data.text);
     this.wrapper.appendChild(this.element);
     if (!this.config.readOnly) {
-      this.element.addEventListener('input', () => {
+      this._addListener(this.element, 'input', () => {
         this.data.text = this.element.innerHTML;
       });
     }
@@ -443,7 +455,7 @@ export class CodeBlock extends BaseBlock {
     this.element.appendChild(code);
     this.wrapper.appendChild(this.element);
     if (!this.config.readOnly) {
-      code.addEventListener('input', () => {
+      this._addListener(code, 'input', () => {
         this.data.code = code.textContent || '';
       });
     }
@@ -451,8 +463,9 @@ export class CodeBlock extends BaseBlock {
   }
 
   override save(): CodeData {
+    const codeEl = this.wrapper?.querySelector('code');
     return {
-      code: this.wrapper!.querySelector('code')!.textContent || '',
+      code: codeEl?.textContent || this.data.code,
       language: this.data.language
     };
   }
@@ -508,7 +521,7 @@ export class ImageBlock extends BaseBlock {
       caption.textContent = this.data.caption;
       this.wrapper.appendChild(caption);
       if (!this.config.readOnly) {
-        caption.addEventListener('input', () => {
+        this._addListener(caption, 'input', () => {
           this.data.caption = caption.textContent || '';
         });
       }
@@ -517,10 +530,10 @@ export class ImageBlock extends BaseBlock {
   }
 
   override save(): ImageData {
-    const caption = this.wrapper!.querySelector('.aeb-image-caption');
+    const caption = this.wrapper?.querySelector('.aeb-image-caption');
     return {
       url: this.data.url,
-      caption: caption ? caption.textContent || '' : '',
+      caption: caption ? caption.textContent || '' : this.data.caption,
       alt: this.data.alt,
       stretched: this.data.stretched
     };
@@ -576,7 +589,7 @@ export class TableBlock extends BaseBlock {
     });
     this.wrapper.appendChild(this.element);
     if (!this.config.readOnly) {
-      this.element.addEventListener('input', () => {
+      this._addListener(this.element, 'input', () => {
         this.data.content = Array.from(this.element.querySelectorAll('tr')).map(tr =>
           Array.from(tr.querySelectorAll('td, th')).map(cell => cell.textContent || '')
         );
@@ -644,12 +657,12 @@ export class ChecklistBlock extends BaseBlock {
       li.appendChild(text);
       this.element.appendChild(li);
       if (!this.config.readOnly) {
-        checkbox.addEventListener('click', () => {
+        this._addListener(checkbox, 'click', () => {
           const checked = checkbox.dataset.checked === 'true';
           checkbox.dataset.checked = String(!checked);
           li.dataset.checked = String(!checked);
         });
-        text.addEventListener('input', () => {
+        this._addListener(text, 'input', () => {
           this.data.items[index].text = text.textContent || '';
         });
       }

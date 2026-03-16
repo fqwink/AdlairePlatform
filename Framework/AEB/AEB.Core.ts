@@ -357,10 +357,21 @@ export class HistoryManager<T = unknown> {
   _clone(obj: T): T {
     if (obj === null || typeof obj !== 'object') return obj;
     try {
+      if (typeof structuredClone === 'function') {
+        return structuredClone(obj);
+      }
       return JSON.parse(JSON.stringify(obj));
-    } catch (error) {
-      console.warn('[HistoryManager] Failed to clone state, returning reference');
-      return obj;
+    } catch {
+      // Deep copy fallback for non-serializable objects
+      try {
+        return JSON.parse(JSON.stringify(obj));
+      } catch {
+        console.warn('[HistoryManager] Failed to clone state, creating shallow copy');
+        if (Array.isArray(obj)) {
+          return [...obj] as unknown as T;
+        }
+        return { ...obj };
+      }
     }
   }
 }
