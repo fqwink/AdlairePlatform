@@ -342,8 +342,25 @@ export class AdminController extends BaseController implements AdminControllerIn
     }
 
     const all = await this.client.storage.list(`revisions/${page}`, ".json");
-    // 簡易検索 - ファイル名マッチ
-    const matched = all.filter((f) => f.includes(query));
+    if (!query) {
+      return this.ok({ results: all });
+    }
+    // ファイル名マッチ + リビジョン内容のテキスト検索
+    const lowerQuery = query.toLowerCase();
+    const matched: string[] = [];
+    for (const f of all) {
+      if (f.toLowerCase().includes(lowerQuery)) {
+        matched.push(f);
+        continue;
+      }
+      const data = await this.client.storage.read<Record<string, unknown>>(
+        f,
+        `revisions/${page}`,
+      );
+      if (data && JSON.stringify(data).toLowerCase().includes(lowerQuery)) {
+        matched.push(f);
+      }
+    }
     return this.ok({ results: matched });
   }
 
@@ -352,9 +369,13 @@ export class AdminController extends BaseController implements AdminControllerIn
     const username = String(body.username ?? "");
     const password = String(body.password ?? "");
     const role = String(body.role ?? "editor");
+    const allowedRoles = ["admin", "editor", "viewer"];
 
     if (!username || !password) {
       return this.error("username and password are required");
+    }
+    if (!allowedRoles.includes(role)) {
+      return this.error(`Invalid role. Allowed: ${allowedRoles.join(", ")}`);
     }
 
     const users = (await this.client.storage.read<Record<string, unknown>[]>(
@@ -817,6 +838,10 @@ export class DiagnosticController extends BaseController implements DiagnosticCo
   async setLevel(request: RequestContext): Promise<ResponseData> {
     const body = this.parseBody(request);
     const level = String(body.level ?? "info");
+    const allowedLevels = ["debug", "info", "warning", "error", "critical"];
+    if (!allowedLevels.includes(level)) {
+      return this.error(`Invalid level. Allowed: ${allowedLevels.join(", ")}`);
+    }
 
     const config = (await this.client.storage.read<Record<string, unknown>>(
       "diagnostic.json",

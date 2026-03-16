@@ -138,13 +138,19 @@ final class SessionManager
             return 0;
         }
 
+        $now = time();
         foreach ($files as $file) {
+            // Quick check: skip files modified recently (within TTL)
+            $mtime = filemtime($file);
+            if ($mtime !== false && ($now - $mtime) < $this->ttl) {
+                continue;
+            }
             $raw = file_get_contents($file);
             if ($raw === false) {
                 continue;
             }
             $session = json_decode($raw, true);
-            if (!is_array($session) || ($session['expiresTimestamp'] ?? 0) < time()) {
+            if (!is_array($session) || ($session['expiresTimestamp'] ?? 0) < $now) {
                 unlink($file);
                 $count++;
             }
@@ -247,7 +253,9 @@ final class CsrfManager
     {
         $token = Token::generate(48);
         $path = $this->tokenPath($token);
-        file_put_contents($path, (string) (time() + $this->ttl), LOCK_EX);
+        $tmpPath = $path . '.tmp';
+        file_put_contents($tmpPath, (string) (time() + $this->ttl), LOCK_EX);
+        rename($tmpPath, $path);
         return $token;
     }
 
@@ -259,8 +267,15 @@ final class CsrfManager
             return false;
         }
 
-        $expiresAt = (int) file_get_contents($path);
-        unlink($path);
+        // Atomic: rename to prevent concurrent verification of same token
+        $tmpPath = $path . '.verifying';
+        if (!@rename($path, $tmpPath)) {
+            // Another process already consumed this token
+            return false;
+        }
+
+        $expiresAt = (int) file_get_contents($tmpPath);
+        unlink($tmpPath);
 
         return $expiresAt > time();
     }

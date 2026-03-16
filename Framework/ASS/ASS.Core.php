@@ -367,7 +367,11 @@ final class FileService implements FileServiceInterface
             return null;
         }
 
-        $info = @getimagesize($resolved);
+        try {
+            $info = getimagesize($resolved);
+        } catch (\Throwable) {
+            return null;
+        }
         if ($info === false) {
             return null;
         }
@@ -385,7 +389,11 @@ final class FileService implements FileServiceInterface
 
     private function generateThumbnail(string $sourcePath, array $options): void
     {
-        $info = @getimagesize($sourcePath);
+        try {
+            $info = getimagesize($sourcePath);
+        } catch (\Throwable) {
+            return;
+        }
         if ($info === false) {
             return;
         }
@@ -402,13 +410,17 @@ final class FileService implements FileServiceInterface
         $newW = (int) round($origW * $ratio);
         $newH = (int) round($origH * $ratio);
 
-        $source = match ($info['mime']) {
-            'image/jpeg' => @imagecreatefromjpeg($sourcePath),
-            'image/png' => @imagecreatefrompng($sourcePath),
-            'image/gif' => @imagecreatefromgif($sourcePath),
-            'image/webp' => @imagecreatefromwebp($sourcePath),
-            default => false,
-        };
+        try {
+            $source = match ($info['mime']) {
+                'image/jpeg' => imagecreatefromjpeg($sourcePath),
+                'image/png' => imagecreatefrompng($sourcePath),
+                'image/gif' => imagecreatefromgif($sourcePath),
+                'image/webp' => imagecreatefromwebp($sourcePath),
+                default => false,
+            };
+        } catch (\Throwable) {
+            return;
+        }
 
         if ($source === false) {
             return;

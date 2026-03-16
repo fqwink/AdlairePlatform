@@ -502,7 +502,8 @@ export class Editor {
       try {
         const block = this.blocks.create(blockData.type, blockData.data, this.config as unknown as Record<string, unknown>) as BlockInstance['instance'];
         const blockElement = block.render();
-        const blockId = `block-${crypto.randomUUID()}`;
+        // Use stable block ID from data if available, otherwise generate
+        const blockId = (blockData.data?._blockId as string) || `block-${index}-${blockData.type}`;
         blockElement.setAttribute('data-block-id', blockId);
         blockElement.setAttribute('data-block-type', blockData.type);
         this.blocksContainer.appendChild(blockElement);

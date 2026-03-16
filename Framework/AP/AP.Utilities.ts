@@ -26,8 +26,11 @@ import type {
 export class CsrfMiddleware implements MiddlewareInterface {
   private readonly tokenName = "csrf_token";
   private tokens = new Map<string, number>();
+  private readonly ttlMs: number;
 
-  constructor(private readonly Response: ResponseConstructor) {}
+  constructor(private readonly Response: ResponseConstructor, ttlMs: number = 3600000) {
+    this.ttlMs = ttlMs;
+  }
 
   handle(
     request: RequestInterface,
@@ -62,8 +65,7 @@ export class CsrfMiddleware implements MiddlewareInterface {
     const created = this.tokens.get(token);
     if (!created) return false;
 
-    // 1時間で失効
-    if (Date.now() - created > 3600000) {
+    if (Date.now() - created > this.ttlMs) {
       this.tokens.delete(token);
       return false;
     }
@@ -74,7 +76,7 @@ export class CsrfMiddleware implements MiddlewareInterface {
   }
 
   private cleanup(): void {
-    const cutoff = Date.now() - 3600000;
+    const cutoff = Date.now() - this.ttlMs;
     for (const [token, created] of this.tokens) {
       if (created < cutoff) this.tokens.delete(token);
     }
