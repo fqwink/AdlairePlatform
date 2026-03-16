@@ -1,0 +1,33 @@
+{
+  "name": "@adlaire/platform",
+  "version": "2.0.0",
+  "exports": "./Framework/mod.ts",
+  "tasks": {
+    "start": "deno run --allow-net --allow-read --allow-write --allow-env --allow-run main.ts",
+    "dev": "deno run --watch --allow-net --allow-read --allow-write --allow-env --allow-run main.ts",
+    "check": "deno check Framework/**/*.ts main.ts bootstrap.ts routes.ts",
+    "lint": "deno lint Framework/ main.ts bootstrap.ts routes.ts",
+    "fmt": "deno fmt Framework/ main.ts bootstrap.ts routes.ts",
+    "test": "deno test --allow-read --allow-write --allow-net tests/"
+  },
+  "compilerOptions": {
+    "strict": true,
+    "noImplicitAny": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false
+  },
+  "lint": {
+    "rules": {
+      "tags": ["recommended"],
+      "exclude": ["no-explicit-any"]
+    }
+  },
+  "fmt": {
+    "useTabs": false,
+    "lineWidth": 100,
+    "indentWidth": 2,
+    "semiColons": true,
+    "singleQuote": false,
+    "proseWrap": "preserve"
+  }
+}
