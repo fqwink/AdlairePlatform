@@ -66,7 +66,7 @@
 				/* 削除ボタンバインド */
 				document.querySelectorAll<HTMLButtonElement>('.ap-api-key-delete').forEach(function (btn) {
 					btn.addEventListener('click', function (this: HTMLButtonElement) {
-						const idx = parseInt(this.getAttribute('data-index') || '0', 10);
+						const idx = parseInt(this.getAttribute('data-index') || '0');
 						if (!confirm('この API キーを削除しますか？')) return;
 						apiCall('POST', { action: 'delete', index: idx }, function (res: APResponse) {
 							if (res.ok) { loadKeys(); }

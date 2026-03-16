@@ -41,7 +41,7 @@
 			}).then(function (r) {
 				if (!r.ok) return r.text().then(function (t) {
 					try { const d = JSON.parse(t); throw new Error(d.error || 'HTTP ' + r.status); }
-					catch (e) { if ((e as Error).message && !(e as Error).message.startsWith('HTTP ')) throw e; throw new Error('HTTP ' + r.status); }
+					catch (e) { if (e instanceof Error && e.message && !e.message.startsWith('HTTP ')) throw e; throw new Error('HTTP ' + r.status); }
 				});
 				return r.json();
 			});
@@ -121,8 +121,8 @@
 							btn.textContent = '今すぐ更新する';
 							return;
 						}
-						const diskFree = env.disk_free as number | undefined;
-						const diskMsg = diskFree != null && diskFree >= 0
+						const diskFree = env.disk_free as number;
+						const diskMsg = diskFree >= 0
 							? '（空き容量: ' + fmtSize(diskFree) + '）' : '';
 						if (!confirm('アップデートを適用します。' + diskMsg + '\n事前にバックアップが自動作成されます。よろしいですか？')) {
 							btn.disabled = false;
@@ -156,19 +156,20 @@
 				const ex = document.getElementById('ap-backup-list');
 				if (ex) ex.remove();
 
+				interface BackupMeta {
+					created_at?: string;
+					version_before?: string;
+					size_bytes?: number;
+				}
 				interface BackupEntry {
 					name: string;
-					meta?: {
-						created_at?: string;
-						version_before?: string;
-						size_bytes?: number;
-					};
+					meta?: BackupMeta;
 				}
 
 				post({ ap_action: 'list_backups' })
 					.then(function (data: APResponse) {
-						const backups = (data as APResponse & { backups?: BackupEntry[] }).backups;
 						let html = '';
+						const backups = (data as APResponse & { backups?: BackupEntry[] }).backups;
 						if (backups && backups.length > 0) {
 							html = '<b>バックアップ一覧:</b>' +
 								'<table style="margin-top:6px;border-collapse:collapse;font-size:0.9em;">' +
