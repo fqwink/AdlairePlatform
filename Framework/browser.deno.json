@@ -1,0 +1,7 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "noImplicitAny": true,
+    "lib": ["dom", "dom.iterable", "dom.asynciterable", "esnext"]
+  }
+}
