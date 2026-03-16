@@ -97,7 +97,7 @@ class AuthController extends BaseController {
 
 		/* マルチユーザーログイン試行 */
 		if ($username !== '') {
-			$users = json_read(\ACE\Admin\AdminManager::USERS_FILE, settings_dir());
+			$users = \APF\Utilities\JsonStorage::read(\ACE\Admin\AdminManager::USERS_FILE, \AIS\Core\AppContext::settingsDir());
 			if (!empty($users) && isset($users[$username])) {
 				$user = $users[$username];
 				if (($user['active'] ?? true) && password_verify($password, $user['password_hash'] ?? '')) {
@@ -115,7 +115,7 @@ class AuthController extends BaseController {
 		}
 
 		/* 単一パスワード認証（後方互換） */
-		$_auth = json_read('auth.json', settings_dir());
+		$_auth = \APF\Utilities\JsonStorage::read('auth.json', \AIS\Core\AppContext::settingsDir());
 		$passwordHash = $_auth['password_hash'] ?? '';
 		if ($passwordHash === '' || !password_verify($password, $passwordHash)) {
 			$this->recordLoginFailure($ip);
@@ -166,13 +166,13 @@ class AuthController extends BaseController {
 	/* ── レート制限ヘルパー ── */
 
 	private function checkLoginRate(string $ip): bool {
-		$data = json_read('login_attempts.json', settings_dir());
+		$data = \APF\Utilities\JsonStorage::read('login_attempts.json', \AIS\Core\AppContext::settingsDir());
 		$attempts = $data[$ip] ?? ['count' => 0, 'locked_until' => 0];
 		return time() >= (int)$attempts['locked_until'];
 	}
 
 	private function recordLoginFailure(string $ip): void {
-		$data = json_read('login_attempts.json', settings_dir());
+		$data = \APF\Utilities\JsonStorage::read('login_attempts.json', \AIS\Core\AppContext::settingsDir());
 		$attempts = $data[$ip] ?? ['count' => 0, 'locked_until' => 0];
 		if (time() >= (int)$attempts['locked_until']) {
 			$attempts['count']++;
@@ -183,23 +183,23 @@ class AuthController extends BaseController {
 			\AIS\System\DiagnosticsManager::log('security', 'ロックアウト発動');
 		}
 		$data[$ip] = $attempts;
-		json_write('login_attempts.json', $data, settings_dir());
+		\APF\Utilities\JsonStorage::write('login_attempts.json', $data, \AIS\Core\AppContext::settingsDir());
 	}
 
 	private function clearLoginRate(string $ip): void {
-		$data = json_read('login_attempts.json', settings_dir());
+		$data = \APF\Utilities\JsonStorage::read('login_attempts.json', \AIS\Core\AppContext::settingsDir());
 		unset($data[$ip]);
-		json_write('login_attempts.json', $data, settings_dir());
+		\APF\Utilities\JsonStorage::write('login_attempts.json', $data, \AIS\Core\AppContext::settingsDir());
 	}
 
 	private function getLockoutRemaining(string $ip): int {
-		$data = json_read('login_attempts.json', settings_dir());
+		$data = \APF\Utilities\JsonStorage::read('login_attempts.json', \AIS\Core\AppContext::settingsDir());
 		$attempts = $data[$ip] ?? ['count' => 0, 'locked_until' => 0];
 		return max(1, (int)ceil(((int)$attempts['locked_until'] - time()) / 60));
 	}
 
 	private function getRemainingAttempts(string $ip): int {
-		$data = json_read('login_attempts.json', settings_dir());
+		$data = \APF\Utilities\JsonStorage::read('login_attempts.json', \AIS\Core\AppContext::settingsDir());
 		$attempts = $data[$ip] ?? ['count' => 0, 'locked_until' => 0];
 		return max(0, 5 - (int)$attempts['count']);
 	}
@@ -208,7 +208,7 @@ class AuthController extends BaseController {
 		$algo = defined('PASSWORD_ARGON2ID') ? PASSWORD_ARGON2ID : PASSWORD_BCRYPT;
 		if (password_needs_rehash($users[$username]['password_hash'] ?? '', $algo)) {
 			$users[$username]['password_hash'] = password_hash($password, $algo);
-			json_write(\ACE\Admin\AdminManager::USERS_FILE, $users, settings_dir());
+			\APF\Utilities\JsonStorage::write(\ACE\Admin\AdminManager::USERS_FILE, $users, \AIS\Core\AppContext::settingsDir());
 			\APF\Utilities\Logger::info("ユーザー \"{$username}\" のパスワードハッシュを Argon2id へアップグレードしました");
 		}
 	}
@@ -267,17 +267,17 @@ class AdminController extends BaseController {
 
 		$settingsKeys = ['title', 'description', 'keywords', 'copyright', 'themeSelect', 'menu', 'subside', 'contact_email'];
 		if (in_array($fieldname, $settingsKeys, true)) {
-			$settings = json_read('settings.json', settings_dir());
+			$settings = \APF\Utilities\JsonStorage::read('settings.json', \AIS\Core\AppContext::settingsDir());
 			if (!is_array($settings)) $settings = [];
 			$settings[$fieldname] = $content;
-			json_write('settings.json', $settings, settings_dir());
+			\APF\Utilities\JsonStorage::write('settings.json', $settings, \AIS\Core\AppContext::settingsDir());
 			\ACE\Admin\AdminManager::logActivity('設定変更: ' . $fieldname);
 		} else {
 			\ACE\Admin\AdminManager::saveRevision($fieldname, $content);
-			$pages = json_read('pages.json', content_dir());
+			$pages = \APF\Utilities\JsonStorage::read('pages.json', \AIS\Core\AppContext::contentDir());
 			if (!is_array($pages)) $pages = [];
 			$pages[$fieldname] = $content;
-			json_write('pages.json', $pages, content_dir());
+			\APF\Utilities\JsonStorage::write('pages.json', $pages, \AIS\Core\AppContext::contentDir());
 			\ACE\Admin\AdminManager::logActivity('ページ編集: ' . $fieldname);
 			\ACE\Api\WebhookService::dispatch('page.updated', ['slug' => $fieldname]);
 		}
@@ -329,13 +329,13 @@ class AdminController extends BaseController {
 		if (!preg_match('/^[a-zA-Z0-9_\-]+$/', $slug)) {
 			return $this->error('不正なページ名');
 		}
-		$pages = json_read('pages.json', content_dir());
+		$pages = \APF\Utilities\JsonStorage::read('pages.json', \AIS\Core\AppContext::contentDir());
 		if (!isset($pages[$slug])) {
 			return $this->error('ページが見つかりません', 404);
 		}
 		\ACE\Admin\AdminManager::saveRevision($slug, $pages[$slug]);
 		unset($pages[$slug]);
-		json_write('pages.json', $pages, content_dir());
+		\APF\Utilities\JsonStorage::write('pages.json', $pages, \AIS\Core\AppContext::contentDir());
 		\ACE\Admin\AdminManager::logActivity('ページ削除: ' . $slug);
 
 		return $this->ok();
@@ -351,7 +351,7 @@ class AdminController extends BaseController {
 		$offset = max(0, (int)$request->post('offset', 0));
 		$limit  = min(50, max(1, (int)$request->post('limit', 20)));
 
-		$dir = content_dir() . '/revisions/' . $fieldname . '/';
+		$dir = \AIS\Core\AppContext::contentDir() . '/revisions/' . $fieldname . '/';
 		$files = glob($dir . 'rev_*.json') ?: [];
 		rsort($files);
 		$total = count($files);
@@ -380,7 +380,7 @@ class AdminController extends BaseController {
 		    !preg_match('/^rev_[0-9a-f_]+$/', $revFile)) {
 			return $this->error('Invalid parameters');
 		}
-		$path = content_dir() . '/revisions/' . $fieldname . '/' . $revFile . '.json';
+		$path = \AIS\Core\AppContext::contentDir() . '/revisions/' . $fieldname . '/' . $revFile . '.json';
 		if (!file_exists($path)) return $this->error('Revision not found', 404);
 		$rev = \APF\Utilities\FileSystem::readJson($path);
 		if ($rev === null || !isset($rev['content'])) return $this->error('Invalid revision data', 500);
@@ -395,16 +395,16 @@ class AdminController extends BaseController {
 		    !preg_match('/^rev_[0-9a-f_]+$/', $revFile)) {
 			return $this->error('Invalid parameters');
 		}
-		$path = content_dir() . '/revisions/' . $fieldname . '/' . $revFile . '.json';
+		$path = \AIS\Core\AppContext::contentDir() . '/revisions/' . $fieldname . '/' . $revFile . '.json';
 		if (!file_exists($path)) return $this->error('Revision not found', 404);
 		$rev = \APF\Utilities\FileSystem::readJson($path);
 		if ($rev === null || !isset($rev['content'])) return $this->error('Invalid revision data', 500);
 
 		$content = $rev['content'];
 		\ACE\Admin\AdminManager::saveRevision($fieldname, $content, true);
-		$pages = json_read('pages.json', content_dir());
+		$pages = \APF\Utilities\JsonStorage::read('pages.json', \AIS\Core\AppContext::contentDir());
 		$pages[$fieldname] = $content;
-		json_write('pages.json', $pages, content_dir());
+		\APF\Utilities\JsonStorage::write('pages.json', $pages, \AIS\Core\AppContext::contentDir());
 		\ACE\Admin\AdminManager::logActivity('リビジョン復元: ' . $fieldname);
 
 		return Response::json(['ok' => true, 'content' => $content]);
@@ -417,7 +417,7 @@ class AdminController extends BaseController {
 		    !preg_match('/^rev_[0-9a-f_]+$/', $revFile)) {
 			return $this->error('Invalid parameters');
 		}
-		$path = content_dir() . '/revisions/' . $fieldname . '/' . $revFile . '.json';
+		$path = \AIS\Core\AppContext::contentDir() . '/revisions/' . $fieldname . '/' . $revFile . '.json';
 		if (!file_exists($path)) return $this->error('Revision not found', 404);
 		$rev = \APF\Utilities\FileSystem::readJson($path);
 		if ($rev === null) return $this->error('Invalid revision data', 500);
@@ -434,7 +434,7 @@ class AdminController extends BaseController {
 		if (!preg_match('/^[a-zA-Z0-9_\-]+$/', $fieldname)) {
 			return $this->error('Invalid fieldname');
 		}
-		$dir = content_dir() . '/revisions/' . $fieldname . '/';
+		$dir = \AIS\Core\AppContext::contentDir() . '/revisions/' . $fieldname . '/';
 		$files = glob($dir . 'rev_*.json') ?: [];
 		rsort($files);
 		$results = [];
@@ -503,14 +503,14 @@ class AdminController extends BaseController {
 			return $this->error('リダイレクト先は / で始まるパスまたは https:// URL を指定してください');
 		}
 		if (!in_array($code, [301, 302], true)) $code = 301;
-		$redirects = json_read('redirects.json', settings_dir());
+		$redirects = \APF\Utilities\JsonStorage::read('redirects.json', \AIS\Core\AppContext::settingsDir());
 		foreach ($redirects as $r) {
 			if (($r['from'] ?? '') === $from) {
 				return $this->error('この旧URLのリダイレクトは既に存在します');
 			}
 		}
 		$redirects[] = ['from' => $from, 'to' => $to, 'code' => $code];
-		json_write('redirects.json', $redirects, settings_dir());
+		\APF\Utilities\JsonStorage::write('redirects.json', $redirects, \AIS\Core\AppContext::settingsDir());
 		\ACE\Admin\AdminManager::logActivity("リダイレクト追加: {$from} → {$to}");
 		return $this->ok();
 	}
@@ -518,12 +518,12 @@ class AdminController extends BaseController {
 	public function redirectDelete(Request $request): Response {
 		if ($err = $this->requireRole('admin')) return $err;
 		$index = (int)$request->post('index', -1);
-		$redirects = json_read('redirects.json', settings_dir());
+		$redirects = \APF\Utilities\JsonStorage::read('redirects.json', \AIS\Core\AppContext::settingsDir());
 		if ($index < 0 || $index >= count($redirects)) {
 			return $this->error('無効なインデックス');
 		}
 		array_splice($redirects, $index, 1);
-		json_write('redirects.json', $redirects, settings_dir());
+		\APF\Utilities\JsonStorage::write('redirects.json', $redirects, \AIS\Core\AppContext::settingsDir());
 		\ACE\Admin\AdminManager::logActivity("リダイレクト削除: #{$index}");
 		return $this->ok();
 	}

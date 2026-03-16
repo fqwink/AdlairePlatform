@@ -21,9 +21,6 @@ define('AP_REVISION_LIMIT', 30);
 /* ── Framework オートローダー ── */
 require __DIR__ . '/autoload.php';
 
-/* ── グローバルユーティリティ関数（bootstrap.php より先に読み込む） ── */
-require __DIR__ . '/Framework/AP/AP.Bridge.php';
-
 /* ── ブートストラップ（DI コンテナ・イベント初期化） ── */
 require __DIR__ . '/bootstrap.php';
 
@@ -78,7 +75,10 @@ header('Permissions-Policy: geolocation=(), microphone=(), camera=()');
 if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') {
 	header('Strict-Transport-Security: max-age=31536000; includeSubDomains');
 }
-host();
+$_ap_resolved = \AIS\Core\AppContext::resolveHost();
+$host = $_ap_resolved['host'];
+$rp   = $_ap_resolved['rp'];
+unset($_ap_resolved);
 
 /* ══════════════════════════════════════════════════
  * Router ディスパッチ
@@ -108,8 +108,8 @@ $c['loggedin'] = false;
 $c['page'] = 'home';
 $d['page']['home'] = "<h3>Your website is now powered by Adlaire Platform.</h3><br />\nLogin with the 'Login' link below. The password is admin.<br />\nChange the password as soon as possible.<br /><br />\n\nClick on the content to edit and click outside to save it.<br />";
 $d['page']['example'] = "This is an example page.<br /><br />\n\nTo add a new one, click on the existing pages (in the admin panel) and enter a new one below the others.";
-$d['new_page']['admin'] = "Page <b>".h($rp)."</b> created.<br /><br />\n\nClick here to start editing!";
-$d['new_page']['visitor'] = "Sorry, but <b>".h($rp)."</b> doesn't exist. :(";
+$d['new_page']['admin'] = "Page <b>".\APF\Utilities\Security::escape($rp)."</b> created.<br /><br />\n\nClick here to start editing!";
+$d['new_page']['visitor'] = "Sorry, but <b>".\APF\Utilities\Security::escape($rp)."</b> doesn't exist. :(";
 $d['default']['content'] = 'Click to edit!';
 $c['themeSelect'] = 'AP-Default';
 $c['menu'] = "Home<br />\nExample";
@@ -120,9 +120,9 @@ $c['keywords'] = 'enter, your website, keywords';
 $c['copyright'] = '&copy;'.date('Y').' Your website';
 $apcredit = "Powered by <a href=''>Adlaire Platform</a>";
 
-$_settings = json_read('settings.json', settings_dir());
-$_auth     = json_read('auth.json', settings_dir());
-$_pages    = json_read('pages.json', content_dir());
+$_settings = \APF\Utilities\JsonStorage::read('settings.json', \AIS\Core\AppContext::settingsDir());
+$_auth     = \APF\Utilities\JsonStorage::read('auth.json', \AIS\Core\AppContext::settingsDir());
+$_pages    = \APF\Utilities\JsonStorage::read('pages.json', \AIS\Core\AppContext::contentDir());
 
 /* コレクションモード: Markdown → HTML 変換済みページをマージ */
 if (\ACE\Core\CollectionService::isEnabled()) {
@@ -162,12 +162,12 @@ foreach($c as $key => $val){
 				."<button type='submit' name='logout' value='1' style='background:none;border:none;cursor:pointer;padding:0;color:inherit;text-decoration:underline;font:inherit'>Logout</button>"
 				."</form>";
 			$admin_link = (\ACE\Admin\AdminManager::isLoggedIn()) ? " | <a href='?admin'>Dashboard</a>" : '';
-			$lstatus = (\ACE\Admin\AdminManager::isLoggedIn()) ? $logout_form . $admin_link : "<a href='".h($host)."?login'>Login</a>";
+			$lstatus = (\ACE\Admin\AdminManager::isLoggedIn()) ? $logout_form . $admin_link : "<a href='".\APF\Utilities\Security::escape($host)."?login'>Login</a>";
 			break;
 		case 'page':
 			if($rp)
 				$c[$key] = $rp;
-			$c[$key] = getSlug($c[$key]);
+			$c[$key] = \APF\Utilities\Str::safePath($c[$key]);
 			$c['content'] = $_pages[$c[$key]] ?? null;
 			if($c['content'] === null){
 				if(!isset($d['page'][$c[$key]])){

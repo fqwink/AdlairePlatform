@@ -620,27 +620,21 @@ class ActionDispatcher
 
 全 `ap_action` POST 値を対応する Controller メソッドに明示的にルーティング。
 
-#### AP.Bridge.php
+#### AP.Bridge.php — 廃止済み（Ver.2.0-40）
 
-**レガシー互換レイヤー:**
+> **Ver.2.0-40 で削除**。全グローバル関数を Framework クラスメソッドに直接置換済み。
 
-```php
-class JsonCache                      // APF\Utilities\JsonStorage のラッパー
-  ├─ get(string $path): ?array
-  ├─ set(string $path, array $data): void
-  └─ clear(): void
-
-function data_dir(): string          → AIS\Core\AppContext::dataDir()
-function settings_dir(): string      → AIS\Core\AppContext::settingsDir()
-function content_dir(): string       → AIS\Core\AppContext::contentDir()
-function json_read(...): array       → APF\Utilities\JsonStorage
-function json_write(...): void       → APF\Utilities\JsonStorage
-function h(string $s): string        → APF\Utilities\Security::escape()
-function getSlug(string $p): string  → APF\Utilities\Str::safePath()
-function host(): array               → AIS\Core\AppContext::resolveHost()
-```
-
-> **Ver.2.0 方針**: AP.Bridge.php のグローバル関数は廃止対象。Framework クラスメソッドへの直接置換を進める。
+| 旧グローバル関数 | 置換先 |
+|-----------------|--------|
+| `json_read(file, dir)` | `\APF\Utilities\JsonStorage::read(file, dir)` |
+| `json_write(file, data, dir)` | `\APF\Utilities\JsonStorage::write(file, data, dir)` |
+| `h(str)` | `\APF\Utilities\Security::escape(str)` |
+| `getSlug(p)` | `\APF\Utilities\Str::safePath(p)` |
+| `host()` | `\AIS\Core\AppContext::resolveHost()` |
+| `data_dir()` | `\AIS\Core\AppContext::dataDir()` |
+| `settings_dir()` | `\AIS\Core\AppContext::settingsDir()` |
+| `content_dir()` | `\AIS\Core\AppContext::contentDir()` |
+| `JsonCache` クラス | `\APF\Utilities\JsonStorage` |
 
 #### AP/JsEngine/（フロントエンド JavaScript モジュール群）
 
@@ -827,7 +821,7 @@ $scripts = Application::hooks()->filter('admin-head', '');
 | グローバル関数 `verify_csrf()` | 廃止 | `CsrfMiddleware` |
 | MD5 パスワード自動移行 | 廃止 | — （Argon2id/bcrypt のみサポート） |
 | 単一パスワード認証（auth.json） | 廃止予定 | `UserManager`（users.json）に統一 |
-| AP.Bridge.php グローバル関数 | 廃止予定 | Framework クラスメソッドに直接置換 |
+| AP.Bridge.php | 廃止・削除済み | Framework クラスメソッドに直接置換（Ver.2.0-40） |
 
 ### 8.2 保留事項
 
