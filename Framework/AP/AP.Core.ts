@@ -534,39 +534,51 @@ export class CollectionController extends BaseController implements CollectionCo
 // GitController — Git 操作
 // ============================================================================
 
+/**
+ * GitController — ASS PHP サーバの Git API に ACS 経由で委譲。
+ */
 export class GitController extends BaseController implements GitControllerInterface {
   async configure(request: RequestContext): Promise<ResponseData> {
     const body = this.parseBody(request);
     const config = {
-      repo: String(body.repo ?? ""),
+      remoteUrl: String(body.repo ?? body.remoteUrl ?? ""),
       branch: String(body.branch ?? "main"),
-      remote: String(body.remote ?? "origin"),
+      userName: String(body.userName ?? ""),
+      userEmail: String(body.userEmail ?? ""),
     };
 
-    await this.client.storage.write("git.json", config, "settings");
-    return this.ok({ configured: true, ...config });
+    const resp = await this.client.http.post("/api/git/configure", config);
+    return resp.ok ? this.ok({ configured: true, ...config }) : this.error(resp.error ?? "Configure failed");
   }
 
   async test(_request: RequestContext): Promise<ResponseData> {
-    const config = await this.client.storage.read("git.json", "settings");
-    if (!config) return this.error("Git not configured");
-    return this.ok({ reachable: true });
+    const resp = await this.client.http.get("/api/git/test");
+    if (!resp.ok) return this.error(resp.error ?? "Connection test failed");
+    return this.ok(resp.data);
   }
 
-  pull(_request: RequestContext): ResponseData {
-    return this.ok({ pulled: true, message: "Pull completed" });
+  async pull(_request: RequestContext): Promise<ResponseData> {
+    const resp = await this.client.http.post("/api/git/pull", {});
+    if (!resp.ok) return this.error(resp.error ?? "Pull failed");
+    return this.ok(resp.data);
   }
 
-  push(_request: RequestContext): ResponseData {
-    return this.ok({ pushed: true, message: "Push completed" });
+  async push(_request: RequestContext): Promise<ResponseData> {
+    const resp = await this.client.http.post("/api/git/push", {});
+    if (!resp.ok) return this.error(resp.error ?? "Push failed");
+    return this.ok(resp.data);
   }
 
-  log(_request: RequestContext): ResponseData {
-    return this.ok({ commits: [] });
+  async log(_request: RequestContext): Promise<ResponseData> {
+    const resp = await this.client.http.get("/api/git/log");
+    if (!resp.ok) return this.error(resp.error ?? "Log failed");
+    return this.ok(resp.data);
   }
 
-  status(_request: RequestContext): ResponseData {
-    return this.ok({ clean: true, changes: [] });
+  async status(_request: RequestContext): Promise<ResponseData> {
+    const resp = await this.client.http.get("/api/git/status");
+    if (!resp.ok) return this.error(resp.error ?? "Status failed");
+    return this.ok(resp.data);
   }
 
   previewBranch(request: RequestContext): ResponseData {
@@ -703,13 +715,10 @@ export class UpdateController extends BaseController implements UpdateController
     return this.ok({ available: false, currentVersion: "Ver.2.1-41" });
   }
 
-  checkEnv(_request: RequestContext): ResponseData {
-    return this.ok({
-      runtime: "deno",
-      version: Deno.version.deno,
-      typescript: Deno.version.typescript,
-      v8: Deno.version.v8,
-    });
+  async checkEnv(_request: RequestContext): Promise<ResponseData> {
+    const resp = await this.client.http.get("/health");
+    if (resp.ok && resp.data) return this.ok(resp.data);
+    return this.ok({ runtime: "unknown", status: "ASS server unreachable" });
   }
 
   apply(_request: RequestContext): ResponseData {
@@ -801,7 +810,9 @@ export class DiagnosticController extends BaseController implements DiagnosticCo
     });
   }
 
-  health(_request: RequestContext): ResponseData {
+  async health(_request: RequestContext): Promise<ResponseData> {
+    const resp = await this.client.http.get("/health");
+    if (resp.ok && resp.data) return this.ok(resp.data);
     return this.ok({
       status: "healthy",
       timestamp: new Date().toISOString(),
