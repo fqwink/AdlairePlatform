@@ -193,6 +193,11 @@ export class AdminController extends BaseController implements AdminControllerIn
       return this.error("page and field are required");
     }
 
+    // Validate page slug to prevent path traversal
+    if (/[^a-zA-Z0-9_-]/.test(page)) {
+      return this.error("Invalid page slug");
+    }
+
     const existing = (await this.client.storage.read<Record<string, unknown>>(
       `${page}.json`,
       "content",
@@ -310,7 +315,14 @@ export class AdminController extends BaseController implements AdminControllerIn
       return this.error("User already exists");
     }
 
-    users.push({ username, role, createdAt: new Date().toISOString() });
+    // Hash password using Web Crypto API
+    const encoder = new TextEncoder();
+    const data = encoder.encode(password);
+    const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const passwordHash = hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+
+    users.push({ username, passwordHash, role, createdAt: new Date().toISOString() });
     await this.client.storage.write("users.json", users, "settings");
 
     return this.ok({ username, role });
@@ -733,7 +745,14 @@ export class ActionDispatcher implements ActionDispatcherInterface {
   }
 
   handle(request: RequestContext): Promise<ResponseData> {
-    const body = request.body ? JSON.parse(request.body) : {};
+    let body: Record<string, unknown> = {};
+    if (request.body) {
+      try {
+        body = JSON.parse(request.body);
+      } catch {
+        // non-JSON body, use empty
+      }
+    }
     const actionName = String(body.action ?? request.query["action"] ?? "");
 
     if (!actionName) {

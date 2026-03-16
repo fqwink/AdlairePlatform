@@ -73,7 +73,7 @@ async function main(): Promise<void> {
     if (resolved) {
       // ── Router ディスパッチ ──
       try {
-        const request = Request.fromDenoRequest(denoReq);
+        const request = await Request.fromDenoRequest(denoReq);
         request.setParams(resolved.params);
 
         const { MiddlewarePipeline } = await import("./Framework/APF/APF.Core.ts");
@@ -96,7 +96,13 @@ async function main(): Promise<void> {
     // ── 静的ファイル配信 ──
     if (path.match(/\.(css|js|png|jpg|jpeg|gif|svg|ico|woff2?|ttf|eot)$/)) {
       try {
-        const filePath = `${basePath}/themes/${themeName}${path}`;
+        // Path traversal prevention
+        const normalizedPath = path.replaceAll("\\", "/");
+        if (normalizedPath.includes("..") || normalizedPath.includes("\0")) {
+          return new globalThis.Response("Forbidden", { status: 403 });
+        }
+        const themeDir = `${basePath}/themes/${themeName}`;
+        const filePath = `${themeDir}${normalizedPath}`;
         const file = await Deno.readFile(filePath);
         const ext = path.split(".").pop() ?? "";
         const contentTypes: Record<string, string> = {

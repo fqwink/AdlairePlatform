@@ -346,13 +346,20 @@ export class MarkdownService implements MarkdownServiceInterface {
     // 画像
     html = html.replace(
       /!\[([^\]]*)\]\(([^)]+)\)/g,
-      (_match, alt: string, src: string) => `<img src="${src}" alt="${alt}">`,
+      (_match, alt: string, src: string) => {
+        const safeSrc = this.sanitizeUrl(src);
+        const safeAlt = this.escapeHtml(alt);
+        return `<img src="${safeSrc}" alt="${safeAlt}">`;
+      },
     );
 
     // リンク
     html = html.replace(
       /\[([^\]]+)\]\(([^)]+)\)/g,
-      (_match, text: string, href: string) => `<a href="${href}">${text}</a>`,
+      (_match, text: string, href: string) => {
+        const safeHref = this.sanitizeUrl(href);
+        return `<a href="${safeHref}">${text}</a>`;
+      },
     );
 
     // 太字・斜体
@@ -473,6 +480,19 @@ export class MarkdownService implements MarkdownServiceInterface {
       .replace(/&/g, "&amp;")
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;");
+  }
+
+  private sanitizeUrl(url: string): string {
+    const trimmed = url.trim();
+    // Only allow http, https, mailto, and relative URLs
+    if (/^(https?:|mailto:|\/|#|\.)/i.test(trimmed)) {
+      return trimmed;
+    }
+    // Block javascript:, data:, vbscript:, etc.
+    if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(trimmed)) {
+      return "#";
+    }
+    return trimmed;
   }
 }
 

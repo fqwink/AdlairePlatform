@@ -46,8 +46,15 @@ export class Str {
    * パスを安全に正規化する（ディレクトリトラバーサル防止）
    */
   static safePath(path: string): string {
-    return path
-      .replace(/\.\./g, "")
+    // Remove null bytes
+    let safe = path.replace(/\0/g, "");
+    // Repeatedly remove .. until stable
+    let prev = "";
+    while (safe !== prev) {
+      prev = safe;
+      safe = safe.replace(/\.\./g, "");
+    }
+    return safe
       .replace(/\/+/g, "/")
       .replace(/^\//, "");
   }

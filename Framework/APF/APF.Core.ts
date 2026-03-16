@@ -298,7 +298,7 @@ export class Request implements RequestInterface {
   /**
    * Deno の標準 Request から変換する
    */
-  static fromDenoRequest(req: globalThis.Request): Request {
+  static async fromDenoRequest(req: globalThis.Request): Promise<Request> {
     const url = new URL(req.url);
     const query: Record<string, string> = {};
     url.searchParams.forEach((v, k) => {
@@ -310,13 +310,23 @@ export class Request implements RequestInterface {
       headers[k.toLowerCase()] = v;
     });
 
+    const method = req.method.toUpperCase() as HttpMethodValue;
+    let body = "";
+    if (method !== "GET" && method !== "HEAD") {
+      try {
+        body = await req.text();
+      } catch {
+        // body not available
+      }
+    }
+
     return new Request({
-      method: req.method.toUpperCase() as HttpMethodValue,
+      method,
       uri: req.url,
       path: url.pathname,
       query,
       headers,
-      body: "", // body は必要時に別途読み込み
+      body,
     });
   }
 
@@ -564,16 +574,7 @@ export class Application {
    * Deno HTTP サーバ向けのリクエストハンドラ
    */
   async handleRequest(denoReq: globalThis.Request): Promise<globalThis.Response> {
-    const request = Request.fromDenoRequest(denoReq);
-
-    // POST body の読み込み
-    if (
-      request.httpMethod() === "POST" || request.httpMethod() === "PUT" ||
-      request.httpMethod() === "PATCH"
-    ) {
-      // body は Request 構築時に渡す必要があるため、
-      // 実運用では fromDenoRequest を拡張して body を読み込む
-    }
+    const request = await Request.fromDenoRequest(denoReq);
 
     // クエリパラメータマッピング（後方互換）
     const queryMap = this.router.resolveQueryMapping(

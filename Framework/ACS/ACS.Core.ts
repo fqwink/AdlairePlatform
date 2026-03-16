@@ -176,9 +176,15 @@ export class HttpTransport implements HttpModuleInterface {
       };
 
       if (config.body !== undefined && method !== "GET" && method !== "HEAD") {
-        fetchInit.body = typeof config.body === "string"
-          ? config.body
-          : JSON.stringify(config.body);
+        if (config.body instanceof FormData) {
+          fetchInit.body = config.body;
+          // Remove Content-Type to let browser set multipart boundary
+          delete (fetchInit.headers as Record<string, string>)["Content-Type"];
+        } else {
+          fetchInit.body = typeof config.body === "string"
+            ? config.body
+            : JSON.stringify(config.body);
+        }
       }
 
       const response = await fetch(config.url, fetchInit);

@@ -138,6 +138,8 @@ export class Generator implements GeneratorInterface {
         currentHashes[slug] = this.cache.getContentHash(page.content);
       }
 
+      await this.cache.loadState();
+
       // 設定変更でフルリビルドが必要か確認
       const settingsHash = this.cache.getContentHash(JSON.stringify(this.config));
       if (this.cache.needsFullRebuild(settingsHash, "")) {
