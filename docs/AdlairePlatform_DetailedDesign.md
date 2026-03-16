@@ -671,3 +671,142 @@ class TemplateRenderer {
 1. `docs/FRAMEWORK_RULEBOOK_v3.0.md` — フレームワーク規約
 2. `docs/VERSIONING.md` — バージョニング規則
 3. `docs/DOC_RULEBOOK.md` — ドキュメント管理ルール
+
+---
+
+## 16. 開発保留リスト
+
+以下は今後の開発候補として精査済みの提案である。優先度・スケジュールが確定次第、順次着手する。
+
+### 16.1 先送り項目
+
+以下の5件は明示的に先送りとする。
+
+1. プラグインシステム
+2. Embed ブロック（YouTube / X / CodePen）
+3. ヘルスチェックの外部通知
+4. CDN キャッシュパージ連携
+5. キーボードショートカットのカスタマイズ
+
+### 16.2 機能追加（77件）
+
+#### ACS（通信基盤）— 12件
+
+| # | 機能名 | 概要 | 対象ファイル |
+|---|--------|------|-------------|
+| B-1 | HttpTransport に自動リトライ統合 | `withRetry` を `ClientConfig.retryConfig` に統合し 5xx/タイムアウト時に自動リトライ | `ACS.Core.ts` `ACS.Interface.ts` |
+| B-2 | SSE 自動再接続の実装 | `EventSourceService.onerror` の指数バックオフ付き自動再接続 | `ACS.Core.ts` |
+| B-3 | StorageService.watch の実装 | 現在スタブ。SSE ベースのファイル変更通知を実装 | `ACS.Core.ts` |
+| B-4 | リクエスト/レスポンスのデバッグロガー | 全通信の構造化ログ記録（メソッド、URL、ステータス、所要時間） | `ACS.Core.ts` |
+| B-5 | StorageService にバッチ書き込み（writeMany） | `readMany` はあるが一括書き込みがない | `ACS.Core.ts` `ACS.Interface.ts` |
+| B-6 | HttpTransport にリクエストキューイング | 同時リクエスト数上限と超過分のキュー待機 | `ACS.Core.ts` `ACS.Interface.ts` |
+| B-7 | オフライン検出と自動復帰 | `navigator.onLine` + SSE 接続状態でオフライン検出、復帰時に保留リクエスト再送 | `ACS.Core.ts` `ACS.Class.ts` |
+| B-8 | リクエストデデュプリケーション | 同一 URL+パラメータの同時 GET で Promise を共有し重複排除 | `ACS.Core.ts` |
+| B-9 | レスポンスキャッシュ層（SWR パターン） | Stale-While-Revalidate キャッシュを `HttpTransport` に追加 | `ACS.Core.ts` `ACS.Interface.ts` |
+| B-10 | 通信メトリクス収集 | エンドポイント別のリクエスト数、平均レイテンシ、エラー率、帯域幅の自動計測 | `ACS.Core.ts` |
+| B-11 | ファイルアップロードのプログレス通知 | `FileService.upload` に `onProgress` コールバック追加 | `ACS.Core.ts` `ACS.Interface.ts` |
+| B-12 | リクエストのプライオリティキュー | `priority: "high" | "normal" | "low"` で同時接続数制限下の優先処理 | `ACS.Core.ts` `ACS.Interface.ts` |
+
+#### APF（プラットフォーム基盤）— 9件
+
+| # | 機能名 | 概要 | 対象ファイル |
+|---|--------|------|-------------|
+| B-13 | Router に名前付きルートの逆引き（URL 生成） | `url(name, params)` メソッド追加 | `APF.Core.ts` `APF.Interface.ts` |
+| B-14 | Container に循環依存検出 | 解決中のキーを追跡しスタックオーバーフロー防止 | `APF.Core.ts` |
+| B-15 | EventBus に非同期リスナーサポート | `dispatchAsync` で async リスナーの結果を `Promise.all` で待機 | `APF.Core.ts` `APF.Interface.ts` |
+| B-16 | EventBus にワイルドカードリスナー | `listen("*", fn)` で全イベント横断監視 | `APF.Core.ts` |
+| B-17 | MiddlewarePipeline にタイムアウト制御 | 個々のミドルウェアに処理時間上限を設定 | `APF.Core.ts` |
+| B-18 | Router にルートレベルのレスポンスキャッシュ | `.cache(ttl)` で同一パス+メソッドのレスポンスを TTL 付きキャッシュ | `APF.Core.ts` `APF.Interface.ts` |
+| B-19 | Container にタグベースの一括解決 | `tag()` / `tagged()` でバインディングをグループ管理 | `APF.Core.ts` `APF.Interface.ts` |
+| B-20 | Request にファイルアップロードアクセサ | `Request.files()` で FormData 内の File に型安全アクセス | `APF.Core.ts` `APF.Interface.ts` |
+| B-21 | Response にストリーミングレスポンス | `Response.stream(readableStream)` でチャンク送信対応 | `APF.Core.ts` `APF.Interface.ts` |
+
+#### ACE（コンテンツ管理）— 8件
+
+| # | 機能名 | 概要 | 対象ファイル |
+|---|--------|------|-------------|
+| B-22 | ContentManager.listItems の N+1 問題解消 | `StorageService.readMany` によるバッチ取得に変更 | `ACE.Core.ts` |
+| B-23 | MetaManager YAML パーサーのネスト対応 | インデント付きマップやマルチライン文字列のパース | `ACE.Core.ts` |
+| B-24 | コレクションスキーマのマイグレーション | スタブ状態の `migrate` 実装。フィールドのリネーム・型変換・デフォルト値適用 | `AP.Core.ts` `ACE.Core.ts` |
+| B-25 | コンテンツのバージョニング（自動リビジョン保存） | `saveItem` 時に旧版を `revisions/` へ自動保存、差分表示・復元可能に | `ACE.Core.ts` |
+| B-26 | コンテンツのワークフロー（下書き→レビュー→公開） | `status` フィールドとロール別遷移権限制御 | `ACE.Core.ts` `ACE.Interface.ts` |
+| B-27 | フィールドバリデーションルール拡張 | `pattern`、`enum`、`unique` を `FieldDef` に追加 | `ACE.Core.ts` `ACE.Interface.ts` |
+| B-28 | WebhookService の ContentManager 統合 | アイテム作成・更新・削除時の自動 Webhook 送信 | `ACE.Core.ts` `ACE.Utilities.ts` |
+| B-29 | コンテンツの差分比較（Diff） | `diffItems(itemA, itemB)` で行単位の追加/削除/変更を構造化返却 | `ACE.Core.ts` |
+
+#### ASG（静的サイト生成）— 10件
+
+| # | 機能名 | 概要 | 対象ファイル |
+|---|--------|------|-------------|
+| B-30 | Deployer.createZip の実装 | `Deno.Command` で zip/tar を呼ぶ具体的実装 | `ASG.Core.ts` |
+| B-31 | MarkdownService の具体実装 | Front Matter パース、見出し・リスト・コードブロック・テーブルの HTML 変換 | `ASG.Utilities.ts` |
+| B-32 | HybridResolver にキャッシュ TTL | 自動期限切れ機能の追加 | `ASG.Core.ts` |
+| B-33 | RSS/Atom フィード生成 | ブログ用途のフィード自動生成 | `ASG.Core.ts` |
+| B-34 | ビルド進捗のリアルタイム通知 | SSE/コールバックでクライアントに進捗配信 | `ASG.Core.ts` `ASG.Interface.ts` |
+| B-35 | 画像の自動 WebP 変換とレスポンシブ srcset 生成 | ビルド時にマルチサイズ WebP 生成、`<picture>` + `srcset` 出力 | `ASG.Core.ts` |
+| B-36 | CSS/JS のバンドルとフィンガープリント | 結合・圧縮、コンテンツハッシュ付きファイル名出力 | `ASG.Core.ts` `ASG.Interface.ts` |
+| B-37 | テンプレートの継承（レイアウト / ブロック） | `{% extends %}` `{% block %}` 形式の実装 | `ASG.Utilities.ts` |
+| B-38 | ページネーション付き一覧ページの自動生成 | N 件ごと分割の `PaginationBuilder` | `ASG.Core.ts` |
+| B-39 | ビルドのドライラン（プレビュー） | ファイル書き込みなしで差分結果のみ返す `dryRun` オプション | `ASG.Core.ts` `ASG.Interface.ts` |
+
+#### AIS（インフラサービス）— 7件
+
+| # | 機能名 | 概要 | 対象ファイル |
+|---|--------|------|-------------|
+| B-40 | DiagnosticsManager のログ永続化 | メモリのみ → `StorageService` 経由でファイルに永続化 | `AIS.Utilities.ts` |
+| B-41 | ApiCache に LRU eviction | 最大エントリ数設定と古いエントリの自動削除 | `AIS.Utilities.ts` |
+| B-42 | I18n に複数ロケール同時ロードと動的切り替え | プリロードして即座にロケール切り替え | `AIS.Core.ts` |
+| B-43 | I18n に複数形・性別対応（ICU MessageFormat） | `{count, plural, ...}` 形式のサポート | `AIS.Core.ts` |
+| B-44 | 設定のバリデーション付きスキーマ定義 | URL形式、ポート範囲、パス存在確認等のドメイン固有バリデーション | `AIS.Core.ts` |
+| B-45 | Feature Flag（機能フラグ）管理 | `features.json` による ON/OFF 管理、管理画面から動的切り替え | `AIS.Core.ts` `AIS.Interface.ts` |
+| B-46 | 設定の変更履歴と差分表示 | 旧値の自動記録、タイムライン表示、任意時点へのロールバック | `AIS.Core.ts` |
+
+#### ASS（サーバサイド）— 9件
+
+| # | 機能名 | 概要 | 対象ファイル |
+|---|--------|------|-------------|
+| B-47 | FileService に MIME タイプ検証 | magic bytes による実際のファイル内容検証 | `ASS.Core.php` |
+| B-48 | StorageService にファイルロック付きトランザクション | アトミックな複数ファイル同時書き込み | `ASS.Core.php` |
+| B-49 | GitService に commit 機能 | ステージングとコミットメッセージ付きコミット | `ASS.Core.php` `ASS.Interface.php` |
+| B-50 | StorageService.write のエラーハンドリング | `file_put_contents` 失敗時の例外送出 | `ASS.Core.php` |
+| B-51 | セッション固定攻撃対策（セッション再生成） | ログイン成功時に `SessionManager.regenerate(oldId)` | `ASS.Utilities.php` |
+| B-52 | StorageService のファイル変更監視（inotify） | データディレクトリの変更検知、SSE 経由でクライアント通知 | `ASS.Core.php` |
+| B-53 | 画像のオンザフライリサイズ | パラメータで動的リサイズ・キャッシュする画像 API | `ASS.Core.php` |
+| B-54 | ログファイルのローテーションと圧縮 | 日付ローテーション、gzip 圧縮、N 日自動削除 | `ASS.Utilities.php` |
+
+#### AP（コントローラ / ミドルウェア）— 3件
+
+| # | 機能名 | 概要 | 対象ファイル |
+|---|--------|------|-------------|
+| B-55 | IP ホワイトリスト / ブラックリストミドルウェア | CIDR 対応の `IpFilterMiddleware` | `AP.Utilities.ts` |
+| B-56 | レスポンス圧縮ミドルウェア（gzip / Brotli） | `Accept-Encoding` 対応の `CompressionMiddleware` | `AP.Utilities.ts` |
+| B-57 | リクエストバリデーションミドルウェア | スキーマ定義による自動 422 拒否 | `AP.Utilities.ts` |
+
+#### AEB（エディタ）— 3件
+
+| # | 機能名 | 概要 | 対象ファイル |
+|---|--------|------|-------------|
+| B-58 | Editor にブロック並び替え機能 | `moveBlock(id, direction)` + ドラッグ&ドロップ UI | `AEB.Core.ts` |
+| B-59 | Editor にブロック単位の削除・挿入機能 | `removeBlock(id)` / `insertBlock(type, data, afterId?)` | `AEB.Core.ts` |
+| B-60 | ブロック変換（Block Conversion） | 既存ブロックのデータ保持まま別型に変換する `convertBlock(id, newType)` | `AEB.Core.ts` |
+
+### 16.3 新機能（16件）
+
+| # | 機能名 | 概要 | 関連FW |
+|---|--------|------|--------|
+| C-1 | WebSocket リアルタイム通信層 | SSE に加え双方向通信。同時編集通知、ビルド進捗プッシュ、ライブプレビュー | ACS, ASS |
+| C-2 | タスクキュー / バックグラウンドジョブ | 重い処理の非同期実行。登録・実行・進捗取得・リトライ | APF, ASS |
+| C-3 | メディアライブラリ | アップロード画像・ファイルの一覧・検索・タグ付け・使用箇所追跡・未使用検出 | ACE, ASS, AP |
+| C-4 | コンテンツのスケジュール公開 | `publishAt`/`unpublishAt` で自動公開・非公開。ASG ビルドトリガー連携 | ACE, ASG |
+| C-5 | コンテンツのインポート/エクスポート | WordPress XML, Hugo Markdown, JSON からの一括インポートと ZIP エクスポート | ACE, ASS |
+| C-6 | リレーション（コンテンツ間の参照） | `belongsTo`/`hasMany` のリレーション定義、関連コンテンツ取得・逆引き | ACE |
+| C-7 | インラインツールバー | テキスト選択時のフローティングツールバー（太字、斜体、リンク、コード） | AEB |
+| C-8 | コラボレーティブ編集（OT/CRDT ベース） | WebSocket + 操作変換による複数ユーザー同時編集 | AEB, ACS |
+| C-9 | 全文検索インデックスの自動生成 | ビルド時に bigram 解析で `search-index.json` 自動生成 | ASG |
+| C-10 | サーバサイド検索 API | ASS でインデックスクエリ、ページネーション付き結果返却 | ASS, ACS |
+| C-11 | アクセス解析ダッシュボード | ファーストパーティの軽量ログ収集、PV・リファラー・人気ページのグラフ表示 | ASS, AP |
+| C-12 | 二要素認証（TOTP） | Google Authenticator 互換、QR コード生成、リカバリーコード | ASS, AP |
+| C-13 | API キー認証 | 長寿命 API キーによる認証。生成・失効・スコープ制限（read-only/write） | ASS, AP |
+| C-14 | 監査ログ | 全管理操作の時系列記録。誰が・いつ・何を。30日自動ローテーション | ASS, AIS |
+| C-15 | プレビュー環境の自動生成 | Git ブランチごとにプレビュー URL 発行。一時ディレクトリにビルド → 配信 | ASG, ASS |
+| C-16 | 定期バックアップのスケジューラ | 日次/週次の自動 ZIP 保存。世代管理（最新 N 件保持） | ASS |
