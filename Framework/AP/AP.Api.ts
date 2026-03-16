@@ -12,11 +12,12 @@
 import type {
   MiddlewareInterface,
   RequestInterface,
+  ResponseConstructor,
   ResponseInterface,
   RouterInterface,
-} from "../APF/APF.Interface.ts";
-import type { AdlaireClient, RequestContext, ResponseData } from "../types.ts";
-import { Response } from "../APF/APF.Core.ts";
+} from "../types.ts";
+import type { AdlaireClient } from "../ACS/ACS.d.ts";
+import type { RequestContext, ResponseData } from "../types.ts";
 import {
   AdminController,
   ApiController,
@@ -35,6 +36,7 @@ import {
  * ResponseData → ResponseInterface 変換ヘルパー
  */
 function wrapController(
+  Response: ResponseConstructor,
   fn: (ctx: RequestContext) => ResponseData | Promise<ResponseData>,
 ): (req: RequestInterface) => Promise<ResponseInterface> {
   return async (req: RequestInterface): Promise<ResponseInterface> => {
@@ -46,10 +48,14 @@ function wrapController(
 
 /**
  * 全コントローラーのルートを登録する
+ *
+ * FRAMEWORK_RULEBOOK §2.1「フレームワーク間依存ゼロ」準拠:
+ * APF を直接 import せず、Response を DI で受け取る。
  */
 export function registerPlatformRoutes(
   router: RouterInterface,
   client: AdlaireClient,
+  Response: ResponseConstructor,
   authMiddleware?: MiddlewareInterface,
 ): void {
   const auth = new AuthController(client);
@@ -74,14 +80,17 @@ export function registerPlatformRoutes(
 
   const api = new ApiController(client, controllers);
 
+  const wrap = (fn: (ctx: RequestContext) => ResponseData | Promise<ResponseData>) =>
+    wrapController(Response, fn);
+
   // ── 認証（ミドルウェア不要） ──
-  router.get("/login", wrapController((ctx) => auth.showLogin(ctx)));
-  router.post("/login", wrapController((ctx) => auth.authenticate(ctx)));
-  router.post("/logout", wrapController((ctx) => auth.logout(ctx)));
+  router.get("/login", wrap((ctx) => auth.showLogin(ctx)));
+  router.post("/login", wrap((ctx) => auth.authenticate(ctx)));
+  router.post("/logout", wrap((ctx) => auth.logout(ctx)));
 
   // ── POST アクションディスパッチ ──
   // Browser scripts POST to '/' or './' (relative to /admin/) with ap_action in body.
-  const dispatchHandler = wrapController((ctx) => api.dispatch(ctx));
+  const dispatchHandler = wrap((ctx) => api.dispatch(ctx));
 
   // ── 認証必須エリア ──
   const mwOptions = authMiddleware ? { middleware: [authMiddleware] } : {};
@@ -91,7 +100,7 @@ export function registerPlatformRoutes(
   if (authMiddleware) rootPost.middleware(authMiddleware);
 
   router.group({ prefix: "/admin", ...mwOptions }, (r) => {
-    r.get("/", wrapController((ctx) => dashboard.index(ctx)));
+    r.get("/", wrap((ctx) => dashboard.index(ctx)));
 
     // POST to '/admin/' for scripts using './' relative path (ap-utils post/postAction)
     r.post("/", dispatchHandler);
@@ -100,20 +109,20 @@ export function registerPlatformRoutes(
     r.post("/api", dispatchHandler);
 
     // Git
-    r.get("/git/status", wrapController((ctx) => git.status(ctx)));
-    r.get("/git/log", wrapController((ctx) => git.log(ctx)));
+    r.get("/git/status", wrap((ctx) => git.status(ctx)));
+    r.get("/git/log", wrap((ctx) => git.log(ctx)));
 
     // Static
-    r.get("/static/status", wrapController((ctx) => staticCtrl.status(ctx)));
+    r.get("/static/status", wrap((ctx) => staticCtrl.status(ctx)));
 
     // Update
-    r.get("/update/check", wrapController((ctx) => update.check(ctx)));
-    r.get("/update/env", wrapController((ctx) => update.checkEnv(ctx)));
-    r.get("/update/backups", wrapController((ctx) => update.listBackups(ctx)));
+    r.get("/update/check", wrap((ctx) => update.check(ctx)));
+    r.get("/update/env", wrap((ctx) => update.checkEnv(ctx)));
+    r.get("/update/backups", wrap((ctx) => update.listBackups(ctx)));
 
     // Diagnostic
-    r.get("/diagnostic/health", wrapController((ctx) => diagnostic.health(ctx)));
-    r.get("/diagnostic/summary", wrapController((ctx) => diagnostic.getSummary(ctx)));
-    r.get("/diagnostic/logs", wrapController((ctx) => diagnostic.getLogs(ctx)));
+    r.get("/diagnostic/health", wrap((ctx) => diagnostic.health(ctx)));
+    r.get("/diagnostic/summary", wrap((ctx) => diagnostic.getSummary(ctx)));
+    r.get("/diagnostic/logs", wrap((ctx) => diagnostic.getLogs(ctx)));
   });
 }

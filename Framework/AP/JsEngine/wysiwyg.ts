@@ -625,7 +625,8 @@ function _serializeBlocks(): string {
 	return _blocks.map((b: WysiwygBlock): string => {
 		const d = b.data;
 		const validAligns = ["left", "center", "right"];
-		const alignStyle: string = d.align && d.align !== 'left' && validAligns.includes(d.align) ? ` style="text-align:${d.align}"` : '';
+		const align = typeof d.align === 'string' ? d.align : '';
+		const alignStyle: string = align && align !== 'left' && validAligns.includes(align) ? ` style="text-align:${align}"` : '';
 
 		switch (b.type) {
 			case 'paragraph':    return `<p${alignStyle}>${d.text || '<br>'}</p>`;

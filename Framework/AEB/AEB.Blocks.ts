@@ -10,7 +10,7 @@
  * CodeBlock, ImageBlock, TableBlock, ChecklistBlock, DelimiterBlock
  */
 
-import type { EditorConfig } from './AEB.Core.js';
+import type { EditorConfig } from './AEB.Core.ts';
 
 /**
  * BlockConfig - Static configuration for a block type
@@ -27,27 +27,32 @@ export interface BlockConfig {
 export interface ParagraphData {
   text: string;
   alignment: string;
+  [key: string]: unknown;
 }
 
 export interface HeadingData {
   text: string;
   level: number;
   alignment: string;
+  [key: string]: unknown;
 }
 
 export interface ListData {
   style: 'ordered' | 'unordered';
   items: string[];
+  [key: string]: unknown;
 }
 
 export interface QuoteData {
   text: string;
   caption: string;
+  [key: string]: unknown;
 }
 
 export interface CodeData {
   code: string;
   language: string;
+  [key: string]: unknown;
 }
 
 export interface ImageData {
@@ -55,11 +60,13 @@ export interface ImageData {
   caption: string;
   alt: string;
   stretched: boolean;
+  [key: string]: unknown;
 }
 
 export interface TableData {
   content: string[][];
   withHeadings: boolean;
+  [key: string]: unknown;
 }
 
 export interface ChecklistItem {
@@ -69,6 +76,7 @@ export interface ChecklistItem {
 
 export interface ChecklistData {
   items: ChecklistItem[];
+  [key: string]: unknown;
 }
 
 export interface DelimiterData {
@@ -133,7 +141,7 @@ export class ParagraphBlock extends BaseBlock {
     };
   }
 
-  render(): HTMLElement {
+  override render(): HTMLElement {
     this.wrapper = document.createElement('div');
     this.wrapper.className = 'aeb-block aeb-block-paragraph';
     this.wrapper.setAttribute('data-alignment', this.data.alignment);
@@ -153,14 +161,14 @@ export class ParagraphBlock extends BaseBlock {
     return this.wrapper;
   }
 
-  save(): ParagraphData {
+  override save(): ParagraphData {
     return {
       text: this.element.innerHTML,
       alignment: this.data.alignment
     };
   }
 
-  validate(data: Partial<ParagraphData>): boolean {
+  override validate(data: Partial<ParagraphData>): boolean {
     return typeof data.text === 'string';
   }
 
@@ -177,7 +185,7 @@ export class ParagraphBlock extends BaseBlock {
     return div.innerHTML;
   }
 
-  static get config(): BlockConfig {
+  static override get config(): BlockConfig {
     return {
       title: 'Paragraph',
       icon: '<svg width="16" height="16"><path d="M3 5h10M3 8h10M3 11h10"/></svg>',
@@ -185,7 +193,7 @@ export class ParagraphBlock extends BaseBlock {
     };
   }
 
-  static get type(): string {
+  static override get type(): string {
     return 'paragraph';
   }
 }
@@ -205,7 +213,7 @@ export class HeadingBlock extends BaseBlock {
     };
   }
 
-  render(): HTMLElement {
+  override render(): HTMLElement {
     const level = [2, 3].includes(this.data.level) ? this.data.level : 2;
     this.wrapper = document.createElement('div');
     this.wrapper.className = 'aeb-block aeb-block-heading';
@@ -228,7 +236,7 @@ export class HeadingBlock extends BaseBlock {
     return this.wrapper;
   }
 
-  save(): HeadingData {
+  override save(): HeadingData {
     return {
       text: this.element.innerHTML,
       level: this.data.level,
@@ -236,7 +244,7 @@ export class HeadingBlock extends BaseBlock {
     };
   }
 
-  validate(data: Partial<HeadingData>): boolean {
+  override validate(data: Partial<HeadingData>): boolean {
     return typeof data.text === 'string' && [2, 3].includes(data.level!);
   }
 
@@ -269,7 +277,7 @@ export class HeadingBlock extends BaseBlock {
     return div.innerHTML;
   }
 
-  static get config(): BlockConfig {
+  static override get config(): BlockConfig {
     return {
       title: 'Heading',
       icon: '<svg width="16" height="16"><text x="0" y="14" font-size="14" font-weight="bold">H</text></svg>',
@@ -277,7 +285,7 @@ export class HeadingBlock extends BaseBlock {
     };
   }
 
-  static get type(): string {
+  static override get type(): string {
     return 'heading';
   }
 }
@@ -296,7 +304,7 @@ export class ListBlock extends BaseBlock {
     };
   }
 
-  render(): HTMLElement {
+  override render(): HTMLElement {
     this.wrapper = document.createElement('div');
     this.wrapper.className = 'aeb-block aeb-block-list';
     const tag = this.data.style === 'ordered' ? 'ol' : 'ul';
@@ -320,7 +328,7 @@ export class ListBlock extends BaseBlock {
     return this.wrapper;
   }
 
-  save(): ListData {
+  override save(): ListData {
     return {
       style: this.data.style,
       items: Array.from(this.element.querySelectorAll('li')).map(li => li.innerHTML)
@@ -333,11 +341,11 @@ export class ListBlock extends BaseBlock {
     return div.innerHTML;
   }
 
-  validate(data: Partial<ListData>): boolean {
+  override validate(data: Partial<ListData>): boolean {
     return ['ordered', 'unordered'].includes(data.style!) && Array.isArray(data.items);
   }
 
-  static get config(): BlockConfig {
+  static override get config(): BlockConfig {
     return {
       title: 'List',
       icon: '<svg width="16" height="16"><path d="M2 3h1v1H2zm3 0h9v1H5z"/></svg>',
@@ -345,7 +353,7 @@ export class ListBlock extends BaseBlock {
     };
   }
 
-  static get type(): string {
+  static override get type(): string {
     return 'list';
   }
 }
@@ -364,7 +372,7 @@ export class QuoteBlock extends BaseBlock {
     };
   }
 
-  render(): HTMLElement {
+  override render(): HTMLElement {
     this.wrapper = document.createElement('div');
     this.wrapper.className = 'aeb-block aeb-block-quote';
     this.element = document.createElement('blockquote');
@@ -380,7 +388,7 @@ export class QuoteBlock extends BaseBlock {
     return this.wrapper;
   }
 
-  save(): QuoteData {
+  override save(): QuoteData {
     return {
       text: this.element.innerHTML,
       caption: this.data.caption
@@ -393,11 +401,11 @@ export class QuoteBlock extends BaseBlock {
     return div.innerHTML;
   }
 
-  validate(data: Partial<QuoteData>): boolean {
+  override validate(data: Partial<QuoteData>): boolean {
     return typeof data.text === 'string';
   }
 
-  static get config(): BlockConfig {
+  static override get config(): BlockConfig {
     return {
       title: 'Quote',
       icon: '<svg width="16" height="16"><path d="M3 3h4v4H3z"/></svg>',
@@ -405,7 +413,7 @@ export class QuoteBlock extends BaseBlock {
     };
   }
 
-  static get type(): string {
+  static override get type(): string {
     return 'quote';
   }
 }
@@ -424,7 +432,7 @@ export class CodeBlock extends BaseBlock {
     };
   }
 
-  render(): HTMLElement {
+  override render(): HTMLElement {
     this.wrapper = document.createElement('div');
     this.wrapper.className = 'aeb-block aeb-block-code';
     this.element = document.createElement('pre');
@@ -442,18 +450,18 @@ export class CodeBlock extends BaseBlock {
     return this.wrapper;
   }
 
-  save(): CodeData {
+  override save(): CodeData {
     return {
       code: this.wrapper!.querySelector('code')!.textContent || '',
       language: this.data.language
     };
   }
 
-  validate(data: Partial<CodeData>): boolean {
+  override validate(data: Partial<CodeData>): boolean {
     return typeof data.code === 'string';
   }
 
-  static get config(): BlockConfig {
+  static override get config(): BlockConfig {
     return {
       title: 'Code',
       icon: '<svg width="16" height="16"><path d="M5 7l-3 3 3 3M11 7l3 3-3 3"/></svg>',
@@ -461,7 +469,7 @@ export class CodeBlock extends BaseBlock {
     };
   }
 
-  static get type(): string {
+  static override get type(): string {
     return 'code';
   }
 }
@@ -482,7 +490,7 @@ export class ImageBlock extends BaseBlock {
     };
   }
 
-  render(): HTMLElement {
+  override render(): HTMLElement {
     this.wrapper = document.createElement('div');
     this.wrapper.className = 'aeb-block aeb-block-image';
     const imgWrapper = document.createElement('div');
@@ -508,7 +516,7 @@ export class ImageBlock extends BaseBlock {
     return this.wrapper;
   }
 
-  save(): ImageData {
+  override save(): ImageData {
     const caption = this.wrapper!.querySelector('.aeb-image-caption');
     return {
       url: this.data.url,
@@ -518,11 +526,11 @@ export class ImageBlock extends BaseBlock {
     };
   }
 
-  validate(data: Partial<ImageData>): boolean {
+  override validate(data: Partial<ImageData>): boolean {
     return typeof data.url === 'string' && data.url.length > 0;
   }
 
-  static get config(): BlockConfig {
+  static override get config(): BlockConfig {
     return {
       title: 'Image',
       icon: '<svg width="16" height="16"><rect x="2" y="2" width="12" height="12"/></svg>',
@@ -530,7 +538,7 @@ export class ImageBlock extends BaseBlock {
     };
   }
 
-  static get type(): string {
+  static override get type(): string {
     return 'image';
   }
 }
@@ -549,7 +557,7 @@ export class TableBlock extends BaseBlock {
     };
   }
 
-  render(): HTMLElement {
+  override render(): HTMLElement {
     this.wrapper = document.createElement('div');
     this.wrapper.className = 'aeb-block aeb-block-table';
     this.element = document.createElement('table');
@@ -577,7 +585,7 @@ export class TableBlock extends BaseBlock {
     return this.wrapper;
   }
 
-  save(): TableData {
+  override save(): TableData {
     return {
       content: Array.from(this.element.querySelectorAll('tr')).map(tr =>
         Array.from(tr.querySelectorAll('td, th')).map(cell => cell.textContent || '')
@@ -586,11 +594,11 @@ export class TableBlock extends BaseBlock {
     };
   }
 
-  validate(data: Partial<TableData>): boolean {
+  override validate(data: Partial<TableData>): boolean {
     return Array.isArray(data.content) && data.content.length > 0;
   }
 
-  static get config(): BlockConfig {
+  static override get config(): BlockConfig {
     return {
       title: 'Table',
       icon: '<svg width="16" height="16"><path d="M2 2h12v12H2z M2 6h12 M8 2v12"/></svg>',
@@ -598,7 +606,7 @@ export class TableBlock extends BaseBlock {
     };
   }
 
-  static get type(): string {
+  static override get type(): string {
     return 'table';
   }
 }
@@ -616,7 +624,7 @@ export class ChecklistBlock extends BaseBlock {
     };
   }
 
-  render(): HTMLElement {
+  override render(): HTMLElement {
     this.wrapper = document.createElement('div');
     this.wrapper.className = 'aeb-block aeb-block-checklist';
     this.element = document.createElement('ul');
@@ -650,7 +658,7 @@ export class ChecklistBlock extends BaseBlock {
     return this.wrapper;
   }
 
-  save(): ChecklistData {
+  override save(): ChecklistData {
     return {
       items: Array.from(this.element.querySelectorAll('.aeb-checklist-item')).map(li => ({
         text: (li.querySelector('.aeb-checklist-text') as HTMLElement).textContent || '',
@@ -659,11 +667,11 @@ export class ChecklistBlock extends BaseBlock {
     };
   }
 
-  validate(data: Partial<ChecklistData>): boolean {
+  override validate(data: Partial<ChecklistData>): boolean {
     return Array.isArray(data.items);
   }
 
-  static get config(): BlockConfig {
+  static override get config(): BlockConfig {
     return {
       title: 'Checklist',
       icon: '<svg width="16" height="16"><path d="M3 8l3 3 7-7"/></svg>',
@@ -671,7 +679,7 @@ export class ChecklistBlock extends BaseBlock {
     };
   }
 
-  static get type(): string {
+  static override get type(): string {
     return 'checklist';
   }
 }
@@ -685,7 +693,7 @@ export class DelimiterBlock extends BaseBlock {
     this.data = {};
   }
 
-  render(): HTMLElement {
+  override render(): HTMLElement {
     this.wrapper = document.createElement('div');
     this.wrapper.className = 'aeb-block aeb-block-delimiter';
     this.element = document.createElement('div');
@@ -699,15 +707,15 @@ export class DelimiterBlock extends BaseBlock {
     return this.wrapper;
   }
 
-  save(): Record<string, never> {
+  override save(): Record<string, never> {
     return {};
   }
 
-  validate(_data: Record<string, unknown>): boolean {
+  override validate(_data: Record<string, unknown>): boolean {
     return true;
   }
 
-  static get config(): BlockConfig {
+  static override get config(): BlockConfig {
     return {
       title: 'Delimiter',
       icon: '<svg width="16" height="16"><path d="M2 8h12"/></svg>',
@@ -715,7 +723,7 @@ export class DelimiterBlock extends BaseBlock {
     };
   }
 
-  static get type(): string {
+  static override get type(): string {
     return 'delimiter';
   }
 }

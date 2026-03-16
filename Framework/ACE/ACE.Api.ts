@@ -8,17 +8,24 @@
  * @license Adlaire License Ver.2.0
  */
 
-import type { RequestInterface, RouterInterface } from "../APF/APF.Interface.ts";
+import type {
+  RequestInterface,
+  ResponseConstructor,
+  RouterInterface,
+} from "../types.ts";
 import type { CollectionManagerInterface, ContentManagerInterface } from "./ACE.Interface.ts";
-import { Response } from "../APF/APF.Core.ts";
 
 /**
  * ACE REST エンドポイントを Router に登録する
+ *
+ * FRAMEWORK_RULEBOOK §2.1「フレームワーク間依存ゼロ」準拠:
+ * APF を直接 import せず、Response を DI で受け取る。
  */
 export function registerCollectionRoutes(
   router: RouterInterface,
   collections: CollectionManagerInterface,
   content: ContentManagerInterface,
+  Response: ResponseConstructor,
 ): void {
   // コレクション一覧
   router.get("/api/collections", async () => {

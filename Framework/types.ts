@@ -738,3 +738,104 @@ export interface FrontMatterResult {
   readonly meta: Record<string, unknown>;
   readonly body: string;
 }
+
+// ============================================================================
+// APF — Platform Foundation Shared Interfaces
+// ============================================================================
+
+/**
+ * ルーターインターフェース
+ */
+export interface RouterInterface {
+  get(path: string, handler: RouteHandler): RouteBuilder;
+  post(path: string, handler: RouteHandler): RouteBuilder;
+  put(path: string, handler: RouteHandler): RouteBuilder;
+  patch(path: string, handler: RouteHandler): RouteBuilder;
+  delete(path: string, handler: RouteHandler): RouteBuilder;
+  any(path: string, handler: RouteHandler): RouteBuilder;
+  match(methods: HttpMethodValue[], path: string, handler: RouteHandler): RouteBuilder;
+  group(options: RouteGroupOptions, callback: (router: RouterInterface) => void): void;
+  middleware(mw: MiddlewareInterface): void;
+  resolve(method: HttpMethodValue, path: string): ResolvedRoute | null;
+  mapQuery(param: string, path: string, valueParam?: string): void;
+  mapPost(param: string, path: string): void;
+  listRoutes(): RouteDefinition[];
+}
+
+export interface RouteBuilder {
+  name(name: string): RouteBuilder;
+  middleware(mw: MiddlewareInterface): RouteBuilder;
+}
+
+export interface ResolvedRoute {
+  readonly handler: RouteHandler;
+  readonly params: Record<string, string>;
+  readonly middleware: MiddlewareInterface[];
+}
+
+export interface RouteGroupOptions {
+  readonly prefix?: string;
+  readonly middleware?: MiddlewareInterface[];
+}
+
+export type RouteHandler =
+  | ((request: RequestInterface) => ResponseInterface | Promise<ResponseInterface>)
+  | [string, string];
+
+/**
+ * リクエストインターフェース
+ */
+export interface RequestInterface {
+  method(): string;
+  httpMethod(): HttpMethodValue;
+  uri(): string;
+  path(): string;
+  query(key?: string, defaultValue?: unknown): unknown;
+  post(key?: string, defaultValue?: unknown): unknown;
+  header(key: string, defaultValue?: string): string | null;
+  server(key: string, defaultValue?: unknown): unknown;
+  param(key: string, defaultValue?: unknown): unknown;
+  body(): string;
+  isJson(): boolean;
+  isAjax(): boolean;
+  ip(): string;
+  requestId(): string;
+  toContext(): RequestContext;
+}
+
+/**
+ * レスポンスインターフェース
+ */
+export interface ResponseInterface {
+  getStatusCode(): number;
+  getHeaders(): Record<string, string>;
+  getBody(): string;
+  withHeader(key: string, value: string): ResponseInterface;
+  toData(): ResponseData;
+}
+
+/**
+ * ミドルウェアインターフェース
+ */
+export interface MiddlewareInterface {
+  handle(
+    request: RequestInterface,
+    next: (request: RequestInterface) => ResponseInterface | Promise<ResponseInterface>,
+  ): ResponseInterface | Promise<ResponseInterface>;
+}
+
+/**
+ * レスポンスコンストラクタ — Response クラスを DI で受け渡すための型
+ *
+ * 各フレームワークは APF.Core.ts の Response を直接 import せず、
+ * この型を通じて DI で受け取る。
+ */
+export interface ResponseConstructor {
+  json(data: unknown, status?: number, headers?: Record<string, string>): ResponseInterface;
+  html(content: string, status?: number, headers?: Record<string, string>): ResponseInterface;
+  text(content: string, status?: number, headers?: Record<string, string>): ResponseInterface;
+  redirect(url: string, status?: number): ResponseInterface;
+  notFound(message?: string): ResponseInterface;
+  error(message: string, status?: number): ResponseInterface;
+  new (body: string, statusCode: number, headers: Record<string, string>): ResponseInterface;
+}

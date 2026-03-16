@@ -4,6 +4,9 @@
  * コントローラーユーティリティ、ルート生成ヘルパー、
  * CSRF 保護ミドルウェアを提供する。
  *
+ * FRAMEWORK_RULEBOOK §2.1「フレームワーク間依存ゼロ」準拠:
+ * APF を直接 import せず、Response を DI で受け取る。
+ *
  * @package AP
  * @version 2.0.0
  * @license Adlaire License Ver.2.0
@@ -12,10 +15,9 @@
 import type {
   MiddlewareInterface,
   RequestInterface,
+  ResponseConstructor,
   ResponseInterface,
-} from "../APF/APF.Interface.ts";
-
-import { Response } from "../APF/APF.Core.ts";
+} from "../types.ts";
 
 // ============================================================================
 // CsrfMiddleware — CSRF 保護
@@ -24,6 +26,8 @@ import { Response } from "../APF/APF.Core.ts";
 export class CsrfMiddleware implements MiddlewareInterface {
   private readonly tokenName = "csrf_token";
   private tokens = new Map<string, number>();
+
+  constructor(private readonly Response: ResponseConstructor) {}
 
   handle(
     request: RequestInterface,
@@ -41,7 +45,7 @@ export class CsrfMiddleware implements MiddlewareInterface {
       String(request.post(this.tokenName) ?? "");
 
     if (!token || !this.validateToken(token)) {
-      return Response.json({ ok: false, error: "CSRF token mismatch" }, 403);
+      return this.Response.json({ ok: false, error: "CSRF token mismatch" }, 403);
     }
 
     return next(request);
@@ -84,6 +88,7 @@ export class CsrfMiddleware implements MiddlewareInterface {
 export class AuthMiddleware implements MiddlewareInterface {
   constructor(
     private readonly verifyToken: (token: string) => Promise<boolean>,
+    private readonly Response: ResponseConstructor,
   ) {}
 
   async handle(
@@ -94,12 +99,12 @@ export class AuthMiddleware implements MiddlewareInterface {
     const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
 
     if (!token) {
-      return Response.json({ ok: false, error: "Unauthorized" }, 401);
+      return this.Response.json({ ok: false, error: "Unauthorized" }, 401);
     }
 
     const valid = await this.verifyToken(token);
     if (!valid) {
-      return Response.json({ ok: false, error: "Invalid token" }, 401);
+      return this.Response.json({ ok: false, error: "Invalid token" }, 401);
     }
 
     return next(request);
@@ -114,6 +119,7 @@ export class RateLimitMiddleware implements MiddlewareInterface {
   private requests = new Map<string, { count: number; resetAt: number }>();
 
   constructor(
+    private readonly Response: ResponseConstructor,
     private readonly maxRequests: number = 60,
     private readonly windowSeconds: number = 60,
   ) {}
@@ -145,7 +151,7 @@ export class RateLimitMiddleware implements MiddlewareInterface {
     entry.count++;
     if (entry.count > this.maxRequests) {
       const retryAfter = Math.ceil((entry.resetAt - now) / 1000);
-      const response = Response.json(
+      const response = this.Response.json(
         { ok: false, error: "Rate limit exceeded" },
         429,
       );
@@ -162,6 +168,7 @@ export class RateLimitMiddleware implements MiddlewareInterface {
 
 export class CorsMiddleware implements MiddlewareInterface {
   constructor(
+    private readonly Response: ResponseConstructor,
     private readonly allowedOrigins: string[] = ["*"],
     private readonly allowedMethods: string[] = ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   ) {}
@@ -175,7 +182,7 @@ export class CorsMiddleware implements MiddlewareInterface {
     // Preflight
     if (request.method() === "OPTIONS") {
       const resolvedOrigin = this.resolveOrigin(origin);
-      let resp = Response.text("", 204)
+      let resp = this.Response.text("", 204)
         .withHeader("Access-Control-Allow-Methods", this.allowedMethods.join(", "))
         .withHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-CSRF-Token")
         .withHeader("Access-Control-Max-Age", "86400");

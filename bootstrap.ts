@@ -18,7 +18,17 @@ import {
   WebhookService,
 } from "./Framework/mod.ts";
 
+import type { AdlaireClient } from "./Framework/ACS/ACS.d.ts";
 import { createClient } from "./Framework/ACS/ACS.Api.ts";
+
+// ============================================================================
+// globalThis.__acs 型宣言 — FRAMEWORK_RULEBOOK §3.2 準拠
+// ============================================================================
+
+declare global {
+  // deno-lint-ignore no-var
+  var __acs: AdlaireClient;
+}
 
 // ============================================================================
 // Application — グローバルファサード
@@ -89,11 +99,13 @@ export async function bootstrap(options: BootstrapOptions = {}): Promise<Applica
   const basePath = options.basePath ?? Deno.cwd();
   const app = ApplicationFacade.boot(basePath);
 
-  // ACS クライアント生成
+  // ACS クライアント生成 — FRAMEWORK_RULEBOOK §3.5「初期化順序」準拠
+  // ACS の初期化（globalThis.__acs の公開）は bootstrap 処理の最初に実行する
   const client = createClient({
     baseUrl: options.baseUrl ?? "",
     token: options.token ?? null,
   });
+  globalThis.__acs = client;
   app.container.singleton("client", () => client);
 
   // 設定ファイル読み込み

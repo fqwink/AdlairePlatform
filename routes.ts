@@ -7,7 +7,7 @@
  * @license Adlaire License Ver.2.0
  */
 
-import type { AdlaireClient } from "./Framework/types.ts";
+import type { AdlaireClient } from "./Framework/ACS/ACS.d.ts";
 import type { ApplicationFacade } from "./bootstrap.ts";
 
 import {
@@ -110,16 +110,17 @@ export function registerRoutes(app: ApplicationFacade): void {
 
   // ══════════════════════════════════════════════════
   // コレクション REST API (ACE)
+  // FRAMEWORK_RULEBOOK §2.1 準拠: Response を DI で渡す
   // ══════════════════════════════════════════════════
   const metaManager = new MetaManager();
   const collectionManager = new CollectionManager(client);
   const contentManager = new ContentManager(client, metaManager);
-  registerCollectionRoutes(router, collectionManager, contentManager);
+  registerCollectionRoutes(router, collectionManager, contentManager, Response);
 
   // ══════════════════════════════════════════════════
   // インフラ API (AIS)
   // ══════════════════════════════════════════════════
-  registerInfraRoutes(router, app.context, app.i18n);
+  registerInfraRoutes(router, app.context, app.i18n, Response);
 
   // ══════════════════════════════════════════════════
   // 静的サイトビルド API (ASG)
@@ -144,7 +145,7 @@ export function registerRoutes(app: ApplicationFacade): void {
     templateRenderer,
     markdownService,
   );
-  registerGeneratorRoutes(router, generator);
+  registerGeneratorRoutes(router, generator, Response);
 
   // ══════════════════════════════════════════════════
   // 認証ミドルウェアの設定
@@ -152,11 +153,11 @@ export function registerRoutes(app: ApplicationFacade): void {
   const authMiddleware = new AuthMiddleware(async (token: string) => {
     const result = await client.auth.verify(token);
     return result.authenticated;
-  });
+  }, Response);
 
   // ══════════════════════════════════════════════════
   // プラットフォーム管理ルート (AP)
   //   /login, /logout, /admin/*, /dispatch
   // ══════════════════════════════════════════════════
-  registerPlatformRoutes(router, client, authMiddleware);
+  registerPlatformRoutes(router, client, Response, authMiddleware);
 }

@@ -23,6 +23,10 @@ export {
 export { FileSystem } from "./APF/APF.Utilities.ts";
 export { registerSystemRoutes } from "./APF/APF.Api.ts";
 
+// ── ACS (Adlaire Client Services) ──
+export { ClientFactory, createBasicClient } from "./ACS/ACS.Core.ts";
+export { createClient, createMockClient } from "./ACS/ACS.Api.ts";
+
 // ── ACE (Content Engine) ──
 export {
   CollectionManager,
@@ -44,7 +48,13 @@ export { registerGeneratorRoutes } from "./ASG/ASG.Api.ts";
 // ── AP (Platform Controllers) ──
 export {
   AuthMiddleware,
+  CorsMiddleware,
+  CsrfMiddleware,
+  RateLimitMiddleware,
   RequestLoggingMiddleware,
   SecurityHeadersMiddleware,
 } from "./AP/AP.Utilities.ts";
 export { registerPlatformRoutes } from "./AP/AP.Api.ts";
+
+// ── AEB (Editor & Blocks) ──
+export { BlockRegistry, Editor } from "./AEB/AEB.Core.ts";
