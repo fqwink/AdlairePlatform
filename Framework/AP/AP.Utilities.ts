@@ -174,22 +174,36 @@ export class CorsMiddleware implements MiddlewareInterface {
 
     // Preflight
     if (request.method() === "OPTIONS") {
-      return Response.text("", 204)
-        .withHeader("Access-Control-Allow-Origin", this.resolveOrigin(origin))
+      const resolvedOrigin = this.resolveOrigin(origin);
+      let resp = Response.text("", 204)
         .withHeader("Access-Control-Allow-Methods", this.allowedMethods.join(", "))
         .withHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-CSRF-Token")
         .withHeader("Access-Control-Max-Age", "86400");
+      if (resolvedOrigin !== null) {
+        resp = resp.withHeader("Access-Control-Allow-Origin", resolvedOrigin);
+        if (resolvedOrigin !== "*") {
+          resp = resp.withHeader("Access-Control-Allow-Credentials", "true");
+        }
+      }
+      return resp;
     }
 
     const response = await next(request);
-    return response
-      .withHeader("Access-Control-Allow-Origin", this.resolveOrigin(origin));
+    const resolvedOrigin = this.resolveOrigin(origin);
+    if (resolvedOrigin !== null) {
+      let resp = response.withHeader("Access-Control-Allow-Origin", resolvedOrigin);
+      if (resolvedOrigin !== "*") {
+        resp = resp.withHeader("Access-Control-Allow-Credentials", "true");
+      }
+      return resp;
+    }
+    return response;
   }
 
-  private resolveOrigin(origin: string): string {
+  private resolveOrigin(origin: string): string | null {
     if (this.allowedOrigins.includes("*")) return "*";
     if (this.allowedOrigins.includes(origin)) return origin;
-    return "";
+    return null;
   }
 }
 

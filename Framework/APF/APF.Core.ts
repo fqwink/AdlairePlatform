@@ -143,7 +143,7 @@ export class Router implements RouterInterface {
 
       const params: Record<string, string> = {};
       for (let i = 0; i < route.paramNames.length; i++) {
-        params[route.paramNames[i]] = match[i + 1] ?? "";
+        params[route.paramNames[i]] = decodeURIComponent(match[i + 1] ?? "");
       }
 
       return {
@@ -320,11 +320,22 @@ export class Request implements RequestInterface {
       }
     }
 
+    let postData: Record<string, unknown> = {};
+    if (body && headers["content-type"]?.includes("application/json")) {
+      try {
+        postData = JSON.parse(body);
+      } catch { /* non-JSON body */ }
+    } else if (body && headers["content-type"]?.includes("application/x-www-form-urlencoded")) {
+      const params = new URLSearchParams(body);
+      params.forEach((v, k) => { postData[k] = v; });
+    }
+
     return new Request({
       method,
       uri: req.url,
       path: url.pathname,
       query,
+      postData,
       headers,
       body,
     });
@@ -494,7 +505,7 @@ export class Response implements ResponseInterface {
       statusCode: this._statusCode,
       headers: { ...this._headers },
       body: this._body,
-      contentType: this._headers["Content-Type"] ?? "text/plain",
+      contentType: Object.entries(this._headers).find(([k]) => k.toLowerCase() === "content-type")?.[1] ?? "text/plain",
     };
   }
 
@@ -528,15 +539,21 @@ export class MiddlewarePipeline {
 
     let index = 0;
 
-    const next = (req: RequestInterface): Promise<ResponseInterface> => {
+    const dispatch = (req: RequestInterface): Promise<ResponseInterface> => {
       if (index >= middleware.length) {
         return Promise.resolve(handler(req));
       }
       const mw = middleware[index++];
+      let called = false;
+      const next = (r: RequestInterface): Promise<ResponseInterface> => {
+        if (called) throw new Error("next() called multiple times");
+        called = true;
+        return dispatch(r);
+      };
       return Promise.resolve(mw.handle(req, next));
     };
 
-    return Promise.resolve(next(request));
+    return Promise.resolve(dispatch(request));
   }
 }
 

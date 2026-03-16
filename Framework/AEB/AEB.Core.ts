@@ -382,6 +382,7 @@ export class Editor {
 
   private _handleKeyDown: (e: KeyboardEvent) => void;
   private _handleInput: (e: Event) => void;
+  private _restoringHistory = false;
 
   constructor(config: Partial<EditorConfig> = {}) {
     this.config = {
@@ -449,6 +450,7 @@ export class Editor {
     this.wrapper!.addEventListener('input', this._handleInput);
     this.state.subscribe('blocks', (blocks: unknown) => {
       this.events.emit('blocks:changed', { blocks });
+      if (this._restoringHistory) return;
       this._saveToHistory();
     });
   }
@@ -489,7 +491,7 @@ export class Editor {
       try {
         const block = this.blocks.create(blockData.type, blockData.data, this.config as unknown as Record<string, unknown>) as BlockInstance['instance'];
         const blockElement = block.render();
-        const blockId = `block-${Date.now()}-${index}`;
+        const blockId = `block-${crypto.randomUUID()}`;
         blockElement.setAttribute('data-block-id', blockId);
         blockElement.setAttribute('data-block-type', blockData.type);
         this.blocksContainer.appendChild(blockElement);
@@ -525,7 +527,9 @@ export class Editor {
   undo(): void {
     const previousState = this.history.undo();
     if (previousState) {
+      this._restoringHistory = true;
       this.render(previousState);
+      this._restoringHistory = false;
       this.events.emit('undo', { state: previousState });
     }
   }
@@ -533,7 +537,9 @@ export class Editor {
   redo(): void {
     const nextState = this.history.redo();
     if (nextState) {
+      this._restoringHistory = true;
       this.render(nextState);
+      this._restoringHistory = false;
       this.events.emit('redo', { state: nextState });
     }
   }
@@ -550,6 +556,7 @@ export class Editor {
     }
     this.wrapper!.removeEventListener('keydown', this._handleKeyDown);
     this.wrapper!.removeEventListener('input', this._handleInput);
+    this.events.emit('destroyed');
     this.events.clear();
     this.state.clearSubscribers();
     this.history.clear();
@@ -557,7 +564,6 @@ export class Editor {
       this.wrapper.parentNode.removeChild(this.wrapper);
     }
     this.isInitialized = false;
-    this.events.emit('destroyed');
   }
 
   getConfig(): EditorConfig {

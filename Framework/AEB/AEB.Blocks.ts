@@ -206,11 +206,12 @@ export class HeadingBlock extends BaseBlock {
   }
 
   render(): HTMLElement {
+    const level = [2, 3].includes(this.data.level) ? this.data.level : 2;
     this.wrapper = document.createElement('div');
     this.wrapper.className = 'aeb-block aeb-block-heading';
-    this.wrapper.setAttribute('data-level', String(this.data.level));
+    this.wrapper.setAttribute('data-level', String(level));
     this.wrapper.setAttribute('data-alignment', this.data.alignment);
-    const tag = `h${this.data.level}`;
+    const tag = `h${level}`;
     this.element = document.createElement(tag);
     this.element.className = 'aeb-heading';
     this.element.contentEditable = String(!this.config.readOnly);
@@ -306,7 +307,7 @@ export class ListBlock extends BaseBlock {
       const li = document.createElement('li');
       li.className = 'aeb-list-item';
       li.contentEditable = String(!this.config.readOnly);
-      li.innerHTML = item;
+      li.innerHTML = this._sanitize(item);
       li.dataset.index = String(index);
       this.element.appendChild(li);
     });
@@ -324,6 +325,12 @@ export class ListBlock extends BaseBlock {
       style: this.data.style,
       items: Array.from(this.element.querySelectorAll('li')).map(li => li.innerHTML)
     };
+  }
+
+  private _sanitize(html: string): string {
+    const div = document.createElement('div');
+    div.textContent = html;
+    return div.innerHTML;
   }
 
   validate(data: Partial<ListData>): boolean {
@@ -363,7 +370,7 @@ export class QuoteBlock extends BaseBlock {
     this.element = document.createElement('blockquote');
     this.element.className = 'aeb-quote';
     this.element.contentEditable = String(!this.config.readOnly);
-    this.element.innerHTML = this.data.text;
+    this.element.innerHTML = this._sanitize(this.data.text);
     this.wrapper.appendChild(this.element);
     if (!this.config.readOnly) {
       this.element.addEventListener('input', () => {
@@ -378,6 +385,12 @@ export class QuoteBlock extends BaseBlock {
       text: this.element.innerHTML,
       caption: this.data.caption
     };
+  }
+
+  private _sanitize(html: string): string {
+    const div = document.createElement('div');
+    div.textContent = html;
+    return div.innerHTML;
   }
 
   validate(data: Partial<QuoteData>): boolean {

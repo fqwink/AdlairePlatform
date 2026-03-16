@@ -50,7 +50,7 @@
 			}
 		}
 
-		return fetch(url, opts).then(function (r: Response): Promise<APResponse> { return r.json(); });
+		return fetch(url, opts).then(function (r: Response): Promise<APResponse> { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); });
 	}
 
 	/* ── ユーティリティ ── */

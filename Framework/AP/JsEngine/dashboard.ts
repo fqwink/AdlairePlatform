@@ -34,6 +34,10 @@
 					if (data.ok) {
 						const item = btn.closest('.ap-dash-page-item');
 						if (item) item.remove();
+					} else {
+						btn.textContent = '削除';
+						btn.removeAttribute('disabled');
+						alert(data.error || '削除に失敗しました');
 					}
 				}).catch(function (err: Error) {
 					console.error('削除エラー:', err);

@@ -116,7 +116,7 @@
 				ta.value = a.innerHTML.replace(/<br\s*\/?>/gi, '\n');
 				ta.addEventListener('blur', function handler() {
 					ta.removeEventListener('blur', handler);
-					fieldSave(ta.id.slice(0, -6), nl2br(ta.value));
+					fieldSave(ta.id.replace(/_field$/, ""), nl2br(ta.value));
 				});
 				a.innerHTML = '';
 				a.appendChild(ta);

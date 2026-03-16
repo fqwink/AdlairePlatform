@@ -232,7 +232,7 @@ export class HttpTransport implements HttpModuleInterface {
       if (error instanceof DOMException && error.name === "AbortError") {
         throw new TimeoutError(this.timeout, url);
       }
-      if (error instanceof NetworkError) {
+      if (error instanceof NetworkError || error instanceof AuthError || error instanceof ServerError) {
         throw error;
       }
       throw new NetworkError(
@@ -253,6 +253,7 @@ export class HttpTransport implements HttpModuleInterface {
 
 export class AuthService implements AuthModuleInterface {
   private currentSession: SessionInfo | null = null;
+  private sessionCachedAt: number | null = null;
   private changeCallbacks: AuthChangeCallback[] = [];
 
   constructor(
@@ -277,6 +278,7 @@ export class AuthService implements AuthModuleInterface {
           expiresAt: "",
           data: {},
         };
+        this.sessionCachedAt = Date.now();
         this.notifyChange(true);
       }
       return authResult;
@@ -291,12 +293,13 @@ export class AuthService implements AuthModuleInterface {
   }
 
   async session(): Promise<SessionInfo | null> {
-    if (this.currentSession) {
+    if (this.currentSession && this.sessionCachedAt && Date.now() - this.sessionCachedAt < 300000) {
       return this.currentSession;
     }
     const result = await this.http.get<SessionInfo>(API_ENDPOINTS.AUTH_SESSION);
     if (result.ok && result.data) {
       this.currentSession = result.data;
+      this.sessionCachedAt = Date.now();
     }
     return this.currentSession;
   }
@@ -534,6 +537,26 @@ export class EventSourceService implements EventSourceInterface {
         }
       }
     };
+
+    // Re-register listeners added before connect()
+    for (const [event, callbacks] of this.listeners) {
+      if (event === "message") continue;
+      for (const callback of callbacks) {
+        const wrapper = (e: Event) => {
+          try {
+            const data = JSON.parse((e as MessageEvent).data);
+            callback(data);
+          } catch {
+            // Non-JSON message data — skip
+          }
+        };
+        if (!this.nativeListeners.has(event)) {
+          this.nativeListeners.set(event, new Map());
+        }
+        this.nativeListeners.get(event)!.set(callback, wrapper);
+        this.source!.addEventListener(event, wrapper);
+      }
+    }
   }
 
   disconnect(): void {

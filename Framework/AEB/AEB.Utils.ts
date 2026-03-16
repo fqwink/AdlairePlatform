@@ -426,6 +426,10 @@ export const keyboard = {
     }
     if (parsed.modifiers.shift && !e.shiftKey) return false;
     if (parsed.modifiers.alt && !e.altKey) return false;
+    if (e.ctrlKey && !parsed.modifiers.ctrl && !(parsed.modifiers.mod && !this.isMac())) return false;
+    if (e.shiftKey && !parsed.modifiers.shift) return false;
+    if (e.altKey && !parsed.modifiers.alt) return false;
+    if (e.metaKey && !parsed.modifiers.meta && !(parsed.modifiers.mod && this.isMac())) return false;
     return true;
   },
   on(element: HTMLElement | Document, shortcut: string, handler: (e: KeyboardEvent) => void): () => void {
