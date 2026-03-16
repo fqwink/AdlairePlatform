@@ -156,13 +156,11 @@ class AppContext {
     }
 
     // ========================================================================
-    // ディレクトリパス解決（Ver.1.8: Bridge.php から移植）
+    // ディレクトリパス解決
     // ========================================================================
 
     /**
      * データディレクトリパスを返す（存在しなければ作成）。
-     * Bridge.php の data_dir() 相当。
-     * @since Ver.1.8
      */
     public static function dataDir(): string {
         $dir = 'data';
@@ -172,8 +170,6 @@ class AppContext {
 
     /**
      * 設定ディレクトリパスを返す（存在しなければ作成）。
-     * Bridge.php の settings_dir() 相当。
-     * @since Ver.1.8
      */
     public static function settingsDir(): string {
         $dir = 'data/settings';
@@ -183,8 +179,6 @@ class AppContext {
 
     /**
      * コンテンツディレクトリパスを返す（存在しなければ作成）。
-     * Bridge.php の content_dir() 相当。
-     * @since Ver.1.8
      */
     public static function contentDir(): string {
         $dir = 'data/content';
@@ -194,8 +188,7 @@ class AppContext {
 
     /**
      * ホスト解決と URL 初期化。
-     * Bridge.php の host() 相当。グローバル変数 $host, $rp を設定する。
-     * @since Ver.1.8
+     * @return array{host: string, rp: string}
      */
     public static function resolveHost(): array {
         $rp = preg_replace('#/+#', '/', (isset($_GET['page'])) ? urldecode($_GET['page']) : '');
@@ -397,7 +390,7 @@ class I18n {
             ?? self::$fallback[$key]
             ?? $key;
 
-        /* Ver.1.9: 複数形サポート — count パラメータによる自動選択 */
+        /* 複数形サポート — count パラメータによる自動選択 */
         if (isset($params['count']) && is_numeric($params['count'])) {
             $text = self::resolvePlural($key, (int)$params['count'], $text);
         }

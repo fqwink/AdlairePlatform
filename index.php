@@ -121,7 +121,7 @@ $c['copyright'] = '&copy;'.date('Y').' Your website';
 $apcredit = "Powered by <a href=''>Adlaire Platform</a>";
 
 $_settings = \APF\Utilities\JsonStorage::read('settings.json', \AIS\Core\AppContext::settingsDir());
-$_auth     = \APF\Utilities\JsonStorage::read('auth.json', \AIS\Core\AppContext::settingsDir());
+$_users    = \APF\Utilities\JsonStorage::read(\ACE\Admin\AdminManager::USERS_FILE, \AIS\Core\AppContext::settingsDir());
 $_pages    = \APF\Utilities\JsonStorage::read('pages.json', \AIS\Core\AppContext::contentDir());
 
 /* コレクションモード: Markdown → HTML 変換済みページをマージ */
@@ -142,10 +142,11 @@ foreach($c as $key => $val){
 		$c[$key] = $_settings[$key];
 	switch($key){
 		case 'password':
-			if(empty($_auth['password_hash'])){
+			if (empty($_users) || !isset($_users['admin'])) {
+				/* 初回起動: デフォルト admin ユーザーを users.json に作成 */
 				$c[$key] = \ACE\Admin\AdminManager::savePassword($val);
 			} else {
-				$c[$key] = $_auth['password_hash'];
+				$c[$key] = $_users['admin']['password_hash'];
 			}
 			/* デフォルトパスワード 'admin' が有効な場合の警告 */
 			if (password_verify('admin', $c[$key])) {

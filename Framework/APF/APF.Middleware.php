@@ -2,11 +2,10 @@
 /**
  * Adlaire Platform Foundation (APF) - Middleware Module
  *
- * Ver.1.7: Controller ルーティング用ミドルウェア群。
+ * Controller ルーティング用ミドルウェア群。
  * 認証・CSRF・レート制限・セキュリティヘッダーを提供。
  *
  * @package APF
- * @since Ver.1.7-36
  * @license Adlaire License Ver.2.0
  */
 
@@ -46,7 +45,7 @@ class CsrfMiddleware extends Middleware {
         }
 
         $token = $request->post('csrf') ?? $request->header('X-Csrf-Token', '');
-        /* Ver.1.9: キー名を Security::csrfToken() と統一 (csrf → csrf_token) */
+        /* キー名を Security::csrfToken() と統一 (csrf → csrf_token) */
         $sessionCsrf = $_SESSION['csrf_token'] ?? $_SESSION['csrf'] ?? '';
         if ($sessionCsrf === '' || $token === '' || !hash_equals($sessionCsrf, (string)$token)) {
             return Response::json(['error' => 'CSRF verification failed'], 403);
@@ -108,7 +107,7 @@ class SecurityHeadersMiddleware extends Middleware {
         $response->withHeader('X-Content-Type-Options', 'nosniff');
         $response->withHeader('X-Frame-Options', 'SAMEORIGIN');
         $response->withHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-        /* Ver.1.9: リクエスト相関IDをレスポンスヘッダーに付与 */
+        /* リクエスト相関IDをレスポンスヘッダーに付与 */
         $response->withHeader('X-Request-Id', $request->requestId());
         return $response;
     }

@@ -1,10 +1,11 @@
 /**
  * AEB Adapter - ES6 モジュール → グローバルスコープブリッジ
  *
- * Ver.1.5: Framework/AEB の ES6 モジュールをグローバルスコープに公開し、
- * 既存の wysiwyg.js や editInplace.js から利用可能にする。
+ * Framework/AEB の ES6 モジュールをグローバルスコープに公開し、
+ * wysiwyg.js や editInplace.js から利用可能にする。
  *
  * window.AEB = { Core, Blocks, Utils } としてアクセス可能。
+ * wysiwyg.js は editor:save / editor:autosave イベントを AEB EventBus に発行する。
  */
 (async function () {
 	'use strict';

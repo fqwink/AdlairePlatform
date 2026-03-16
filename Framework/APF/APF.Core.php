@@ -437,7 +437,7 @@ class Router {
     }
 
     /**
-     * Ver.1.7: クエリパラメータ → URI パスのマッピングを登録
+     * クエリパラメータ → URI パスのマッピングを登録。
      * 例: mapQuery('login', '/login') → ?login を /login としてルーティング
      * 例: mapQuery('ap_api', '/api/{endpoint}', 'endpoint') → ?ap_api=pages を /api/pages に
      */
@@ -447,7 +447,7 @@ class Router {
     }
 
     /**
-     * Ver.1.7: POST ボディパラメータ → URI パスのマッピングを登録
+     * POST ボディパラメータ → URI パスのマッピングを登録。
      * 例: mapPost('ap_action', '/dispatch') → POST ap_action=* を /dispatch にルーティング
      */
     public function mapPost(string $key, string $path, ?string $pathParam = null): self {
@@ -555,7 +555,7 @@ class Router {
     }
 
     /**
-     * Ver.1.7: クエリ/POSTパラメータを URI パスに解決する
+     * クエリ/POSTパラメータを URI パスに解決する。
      */
     private function resolveUri(Request $request): string {
         /* クエリパラメータマッピング（?login → /login, ?ap_api=pages → /api/pages） */
@@ -653,7 +653,7 @@ class Request {
         $this->server = $_SERVER;
         $this->headers = $this->parseHeaders();
         $this->body = file_get_contents('php://input') ?: null;
-        /* Ver.1.9: リクエスト相関ID — ヘッダーがあれば採用、なければ自動生成 */
+        /* リクエスト相関ID — ヘッダーがあれば採用、なければ自動生成 */
         $this->requestId = $this->headers['X-Request-Id'] ?? bin2hex(random_bytes(8));
     }
 
@@ -766,13 +766,13 @@ class Request {
         return $this->params[$key] ?? $default;
     }
 
-    /** Ver.1.7: サーバー変数アクセス */
+    /** サーバー変数アクセス */
     public function server(?string $key = null, mixed $default = null): mixed {
         if (is_null($key)) return $this->server;
         return $this->server[$key] ?? $default;
     }
 
-    /** Ver.1.7: ベースURL取得（スキーム + ホスト） */
+    /** ベースURL取得（スキーム + ホスト） */
     public function baseUrl(): string {
         $scheme = (!empty($this->server['HTTPS']) && $this->server['HTTPS'] !== 'off') ? 'https' : 'http';
         $host = $this->server['HTTP_HOST'] ?? 'localhost';
@@ -780,17 +780,17 @@ class Request {
         return $scheme . '://' . $host;
     }
 
-    /** Ver.1.7: ページスラッグ取得 */
+    /** ページスラッグ取得 */
     public function slug(): string {
         return $this->query('page', '');
     }
 
-    /** Ver.1.7: 全ヘッダー取得 */
+    /** 全ヘッダー取得 */
     public function headers(): array {
         return $this->headers;
     }
 
-    /** Ver.1.7: POST リクエストか */
+    /** POST リクエストか */
     public function isPost(): bool {
         return $this->method() === 'POST';
     }
@@ -1468,7 +1468,7 @@ class ErrorBoundary {
         try {
             return $callback();
         } catch (\Throwable $e) {
-            /* Ver.1.9: エラーを構造化ログに記録 */
+            /* エラーを構造化ログに記録 */
             \APF\Utilities\Logger::error('ErrorBoundary caught exception', [
                 'type'    => $errorType,
                 'class'   => $e::class,

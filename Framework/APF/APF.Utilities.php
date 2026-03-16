@@ -816,8 +816,6 @@ class Str {
 
     /**
      * パストラバーサルを除去した安全なパスを生成する。
-     * engines/Bridge.php の getSlug() 相当。
-     * @since Ver.1.8
      */
     public static function safePath(string $path): string {
         $slug = mb_convert_case(str_replace(' ', '-', $path), MB_CASE_LOWER, 'UTF-8');
@@ -1042,8 +1040,6 @@ class FileSystem {
 
 /**
  * JSON ファイルの読み書きとリクエスト内キャッシュを提供する。
- * engines/Bridge.php の json_read/json_write/JsonCache を統合。
- * @since Ver.1.8
  */
 class JsonStorage {
 

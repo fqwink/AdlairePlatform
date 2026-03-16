@@ -95,31 +95,23 @@ class AuthController extends BaseController {
 			return Response::html(\ACE\Admin\AdminManager::renderLogin($msg));
 		}
 
-		/* マルチユーザーログイン試行 */
-		if ($username !== '') {
-			$users = \APF\Utilities\JsonStorage::read(\ACE\Admin\AdminManager::USERS_FILE, \AIS\Core\AppContext::settingsDir());
-			if (!empty($users) && isset($users[$username])) {
-				$user = $users[$username];
-				if (($user['active'] ?? true) && password_verify($password, $user['password_hash'] ?? '')) {
-					$this->clearLoginRate($ip);
-					$this->rehashIfNeeded($users, $username, $password);
-					session_regenerate_id(true);
-					$_SESSION['l'] = true;
-					$_SESSION['ap_username'] = $username;
-					$_SESSION['ap_role'] = $user['role'] ?? 'editor';
-					\ACE\Admin\AdminManager::logActivity('ログイン: ' . $username . ' (' . ($user['role'] ?? 'editor') . ')');
-					\AIS\System\DiagnosticsManager::log('security', 'ログイン成功', ['username' => $username]);
-					return Response::redirect('./');
-				}
-			}
+		/* ユーザー認証（users.json） */
+		$users = \APF\Utilities\JsonStorage::read(\ACE\Admin\AdminManager::USERS_FILE, \AIS\Core\AppContext::settingsDir());
+
+		if (empty($users) || !isset($users[$username])) {
+			$this->recordLoginFailure($ip);
+			\AIS\System\DiagnosticsManager::log('security', 'ログイン失敗', ['username' => $username]);
+			$attemptsLeft = $this->getRemainingAttempts($ip);
+			$msg = $attemptsLeft > 0
+				? \AIS\Core\I18n::t('auth.wrong_password', ['attempts' => $attemptsLeft])
+				: \AIS\Core\I18n::t('auth.wrong_password_final');
+			return Response::html(\ACE\Admin\AdminManager::renderLogin($msg));
 		}
 
-		/* 単一パスワード認証（後方互換） */
-		$_auth = \APF\Utilities\JsonStorage::read('auth.json', \AIS\Core\AppContext::settingsDir());
-		$passwordHash = $_auth['password_hash'] ?? '';
-		if ($passwordHash === '' || !password_verify($password, $passwordHash)) {
+		$user = $users[$username];
+		if (!($user['active'] ?? true) || !password_verify($password, $user['password_hash'] ?? '')) {
 			$this->recordLoginFailure($ip);
-			\AIS\System\DiagnosticsManager::log('security', 'ログイン失敗');
+			\AIS\System\DiagnosticsManager::log('security', 'ログイン失敗', ['username' => $username]);
 			$attemptsLeft = $this->getRemainingAttempts($ip);
 			$msg = $attemptsLeft > 0
 				? \AIS\Core\I18n::t('auth.wrong_password', ['attempts' => $attemptsLeft])
@@ -128,25 +120,20 @@ class AuthController extends BaseController {
 		}
 
 		$this->clearLoginRate($ip);
-
-		/* Argon2id リハッシュ */
-		$algo = defined('PASSWORD_ARGON2ID') ? PASSWORD_ARGON2ID : PASSWORD_BCRYPT;
-		if (password_needs_rehash($passwordHash, $algo)) {
-			\ACE\Admin\AdminManager::savePassword($password);
-			\APF\Utilities\Logger::info('パスワードハッシュを Argon2id へアップグレードしました');
-		}
+		$this->rehashIfNeeded($users, $username, $password);
 
 		/* パスワード変更リクエスト */
 		if (!empty($request->post('new'))) {
-			\ACE\Admin\AdminManager::savePassword($request->post('new'));
+			\ACE\Admin\AdminManager::changeUserPassword($username, $request->post('new'));
 			return Response::html(\ACE\Admin\AdminManager::renderLogin(\AIS\Core\I18n::t('auth.password_changed')));
 		}
 
 		session_regenerate_id(true);
 		$_SESSION['l'] = true;
-		$_SESSION['ap_username'] = 'admin';
-		$_SESSION['ap_role'] = 'admin';
-		\AIS\System\DiagnosticsManager::log('security', 'ログイン成功', ['username' => 'admin']);
+		$_SESSION['ap_username'] = $username;
+		$_SESSION['ap_role'] = $user['role'] ?? 'editor';
+		\ACE\Admin\AdminManager::logActivity('ログイン: ' . $username . ' (' . ($user['role'] ?? 'editor') . ')');
+		\AIS\System\DiagnosticsManager::log('security', 'ログイン成功', ['username' => $username]);
 		return Response::redirect('./');
 	}
 

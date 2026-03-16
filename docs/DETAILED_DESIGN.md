@@ -820,7 +820,7 @@ $scripts = Application::hooks()->filter('admin-head', '');
 | グローバル関数 `csrf_token()` | 廃止 | `ACE\Admin\AdminManager::csrfToken()` |
 | グローバル関数 `verify_csrf()` | 廃止 | `CsrfMiddleware` |
 | MD5 パスワード自動移行 | 廃止 | — （Argon2id/bcrypt のみサポート） |
-| 単一パスワード認証（auth.json） | 廃止予定 | `UserManager`（users.json）に統一 |
+| 単一パスワード認証（auth.json） | 廃止済み | `UserManager`（users.json）に統一（Ver.2.0-40） |
 | AP.Bridge.php | 廃止・削除済み | Framework クラスメソッドに直接置換（Ver.2.0-40） |
 
 ### 8.2 保留事項
