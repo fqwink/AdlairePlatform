@@ -11,8 +11,6 @@
 
 import type {
   HttpMethodValue,
-  LogLevelValue,
-  PaginatedResponse,
   RequestContext,
   ResponseData,
   RouteDefinition,
@@ -137,88 +135,6 @@ export interface EventBusInterface {
 export type EventListener = (data: Record<string, unknown>) => unknown;
 
 // ============================================================================
-// Database
-// ============================================================================
-
-export interface ConnectionInterface {
-  connect(): Promise<void>;
-  query<T = Record<string, unknown>>(sql: string, bindings?: unknown[]): Promise<T[]>;
-  queryOne<T = Record<string, unknown>>(sql: string, bindings?: unknown[]): Promise<T | null>;
-  execute(sql: string, bindings?: unknown[]): Promise<number>;
-  insert(sql: string, bindings?: unknown[]): Promise<number>;
-  update(sql: string, bindings?: unknown[]): Promise<number>;
-  transaction<T>(callback: () => Promise<T>): Promise<T>;
-  enableQueryLog(): void;
-  getQueryLog(): Array<{ sql: string; bindings: unknown[]; time: number }>;
-}
-
-export interface QueryBuilderInterface<T = Record<string, unknown>> {
-  table(name: string): QueryBuilderInterface<T>;
-  select(...columns: string[]): QueryBuilderInterface<T>;
-  where(column: string, operator: string, value?: unknown): QueryBuilderInterface<T>;
-  orWhere(column: string, operator: string, value?: unknown): QueryBuilderInterface<T>;
-  whereIn(column: string, values: unknown[]): QueryBuilderInterface<T>;
-  whereNull(column: string): QueryBuilderInterface<T>;
-  whereNotNull(column: string): QueryBuilderInterface<T>;
-  whereBetween(column: string, range: [unknown, unknown]): QueryBuilderInterface<T>;
-  whereLike(column: string, pattern: string): QueryBuilderInterface<T>;
-  join(table: string, first: string, operator: string, second: string): QueryBuilderInterface<T>;
-  leftJoin(
-    table: string,
-    first: string,
-    operator: string,
-    second: string,
-  ): QueryBuilderInterface<T>;
-  orderBy(column: string, direction?: "asc" | "desc"): QueryBuilderInterface<T>;
-  groupBy(...columns: string[]): QueryBuilderInterface<T>;
-  having(condition: string, bindings?: unknown[]): QueryBuilderInterface<T>;
-  limit(limit: number): QueryBuilderInterface<T>;
-  offset(offset: number): QueryBuilderInterface<T>;
-  get(): Promise<T[]>;
-  first(): Promise<T | null>;
-  count(): Promise<number>;
-  exists(): Promise<boolean>;
-  paginate(page?: number, perPage?: number): Promise<PaginatedResponse<T>>;
-  insert(data: Record<string, unknown>): Promise<number>;
-  insertGetId(data: Record<string, unknown>): Promise<number>;
-  insertBatch(records: Record<string, unknown>[]): Promise<number>;
-  update(data: Record<string, unknown>): Promise<number>;
-  delete(): Promise<number>;
-  toSql(): string;
-}
-
-export interface ModelInterface {
-  save(): Promise<boolean>;
-  delete(): Promise<boolean>;
-  toArray(): Record<string, unknown>;
-  toJson(): string;
-  setAttribute(key: string, value: unknown): void;
-  getAttribute(key: string): unknown;
-}
-
-export interface SchemaInterface {
-  create(table: string, callback: (blueprint: BlueprintInterface) => void): Promise<void>;
-  drop(table: string): Promise<void>;
-  hasTable(table: string): Promise<boolean>;
-}
-
-export interface BlueprintInterface {
-  id(): void;
-  string(name: string, length?: number): void;
-  text(name: string): void;
-  integer(name: string): void;
-  bigInteger(name: string): void;
-  float(name: string): void;
-  double(name: string): void;
-  decimal(name: string, total?: number, places?: number): void;
-  boolean(name: string): void;
-  date(name: string): void;
-  datetime(name: string): void;
-  timestamp(name: string): void;
-  timestamps(): void;
-}
-
-// ============================================================================
 // Validation
 // ============================================================================
 
@@ -228,70 +144,6 @@ export interface ValidatorInterface {
   errors(): ValidationErrors;
   first(field: string): string | null;
   hasError(field: string): boolean;
-}
-
-// ============================================================================
-// Cache
-// ============================================================================
-
-export interface CacheInterface {
-  get<T = unknown>(key: string, defaultValue?: T): Promise<T | null>;
-  set(key: string, value: unknown, ttl?: number): Promise<boolean>;
-  has(key: string): Promise<boolean>;
-  delete(key: string): Promise<boolean>;
-  clear(): Promise<boolean>;
-  remember<T>(key: string, ttl: number, callback: () => Promise<T>): Promise<T>;
-  forever(key: string, value: unknown): Promise<boolean>;
-}
-
-// ============================================================================
-// Logger
-// ============================================================================
-
-export interface LoggerInterface {
-  debug(message: string, context?: Record<string, unknown>): void;
-  info(message: string, context?: Record<string, unknown>): void;
-  warning(message: string, context?: Record<string, unknown>): void;
-  error(message: string, context?: Record<string, unknown>): void;
-  critical(message: string, context?: Record<string, unknown>): void;
-  setLevel(level: LogLevelValue): void;
-  setFormat(format: "text" | "json"): void;
-  channel(name: string): LoggerInterface;
-}
-
-// ============================================================================
-// Session
-// ============================================================================
-
-export interface SessionInterface {
-  start(): void;
-  get<T = unknown>(key: string, defaultValue?: T): T | null;
-  set(key: string, value: unknown): void;
-  has(key: string): boolean;
-  delete(key: string): void;
-  clear(): void;
-  destroy(): void;
-  regenerate(): void;
-  flash(key: string, value: unknown): void;
-  getFlash<T = unknown>(key: string, defaultValue?: T): T | null;
-  id(): string;
-}
-
-// ============================================================================
-// Security
-// ============================================================================
-
-export interface SecurityInterface {
-  hash(value: string): Promise<string>;
-  verify(value: string, hash: string): Promise<boolean>;
-  randomString(length?: number): string;
-  csrfToken(): string;
-  verifyCsrf(token: string): boolean;
-  escape(value: string): string;
-  sanitize(value: string): string;
-  encrypt(data: string, key: string): string;
-  decrypt(data: string, key: string): string;
-  rateLimit(key: string, maxAttempts: number, decayMinutes: number): boolean;
 }
 
 // ============================================================================

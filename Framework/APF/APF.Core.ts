@@ -176,7 +176,9 @@ export class Router implements RouterInterface {
     for (const { param, path, valueParam } of this.queryMappings) {
       if (param in query) {
         if (valueParam && query[param]) {
-          return path.replace(`{${valueParam}}`, query[param]);
+          const value = query[param];
+          if (!value || value.includes("..") || value.includes("/")) return null;
+          return path.replace(`{${valueParam}}`, value);
         }
         return path;
       }
@@ -583,7 +585,15 @@ export class EventBus implements EventBusInterface {
   dispatch(event: string, data?: Record<string, unknown>): unknown[] {
     const list = this.listeners.get(event);
     if (!list) return [];
-    return list.map(({ fn }) => fn(data ?? {}));
+    const results: unknown[] = [];
+    for (const { fn } of list) {
+      try {
+        results.push(fn(data ?? {}));
+      } catch (e) {
+        console.error("Event listener error:", e);
+      }
+    }
+    return results;
   }
 
   hasListeners(event: string): boolean {

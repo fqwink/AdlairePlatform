@@ -432,16 +432,6 @@ export interface HealthCheckResult {
   >;
 }
 
-/**
- * クエリログエントリ
- */
-export interface QueryLog {
-  readonly sql: string;
-  readonly bindings: unknown[];
-  readonly time: number;
-  readonly timestamp: string;
-}
-
 // ============================================================================
 // Deployment & Updates (AIS)
 // ============================================================================
@@ -525,22 +515,6 @@ export type WebhookEvent =
   | "deploy.completed";
 
 // ============================================================================
-// API Keys & Security
-// ============================================================================
-
-/**
- * API キー情報
- */
-export interface ApiKeyInfo {
-  readonly key: string;
-  readonly label: string;
-  readonly permissions: string[];
-  readonly createdAt: string;
-  readonly lastUsed?: string;
-  readonly expiresAt?: string;
-}
-
-// ============================================================================
 // Revisions (ACE)
 // ============================================================================
 
@@ -587,34 +561,6 @@ export type ValidationRules = Record<string, string>;
  * バリデーションエラー
  */
 export type ValidationErrors = Record<string, string[]>;
-
-// ============================================================================
-// Database (APF)
-// ============================================================================
-
-/**
- * データベース接続設定
- */
-export interface DatabaseConfig {
-  readonly driver: "sqlite" | "mysql" | "pgsql";
-  readonly host?: string;
-  readonly port?: number;
-  readonly database: string;
-  readonly username?: string;
-  readonly password?: string;
-  readonly charset?: string;
-  readonly prefix?: string;
-}
-
-/**
- * マイグレーション定義
- */
-export interface MigrationDefinition {
-  readonly name: string;
-  readonly up: string;
-  readonly down: string;
-  readonly timestamp: string;
-}
 
 // ============================================================================
 // Log Levels (APF)
@@ -709,18 +655,6 @@ export interface SearchResult {
   readonly score?: number;
 }
 
-/**
- * 検索インデックスエントリ
- */
-export interface SearchIndexEntry {
-  readonly slug: string;
-  readonly title: string;
-  readonly content: string;
-  readonly collection?: string;
-  readonly tags?: string[];
-  readonly date?: string;
-}
-
 // ============================================================================
 // i18n (AIS)
 // ============================================================================
@@ -776,20 +710,6 @@ export interface SitemapEntry {
   readonly lastmod?: string;
   readonly changefreq?: "always" | "hourly" | "daily" | "weekly" | "monthly" | "yearly" | "never";
   readonly priority?: number;
-}
-
-// ============================================================================
-// Build Hooks (ASG)
-// ============================================================================
-
-/**
- * ビルドフック定義
- */
-export interface BuildHook {
-  readonly name: string;
-  readonly command: string;
-  readonly timing: "before_build" | "after_build" | "after_page" | "after_deploy";
-  readonly enabled: boolean;
 }
 
 // ============================================================================
