@@ -174,10 +174,6 @@ export class DiagnosticsManager implements DiagnosticsManagerInterface {
   getTimings(): Record<string, number> {
     return { ...this.timings };
   }
-
-  getEngineTimings(): Record<string, number> {
-    return { ...this.timings };
-  }
 }
 
 // ============================================================================

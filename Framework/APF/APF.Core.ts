@@ -312,11 +312,18 @@ export class Request implements RequestInterface {
 
     const method = req.method.toUpperCase() as HttpMethodValue;
     let body = "";
+    const MAX_BODY_SIZE = 10 * 1024 * 1024; // 10MB
     if (method !== "GET" && method !== "HEAD") {
-      try {
-        body = await req.text();
-      } catch {
-        // body not available
+      const contentLength = parseInt(headers["content-length"] ?? "0", 10);
+      if (contentLength > MAX_BODY_SIZE) {
+        body = "";
+      } else {
+        try {
+          body = await req.text();
+          if (body.length > MAX_BODY_SIZE) body = "";
+        } catch {
+          // body not available
+        }
       }
     }
 
@@ -554,83 +561,6 @@ export class MiddlewarePipeline {
     };
 
     return Promise.resolve(dispatch(request));
-  }
-}
-
-// ============================================================================
-// Application — リクエスト処理のエントリポイント
-// ============================================================================
-
-/**
- * Adlaire Application
- *
- * Deno HTTP サーバとの統合ポイント。
- * Router + Middleware + HybridResolver を統合する。
- */
-export class Application {
-  private readonly container: Container;
-  private readonly router: Router;
-
-  constructor() {
-    this.container = new Container();
-    this.router = new Router();
-
-    this.container.singleton("router", () => this.router);
-    this.container.singleton("container", () => this.container);
-  }
-
-  getContainer(): Container {
-    return this.container;
-  }
-
-  getRouter(): Router {
-    return this.router;
-  }
-
-  /**
-   * Deno HTTP サーバ向けのリクエストハンドラ
-   */
-  async handleRequest(denoReq: globalThis.Request): Promise<globalThis.Response> {
-    const request = await Request.fromDenoRequest(denoReq);
-
-    // クエリパラメータマッピング（後方互換）
-    const queryMap = this.router.resolveQueryMapping(
-      request.query() as Record<string, string>,
-      request.method(),
-    );
-    const resolvedPath = queryMap ?? request.path();
-
-    // ルート解決
-    const route = this.router.resolve(request.httpMethod(), resolvedPath);
-    if (!route) {
-      return Response.notFound().toDenoResponse();
-    }
-
-    // パラメータをリクエストにセット
-    request.setParams(route.params);
-
-    try {
-      // ミドルウェアパイプライン実行
-      const handler = route.handler;
-      const handlerFn = typeof handler === "function" ? handler : (_req: RequestInterface) => {
-        // [ControllerClass, method] パターンは AP.Core.ts で解決
-        throw new Error(`Controller handler not resolved: ${handler[0]}.${handler[1]}`);
-      };
-
-      const response = await MiddlewarePipeline.run(
-        request,
-        route.middleware,
-        handlerFn as (req: RequestInterface) => ResponseInterface | Promise<ResponseInterface>,
-      );
-
-      return (response as Response).toDenoResponse();
-    } catch (error: unknown) {
-      if (error instanceof NotFoundError) {
-        return Response.notFound(error.message).toDenoResponse();
-      }
-      const message = error instanceof Error ? error.message : "Internal Server Error";
-      return Response.error(message, 500).toDenoResponse();
-    }
   }
 }
 

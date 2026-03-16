@@ -579,6 +579,20 @@ export class WebhookController extends BaseController implements WebhookControll
 
     if (!url) return this.error("url is required");
 
+    try {
+      const parsed = new URL(url);
+      if (!["http:", "https:"].includes(parsed.protocol)) {
+        return this.error("Only HTTP/HTTPS URLs are allowed");
+      }
+      // Block private/internal IPs
+      const host = parsed.hostname;
+      if (host === "localhost" || host === "127.0.0.1" || host === "0.0.0.0" || host.startsWith("192.168.") || host.startsWith("10.") || host.startsWith("172.") || host === "169.254.169.254") {
+        return this.error("Internal URLs are not allowed");
+      }
+    } catch {
+      return this.error("Invalid URL format");
+    }
+
     const hooks = (await this.client.storage.read<Record<string, unknown>[]>(
       "webhooks.json",
       "settings",

@@ -54,6 +54,20 @@ async function main(): Promise<void> {
   console.log(`Runtime: Deno ${Deno.version.deno}`);
   console.log(`Listening on http://localhost:${port}`);
 
+  // ── セキュリティヘッダー適用 ──
+  function applySecurityHeaders(response: globalThis.Response): globalThis.Response {
+    const headers = new Headers(response.headers);
+    headers.set("X-Content-Type-Options", "nosniff");
+    headers.set("X-Frame-Options", "SAMEORIGIN");
+    headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+    headers.set("X-XSS-Protection", "1; mode=block");
+    return new globalThis.Response(response.body, {
+      status: response.status,
+      statusText: response.statusText,
+      headers,
+    });
+  }
+
   // ── サーバ起動 ──
   Deno.serve({ port }, async (denoReq: globalThis.Request): Promise<globalThis.Response> => {
     const url = new URL(denoReq.url);
@@ -88,6 +102,10 @@ async function main(): Promise<void> {
         );
         return (response as InstanceType<typeof Response>).toDenoResponse();
       } catch (error: unknown) {
+        if (error instanceof Error && "statusCode" in error) {
+          const statusCode = (error as { statusCode: number }).statusCode;
+          return Response.error(error.message, statusCode).toDenoResponse();
+        }
         const message = error instanceof Error ? error.message : "Internal Server Error";
         return Response.error(message, 500).toDenoResponse();
       }
@@ -119,12 +137,12 @@ async function main(): Promise<void> {
           ttf: "font/ttf",
           eot: "application/vnd.ms-fontobject",
         };
-        return new globalThis.Response(file, {
+        return applySecurityHeaders(new globalThis.Response(file, {
           headers: {
             "Content-Type": contentTypes[ext] ?? "application/octet-stream",
             "Cache-Control": "public, max-age=86400",
           },
-        });
+        }));
       } catch {
         return new globalThis.Response("Not Found", { status: 404 });
       }
@@ -179,19 +197,27 @@ async function main(): Promise<void> {
           "<!DOCTYPE html><html><head><title>{{title}}</title></head><body>{{{content}}}</body></html>";
       }
 
+      const safeContext = {
+        site_name: app.context.get("site_name", ""),
+        site_url: app.context.get("site_url", ""),
+        language: app.context.get("language", "ja"),
+        theme: app.context.get("theme", ""),
+        version: AP_VERSION,
+      };
       const ctx: Record<string, unknown> = {
-        ...app.context.all(),
+        ...safeContext,
         content,
         page: slug,
-        version: AP_VERSION,
         lang: app.i18n.htmlLang(),
       };
 
       const html = renderer.render(templateHtml, ctx);
-      return Response.html(html).toDenoResponse();
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : "Render error";
-      return Response.error(message, 500).toDenoResponse();
+      return applySecurityHeaders(Response.html(html).toDenoResponse());
+    } catch (_error: unknown) {
+      return new globalThis.Response("Internal Server Error", {
+        status: 500,
+        headers: { "Content-Type": "text/plain" },
+      });
     }
   });
 }

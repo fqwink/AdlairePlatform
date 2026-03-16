@@ -14,15 +14,6 @@
 // ============================================================================
 
 /**
- * 汎用結果型 — 成功/失敗を型安全に表現
- *
- * PHP の `['ok' => true, 'data' => ...]` パターンの TypeScript 版。
- */
-export type Result<T, E = Error> =
-  | { readonly ok: true; readonly data: T }
-  | { readonly ok: false; readonly error: E };
-
-/**
  * API レスポンスの標準形式
  */
 export interface ApiResponse<T = unknown> {
