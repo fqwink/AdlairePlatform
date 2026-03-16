@@ -167,10 +167,27 @@ export class ContentManager implements ContentManagerInterface {
     const files = await this.client.storage.list(`collections/${collection}`, ".md");
     const items: CollectionItem[] = [];
 
-    for (const file of files) {
-      const slug = file.replace(/\.md$/, "");
-      const item = await this.getItem(collection, slug);
-      if (item === null) continue;
+    // Batch read to avoid N+1 HTTP requests
+    const readRequests = files.map((file) => ({
+      file: `${file.replace(/\.md$/, "")}.md`,
+      directory: `collections/${collection}`,
+    }));
+    const rawResults = await this.client.storage.readMany<string>(readRequests);
+
+    for (let i = 0; i < files.length; i++) {
+      const raw = rawResults[i];
+      if (raw === null) continue;
+
+      const slug = files[i].replace(/\.md$/, "");
+      const { meta, body } = this.meta.extractMeta(
+        typeof raw === "string" ? raw : JSON.stringify(raw),
+      );
+      const item: CollectionItem = {
+        slug,
+        collection,
+        meta: meta as ItemMeta,
+        body,
+      };
 
       // ドラフトフィルタ
       if (options?.draft === false && item.meta.draft) continue;
@@ -255,8 +272,8 @@ export class MetaManager implements MetaManagerInterface {
 
       if (Array.isArray(value)) {
         lines.push(`${key}: [${value.map((v) => String(v)).join(", ")}]`);
-      } else if (typeof value === "string" && value.includes(":")) {
-        lines.push(`${key}: "${value}"`);
+      } else if (typeof value === "string" && /[:#{}[\]|>!&*?,'"]/.test(value)) {
+        lines.push(`${key}: "${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`);
       } else {
         lines.push(`${key}: ${value}`);
       }

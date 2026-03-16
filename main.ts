@@ -114,13 +114,18 @@ async function main(): Promise<void> {
     // ── 静的ファイル配信 ──
     if (path.match(/\.(css|js|png|jpg|jpeg|gif|svg|ico|woff2?|ttf|eot)$/)) {
       try {
-        // Path traversal prevention
-        const normalizedPath = path.replaceAll("\\", "/");
+        // Path traversal prevention — decode first to catch %2e%2e etc.
+        let normalizedPath: string;
+        try {
+          normalizedPath = decodeURIComponent(path).replaceAll("\\", "/");
+        } catch {
+          return new globalThis.Response("Forbidden", { status: 403 });
+        }
         if (normalizedPath.includes("..") || normalizedPath.includes("\0")) {
           return new globalThis.Response("Forbidden", { status: 403 });
         }
-        const themeDir = `${basePath}/themes/${themeName}`;
-        const filePath = `${themeDir}${normalizedPath}`;
+        const staticThemeDir = `${basePath}/themes/${themeName}`;
+        const filePath = `${staticThemeDir}${normalizedPath}`;
         const file = await Deno.readFile(filePath);
         const ext = path.split(".").pop() ?? "";
         const contentTypes: Record<string, string> = {

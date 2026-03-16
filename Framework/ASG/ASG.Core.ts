@@ -570,12 +570,16 @@ export class BuildCache implements BuildCacheInterface {
   }
 
   private hashKey(key: string): string {
-    // 簡易 MD5 ライクなハッシュ
-    let hash = 0;
+    // Dual-hash to reduce collision risk for short keys
+    let h1 = 0;
+    let h2 = 0x811c9dc5;
     for (let i = 0; i < key.length; i++) {
-      hash = ((hash << 5) - hash + key.charCodeAt(i)) | 0;
+      const c = key.charCodeAt(i);
+      h1 = ((h1 << 5) - h1 + c) | 0;
+      h2 ^= c;
+      h2 = (h2 * 0x01000193) | 0;
     }
-    return (hash >>> 0).toString(16).padStart(8, "0");
+    return (h1 >>> 0).toString(16).padStart(8, "0") + (h2 >>> 0).toString(16).padStart(8, "0");
   }
 }
 

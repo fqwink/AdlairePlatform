@@ -95,8 +95,12 @@ final class Application
         $request = Request::fromGlobals();
         $response = new Response();
 
-        // CORS ヘッダー
-        $response->setHeader('Access-Control-Allow-Origin', $request->getHeader('origin') ?? '*');
+        // CORS ヘッダー — only reflect origin for same-site requests
+        $origin = $request->getHeader('origin') ?? '';
+        $allowedOrigin = ($origin !== '' && $origin !== '*') ? $origin : '';
+        if ($allowedOrigin !== '') {
+            $response->setHeader('Access-Control-Allow-Origin', $allowedOrigin);
+        }
         $response->setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
         $response->setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-CSRF-Token');
         $response->setHeader('Access-Control-Allow-Credentials', 'true');
@@ -604,7 +608,7 @@ final class Application
             return;
         }
 
-        $limit = (int) ($request->getQuery('limit', '20'));
+        $limit = max(1, min(100, (int) ($request->getQuery('limit', '20'))));
         $result = $this->git->log($limit);
         $response->json(ApiResponse::ok($result));
     }
@@ -651,7 +655,7 @@ final class Application
 
         $response->json(ApiResponse::ok([
             'status' => $allOk ? 'ok' : 'degraded',
-            'version' => '2.1',
+            'version' => 'Ver.2.2-43',
             'runtime' => 'PHP ' . PHP_VERSION,
             'time' => gmdate('Y-m-d\TH:i:s\Z'),
             'checks' => $checks,

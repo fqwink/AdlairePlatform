@@ -46,17 +46,19 @@ export class Str {
    * パスを安全に正規化する（ディレクトリトラバーサル防止）
    */
   static safePath(path: string): string {
-    // Remove null bytes
-    let safe = path.replace(/\0/g, "");
-    // Repeatedly remove .. until stable
-    let prev = "";
-    while (safe !== prev) {
-      prev = safe;
-      safe = safe.replace(/\.\./g, "");
+    // Remove null bytes and backslashes
+    let safe = path.replace(/\0/g, "").replace(/\\/g, "/");
+    // Decode percent-encoded sequences to catch %2e%2e etc.
+    try {
+      safe = decodeURIComponent(safe);
+    } catch {
+      // Invalid encoding — use as-is
     }
-    return safe
-      .replace(/\/+/g, "/")
-      .replace(/^\//, "");
+    // Normalize slashes and split into segments
+    const segments = safe.split("/").filter((s) => s !== "" && s !== ".");
+    // Reject any segment that is ".."
+    const result = segments.filter((s) => s !== "..");
+    return result.join("/");
   }
 
   static startsWith(haystack: string, needle: string): boolean {
