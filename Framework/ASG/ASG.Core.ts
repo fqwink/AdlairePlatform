@@ -486,7 +486,7 @@ export class BuildCache implements BuildCacheInterface {
         settings_hash: "",
         theme_hash: "",
         timestamp: "",
-        version: "Ver.2.1-41",
+        version: "Ver.2.2-43",
       };
       this.stateCache = empty;
       return empty;
@@ -501,7 +501,7 @@ export class BuildCache implements BuildCacheInterface {
         settings_hash: "",
         theme_hash: "",
         timestamp: "",
-        version: "Ver.2.1-41",
+        version: "Ver.2.2-43",
       };
       this.stateCache = empty;
       return empty;
@@ -565,7 +565,7 @@ export class BuildCache implements BuildCacheInterface {
       settings_hash: settingsHash,
       theme_hash: themeHash,
       timestamp: new Date().toISOString(),
-      version: "Ver.2.1-41",
+      version: "Ver.2.2-43",
     });
   }
 

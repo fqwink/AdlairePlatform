@@ -6,7 +6,7 @@
 
 Adlaire Platform (AP) is a flat-file CMS framework built on Deno, featuring a template engine, static site generation, a block-based editor, and a headless REST API. It requires no database and organizes all functionality into modular Framework engines for incremental extensibility.
 
-> **Current version**: Ver.2.1-41
+> **Current version**: Ver.2.2-43
 
 ---
 

@@ -6,6 +6,54 @@
 
 ---
 
+## AdlairePlatform Ver.2.2-43（2026-03-16）— セキュリティ修正・フレームワーク改良
+
+セキュリティ修正および堅牢性改善を主体とした内部改良バージョン。後方互換を維持。
+
+### セキュリティ修正
+
+- **ActionDispatcher** — 未処理例外のキャッチとエラーレスポンス返却（500応答の情報漏洩防止）
+- **Webhook IP フィルタ** — 172.16-31 の RFC 1918 準拠チェック、IPv6 ループバック（`::1`）の拒否
+- **バックアップファイル名** — `..zip` 等のパストラバーサルパターンを拒否する正規表現厳格化
+- **CSP ヘッダー** — `style-src 'unsafe-inline'` を除去
+- **PathSecurity** — URL エンコード済みトラバーサル（`%2e%2e%2f`）のバイパス防止
+- **CSRF 検証** — rename ベースのアトミック検証で同時検証の競合防止
+
+### バグ修正
+
+- **スラッグ検証** — `isValidSlug()` ヘルパーでコントローラー全体の正規表現パターンを統一
+- **HeadingBlock** — コンストラクタで `level` を `[2, 3]` にクランプ（無効値防止）
+- **HistoryManager** — `structuredClone` 優先使用、JSON フォールバック、浅コピーの3段階クローン
+- **イベントリスナー管理** — `BaseBlock._addListener()` + `onDestroy()` で全ブロックのリスナーを自動解除（メモリリーク防止）
+- **querySelector null 安全** — `CodeBlock.save()` / `ImageBlock.save()` の null チェック追加
+- **StorageService.write()** — `json_encode` / `file_put_contents` 失敗時の例外送出
+- **uploadImage()** — アップロード前の MIME タイプ検証（magic bytes による finfo チェック）
+- **generateThumbnail()** — ゼロ除算防止ガード、リサイズパラメータの最小値/最大値クランプ
+- **セッション書き込み** — 一時ファイル + rename によるアトミック化
+- **GitCommand** — `proc_open` に30秒タイムアウトを追加（暴走プロセス防止）
+
+### フレームワーク改良
+
+- **searchRevisions** — ファイル名マッチに加え、リビジョン内容のテキスト検索を実装
+- **userAdd** — ロール値バリデーション（`admin` / `editor` / `viewer`）を追加
+- **DiagnosticController.setLevel** — レベル値バリデーションを追加
+- **CsrfMiddleware** — TTL をコンストラクタ引数で設定可能に（ハードコード解消）
+- **Editor.render()** — ブロック ID を安定化（`data._blockId` 優先、`index-type` フォールバック）
+- **webhook.test()** — 実際に HTTP リクエストを送信する実装に変更
+- **previewBranch** — ブランチ名フォーマット検証を追加
+- **RateLimitMiddleware** — クリーンアップ閾値を 1000→100 に引き下げ（メモリ効率改善）
+- **purgeExpired()** — filemtime ベースの事前フィルタ追加（パフォーマンス改善）
+- **getImageInfo / generateThumbnail** — `@` エラー抑制を `try-catch` に置換
+- **認証** — ユーザー名の大文字小文字を無視する比較に変更
+- **isAllowedDir** — サブディレクトリ対応に拡張
+
+### バージョン情報
+
+- ドキュメント表記: Ver.2.2-43（VERSIONING.md 準拠）
+- 累積ビルド番号: 43（Ver.2.1-41 からの2コミット）
+
+---
+
 ## AdlairePlatform Ver.1.9-39（2026-03-15）— 内部品質向上・フレームワーク改良
 
 内部改良主体の開発バージョン。後方互換を維持しつつ、フレームワーク基盤を強化。
