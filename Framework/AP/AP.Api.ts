@@ -9,21 +9,26 @@
  * @license Adlaire License Ver.2.0
  */
 
-import type { RouterInterface, MiddlewareInterface, RequestInterface, ResponseInterface } from "../APF/APF.Interface.ts";
-import type { AdlaireClient, ResponseData, RequestContext } from "../types.ts";
+import type {
+  MiddlewareInterface,
+  RequestInterface,
+  ResponseInterface,
+  RouterInterface,
+} from "../APF/APF.Interface.ts";
+import type { AdlaireClient, RequestContext, ResponseData } from "../types.ts";
 import { Response } from "../APF/APF.Core.ts";
 import {
-  AuthController,
-  DashboardController,
-  ApiController,
   AdminController,
+  ApiController,
+  AuthController,
+  BaseController,
   CollectionController,
+  DashboardController,
+  DiagnosticController,
   GitController,
-  WebhookController,
   StaticController,
   UpdateController,
-  DiagnosticController,
-  BaseController,
+  WebhookController,
 } from "./AP.Core.ts";
 
 /**

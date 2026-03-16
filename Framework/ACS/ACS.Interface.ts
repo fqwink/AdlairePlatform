@@ -11,15 +11,14 @@
 
 import type {
   AdlaireClient,
+  ApiResponse,
   AuthModule,
-  StorageModule,
+  AuthResult,
   FileModule,
   HttpModule,
-  AuthResult,
   SessionInfo,
-  ApiResponse,
+  StorageModule,
   WriteOperation,
-  ImageInfo,
 } from "../types.ts";
 
 // ============================================================================
@@ -72,7 +71,9 @@ export type AuthChangeCallback = (authenticated: boolean, user: SessionInfo | nu
 
 export interface StorageModuleInterface extends StorageModule {
   /** 複数ファイルの一括読み込み */
-  readMany<T = unknown>(files: Array<{ file: string; directory?: string }>): Promise<Array<T | null>>;
+  readMany<T = unknown>(
+    files: Array<{ file: string; directory?: string }>,
+  ): Promise<Array<T | null>>;
 
   /** ファイルの変更監視 */
   watch(file: string, callback: (data: unknown) => void): () => void;

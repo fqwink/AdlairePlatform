@@ -10,19 +10,19 @@
  */
 
 import type {
+  ApiResponse,
+  CollectionItem,
   CollectionSchema,
   CollectionSummary,
-  CollectionItem,
-  ItemMeta,
   FieldDef,
+  FrontMatterResult,
+  ItemMeta,
   PageData,
+  RevisionEntry,
+  SearchResult,
+  ValidationErrors,
   WebhookConfig,
   WebhookEvent,
-  SearchResult,
-  RevisionEntry,
-  FrontMatterResult,
-  ValidationErrors,
-  ApiResponse,
 } from "../types.ts";
 
 // ============================================================================
@@ -70,7 +70,10 @@ export interface ListItemsOptions {
 export interface MetaManagerInterface {
   extractMeta(content: string): FrontMatterResult;
   buildMeta(meta: Record<string, unknown>): string;
-  mergeMeta(base: Record<string, unknown>, override: Record<string, unknown>): Record<string, unknown>;
+  mergeMeta(
+    base: Record<string, unknown>,
+    override: Record<string, unknown>,
+  ): Record<string, unknown>;
   validateMeta(meta: Record<string, unknown>, schema: Record<string, FieldDef>): ValidationErrors;
 }
 
@@ -99,7 +102,13 @@ export interface CollectionServiceInterface {
   getItems(collection: string): Promise<CollectionItem[]>;
   getAllItems(collection: string): Promise<CollectionItem[]>;
   getItem(collection: string, slug: string): Promise<CollectionItem | null>;
-  saveItem(collection: string, slug: string, meta: ItemMeta, body: string, isNew?: boolean): Promise<boolean>;
+  saveItem(
+    collection: string,
+    slug: string,
+    meta: ItemMeta,
+    body: string,
+    isNew?: boolean,
+  ): Promise<boolean>;
   validateFields(collection: string, meta: Record<string, unknown>): Promise<ValidationErrors>;
   deleteItem(collection: string, slug: string): Promise<boolean>;
   loadAllAsPages(): Promise<Record<string, PageData>>;
@@ -112,7 +121,11 @@ export interface CollectionServiceInterface {
 
 export interface ApiRouterInterface {
   registerEndpoint(name: string, handler: ApiEndpointHandler, requiresAuth?: boolean): void;
-  dispatch(endpoint: string, params: Record<string, unknown>, requestBody?: string): Promise<ApiResponse>;
+  dispatch(
+    endpoint: string,
+    params: Record<string, unknown>,
+    requestBody?: string,
+  ): Promise<ApiResponse>;
   listEndpoints(): string[];
 }
 

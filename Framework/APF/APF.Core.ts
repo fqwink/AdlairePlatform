@@ -9,29 +9,23 @@
  * @license Adlaire License Ver.2.0
  */
 
-import type {
-  HttpMethodValue,
-  RequestContext,
-  ResponseData,
-  RouteDefinition,
-} from "../types.ts";
+import type { HttpMethodValue, RequestContext, ResponseData, RouteDefinition } from "../types.ts";
 
 import type {
   ContainerInterface,
-  RouterInterface,
-  RouteBuilder,
-  RouteGroupOptions,
-  ResolvedRoute,
-  RouteHandler,
-  RequestInterface,
-  ResponseInterface,
-  ResponseFactory,
-  MiddlewareInterface,
   EventBusInterface,
   EventListener,
+  MiddlewareInterface,
+  RequestInterface,
+  ResolvedRoute,
+  ResponseInterface,
+  RouteBuilder,
+  RouteGroupOptions,
+  RouteHandler,
+  RouterInterface,
 } from "./APF.Interface.ts";
 
-import { HttpMethod, NotFoundError } from "./APF.Class.ts";
+import { NotFoundError } from "./APF.Class.ts";
 
 // ============================================================================
 // Container — DI コンテナ
@@ -119,7 +113,11 @@ export class Router implements RouterInterface {
   }
 
   any(path: string, handler: RouteHandler): RouteBuilder {
-    return this.addRoute(["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"], path, handler);
+    return this.addRoute(
+      ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+      path,
+      handler,
+    );
   }
 
   match(methods: HttpMethodValue[], path: string, handler: RouteHandler): RouteBuilder {
@@ -509,26 +507,26 @@ export class MiddlewarePipeline {
   /**
    * ミドルウェアチェーンを実行し、最終ハンドラの結果を返す
    */
-  static async run(
+  static run(
     request: Request,
     middleware: MiddlewareInterface[],
     handler: (req: RequestInterface) => ResponseInterface | Promise<ResponseInterface>,
   ): Promise<ResponseInterface> {
     if (middleware.length === 0) {
-      return handler(request);
+      return Promise.resolve(handler(request));
     }
 
     let index = 0;
 
-    const next = async (req: RequestInterface): Promise<ResponseInterface> => {
+    const next = (req: RequestInterface): Promise<ResponseInterface> => {
       if (index >= middleware.length) {
-        return handler(req);
+        return Promise.resolve(handler(req));
       }
       const mw = middleware[index++];
-      return mw.handle(req, next);
+      return Promise.resolve(mw.handle(req, next));
     };
 
-    return next(request);
+    return Promise.resolve(next(request));
   }
 }
 
@@ -569,7 +567,10 @@ export class Application {
     const request = Request.fromDenoRequest(denoReq);
 
     // POST body の読み込み
-    if (request.httpMethod() === "POST" || request.httpMethod() === "PUT" || request.httpMethod() === "PATCH") {
+    if (
+      request.httpMethod() === "POST" || request.httpMethod() === "PUT" ||
+      request.httpMethod() === "PATCH"
+    ) {
       // body は Request 構築時に渡す必要があるため、
       // 実運用では fromDenoRequest を拡張して body を読み込む
     }
@@ -593,12 +594,10 @@ export class Application {
     try {
       // ミドルウェアパイプライン実行
       const handler = route.handler;
-      const handlerFn = typeof handler === "function"
-        ? handler
-        : (_req: RequestInterface) => {
-            // [ControllerClass, method] パターンは AP.Core.ts で解決
-            throw new Error(`Controller handler not resolved: ${handler[0]}.${handler[1]}`);
-          };
+      const handlerFn = typeof handler === "function" ? handler : (_req: RequestInterface) => {
+        // [ControllerClass, method] パターンは AP.Core.ts で解決
+        throw new Error(`Controller handler not resolved: ${handler[0]}.${handler[1]}`);
+      };
 
       const response = await MiddlewarePipeline.run(
         request,

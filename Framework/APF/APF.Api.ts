@@ -9,7 +9,7 @@
  * @license Adlaire License Ver.2.0
  */
 
-import type { RequestInterface, ResponseInterface } from "./APF.Interface.ts";
+import type { ResponseInterface } from "./APF.Interface.ts";
 import type { RouterInterface } from "./APF.Interface.ts";
 import { Response } from "./APF.Core.ts";
 
@@ -30,8 +30,7 @@ export function registerSystemRoutes(router: RouterInterface): void {
         runtime: "deno",
         version: Deno.version.deno,
       },
-    }),
-  );
+    }));
 
   router.get("/api/version", () =>
     Response.json({
@@ -41,8 +40,7 @@ export function registerSystemRoutes(router: RouterInterface): void {
         version: "2.0.0",
         framework: "APF",
       },
-    }),
-  );
+    }));
 }
 
 // ============================================================================

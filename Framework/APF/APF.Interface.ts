@@ -11,16 +11,12 @@
 
 import type {
   HttpMethodValue,
+  LogLevelValue,
+  PaginatedResponse,
   RequestContext,
   ResponseData,
   RouteDefinition,
   ValidationErrors,
-  ValidationRules,
-  LogLevelValue,
-  DatabaseConfig,
-  PaginatedResponse,
-  RateLimitConfig,
-  CorsConfig,
 } from "../types.ts";
 
 // ============================================================================
@@ -167,7 +163,12 @@ export interface QueryBuilderInterface<T = Record<string, unknown>> {
   whereBetween(column: string, range: [unknown, unknown]): QueryBuilderInterface<T>;
   whereLike(column: string, pattern: string): QueryBuilderInterface<T>;
   join(table: string, first: string, operator: string, second: string): QueryBuilderInterface<T>;
-  leftJoin(table: string, first: string, operator: string, second: string): QueryBuilderInterface<T>;
+  leftJoin(
+    table: string,
+    first: string,
+    operator: string,
+    second: string,
+  ): QueryBuilderInterface<T>;
   orderBy(column: string, direction?: "asc" | "desc"): QueryBuilderInterface<T>;
   groupBy(...columns: string[]): QueryBuilderInterface<T>;
   having(condition: string, bindings?: unknown[]): QueryBuilderInterface<T>;

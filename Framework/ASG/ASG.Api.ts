@@ -8,7 +8,7 @@
  * @license Adlaire License Ver.2.0
  */
 
-import type { RouterInterface, RequestInterface } from "../APF/APF.Interface.ts";
+import type { RouterInterface } from "../APF/APF.Interface.ts";
 import type { GeneratorInterface } from "./ASG.Interface.ts";
 import { Response } from "../APF/APF.Core.ts";
 

@@ -10,19 +10,18 @@
  */
 
 import type {
-  BuildResult,
-  BuildStats,
   BuildManifest,
+  BuildResult,
   BuildState,
+  BuildStats,
   BuildStatusValue,
-  ThemeConfig,
-  TemplateContext,
+  FrontMatterResult,
+  ImageInfo,
   PageData,
   RedirectRule,
-  ImageInfo,
   SitemapEntry,
-  FrontMatterResult,
-  BuildHook,
+  TemplateContext,
+  ThemeConfig,
 } from "../types.ts";
 
 // ============================================================================
@@ -141,7 +140,11 @@ export interface BuildCacheInterface {
   loadState(): Promise<BuildState>;
   buildManifest(currentHashes: Record<string, string>): BuildManifest;
   needsFullRebuild(settingsHash: string, themeHash: string): boolean;
-  commitManifest(hashes: Record<string, string>, settingsHash?: string, themeHash?: string): Promise<void>;
+  commitManifest(
+    hashes: Record<string, string>,
+    settingsHash?: string,
+    themeHash?: string,
+  ): Promise<void>;
 }
 
 // ============================================================================

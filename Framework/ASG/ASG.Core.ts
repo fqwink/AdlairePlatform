@@ -17,44 +17,30 @@
  */
 
 import type {
-  BuildResult,
-  BuildStats,
   BuildManifest,
+  BuildResult,
   BuildState,
+  BuildStats,
   PageData,
-  SiteSettings,
-  TemplateContext,
   RedirectRule,
   SitemapEntry,
-  FrontMatterResult,
-  CollectionItem,
+  TemplateContext,
 } from "../types.ts";
 
 import type {
-  GeneratorInterface,
-  GeneratorConfig,
-  GeneratorStatus,
-  BuilderInterface,
-  TemplateRendererInterface,
-  MarkdownServiceInterface,
-  StaticServiceInterface,
-  StaticServiceStatus,
   BuildCacheInterface,
-  DiffBuilderInterface,
+  BuilderInterface,
+  DeployerInterface,
+  GeneratorConfig,
+  GeneratorInterface,
+  GeneratorStatus,
+  MarkdownServiceInterface,
   SiteRouterInterface,
   StaticFileSystemInterface,
-  DeployerInterface,
-  ThemeManagerInterface,
+  TemplateRendererInterface,
 } from "./ASG.Interface.ts";
 
-import {
-  BuildStatus,
-  BuildMode,
-  UrlStyle,
-  BuildError,
-  TemplateError,
-  IMAGE_DEFAULTS,
-} from "./ASG.Class.ts";
+import { BuildError, BuildStatus, UrlStyle } from "./ASG.Class.ts";
 
 // ============================================================================
 // Generator — ビルドオーケストレーター
@@ -138,7 +124,7 @@ export class Generator implements GeneratorInterface {
     }
   }
 
-  async buildDiff(previousState?: BuildState): Promise<BuildResult> {
+  async buildDiff(_previousState?: BuildState): Promise<BuildResult> {
     this.status = BuildStatus.BUILDING;
     this.startTime = performance.now();
     const warnings: string[] = [];
@@ -236,9 +222,9 @@ export class Generator implements GeneratorInterface {
       config: this.config,
       lastBuild: this.lastStats
         ? {
-            timestamp: new Date().toISOString(),
-            stats: this.lastStats,
-          }
+          timestamp: new Date().toISOString(),
+          stats: this.lastStats,
+        }
         : undefined,
     };
   }
@@ -365,7 +351,7 @@ export class HybridResolver {
    *
    * コンテンツ更新時に呼び出し、次回アクセスで再生成させる。
    */
-  async invalidate(slug: string): Promise<boolean> {
+  invalidate(slug: string): Promise<boolean> {
     const staticPath = `${this.outputDir}/${this.urlStyle.resolveOutputPath(slug)}`;
     return this.fs.delete(staticPath);
   }
@@ -619,7 +605,7 @@ export class SiteRouter implements SiteRouterInterface {
     return this.urlStyle.buildUrl(slug, this.baseUrl);
   }
 
-  generateSitemap(pages: SitemapEntry[], baseUrl: string): string {
+  generateSitemap(pages: SitemapEntry[], _baseUrl: string): string {
     const lines: string[] = [
       '<?xml version="1.0" encoding="UTF-8"?>',
       '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
@@ -661,13 +647,13 @@ export class SiteRouter implements SiteRouterInterface {
 export class Deployer implements DeployerInterface {
   constructor(private readonly fs: StaticFileSystemInterface) {}
 
-  async createZip(_sourceDir: string, _outputPath: string): Promise<boolean> {
+  createZip(_sourceDir: string, _outputPath: string): Promise<boolean> {
     // Deno では外部ライブラリ or コマンドライン zip を使用
     // 実装は環境依存のため、インターフェースのみ定義
     throw new Error("ZIP creation requires platform-specific implementation");
   }
 
-  async createDiffZip(
+  createDiffZip(
     _sourceDir: string,
     _changedFiles: string[],
     _outputPath: string,
@@ -778,6 +764,7 @@ export class HtmlMinifier {
     result = result.replace(/>\s+</g, "><");
 
     // 保護ブロックを復元
+    // deno-lint-ignore no-control-regex
     result = result.replace(/\x00PRESERVE_(\d+)\x00/g, (_match, idx: string) => {
       return preserved[Number(idx)];
     });
@@ -814,6 +801,7 @@ export class CssMinifier {
     result = result.replace(/;}/g, "}");
 
     // calc() 復元
+    // deno-lint-ignore no-control-regex
     result = result.replace(/\x00CALC_(\d+)\x00/g, (_match, idx: string) => {
       return calcExpressions[Number(idx)];
     });

@@ -10,17 +10,13 @@
  * @license Adlaire License Ver.2.0
  */
 
-import type {
-  ValidationRules,
-  ValidationErrors,
-} from "../types.ts";
+import type { ValidationErrors, ValidationRules } from "../types.ts";
 
 import type {
   ConfigInterface,
-  ValidatorInterface,
-  CacheInterface,
   FileSystemInterface,
   JsonStorageInterface,
+  ValidatorInterface,
 } from "./APF.Interface.ts";
 
 import { ValidationError } from "./APF.Class.ts";
@@ -385,8 +381,7 @@ export class Validator implements ValidatorInterface {
     param?: string,
   ): string | null {
     const customKey = `${field}.${rule}`;
-    const getMessage = (defaultMsg: string): string =>
-      this.messages[customKey] ?? defaultMsg;
+    const getMessage = (defaultMsg: string): string => this.messages[customKey] ?? defaultMsg;
 
     switch (rule) {
       case "required":
@@ -401,7 +396,9 @@ export class Validator implements ValidatorInterface {
         break;
       case "number":
       case "numeric":
-        if (value !== undefined && value !== null && typeof value !== "number" && isNaN(Number(value))) {
+        if (
+          value !== undefined && value !== null && typeof value !== "number" && isNaN(Number(value))
+        ) {
           return getMessage(`${field} must be a number`);
         }
         break;
@@ -540,7 +537,7 @@ export class FileSystem implements FileSystemInterface {
     }
   }
 
-  async writeJson(path: string, data: unknown): Promise<boolean> {
+  writeJson(path: string, data: unknown): Promise<boolean> {
     const json = JSON.stringify(data, null, 2);
     return this.write(path, json);
   }

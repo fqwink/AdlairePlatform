@@ -29,7 +29,9 @@ export function joinUrl(base: string, ...parts: string[]): string {
 /**
  * クエリパラメータをオブジェクトから構築する
  */
-export function buildQueryString(params: Record<string, string | number | boolean | undefined>): string {
+export function buildQueryString(
+  params: Record<string, string | number | boolean | undefined>,
+): string {
   const pairs: string[] = [];
   for (const [key, value] of Object.entries(params)) {
     if (value !== undefined) {

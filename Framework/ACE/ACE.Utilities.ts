@@ -11,17 +11,17 @@
 
 import type {
   AdlaireClient,
+  ApiResponse,
+  RevisionEntry,
   WebhookConfig,
   WebhookEvent,
-  RevisionEntry,
-  ApiResponse,
 } from "../types.ts";
 
 import type {
-  WebhookServiceInterface,
-  RevisionServiceInterface,
-  ApiRouterInterface,
   ApiEndpointHandler,
+  ApiRouterInterface,
+  RevisionServiceInterface,
+  WebhookServiceInterface,
 } from "./ACE.Interface.ts";
 
 // ============================================================================
@@ -33,7 +33,8 @@ export class WebhookService implements WebhookServiceInterface {
 
   async listWebhooks(): Promise<WebhookConfig[]> {
     return (await this.client.storage.read<WebhookConfig[]>(
-      "webhooks.json", "settings",
+      "webhooks.json",
+      "settings",
     )) ?? [];
   }
 
@@ -108,7 +109,8 @@ export class RevisionService implements RevisionServiceInterface {
 
   async get(slug: string, file: string): Promise<string | null> {
     const data = await this.client.storage.read<{ content: string }>(
-      file, `revisions/${slug}`,
+      file,
+      `revisions/${slug}`,
     );
     return data?.content ?? null;
   }

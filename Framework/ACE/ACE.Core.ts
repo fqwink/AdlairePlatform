@@ -13,34 +13,26 @@
 
 import type {
   AdlaireClient,
+  CollectionItem,
   CollectionSchema,
   CollectionSummary,
-  CollectionItem,
-  ItemMeta,
   FieldDef,
-  PageData,
-  ValidationErrors,
   FrontMatterResult,
+  ItemMeta,
   SearchResult,
+  ValidationErrors,
 } from "../types.ts";
 
 import type {
   CollectionManagerInterface,
   ContentManagerInterface,
   ContentValidatorInterface,
-  MetaManagerInterface,
-  CollectionServiceInterface,
   ItemSaveData,
   ListItemsOptions,
+  MetaManagerInterface,
 } from "./ACE.Interface.ts";
 
-import {
-  CollectionError,
-  ContentNotFoundError,
-  DuplicateSlugError,
-  FIELD_TYPE_DEFAULTS,
-  SLUG_PATTERN,
-} from "./ACE.Class.ts";
+import { CollectionError, SLUG_PATTERN } from "./ACE.Class.ts";
 
 // ============================================================================
 // CollectionManager — コレクション管理
@@ -141,7 +133,9 @@ export class ContentManager implements ContentManagerInterface {
     );
     if (raw === null) return null;
 
-    const { meta, body } = this.meta.extractMeta(typeof raw === "string" ? raw : JSON.stringify(raw));
+    const { meta, body } = this.meta.extractMeta(
+      typeof raw === "string" ? raw : JSON.stringify(raw),
+    );
 
     return {
       slug,
@@ -151,7 +145,7 @@ export class ContentManager implements ContentManagerInterface {
     };
   }
 
-  async saveItem(collection: string, slug: string, data: ItemSaveData): Promise<boolean> {
+  saveItem(collection: string, slug: string, data: ItemSaveData): Promise<boolean> {
     const frontMatter = this.meta.buildMeta(data.meta);
     const content = `---\n${frontMatter}---\n${data.body}`;
 
@@ -162,7 +156,7 @@ export class ContentManager implements ContentManagerInterface {
     );
   }
 
-  async deleteItem(collection: string, slug: string): Promise<boolean> {
+  deleteItem(collection: string, slug: string): Promise<boolean> {
     return this.client.storage.delete(
       `${slug}.md`,
       `collections/${collection}`,
@@ -343,8 +337,10 @@ export class MetaManager implements MetaManagerInterface {
   }
 
   private coerce(value: string): unknown {
-    if ((value.startsWith('"') && value.endsWith('"')) ||
-        (value.startsWith("'") && value.endsWith("'"))) {
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
       return value.slice(1, -1);
     }
     if (value === "true") return true;

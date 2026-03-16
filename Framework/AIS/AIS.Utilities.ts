@@ -11,25 +11,25 @@
 
 import type {
   AdlaireClient,
-  DiagnosticsReport,
-  DiagEvent,
-  HealthCheckResult,
-  GitResult,
-  GitLogEntry,
-  GitStatus,
-  UpdateInfo,
   BackupEntry,
+  DiagEvent,
+  DiagnosticsReport,
+  GitLogEntry,
+  GitResult,
+  GitStatus,
+  HealthCheckResult,
+  UpdateInfo,
 } from "../types.ts";
 
 import type {
-  DiagnosticsManagerInterface,
-  DiagnosticsConfig,
   ApiCacheInterface,
-  GitServiceInterface,
-  GitServiceConfig,
-  UpdateServiceInterface,
+  DiagnosticsConfig,
+  DiagnosticsManagerInterface,
   EnvironmentCheck,
+  GitServiceConfig,
+  GitServiceInterface,
   UpdateApplyResult,
+  UpdateServiceInterface,
 } from "./AIS.Interface.ts";
 
 // ============================================================================
@@ -82,7 +82,10 @@ export class DiagnosticsManager implements DiagnosticsManagerInterface {
   }
 
   async healthCheck(detailed?: boolean): Promise<HealthCheckResult> {
-    const checks: Record<string, { status: "ok" | "warning" | "error"; message: string; value?: unknown }> = {};
+    const checks: Record<
+      string,
+      { status: "ok" | "warning" | "error"; message: string; value?: unknown }
+    > = {};
 
     // ストレージチェック
     const storageOk = await this.client.storage.exists("site.json", "settings");
@@ -113,7 +116,7 @@ export class DiagnosticsManager implements DiagnosticsManagerInterface {
     };
   }
 
-  async collectWithUnsent(lastSent: string): Promise<DiagnosticsReport> {
+  collectWithUnsent(lastSent: string): Promise<DiagnosticsReport> {
     const cutoff = new Date(lastSent);
     const filtered = this.events.filter((e) => new Date(e.timestamp) > cutoff);
 
@@ -124,11 +127,11 @@ export class DiagnosticsManager implements DiagnosticsManagerInterface {
       byLevel[e.level] = (byLevel[e.level] ?? 0) + 1;
     }
 
-    return {
+    return Promise.resolve({
       events: filtered,
       summary: { total: filtered.length, byChannel, byLevel },
       collectedAt: new Date().toISOString(),
-    };
+    });
   }
 
   async send(data: DiagnosticsReport): Promise<boolean> {
@@ -138,7 +141,8 @@ export class DiagnosticsManager implements DiagnosticsManagerInterface {
 
   async loadConfig(): Promise<DiagnosticsConfig> {
     const config = await this.client.storage.read<DiagnosticsConfig>(
-      "diagnostic.json", "settings",
+      "diagnostic.json",
+      "settings",
     );
     return config ?? {
       enabled: false,
@@ -154,8 +158,9 @@ export class DiagnosticsManager implements DiagnosticsManagerInterface {
     this.level = config.level;
   }
 
-  async clearLogs(): Promise<void> {
+  clearLogs(): Promise<void> {
     this.events = [];
+    return Promise.resolve();
   }
 
   async purgeExpiredLogs(): Promise<void> {
@@ -211,7 +216,8 @@ export class GitService implements GitServiceInterface {
 
   async loadConfig(): Promise<GitServiceConfig> {
     return (await this.client.storage.read<GitServiceConfig>(
-      "git.json", "settings",
+      "git.json",
+      "settings",
     )) ?? { repoUrl: "", branch: "main" };
   }
 
@@ -246,7 +252,7 @@ export class GitService implements GitServiceInterface {
     }
   }
 
-  async pull(): Promise<GitResult> {
+  pull(): Promise<GitResult> {
     return this.runGit(["pull", "origin"]);
   }
 
@@ -285,7 +291,9 @@ export class GitService implements GitServiceInterface {
     const branchResult = await this.runGit(["branch", "--show-current"]);
 
     const lines = result.output.trim().split("\n").filter(Boolean);
-    const modified = lines.filter((l) => l.startsWith(" M") || l.startsWith("M")).map((l) => l.slice(3));
+    const modified = lines.filter((l) => l.startsWith(" M") || l.startsWith("M")).map((l) =>
+      l.slice(3)
+    );
     const untracked = lines.filter((l) => l.startsWith("??")).map((l) => l.slice(3));
 
     return {
@@ -298,7 +306,7 @@ export class GitService implements GitServiceInterface {
     };
   }
 
-  async createPreviewBranch(name: string): Promise<GitResult> {
+  createPreviewBranch(name: string): Promise<GitResult> {
     return this.runGit(["checkout", "-b", name]);
   }
 
@@ -332,31 +340,31 @@ export class GitService implements GitServiceInterface {
 export class UpdateService implements UpdateServiceInterface {
   constructor(private readonly client: AdlaireClient) {}
 
-  async checkUpdate(): Promise<UpdateInfo> {
-    return {
+  checkUpdate(): Promise<UpdateInfo> {
+    return Promise.resolve({
       available: false,
       currentVersion: "2.0.0",
       latestVersion: "2.0.0",
-    };
+    });
   }
 
-  async checkEnvironment(): Promise<EnvironmentCheck> {
-    return {
+  checkEnvironment(): Promise<EnvironmentCheck> {
+    return Promise.resolve({
       phpVersion: `deno/${Deno.version.deno}`,
       requiredVersion: "2.0.0",
       writable: true,
       diskSpace: 0,
       issues: [],
-    };
+    });
   }
 
-  async executeApplyUpdate(): Promise<UpdateApplyResult> {
-    return {
+  executeApplyUpdate(): Promise<UpdateApplyResult> {
+    return Promise.resolve({
       success: false,
       fromVersion: "2.0.0",
       toVersion: "2.0.0",
       error: "No update available",
-    };
+    });
   }
 
   async executeRollback(name: string): Promise<{ success: boolean; error?: string }> {

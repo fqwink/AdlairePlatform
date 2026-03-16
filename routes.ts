@@ -12,29 +12,28 @@ import type { AdlaireClient } from "./Framework/types.ts";
 import type { ApplicationFacade } from "./bootstrap.ts";
 
 import {
+  AuthMiddleware,
+  registerCollectionRoutes,
+  registerGeneratorRoutes,
+  registerInfraRoutes,
+  registerPlatformRoutes,
+  registerSystemRoutes,
+  RequestLoggingMiddleware,
   Response,
   SecurityHeadersMiddleware,
-  RequestLoggingMiddleware,
-  AuthMiddleware,
-  CsrfMiddleware,
-  registerSystemRoutes,
-  registerCollectionRoutes,
-  registerInfraRoutes,
-  registerGeneratorRoutes,
-  registerPlatformRoutes,
 } from "./Framework/mod.ts";
 
 import {
+  Builder,
   CollectionManager,
   ContentManager,
+  FileSystem,
+  MarkdownService,
   MetaManager,
   TemplateRenderer,
-  MarkdownService,
-  Builder,
-  FileSystem,
 } from "./Framework/mod.ts";
 
-import { Generator, HybridResolver, BuildCache, SiteRouter } from "./Framework/ASG/ASG.Core.ts";
+import { BuildCache, Generator } from "./Framework/ASG/ASG.Core.ts";
 import type { StaticFileSystemInterface } from "./Framework/ASG/ASG.Interface.ts";
 
 /**
@@ -103,8 +102,7 @@ export function registerRoutes(app: ApplicationFacade): void {
       version: "2.0.0",
       runtime: `deno/${Deno.version.deno}`,
       time: new Date().toISOString(),
-    }),
-  );
+    }));
 
   // ══════════════════════════════════════════════════
   // システムエンドポイント (APF)

@@ -15,7 +15,9 @@ import { ClientFactory } from "./ACS.Core.ts";
 /**
  * 環境設定からクライアントを初期化する
  */
-export function createClient(config?: Partial<ClientConfig> & { token?: string | null }): AdlaireClient {
+export function createClient(
+  config?: Partial<ClientConfig> & { token?: string | null },
+): AdlaireClient {
   const factory = new ClientFactory();
   const fullConfig: ClientConfig = {
     baseUrl: config?.baseUrl ?? "",

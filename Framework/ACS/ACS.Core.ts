@@ -11,37 +11,36 @@
 
 import type {
   AdlaireClient,
-  AuthResult,
-  SessionInfo,
   ApiResponse,
-  WriteOperation,
+  AuthResult,
   ImageInfo,
+  SessionInfo,
+  WriteOperation,
 } from "../types.ts";
 
 import type {
+  AuthChangeCallback,
+  AuthModuleInterface,
   ClientConfig,
   ClientFactoryInterface,
-  AuthModuleInterface,
-  StorageModuleInterface,
+  EventSourceInterface,
   FileModuleInterface,
   HttpModuleInterface,
+  ImageUploadOptions,
+  RequestConfig,
   RequestInterceptor,
   ResponseInterceptor,
-  RequestConfig,
   RetryConfig,
-  AuthChangeCallback,
-  ImageUploadOptions,
-  EventSourceInterface,
+  StorageModuleInterface,
 } from "./ACS.Interface.ts";
 
 import {
-  ConnectionState,
-  STORAGE_DIRS,
   API_ENDPOINTS,
-  NetworkError,
-  TimeoutError,
-  ServerError,
   AuthError,
+  ConnectionState,
+  NetworkError,
+  ServerError,
+  TimeoutError,
 } from "./ACS.Class.ts";
 
 // ============================================================================
@@ -89,7 +88,7 @@ export class HttpTransport implements HttpModuleInterface {
     this.credentials = config.credentials ?? "same-origin";
   }
 
-  async get<T = unknown>(
+  get<T = unknown>(
     endpoint: string,
     params?: Record<string, string>,
   ): Promise<ApiResponse<T>> {
@@ -101,21 +100,21 @@ export class HttpTransport implements HttpModuleInterface {
     return this.request<T>("GET", url);
   }
 
-  async post<T = unknown>(
+  post<T = unknown>(
     endpoint: string,
     body?: unknown,
   ): Promise<ApiResponse<T>> {
     return this.request<T>("POST", this.buildUrl(endpoint), body);
   }
 
-  async put<T = unknown>(
+  put<T = unknown>(
     endpoint: string,
     body?: unknown,
   ): Promise<ApiResponse<T>> {
     return this.request<T>("PUT", this.buildUrl(endpoint), body);
   }
 
-  async delete<T = unknown>(endpoint: string): Promise<ApiResponse<T>> {
+  delete<T = unknown>(endpoint: string): Promise<ApiResponse<T>> {
     return this.request<T>("DELETE", this.buildUrl(endpoint));
   }
 
@@ -387,7 +386,7 @@ export class StorageService implements StorageModuleInterface {
     return result.data ?? [];
   }
 
-  async readMany<T = unknown>(
+  readMany<T = unknown>(
     files: Array<{ file: string; directory?: string }>,
   ): Promise<Array<T | null>> {
     return Promise.all(
@@ -430,9 +429,12 @@ export class FileService implements FileModuleInterface {
   }
 
   async download(path: string): Promise<Blob> {
-    const response = await fetch(`${this.baseUrl}/api/files/download?path=${encodeURIComponent(path)}`, {
-      credentials: "same-origin",
-    });
+    const response = await fetch(
+      `${this.baseUrl}/api/files/download?path=${encodeURIComponent(path)}`,
+      {
+        credentials: "same-origin",
+      },
+    );
     if (!response.ok) {
       throw new NetworkError(`Download failed: ${response.status}`, response.status, path);
     }
@@ -572,8 +574,7 @@ export async function withRetry<T>(
 
       if (attempt === config.maxRetries) break;
 
-      const isRetryable =
-        error instanceof NetworkError &&
+      const isRetryable = error instanceof NetworkError &&
         error.statusCode !== undefined &&
         config.retryableStatuses.includes(error.statusCode);
 

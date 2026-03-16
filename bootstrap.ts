@@ -9,16 +9,14 @@
  */
 
 import {
-  Container,
-  Router,
-  EventBus,
-  AppContext,
-  I18n,
-  DiagnosticsManager,
   ApiCache,
+  AppContext,
+  Container,
+  DiagnosticsManager,
+  EventBus,
+  I18n,
+  Router,
   WebhookService,
-  SecurityHeadersMiddleware,
-  RequestLoggingMiddleware,
 } from "./Framework/mod.ts";
 
 import { createClient } from "./Framework/ACS/ACS.Api.ts";

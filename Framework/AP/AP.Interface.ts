@@ -9,12 +9,7 @@
  * @license Adlaire License Ver.2.0
  */
 
-import type {
-  RequestContext,
-  ResponseData,
-  ApiResponse,
-  ActionDefinition,
-} from "../types.ts";
+import type { ActionDefinition, RequestContext, ResponseData } from "../types.ts";
 
 // ============================================================================
 // Base Controller

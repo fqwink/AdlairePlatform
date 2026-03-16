@@ -11,17 +11,9 @@
  * @license Adlaire License Ver.2.0
  */
 
-import { bootstrap, ApplicationFacade } from "./bootstrap.ts";
+import { bootstrap } from "./bootstrap.ts";
 import { registerRoutes } from "./routes.ts";
-import {
-  Application,
-  Request,
-  Response,
-  MarkdownService,
-  TemplateRenderer,
-  ThemeManager,
-  Config,
-} from "./Framework/mod.ts";
+import { MarkdownService, Request, Response, TemplateRenderer } from "./Framework/mod.ts";
 
 // ============================================================================
 // Constants
@@ -54,9 +46,6 @@ async function main(): Promise<void> {
   const themeName = app.context.get<string>("themeSelect", "AP-Default");
   const markdown = new MarkdownService();
   const renderer = new TemplateRenderer();
-
-  // ── HTTP アプリケーション ──
-  const httpApp = new Application();
 
   // Application の Router に全ルートをコピー（内部 Router と統合）
   const router = app.router;
@@ -91,7 +80,11 @@ async function main(): Promise<void> {
         const response = await MiddlewarePipeline.run(
           request,
           resolved.middleware,
-          resolved.handler as (req: import("./Framework/APF/APF.Interface.ts").RequestInterface) => import("./Framework/APF/APF.Interface.ts").ResponseInterface | Promise<import("./Framework/APF/APF.Interface.ts").ResponseInterface>,
+          resolved.handler as (
+            req: import("./Framework/APF/APF.Interface.ts").RequestInterface,
+          ) =>
+            | import("./Framework/APF/APF.Interface.ts").ResponseInterface
+            | Promise<import("./Framework/APF/APF.Interface.ts").ResponseInterface>,
         );
         return (response as InstanceType<typeof Response>).toDenoResponse();
       } catch (error: unknown) {
@@ -148,7 +141,9 @@ async function main(): Promise<void> {
       try {
         for await (const entry of Deno.readDir(`${basePath}/data/content/collections`)) {
           if (!entry.isDirectory) continue;
-          for await (const file of Deno.readDir(`${basePath}/data/content/collections/${entry.name}`)) {
+          for await (
+            const file of Deno.readDir(`${basePath}/data/content/collections/${entry.name}`)
+          ) {
             if (!file.name.endsWith(".md")) continue;
             const mdContent = await Deno.readTextFile(
               `${basePath}/data/content/collections/${entry.name}/${file.name}`,
@@ -174,7 +169,8 @@ async function main(): Promise<void> {
       try {
         templateHtml = await Deno.readTextFile(`${themeDir}/${themeName}/index.html`);
       } catch {
-        templateHtml = "<!DOCTYPE html><html><head><title>{{title}}</title></head><body>{{{content}}}</body></html>";
+        templateHtml =
+          "<!DOCTYPE html><html><head><title>{{title}}</title></head><body>{{{content}}}</body></html>";
       }
 
       const ctx: Record<string, unknown> = {

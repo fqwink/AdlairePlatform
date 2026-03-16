@@ -10,13 +10,12 @@
  */
 
 import type {
+  MiddlewareInterface,
   RequestInterface,
   ResponseInterface,
-  MiddlewareInterface,
 } from "../APF/APF.Interface.ts";
 
 import { Response } from "../APF/APF.Core.ts";
-import { ForbiddenError } from "./AP.Class.ts";
 
 // ============================================================================
 // CsrfMiddleware — CSRF 保護
@@ -26,10 +25,10 @@ export class CsrfMiddleware implements MiddlewareInterface {
   private readonly tokenName = "csrf_token";
   private tokens = new Map<string, number>();
 
-  async handle(
+  handle(
     request: RequestInterface,
     next: (req: RequestInterface) => Promise<ResponseInterface>,
-  ): Promise<ResponseInterface> {
+  ): ResponseInterface | Promise<ResponseInterface> {
     const method = request.method();
 
     // GET/HEAD/OPTIONS は検証スキップ
@@ -92,9 +91,7 @@ export class AuthMiddleware implements MiddlewareInterface {
     next: (req: RequestInterface) => Promise<ResponseInterface>,
   ): Promise<ResponseInterface> {
     const authHeader = request.header("authorization") ?? "";
-    const token = authHeader.startsWith("Bearer ")
-      ? authHeader.slice(7)
-      : null;
+    const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
 
     if (!token) {
       return Response.json({ ok: false, error: "Unauthorized" }, 401);
@@ -121,10 +118,10 @@ export class RateLimitMiddleware implements MiddlewareInterface {
     private readonly windowSeconds: number = 60,
   ) {}
 
-  async handle(
+  handle(
     request: RequestInterface,
     next: (req: RequestInterface) => Promise<ResponseInterface>,
-  ): Promise<ResponseInterface> {
+  ): ResponseInterface | Promise<ResponseInterface> {
     const key = request.ip();
     const now = Date.now();
     const entry = this.requests.get(key);

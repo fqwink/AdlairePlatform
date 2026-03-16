@@ -10,21 +10,18 @@
  * @license Adlaire License Ver.2.0
  */
 
-import type {
-  FrontMatterResult,
-  ThemeConfig,
-} from "../types.ts";
+import type { FrontMatterResult, ThemeConfig } from "../types.ts";
 
 import type {
-  TemplateRendererInterface,
-  TemplateHelper,
-  MarkdownServiceInterface,
   BuilderInterface,
-  ThemeManagerInterface,
+  MarkdownServiceInterface,
   StaticFileSystemInterface,
+  TemplateHelper,
+  TemplateRendererInterface,
+  ThemeManagerInterface,
 } from "./ASG.Interface.ts";
 
-import { TemplateError, ThemeError, PARTIAL_MAX_DEPTH } from "./ASG.Class.ts";
+import { PARTIAL_MAX_DEPTH } from "./ASG.Class.ts";
 
 // ============================================================================
 // TemplateRenderer — Handlebars ライクテンプレートエンジン
@@ -192,7 +189,7 @@ export class TemplateRenderer implements TemplateRendererInterface {
   private processVars(tpl: string, ctx: Record<string, unknown>): string {
     return tpl.replace(/\{\{([\w.]+(?:\|[\w:]+)?)\}\}/g, (_match, expr: string) => {
       const [key, filter] = expr.split("|");
-      let value = this.resolveValue(key, ctx);
+      const value = this.resolveValue(key, ctx);
 
       if (value === null || value === undefined) return "";
 
@@ -239,7 +236,6 @@ export class TemplateRenderer implements TemplateRendererInterface {
   private findClosingTag(tpl: string, start: number, tagName: string): number | null {
     let depth = 1;
     let pos = start;
-    const openPattern = new RegExp(`\\{\\{#${tagName}\\s`, "g");
     const closeStr = `{{/${tagName}}}`;
 
     while (pos < tpl.length && depth > 0) {
@@ -431,11 +427,13 @@ export class MarkdownService implements MarkdownServiceInterface {
       if (colonIdx === -1) continue;
 
       const key = trimmed.substring(0, colonIdx).trim();
-      let value: string = trimmed.substring(colonIdx + 1).trim();
+      const value: string = trimmed.substring(colonIdx + 1).trim();
 
       // 引用符除去
-      if ((value.startsWith('"') && value.endsWith('"')) ||
-          (value.startsWith("'") && value.endsWith("'"))) {
+      if (
+        (value.startsWith('"') && value.endsWith('"')) ||
+        (value.startsWith("'") && value.endsWith("'"))
+      ) {
         result[key] = value.slice(1, -1);
         continue;
       }
@@ -461,8 +459,10 @@ export class MarkdownService implements MarkdownServiceInterface {
     if (/^-?\d+$/.test(value)) return parseInt(value, 10);
     if (/^-?\d+\.\d+$/.test(value)) return parseFloat(value);
     // 引用符除去
-    if ((value.startsWith('"') && value.endsWith('"')) ||
-        (value.startsWith("'") && value.endsWith("'"))) {
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
       return value.slice(1, -1);
     }
     return value;

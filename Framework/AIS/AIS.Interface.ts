@@ -10,18 +10,15 @@
  */
 
 import type {
-  SiteSettings,
+  BackupEntry,
   DiagnosticsReport,
-  DiagEvent,
-  DiagLevel,
-  HealthCheckResult,
+  GitLogEntry,
   GitResult,
   GitStatus,
-  GitLogEntry,
-  UpdateInfo,
-  BackupEntry,
+  HealthCheckResult,
   LocaleId,
   TranslationDict,
+  UpdateInfo,
 } from "../types.ts";
 
 // ============================================================================

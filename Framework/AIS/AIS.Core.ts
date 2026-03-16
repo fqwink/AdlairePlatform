@@ -10,22 +10,16 @@
  * @license Adlaire License Ver.2.0
  */
 
-import type {
-  SiteSettings,
-  LocaleId,
-  TranslationDict,
-} from "../types.ts";
+import type { LocaleId, TranslationDict } from "../types.ts";
 
 import type {
   AppContextInterface,
   AppContextPaths,
   HostInfo,
   I18nInterface,
-  ServiceProviderInterface,
   ServiceContainerInterface,
+  ServiceProviderInterface,
 } from "./AIS.Interface.ts";
-
-import { ConfigValidationError } from "./AIS.Class.ts";
 
 // ============================================================================
 // AppContext — アプリケーション設定コンテキスト
@@ -284,10 +278,13 @@ export class ServiceContainer implements ServiceContainerInterface {
 // ============================================================================
 
 export class EventDispatcher {
-  private listeners = new Map<string, Array<{
-    fn: (data: Record<string, unknown>) => unknown;
-    priority: number;
-  }>>();
+  private listeners = new Map<
+    string,
+    Array<{
+      fn: (data: Record<string, unknown>) => unknown;
+      priority: number;
+    }>
+  >();
 
   listen(
     event: string,

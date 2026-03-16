@@ -10,35 +10,30 @@
  */
 
 import type {
+  ActionDefinition,
+  AdlaireClient,
+  ApiResponse,
   RequestContext,
   ResponseData,
-  ActionDefinition,
-  ApiResponse,
-  AdlaireClient,
 } from "../types.ts";
 
 import type {
-  ControllerAction,
-  BaseControllerInterface,
-  AuthControllerInterface,
-  DashboardControllerInterface,
-  ApiControllerInterface,
+  ActionDispatcherInterface,
   AdminControllerInterface,
+  ApiControllerInterface,
+  AuthControllerInterface,
+  BaseControllerInterface,
   CollectionControllerInterface,
+  ControllerAction,
+  DashboardControllerInterface,
+  DiagnosticControllerInterface,
   GitControllerInterface,
-  WebhookControllerInterface,
   StaticControllerInterface,
   UpdateControllerInterface,
-  DiagnosticControllerInterface,
-  ActionDispatcherInterface,
+  WebhookControllerInterface,
 } from "./AP.Interface.ts";
 
-import {
-  ACTION_MAP,
-  ControllerError,
-  UnknownActionError,
-  ForbiddenError,
-} from "./AP.Class.ts";
+import { ACTION_MAP, ControllerError, UnknownActionError } from "./AP.Class.ts";
 
 // ============================================================================
 // BaseController — コントローラー基底クラス
@@ -118,7 +113,7 @@ export abstract class BaseController implements BaseControllerInterface {
 // ============================================================================
 
 export class AuthController extends BaseController implements AuthControllerInterface {
-  async showLogin(_request: RequestContext): Promise<ResponseData> {
+  showLogin(_request: RequestContext): ResponseData {
     return {
       statusCode: 200,
       headers: { "Content-Type": "text/html; charset=utf-8" },
@@ -178,7 +173,7 @@ export class ApiController extends BaseController implements ApiControllerInterf
     this.dispatcher = new ActionDispatcher(controllers);
   }
 
-  async dispatch(request: RequestContext): Promise<ResponseData> {
+  dispatch(request: RequestContext): Promise<ResponseData> {
     return this.dispatcher.handle(request);
   }
 }
@@ -199,7 +194,8 @@ export class AdminController extends BaseController implements AdminControllerIn
     }
 
     const existing = (await this.client.storage.read<Record<string, unknown>>(
-      `${page}.json`, "content",
+      `${page}.json`,
+      "content",
     )) ?? {};
     existing[field] = value;
     const result = await this.client.storage.write(`${page}.json`, existing, "content");
@@ -274,7 +270,8 @@ export class AdminController extends BaseController implements AdminControllerIn
     if (!page || !rev) return this.error("page and revision are required");
 
     const revData = (await this.client.storage.read<Record<string, unknown>>(
-      `${rev}.json`, `revisions/${page}`,
+      `${rev}.json`,
+      `revisions/${page}`,
     )) ?? {};
     revData.pinned = pinned;
     const result = await this.client.storage.write(`${rev}.json`, revData, `revisions/${page}`);
@@ -305,7 +302,8 @@ export class AdminController extends BaseController implements AdminControllerIn
     }
 
     const users = (await this.client.storage.read<Record<string, unknown>[]>(
-      "users.json", "settings",
+      "users.json",
+      "settings",
     )) ?? [];
 
     if (users.some((u) => u.username === username)) {
@@ -325,7 +323,8 @@ export class AdminController extends BaseController implements AdminControllerIn
     if (!username) return this.error("username is required");
 
     const users = (await this.client.storage.read<Record<string, unknown>[]>(
-      "users.json", "settings",
+      "users.json",
+      "settings",
     )) ?? [];
 
     const filtered = users.filter((u) => u.username !== username);
@@ -345,7 +344,8 @@ export class AdminController extends BaseController implements AdminControllerIn
     if (!from || !to) return this.error("from and to are required");
 
     const redirects = (await this.client.storage.read<Record<string, string>>(
-      "redirects.json", "settings",
+      "redirects.json",
+      "settings",
     )) ?? {};
 
     redirects[from] = to;
@@ -361,7 +361,8 @@ export class AdminController extends BaseController implements AdminControllerIn
     if (!from) return this.error("from is required");
 
     const redirects = (await this.client.storage.read<Record<string, string>>(
-      "redirects.json", "settings",
+      "redirects.json",
+      "settings",
     )) ?? {};
 
     if (!(from in redirects)) return this.error("Redirect not found", 404);
@@ -387,7 +388,8 @@ export class CollectionController extends BaseController implements CollectionCo
     if (!name) return this.error("name is required");
 
     const schema = (await this.client.storage.read<Record<string, unknown>>(
-      "collections.json", "settings",
+      "collections.json",
+      "settings",
     )) ?? {};
 
     if (schema[name]) return this.error("Collection already exists");
@@ -405,7 +407,8 @@ export class CollectionController extends BaseController implements CollectionCo
     if (!name) return this.error("name is required");
 
     const schema = (await this.client.storage.read<Record<string, unknown>>(
-      "collections.json", "settings",
+      "collections.json",
+      "settings",
     )) ?? {};
 
     if (!schema[name]) return this.error("Collection not found", 404);
@@ -432,9 +435,7 @@ export class CollectionController extends BaseController implements CollectionCo
       `collections/${collection}`,
     );
 
-    return result
-      ? this.ok({ collection, slug })
-      : this.error("Save failed");
+    return result ? this.ok({ collection, slug }) : this.error("Save failed");
   }
 
   async itemDelete(request: RequestContext): Promise<ResponseData> {
@@ -451,9 +452,7 @@ export class CollectionController extends BaseController implements CollectionCo
       `collections/${collection}`,
     );
 
-    return result
-      ? this.ok({ deleted: slug })
-      : this.error("Delete failed");
+    return result ? this.ok({ deleted: slug }) : this.error("Delete failed");
   }
 
   async migrate(request: RequestContext): Promise<ResponseData> {
@@ -491,23 +490,23 @@ export class GitController extends BaseController implements GitControllerInterf
     return this.ok({ reachable: true });
   }
 
-  async pull(_request: RequestContext): Promise<ResponseData> {
+  pull(_request: RequestContext): ResponseData {
     return this.ok({ pulled: true, message: "Pull completed" });
   }
 
-  async push(_request: RequestContext): Promise<ResponseData> {
+  push(_request: RequestContext): ResponseData {
     return this.ok({ pushed: true, message: "Push completed" });
   }
 
-  async log(_request: RequestContext): Promise<ResponseData> {
+  log(_request: RequestContext): ResponseData {
     return this.ok({ commits: [] });
   }
 
-  async status(_request: RequestContext): Promise<ResponseData> {
+  status(_request: RequestContext): ResponseData {
     return this.ok({ clean: true, changes: [] });
   }
 
-  async previewBranch(request: RequestContext): Promise<ResponseData> {
+  previewBranch(request: RequestContext): ResponseData {
     const body = this.parseBody(request);
     const branch = String(body.branch ?? "");
     if (!branch) return this.error("branch is required");
@@ -528,7 +527,8 @@ export class WebhookController extends BaseController implements WebhookControll
     if (!url) return this.error("url is required");
 
     const hooks = (await this.client.storage.read<Record<string, unknown>[]>(
-      "webhooks.json", "settings",
+      "webhooks.json",
+      "settings",
     )) ?? [];
 
     const id = crypto.randomUUID();
@@ -545,7 +545,8 @@ export class WebhookController extends BaseController implements WebhookControll
     if (!id) return this.error("id is required");
 
     const hooks = (await this.client.storage.read<Record<string, unknown>[]>(
-      "webhooks.json", "settings",
+      "webhooks.json",
+      "settings",
     )) ?? [];
 
     const filtered = hooks.filter((h) => h.id !== id);
@@ -561,7 +562,8 @@ export class WebhookController extends BaseController implements WebhookControll
     if (!id) return this.error("id is required");
 
     const hooks = (await this.client.storage.read<Record<string, unknown>[]>(
-      "webhooks.json", "settings",
+      "webhooks.json",
+      "settings",
     )) ?? [];
 
     const hook = hooks.find((h) => h.id === id);
@@ -573,7 +575,7 @@ export class WebhookController extends BaseController implements WebhookControll
     return this.ok({ id, enabled: hook.enabled });
   }
 
-  async test(request: RequestContext): Promise<ResponseData> {
+  test(request: RequestContext): ResponseData {
     const body = this.parseBody(request);
     const id = String(body.id ?? "");
 
@@ -587,27 +589,27 @@ export class WebhookController extends BaseController implements WebhookControll
 // ============================================================================
 
 export class StaticController extends BaseController implements StaticControllerInterface {
-  async buildDiff(_request: RequestContext): Promise<ResponseData> {
+  buildDiff(_request: RequestContext): ResponseData {
     return this.ok({ built: true, mode: "diff", pages: 0 });
   }
 
-  async buildAll(_request: RequestContext): Promise<ResponseData> {
+  buildAll(_request: RequestContext): ResponseData {
     return this.ok({ built: true, mode: "all", pages: 0 });
   }
 
-  async clean(_request: RequestContext): Promise<ResponseData> {
+  clean(_request: RequestContext): ResponseData {
     return this.ok({ cleaned: true });
   }
 
-  async buildZip(_request: RequestContext): Promise<ResponseData> {
+  buildZip(_request: RequestContext): ResponseData {
     return this.ok({ zip: true, path: "" });
   }
 
-  async status(_request: RequestContext): Promise<ResponseData> {
+  status(_request: RequestContext): ResponseData {
     return this.ok({ lastBuild: null, status: "idle" });
   }
 
-  async deployDiff(_request: RequestContext): Promise<ResponseData> {
+  deployDiff(_request: RequestContext): ResponseData {
     return this.ok({ deployed: true, mode: "diff" });
   }
 }
@@ -617,11 +619,11 @@ export class StaticController extends BaseController implements StaticController
 // ============================================================================
 
 export class UpdateController extends BaseController implements UpdateControllerInterface {
-  async check(_request: RequestContext): Promise<ResponseData> {
+  check(_request: RequestContext): ResponseData {
     return this.ok({ available: false, currentVersion: "2.0.0" });
   }
 
-  async checkEnv(_request: RequestContext): Promise<ResponseData> {
+  checkEnv(_request: RequestContext): ResponseData {
     return this.ok({
       runtime: "deno",
       version: Deno.version.deno,
@@ -630,7 +632,7 @@ export class UpdateController extends BaseController implements UpdateController
     });
   }
 
-  async apply(_request: RequestContext): Promise<ResponseData> {
+  apply(_request: RequestContext): ResponseData {
     return this.ok({ applied: false, message: "No update available" });
   }
 
@@ -639,7 +641,7 @@ export class UpdateController extends BaseController implements UpdateController
     return this.ok({ backups });
   }
 
-  async rollback(request: RequestContext): Promise<ResponseData> {
+  rollback(request: RequestContext): ResponseData {
     const body = this.parseBody(request);
     const backup = String(body.backup ?? "");
     if (!backup) return this.error("backup is required");
@@ -674,7 +676,8 @@ export class DiagnosticController extends BaseController implements DiagnosticCo
     const level = String(body.level ?? "info");
 
     const config = (await this.client.storage.read<Record<string, unknown>>(
-      "diagnostic.json", "settings",
+      "diagnostic.json",
+      "settings",
     )) ?? {};
 
     config.level = level;
@@ -683,24 +686,24 @@ export class DiagnosticController extends BaseController implements DiagnosticCo
     return this.ok({ level });
   }
 
-  async preview(_request: RequestContext): Promise<ResponseData> {
+  preview(_request: RequestContext): ResponseData {
     return this.ok({ preview: "Diagnostic report preview" });
   }
 
-  async sendNow(_request: RequestContext): Promise<ResponseData> {
+  sendNow(_request: RequestContext): ResponseData {
     return this.ok({ sent: true });
   }
 
-  async clearLogs(_request: RequestContext): Promise<ResponseData> {
+  clearLogs(_request: RequestContext): ResponseData {
     return this.ok({ cleared: true });
   }
 
-  async getLogs(request: RequestContext): Promise<ResponseData> {
+  getLogs(request: RequestContext): ResponseData {
     const level = String(this.getParam(request, "level", "all"));
     return this.ok({ logs: [], level });
   }
 
-  async getSummary(_request: RequestContext): Promise<ResponseData> {
+  getSummary(_request: RequestContext): ResponseData {
     return this.ok({
       errors: 0,
       warnings: 0,
@@ -709,7 +712,7 @@ export class DiagnosticController extends BaseController implements DiagnosticCo
     });
   }
 
-  async health(_request: RequestContext): Promise<ResponseData> {
+  health(_request: RequestContext): ResponseData {
     return this.ok({
       status: "healthy",
       timestamp: new Date().toISOString(),
@@ -729,7 +732,7 @@ export class ActionDispatcher implements ActionDispatcherInterface {
     this.controllers = controllers;
   }
 
-  async handle(request: RequestContext): Promise<ResponseData> {
+  handle(request: RequestContext): Promise<ResponseData> {
     const body = request.body ? JSON.parse(request.body) : {};
     const actionName = String(body.action ?? request.query["action"] ?? "");
 
