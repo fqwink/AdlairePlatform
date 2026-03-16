@@ -763,7 +763,7 @@ export class HtmlMinifier {
     result = result.replace(/\s{2,}/g, " ");
 
     // タグ間の空白を除去
-    result = result.replace(/>\s+</g, "><");
+    result = result.replace(/>\s+</g, "> <");
 
     // 保護ブロックを復元
     // deno-lint-ignore no-control-regex

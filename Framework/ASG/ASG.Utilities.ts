@@ -237,9 +237,12 @@ export class TemplateRenderer implements TemplateRendererInterface {
     let depth = 1;
     let pos = start;
     const closeStr = `{{/${tagName}}}`;
+    const openPattern = new RegExp(`\\{\\{#${tagName}(\\s|\\}\\})`);
 
     while (pos < tpl.length && depth > 0) {
-      const nextOpen = tpl.indexOf(`{{#${tagName}`, pos);
+      const remaining = tpl.substring(pos);
+      const openMatch = openPattern.exec(remaining);
+      const nextOpen = openMatch ? pos + openMatch.index : -1;
       const nextClose = tpl.indexOf(closeStr, pos);
 
       if (nextClose === -1) return null;
@@ -264,15 +267,18 @@ export class TemplateRenderer implements TemplateRendererInterface {
     while (i < content.length) {
       if (content.substring(i).startsWith("{{#if")) {
         depth++;
+        i += 5;
       } else if (content.substring(i).startsWith("{{/if}}")) {
         depth--;
+        i += 7;
       } else if (depth === 0 && content.substring(i).startsWith("{{else}}")) {
         return [
           content.substring(0, i),
           content.substring(i + "{{else}}".length),
         ];
+      } else {
+        i++;
       }
-      i++;
     }
 
     return [content, undefined];
@@ -395,7 +401,7 @@ export class MarkdownService implements MarkdownServiceInterface {
     // 引用
     html = html.replace(/^>\s+(.+)$/gm, "<blockquote><p>$1</p></blockquote>");
     // 連続する blockquote をマージ
-    html = html.replace(/<\/blockquote>\s*<blockquote>/g, "\n");
+    html = html.replace(/<\/blockquote>\s*<blockquote><p>/g, "\n<p>");
 
     // 段落（空行で区切られたテキスト）
     html = html.replace(

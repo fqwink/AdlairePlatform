@@ -2275,3 +2275,703 @@ function _jumpToSnapshot(targetIdx: number): void {
 	_setStatus('\u21A9 スナップショット #' + (targetIdx + 1) + ' に戻しました');
 	setTimeout((): void => { _setStatus(''); }, 3000);
 }
+
+/* ── リビジョンタブ ── */
+
+function _renderRevisionTab(container: HTMLElement, span: HTMLElement): void {
+	container.innerHTML = '<div style="padding:16px;color:#999;">読み込み中...</div>';
+	const fieldname: string = span ? span.id : '';
+	if (!fieldname) {
+		container.innerHTML = '<div style="padding:16px;color:#999;">フィールドが不明です</div>';
+		return;
+	}
+
+	_fetchRevisions(fieldname, (revisions: Revision[]): void => {
+		container.innerHTML = '';
+
+		/* D3: 検索バー */
+		const searchBar: HTMLDivElement = document.createElement('div');
+		searchBar.className = 'ap-wy-history-search';
+		const searchInput: HTMLInputElement = document.createElement('input');
+		searchInput.type = 'text';
+		searchInput.placeholder = 'キーワードで検索...';
+		searchInput.setAttribute('aria-label', 'リビジョン検索');
+		const searchBtn: HTMLButtonElement = document.createElement('button');
+		searchBtn.className = 'ap-wy-history-btn';
+		searchBtn.textContent = '検索';
+		searchBtn.addEventListener('click', (): void => {
+			const q: string = searchInput.value.trim();
+			_searchRevisions(fieldname, q, container, span);
+		});
+		searchInput.addEventListener('keydown', (e: KeyboardEvent): void => {
+			if (e.key === 'Enter') searchBtn.click();
+		});
+		searchBar.appendChild(searchInput);
+		searchBar.appendChild(searchBtn);
+		container.appendChild(searchBar);
+
+		/* ツールバー */
+		const toolbar: HTMLDivElement = document.createElement('div');
+		toolbar.style.cssText = 'padding:6px 10px;border-bottom:1px solid #444;display:flex;gap:8px;flex-wrap:wrap;';
+
+		/* 前回保存時との比較 */
+		const diffBtn: HTMLButtonElement = document.createElement('button');
+		diffBtn.className = 'ap-wy-history-btn';
+		diffBtn.textContent = '前回保存時と比較';
+		diffBtn.setAttribute('aria-label', '前回保存時と現在の内容を比較');
+		diffBtn.addEventListener('click', (): void => {
+			_syncAllBlocks();
+			const currentHtml: string = _serializeBlocks();
+			const oldHtml: string = _lastSaved || '';
+			const diff: DiffResult = _computeDiff(_stripTags(oldHtml), _stripTags(currentHtml));
+			_renderDiffView(container, diff, null);
+		});
+		toolbar.appendChild(diffBtn);
+
+		/* D1: 2つのリビジョンを比較ボタン */
+		const cmpBtn: HTMLButtonElement = document.createElement('button');
+		cmpBtn.className = 'ap-wy-history-btn';
+		cmpBtn.textContent = _diffCompareA ? '比較対象A: ' + _diffCompareA.file.replace('rev_','') : '2つを比較';
+		cmpBtn.setAttribute('aria-label', '2つのリビジョンを比較');
+		if (_diffCompareA) cmpBtn.style.background = '#335';
+		toolbar.appendChild(cmpBtn);
+
+		container.appendChild(toolbar);
+
+		if (revisions.length === 0) {
+			const msg: HTMLDivElement = document.createElement('div');
+			msg.style.cssText = 'padding:16px;color:#999;';
+			msg.textContent = '保存されたリビジョンがありません';
+			container.appendChild(msg);
+			return;
+		}
+
+		_renderRevisionList(container, revisions, fieldname, span, cmpBtn);
+	});
+}
+
+function _renderRevisionList(container: HTMLElement, revisions: Revision[], fieldname: string, span: HTMLElement, cmpBtn: HTMLButtonElement): void {
+	revisions.forEach((rev: Revision, idx: number): void => {
+		const item: HTMLDivElement = document.createElement('div');
+		item.className = 'ap-wy-history-item';
+		item.setAttribute('tabindex', '0');
+		const d = rev.timestamp ? new Date(rev.timestamp) : null;
+		const ts: string = d && !isNaN(d.getTime()) ? d.toLocaleString('ja-JP') : rev.file;
+		const kb: string = rev.size ? (rev.size / 1024).toFixed(1) + ' KB' : '';
+
+		const info: HTMLDivElement = document.createElement('div');
+		info.style.cssText = 'flex:1;';
+		const tsSpan: HTMLSpanElement = document.createElement('span');
+		tsSpan.textContent = ts;
+		info.appendChild(tsSpan);
+
+		/* C4: 復元マーキング */
+		if (rev.restored) {
+			const badge: HTMLSpanElement = document.createElement('span');
+			badge.className = 'ap-wy-history-item-badge restored';
+			badge.textContent = '復元';
+			info.appendChild(badge);
+		}
+		/* D4: ピン留めバッジ */
+		if (rev.pinned) {
+			const badge: HTMLSpanElement = document.createElement('span');
+			badge.className = 'ap-wy-history-item-badge pinned';
+			badge.textContent = '\u2605 固定';
+			info.appendChild(badge);
+		}
+
+		/* D2: ユーザー帰属 */
+		const meta: HTMLElement = document.createElement('small');
+		meta.className = 'ap-wy-history-item-time';
+		let metaText: string = kb;
+		if (rev.user) metaText += '  by ' + rev.user;
+		meta.textContent = metaText;
+
+		item.appendChild(info);
+		item.appendChild(meta);
+
+		/* ボタン群 */
+		const btnWrap: HTMLDivElement = document.createElement('div');
+		btnWrap.style.cssText = 'margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;';
+
+		const restoreBtn: HTMLButtonElement = document.createElement('button');
+		restoreBtn.className = 'ap-wy-history-btn primary';
+		restoreBtn.textContent = '復元';
+		restoreBtn.setAttribute('aria-label', ts + ' のリビジョンを復元');
+		restoreBtn.addEventListener('click', (e: MouseEvent): void => {
+			e.stopPropagation();
+			/* B3: 未保存変更警告 */
+			_syncAllBlocks();
+			const currentHtml: string = _serializeBlocks();
+			const hasUnsaved: boolean = _lastSaved !== undefined && currentHtml !== _lastSaved;
+			const msg: string = hasUnsaved
+				? 'このリビジョンを復元しますか？\n\n⚠ 未保存の変更があります。復元すると現在の編集内容は失われます。'
+				: 'このリビジョンを復元しますか？現在の内容は上書きされます。';
+			if (!confirm(msg)) return;
+			_restoreRevision(fieldname, rev.file, span);
+		});
+
+		const diffRevBtn: HTMLButtonElement = document.createElement('button');
+		diffRevBtn.className = 'ap-wy-history-btn';
+		diffRevBtn.textContent = '現在と比較';
+		diffRevBtn.setAttribute('aria-label', ts + ' と現在の内容を比較');
+		diffRevBtn.addEventListener('click', (e: MouseEvent): void => {
+			e.stopPropagation();
+			_fetchRevisionContent(fieldname, rev.file, (content: string): void => {
+				_syncAllBlocks();
+				const currentHtml: string = _serializeBlocks();
+				const diff: DiffResult = _computeDiff(_stripTags(content), _stripTags(currentHtml));
+				_renderDiffView(container, diff, null);
+			});
+		});
+
+		/* D4: ピン留めボタン */
+		const pinBtn: HTMLButtonElement = document.createElement('button');
+		pinBtn.className = 'ap-wy-history-btn';
+		pinBtn.textContent = rev.pinned ? '\u2605 固定解除' : '\u2606 固定';
+		pinBtn.setAttribute('aria-label', rev.pinned ? 'ピン留め解除' : 'ピン留め');
+		pinBtn.addEventListener('click', (e: MouseEvent): void => {
+			e.stopPropagation();
+			_pinRevision(fieldname, rev.file, (): void => {
+				_renderRevisionTab(container, span);
+			});
+		});
+
+		/* D1: 比較対象選択ボタン */
+		const selectBtn: HTMLButtonElement = document.createElement('button');
+		selectBtn.className = 'ap-wy-history-btn';
+		if (_diffCompareA && _diffCompareA.file === rev.file) {
+			selectBtn.textContent = '選択中 (A)';
+			selectBtn.style.background = '#335';
+		} else if (_diffCompareA) {
+			selectBtn.textContent = 'Bとして比較';
+		} else {
+			selectBtn.textContent = 'Aとして選択';
+		}
+		selectBtn.addEventListener('click', (e: MouseEvent): void => {
+			e.stopPropagation();
+			if (!_diffCompareA) {
+				_diffCompareA = rev;
+				_renderRevisionTab(container, span);
+			} else if (_diffCompareA.file === rev.file) {
+				_diffCompareA = null;
+				_renderRevisionTab(container, span);
+			} else {
+				/* D1: 2つのリビジョンを比較実行 */
+				const revA: Revision = _diffCompareA;
+				_fetchRevisionContent(fieldname, revA.file, (contentA: string): void => {
+					_fetchRevisionContent(fieldname, rev.file, (contentB: string): void => {
+						const diff: DiffResult = _computeDiff(_stripTags(contentA), _stripTags(contentB));
+						_diffCompareA = null;
+						_renderDiffView(container, diff, null);
+					});
+				});
+			}
+		});
+
+		btnWrap.appendChild(restoreBtn);
+		btnWrap.appendChild(diffRevBtn);
+		btnWrap.appendChild(pinBtn);
+		btnWrap.appendChild(selectBtn);
+		item.appendChild(btnWrap);
+		container.appendChild(item);
+	});
+}
+
+/* D3: リビジョン検索 */
+function _searchRevisions(fieldname: string, query: string, container: HTMLElement, span: HTMLElement): void {
+	const csrf = _getCsrf();
+	fetch('/', {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRF-TOKEN': csrf || '' },
+		body: new URLSearchParams({ ap_action: 'search_revisions', fieldname, query, csrf: csrf || '' }),
+	}).then((r: Response) => r.json() as Promise<Record<string, unknown>>)
+	  .then((data: Record<string, unknown>): void => {
+		/* 検索バーは維持、リスト部分のみ再描画 */
+		const items = container.querySelectorAll('.ap-wy-history-item');
+		items.forEach((el: Element) => el.remove());
+		const msg = container.querySelector('.ap-wy-history-nomatch');
+		if (msg) msg.remove();
+		const revisions = (data.revisions || []) as Revision[];
+		if (revisions.length === 0) {
+			const noMatch: HTMLDivElement = document.createElement('div');
+			noMatch.className = 'ap-wy-history-nomatch';
+			noMatch.style.cssText = 'padding:16px;color:#999;';
+			noMatch.textContent = query ? '「' + query + '」に一致するリビジョンはありません' : 'リビジョンがありません';
+			container.appendChild(noMatch);
+			return;
+		}
+		const cmpBtn = container.querySelector('.ap-wy-history-btn[aria-label="2つのリビジョンを比較"]') as HTMLButtonElement;
+		_renderRevisionList(container, revisions, fieldname, span, cmpBtn);
+	  })
+	  .catch((): void => { console.warn('revision search failed'); });
+}
+
+/* A1: 全 API を POST に統一（CSRF をヘッダーで送信） */
+function _fetchRevisions(fieldname: string, callback: (revisions: Revision[]) => void): void {
+	const csrf = _getCsrf();
+	fetch('/', {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRF-TOKEN': csrf || '' },
+		body: new URLSearchParams({ ap_action: 'list_revisions', fieldname, csrf: csrf || '' }),
+	}).then((r: Response): Promise<Record<string, unknown>> => {
+		if (!r.ok) throw new Error('HTTP ' + r.status);
+		return r.json() as Promise<Record<string, unknown>>;
+	}).then((data: Record<string, unknown>): void => { callback((data.revisions || []) as Revision[]); })
+	  .catch((e: Error): void => { console.warn('fetchRevisions:', e.message); callback([]); });
+}
+
+/* D5: リビジョンコンテンツ取得専用 API */
+function _fetchRevisionContent(fieldname: string, revFile: string, callback: (content: string) => void): void {
+	const csrf = _getCsrf();
+	fetch('/', {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRF-TOKEN': csrf || '' },
+		body: new URLSearchParams({ ap_action: 'get_revision', fieldname, revision: revFile, csrf: csrf || '' }),
+	}).then((r: Response): Promise<Record<string, unknown>> => {
+		if (!r.ok) throw new Error('HTTP ' + r.status);
+		return r.json() as Promise<Record<string, unknown>>;
+	}).then((data: Record<string, unknown>): void => { callback(String(data.content || '')); })
+	  .catch((e: Error): void => { console.warn('fetchRevisionContent:', e.message); callback(''); });
+}
+
+/* D4: ピン留め切り替え */
+function _pinRevision(fieldname: string, revFile: string, callback?: () => void): void {
+	const csrf = _getCsrf();
+	fetch('/', {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRF-TOKEN': csrf || '' },
+		body: new URLSearchParams({ ap_action: 'pin_revision', fieldname, revision: revFile, csrf: csrf || '' }),
+	}).then((r: Response) => r.json() as Promise<Record<string, unknown>>)
+	  .then((data: Record<string, unknown>): void => {
+		if (data.ok) {
+			_setStatus(data.pinned ? '\u2605 固定しました' : '\u2606 固定解除しました');
+			setTimeout((): void => { _setStatus(''); }, 2000);
+		}
+		if (callback) callback();
+	  })
+	  .catch((e: Error): void => { console.warn('pinRevision:', e.message); if (callback) callback(); });
+}
+
+function _restoreRevision(fieldname: string, revFile: string, span: HTMLElement): void {
+	const csrf = _getCsrf();
+	_setStatus('復元中...');
+	fetch('/', {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRF-TOKEN': csrf || '' },
+		body: new URLSearchParams({ ap_action: 'restore_revision', fieldname, revision: revFile, csrf: csrf || '' }),
+	}).then((r: Response): Promise<Record<string, unknown>> => {
+		if (!r.ok) throw new Error('HTTP ' + r.status);
+		return r.json() as Promise<Record<string, unknown>>;
+	}).then((data: Record<string, unknown>): void => {
+		if (data.ok && data.content != null) {
+			/* B2: コンテンツ検証 */
+			let blocks: WysiwygBlock[];
+			try {
+				blocks = _parseHtmlToBlocks(String(data.content));
+				if (!Array.isArray(blocks)) throw new Error('invalid blocks');
+			} catch (err) {
+				_setStatus('\u26A0 復元失敗: コンテンツの解析エラー');
+				setTimeout((): void => { _setStatus(''); }, 5000);
+				return;
+			}
+			_saveSnapshot();
+			_blocks = blocks;
+			_blocksEl!.innerHTML = '';
+			_blocks.forEach((b: WysiwygBlock): void => { _blocksEl!.appendChild(_renderBlock(b)); });
+			if (_blocks.length > 0) _focusBlock(_blocks[0], 'start');
+			_lastSaved = String(data.content);
+			_setStatus('\u2713 リビジョンを復元しました');
+			_closeHistoryPanel();
+			setTimeout((): void => { _setStatus(''); }, 3000);
+		} else {
+			_setStatus('\u26A0 復元失敗: ' + (data.error || '不明なエラー'));
+			setTimeout((): void => { _setStatus(''); }, 5000);
+		}
+	}).catch((e: Error): void => {
+		_setStatus('\u26A0 復元失敗: ' + e.message);
+		setTimeout((): void => { _setStatus(''); }, 5000);
+	});
+}
+
+/* ── 簡易 diff（LCS ベース） ── */
+
+const _DIFF_LINE_LIMIT: number = 2000; /* B4: 大容量コンテンツガード */
+
+function _computeDiff(oldText: string, newText: string): DiffResult {
+	const oldLines: string[] = oldText.split('\n');
+	const newLines: string[] = newText.split('\n');
+	const m: number = oldLines.length;
+	const n: number = newLines.length;
+
+	/* B4: 行数が多すぎる場合は簡易比較にフォールバック（通知付き） */
+	if (m * n > _DIFF_LINE_LIMIT * _DIFF_LINE_LIMIT) {
+		const result: DiffResult = _computeSimpleDiff(oldLines, newLines);
+		result._truncated = true;
+		return result;
+	}
+
+	/* LCS テーブル構築 */
+	const dp: number[][] = [];
+	for (let i = 0; i <= m; i++) {
+		dp[i] = new Array(n + 1).fill(0);
+	}
+	for (let i = 1; i <= m; i++) {
+		for (let j = 1; j <= n; j++) {
+			if (oldLines[i - 1] === newLines[j - 1]) {
+				dp[i][j] = dp[i - 1][j - 1] + 1;
+			} else {
+				dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1]);
+			}
+		}
+	}
+
+	/* バックトレースで diff 生成 */
+	const result: DiffLine[] = [];
+	let i: number = m, j: number = n;
+	while (i > 0 || j > 0) {
+		if (i > 0 && j > 0 && oldLines[i - 1] === newLines[j - 1]) {
+			result.unshift({ type: 'equal', text: oldLines[i - 1] });
+			i--; j--;
+		} else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
+			result.unshift({ type: 'add', text: newLines[j - 1] });
+			j--;
+		} else {
+			result.unshift({ type: 'remove', text: oldLines[i - 1] });
+			i--;
+		}
+	}
+	return result as DiffResult;
+}
+
+/* B4: 大容量フォールバック — 行単位の直接比較 */
+function _computeSimpleDiff(oldLines: string[], newLines: string[]): DiffResult {
+	const result: DiffLine[] = [];
+	const max: number = Math.max(oldLines.length, newLines.length);
+	for (let i = 0; i < max; i++) {
+		const o: string | undefined = i < oldLines.length ? oldLines[i] : undefined;
+		const n: string | undefined = i < newLines.length ? newLines[i] : undefined;
+		if (o === n) {
+			result.push({ type: 'equal', text: o! });
+		} else {
+			if (o !== undefined) result.push({ type: 'remove', text: o });
+			if (n !== undefined) result.push({ type: 'add', text: n });
+		}
+	}
+	return result as DiffResult;
+}
+
+function _stripTags(html: string): string {
+	/* DOMParser を使用して外部リソース読み込みを防止（blind SSRF 対策） */
+	try {
+		const doc = new DOMParser().parseFromString(html || '', 'text/html');
+		return (doc.body.textContent || '').trim();
+	} catch (e) {
+		return (html || '').replace(/<[^>]*>/g, '').trim();
+	}
+}
+
+/* C2: 等行折りたたみ付き diff 表示 */
+function _renderDiffView(container: HTMLElement, diff: DiffResult, keepEl: HTMLElement | null): void {
+	container.innerHTML = '';
+	if (keepEl) container.appendChild(keepEl);
+
+	const backBtn: HTMLButtonElement = document.createElement('button');
+	backBtn.className = 'ap-wy-history-btn';
+	backBtn.textContent = '\u2190 一覧に戻る';
+	backBtn.style.margin = '8px 10px';
+	backBtn.setAttribute('aria-label', '一覧に戻る');
+	backBtn.addEventListener('click', (): void => {
+		if (_historyPanel) {
+			const tab = _historyPanel.panel.querySelector('.ap-wy-history-tab.active') as HTMLElement | null;
+			if (tab && tab.dataset.tab === 'revision') {
+				_renderRevisionTab(container, _historyPanel.span);
+			} else {
+				_renderSessionHistory(container);
+			}
+		}
+	});
+	container.appendChild(backBtn);
+
+	const view: HTMLDivElement = document.createElement('div');
+	view.className = 'ap-wy-diff-view';
+	view.setAttribute('role', 'log');
+	view.setAttribute('aria-label', '変更差分');
+
+	let hasChanges = false;
+	const FOLD_THRESHOLD = 4;
+
+	/* C2: 等行を折りたたみ */
+	let i = 0;
+	while (i < diff.length) {
+		const d: DiffLine = diff[i];
+		if (d.type !== 'equal') {
+			const line: HTMLDivElement = document.createElement('div');
+			/* C3: 色覚多様性対応 — プレフィックス記号で区別 */
+			if (d.type === 'add') {
+				line.className = 'ap-wy-diff-add';
+				line.textContent = '+ ' + d.text;
+			} else {
+				line.className = 'ap-wy-diff-del';
+				line.textContent = '- ' + d.text;
+			}
+			view.appendChild(line);
+			hasChanges = true;
+			i++;
+		} else {
+			/* 連続する equal 行をカウント */
+			let eqStart: number = i;
+			while (i < diff.length && diff[i].type === 'equal') i++;
+			const eqCount: number = i - eqStart;
+			if (eqCount <= FOLD_THRESHOLD) {
+				for (let k = eqStart; k < i; k++) {
+					const line: HTMLDivElement = document.createElement('div');
+					line.className = 'ap-wy-diff-eq';
+					line.textContent = '  ' + diff[k].text;
+					view.appendChild(line);
+				}
+			} else {
+				/* 前後1行は表示、中間は折りたたみ */
+				const firstLine: HTMLDivElement = document.createElement('div');
+				firstLine.className = 'ap-wy-diff-eq';
+				firstLine.textContent = '  ' + diff[eqStart].text;
+				view.appendChild(firstLine);
+
+				const foldCount: number = eqCount - 2;
+				const fold: HTMLDivElement = document.createElement('div');
+				fold.className = 'ap-wy-diff-fold';
+				fold.textContent = '\u2026 ' + foldCount + ' 行省略（クリックで展開）';
+				fold.setAttribute('role', 'button');
+				fold.setAttribute('tabindex', '0');
+				const foldLines: string[] = [];
+				for (let k = eqStart + 1; k < i - 1; k++) {
+					foldLines.push(diff[k].text);
+				}
+				fold.addEventListener('click', (): void => {
+					const expanded = document.createDocumentFragment();
+					foldLines.forEach((t: string): void => {
+						const line: HTMLDivElement = document.createElement('div');
+						line.className = 'ap-wy-diff-eq';
+						line.textContent = '  ' + t;
+						expanded.appendChild(line);
+					});
+					fold.replaceWith(expanded);
+				});
+				fold.addEventListener('keydown', (e: KeyboardEvent): void => { if (e.key === 'Enter') fold.click(); });
+				view.appendChild(fold);
+
+				const lastLine: HTMLDivElement = document.createElement('div');
+				lastLine.className = 'ap-wy-diff-eq';
+				lastLine.textContent = '  ' + diff[i - 1].text;
+				view.appendChild(lastLine);
+			}
+		}
+	}
+
+	if (!hasChanges) {
+		view.innerHTML = '<div style="padding:16px;color:#999;">変更はありません</div>';
+	}
+	if (diff._truncated) {
+		const notice: HTMLDivElement = document.createElement('div');
+		notice.style.cssText = 'padding:8px 10px;font-size:12px;color:#e2a308;background:rgba(226,163,8,.1);border-radius:4px;margin-top:4px;';
+		notice.textContent = '⚠ 大容量コンテンツのため簡易比較で表示しています（行単位の直接比較）';
+		view.appendChild(notice);
+	}
+
+	container.appendChild(view);
+}
+
+/* ══════════════════════════════════════════════
+   保存 / 自動保存 / キャンセル
+   ══════════════════════════════════════════════ */
+
+function _manualSave(span: HTMLElement): void {
+	if (!_active) return;
+	_stopAutoSave();
+	_active = false;
+	_hideSlashMenu();
+	_hideTypePopup();
+	_hideInlineToolbar();
+	document.removeEventListener('selectionchange', _onSelectionChange);
+	if (_docHandler) { document.removeEventListener('mousedown', _docHandler); _docHandler = null; }
+	if (_inlineToolbar) { _inlineToolbar.remove(); _inlineToolbar = null; }
+	if (typeof window._apChanging !== 'undefined') window._apChanging = false;
+
+	/* ブロックからHTML生成 */
+	_syncAllBlocks();
+	const html: string = _cleanHtml(_serializeBlocks());
+
+	_currentSpan = null;
+	_blocksEl = null;
+	_dropLine = null;
+	_blocks = [];
+	span.innerHTML = html || (span.getAttribute('title') || '');
+	if (typeof window._apFieldSave === 'function') window._apFieldSave(span.id, html);
+	else console.error('[AP WYSIWYG] _apFieldSave not available');
+	_emitAEB('editor:save', { fieldId: span.id, html: html });
+}
+
+function _cancel(span: HTMLElement, originalHtml: string): void {
+	if (!_active) return;
+	_stopAutoSave();
+	_active = false;
+	_hideSlashMenu();
+	_hideTypePopup();
+	_hideInlineToolbar();
+	document.removeEventListener('selectionchange', _onSelectionChange);
+	if (_docHandler) { document.removeEventListener('mousedown', _docHandler); _docHandler = null; }
+	if (_inlineToolbar) { _inlineToolbar.remove(); _inlineToolbar = null; }
+	if (typeof window._apChanging !== 'undefined') window._apChanging = false;
+
+	_currentSpan = null;
+	_blocksEl = null;
+	_dropLine = null;
+	_blocks = [];
+	span.innerHTML = originalHtml;
+}
+
+let _autoSaving: boolean = false;
+
+function _startAutoSave(fieldId: string): void {
+	_autoTimer = setInterval((): void => {
+		if (!_active || !_blocksEl || _autoSaving) return;
+		_syncAllBlocks();
+		const html: string = _cleanHtml(_serializeBlocks());
+		if (html === _lastSaved) return;
+		_autoSaving = true;
+		_setStatus('保存中...');
+		_fetchSave(fieldId, html, (ok: boolean): void => {
+			_autoSaving = false;
+			if (ok) {
+				_lastSaved = html;
+				_setStatus('✓ 自動保存済み');
+				setTimeout((): void => { _setStatus(''); }, 3000);
+				_emitAEB('editor:autosave', { fieldId: fieldId, html: html });
+			} else {
+				_setStatus('⚠ 自動保存失敗');
+				_emitAEB('editor:autosave:error', { fieldId: fieldId });
+			}
+		});
+	}, 30000);
+}
+
+function _stopAutoSave(): void {
+	if (_autoTimer) { clearInterval(_autoTimer); _autoTimer = null; }
+	_statusEl = null;
+}
+
+function _setStatus(msg: string): void {
+	if (_statusEl) _statusEl.textContent = msg;
+}
+
+/* 全ブロックの内部データを DOM から同期 */
+function _syncAllBlocks(): void {
+	_blocks.forEach((block: WysiwygBlock): void => {
+		const el = _getBlockEl(block);
+		if (!el) return;
+
+		if (['paragraph','heading','quote'].includes(block.type)) {
+			const c = el.querySelector('.ap-wy-block-content') as HTMLElement | null;
+			if (c) { block.data.text = c.innerHTML.trim(); if (block.data.text === '<br>') block.data.text = ''; }
+		} else if (block.type === 'code') {
+			const c = el.querySelector('.ap-wy-block-content') as HTMLElement | null;
+			if (c) block.data.text = c.textContent || '';
+		} else if (block.type === 'list') {
+			const list = el.querySelector('ul,ol') as HTMLElement | null;
+			if (list) _syncListData(list, block);
+		}
+		/* table, image, checklist はリアルタイムでdata更新済み */
+	});
+}
+
+/* ── Fetch ヘルパー ── */
+function _fetchSave(key: string, val: string, callback?: (ok: boolean) => void): void {
+	const csrf = _getCsrf();
+	if (!csrf) { if (callback) callback(false); return; }
+	fetch('/', {
+		method: 'POST',
+		headers: {
+			'Content-Type': 'application/x-www-form-urlencoded',
+			'X-CSRF-TOKEN': csrf,
+		},
+		body: new URLSearchParams({ ap_action: 'edit_field', fieldname: key, content: val, csrf }),
+	}).then((r: Response): void => { if (callback) callback(r.ok); })
+	  .catch((): void => { if (callback) callback(false); });
+}
+
+/* ══════════════════════════════════════════════
+   HTML サニタイズ
+   ══════════════════════════════════════════════ */
+
+/* C14 fix: template 要素で解析（parse-time XSS 防止） */
+function _cleanHtml(html: string): string {
+	const tpl = document.createElement('template');
+	tpl.innerHTML = html;
+	const tmp = document.createElement('div');
+	tmp.appendChild(tpl.content.cloneNode(true));
+	_sanitizeNode(tmp);
+	return tmp.innerHTML;
+}
+
+function _sanitizeNode(node: Node): void {
+	/* 不許可タグをフラット化（O(n)化: 再帰リスタート回避） */
+	let changed = true;
+	while (changed) {
+		changed = false;
+		const children = Array.from(node.childNodes);
+		for (const child of children) {
+			if (child.nodeType !== 1) continue;
+			if (!_allowedTags[(child as Element).tagName]) {
+				const frag = document.createDocumentFragment();
+				Array.from(child.childNodes).forEach((c: ChildNode) => frag.appendChild(c));
+				node.replaceChild(frag, child);
+				changed = true;
+				break;
+			}
+		}
+	}
+	Array.from(node.childNodes).forEach((child: ChildNode): void => {
+		if (child.nodeType !== 1) return;
+		const el = child as Element;
+		/* 属性フィルタ */
+		Array.from(el.attributes).forEach((attr: Attr): void => {
+			const tag: string = el.tagName;
+			const keep: boolean =
+				(tag === 'A' && attr.name === 'href') ||
+				(tag === 'IMG' && (attr.name === 'src' || attr.name === 'alt')) ||
+				(tag === 'IMG' && attr.name === 'style') ||
+				(tag === 'UL' && attr.name === 'class') ||
+				(tag === 'LI' && attr.name === 'class') ||
+				(tag === 'FIGURE' && attr.name === 'style') ||
+				(['P','H2','H3','BLOCKQUOTE','DIV'].includes(tag) && attr.name === 'style');
+			if (!keep) el.removeAttribute(attr.name);
+		});
+		/* style属性: text-align のみ許可 */
+		if (el.hasAttribute('style')) {
+			const style: string = el.getAttribute('style') || '';
+			const match = style.match(/text-align\s*:\s*(left|center|right)/);
+			const widthMatch = style.match(/width\s*:\s*(\d+%)/);
+			const allowed: string[] = [];
+			if (match) allowed.push(`text-align:${match[1]}`);
+			if (widthMatch) allowed.push(`width:${widthMatch[1]}`);
+			if (allowed.length) el.setAttribute('style', allowed.join(';'));
+			else el.removeAttribute('style');
+		}
+		/* 危険スキーム除去 */
+		if (el.tagName === 'A') {
+			const href: string = el.getAttribute('href') || '';
+			if (!_isSafeUrl(href)) el.removeAttribute('href');
+		}
+		if (el.tagName === 'IMG') {
+			const src: string = (el.getAttribute('src') || '').trim().toLowerCase();
+			/* C16 fix: javascript/vbscript スキーム + data:image/svg+xml もブロック */
+			if (/^(javascript|vbscript):/.test(src) ||
+				(/^data:/.test(src) && !/^data:image\/(png|jpeg|gif|webp)(;|,)/.test(src))) {
+				el.removeAttribute('src');
+			}
+		}
+		_sanitizeNode(child);
+	});
+}
+
+})();

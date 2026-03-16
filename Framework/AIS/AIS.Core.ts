@@ -179,7 +179,8 @@ export class I18n implements I18nInterface {
 
     if (params) {
       for (const [k, v] of Object.entries(params)) {
-        text = text.replace(new RegExp(`\\{${k}\\}`, "g"), v);
+        const escaped = k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        text = text.replace(new RegExp(`\\{${escaped}\\}`, "g"), String(v));
       }
     }
 

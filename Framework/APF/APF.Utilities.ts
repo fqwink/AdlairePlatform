@@ -86,6 +86,7 @@ export class Str {
    */
   static limit(input: string, max: number = 100, end: string = "..."): string {
     if (input.length <= max) return input;
+    if (end.length >= max) return input.substring(0, max);
     return input.substring(0, max - end.length) + end;
   }
 
@@ -279,7 +280,7 @@ export class Config implements ConfigInterface {
   /** 設定値をセットする */
   set(key: string, value: unknown): void {
     Arr.set(this.data, key, value);
-    this.cache.delete(key);
+    this.cache.clear();
   }
 
   /** 全設定を返す */
@@ -593,7 +594,7 @@ export class JsonStorage implements JsonStorageInterface {
     const path = this.resolvePath(file, dir);
 
     const cached = this.cache.get(path);
-    if (cached !== undefined) return cached as T;
+    if (cached !== undefined) return JSON.parse(JSON.stringify(cached)) as T;
 
     try {
       const text = await Deno.readTextFile(path);
@@ -610,7 +611,7 @@ export class JsonStorage implements JsonStorageInterface {
     const path = this.resolvePath(file, dir);
     const json = JSON.stringify(data, null, 2);
     await Deno.writeTextFile(path, json);
-    this.cache.set(path, data);
+    this.cache.set(path, JSON.parse(JSON.stringify(data)));
   }
 
   clearCache(): void {

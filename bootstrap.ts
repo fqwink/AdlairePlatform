@@ -104,8 +104,9 @@ export async function bootstrap(options: BootstrapOptions = {}): Promise<Applica
     // 設定ファイルが存在しない場合はデフォルト値で続行
   }
 
-  // i18n 初期化
-  app.i18n.setLocale((options.locale as string) ?? app.context.get("language", "ja"));
+  // i18n 初期化 — locale は設定ファイル読み込み後に設定する
+  const locale = (options.locale as string) ?? app.context.get("language", "ja");
+  app.i18n.setLocale(locale);
   await app.i18n.init(`${basePath}/lang`);
 
   // 診断マネージャ

@@ -281,7 +281,11 @@ export class GitService implements GitServiceInterface {
       .split("\n")
       .filter(Boolean)
       .map((line) => {
-        const [hash, message, author, date] = line.split("|");
+        const parts = line.split("|");
+        const hash = parts[0];
+        const date = parts.pop() ?? "";
+        const author = parts.pop() ?? "";
+        const message = parts.slice(1).join("|");
         return { hash, message, author, date };
       });
   }

@@ -229,6 +229,10 @@ export class AdminController extends BaseController implements AdminControllerIn
 
     if (!page) return this.error("page is required");
 
+    if (/[^a-zA-Z0-9_-]/.test(page)) {
+      return this.error("Invalid page slug");
+    }
+
     const result = await this.client.storage.delete(`${page}.md`, "content");
     return result ? this.ok({ deleted: page }) : this.error("Delete failed");
   }
@@ -236,6 +240,10 @@ export class AdminController extends BaseController implements AdminControllerIn
   async listRevisions(request: RequestContext): Promise<ResponseData> {
     const page = String(this.getParam(request, "page", ""));
     if (!page) return this.error("page is required");
+
+    if (/[^a-zA-Z0-9_-]/.test(page)) {
+      return this.error("Invalid page slug");
+    }
 
     const revisions = await this.client.storage.list(`revisions/${page}`, ".json");
     return this.ok({ revisions });
@@ -248,6 +256,13 @@ export class AdminController extends BaseController implements AdminControllerIn
 
     if (!page || !rev) return this.error("page and revision are required");
 
+    if (/[^a-zA-Z0-9_-]/.test(page)) {
+      return this.error("Invalid page slug");
+    }
+    if (/[^a-zA-Z0-9_.-]/.test(rev)) {
+      return this.error("Invalid revision ID");
+    }
+
     const data = await this.client.storage.read(`${rev}.json`, `revisions/${page}`);
     return data !== null ? this.ok(data) : this.error("Revision not found", 404);
   }
@@ -258,6 +273,13 @@ export class AdminController extends BaseController implements AdminControllerIn
     const rev = String(body.revision ?? "");
 
     if (!page || !rev) return this.error("page and revision are required");
+
+    if (/[^a-zA-Z0-9_-]/.test(page)) {
+      return this.error("Invalid page slug");
+    }
+    if (/[^a-zA-Z0-9_.-]/.test(rev)) {
+      return this.error("Invalid revision ID");
+    }
 
     const revData = await this.client.storage.read(`${rev}.json`, `revisions/${page}`);
     if (revData === null) return this.error("Revision not found", 404);
@@ -274,6 +296,13 @@ export class AdminController extends BaseController implements AdminControllerIn
 
     if (!page || !rev) return this.error("page and revision are required");
 
+    if (/[^a-zA-Z0-9_-]/.test(page)) {
+      return this.error("Invalid page slug");
+    }
+    if (/[^a-zA-Z0-9_.-]/.test(rev)) {
+      return this.error("Invalid revision ID");
+    }
+
     const revData = (await this.client.storage.read<Record<string, unknown>>(
       `${rev}.json`,
       `revisions/${page}`,
@@ -289,6 +318,10 @@ export class AdminController extends BaseController implements AdminControllerIn
     const query = String(body.query ?? "");
 
     if (!page) return this.error("page is required");
+
+    if (/[^a-zA-Z0-9_-]/.test(page)) {
+      return this.error("Invalid page slug");
+    }
 
     const all = await this.client.storage.list(`revisions/${page}`, ".json");
     // 簡易検索 - ファイル名マッチ
@@ -441,6 +474,10 @@ export class CollectionController extends BaseController implements CollectionCo
       return this.error("collection and slug are required");
     }
 
+    if (/[^a-zA-Z0-9_-]/.test(collection) || /[^a-zA-Z0-9_-]/.test(slug)) {
+      return this.error("Invalid collection or slug");
+    }
+
     const result = await this.client.storage.write(
       `${slug}.json`,
       content,
@@ -457,6 +494,10 @@ export class CollectionController extends BaseController implements CollectionCo
 
     if (!collection || !slug) {
       return this.error("collection and slug are required");
+    }
+
+    if (/[^a-zA-Z0-9_-]/.test(collection) || /[^a-zA-Z0-9_-]/.test(slug)) {
+      return this.error("Invalid collection or slug");
     }
 
     const result = await this.client.storage.delete(
@@ -562,6 +603,9 @@ export class WebhookController extends BaseController implements WebhookControll
     )) ?? [];
 
     const filtered = hooks.filter((h) => h.id !== id);
+    if (filtered.length === hooks.length) {
+      return this.error("Webhook not found");
+    }
     await this.client.storage.write("webhooks.json", filtered, "settings");
 
     return this.ok({ deleted: id });
@@ -657,6 +701,11 @@ export class UpdateController extends BaseController implements UpdateController
     const body = this.parseBody(request);
     const backup = String(body.backup ?? "");
     if (!backup) return this.error("backup is required");
+
+    if (!/^[a-zA-Z0-9._-]+\.zip$/.test(backup)) {
+      return this.error("Invalid backup filename");
+    }
+
     return this.ok({ rolledBack: backup });
   }
 
@@ -664,6 +713,10 @@ export class UpdateController extends BaseController implements UpdateController
     const body = this.parseBody(request);
     const backup = String(body.backup ?? "");
     if (!backup) return this.error("backup is required");
+
+    if (!/^[a-zA-Z0-9._-]+\.zip$/.test(backup)) {
+      return this.error("Invalid backup filename");
+    }
 
     const result = await this.client.storage.delete(backup, "backups");
     return result ? this.ok({ deleted: backup }) : this.error("Delete failed");
