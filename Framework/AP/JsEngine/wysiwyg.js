@@ -24,6 +24,13 @@
 
 (function () {
 
+/* ── AEB EventBus 連携 ── */
+function _emitAEB(event, detail) {
+	if (window.__AP_EventBus__ && typeof window.__AP_EventBus__.emit === 'function') {
+		try { window.__AP_EventBus__.emit(event, detail); } catch (_) { /* ignore */ }
+	}
+}
+
 /* ══════════════════════════════════════════════
    CSS 注入
    ══════════════════════════════════════════════ */
@@ -2724,6 +2731,7 @@ function _manualSave(span) {
 	span.innerHTML = html || (span.getAttribute('title') || '');
 	if (typeof _apFieldSave === 'function') _apFieldSave(span.id, html);
 	else console.error('[AP WYSIWYG] _apFieldSave not available');
+	_emitAEB('editor:save', { fieldId: span.id, html: html });
 }
 
 function _cancel(span, originalHtml) {
@@ -2761,8 +2769,10 @@ function _startAutoSave(fieldId) {
 				_lastSaved = html;
 				_setStatus('✓ 自動保存済み');
 				setTimeout(() => _setStatus(''), 3000);
+				_emitAEB('editor:autosave', { fieldId: fieldId, html: html });
 			} else {
 				_setStatus('⚠ 自動保存失敗');
+				_emitAEB('editor:autosave:error', { fieldId: fieldId });
 			}
 		});
 	}, 30000);

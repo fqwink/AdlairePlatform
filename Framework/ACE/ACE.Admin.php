@@ -1007,26 +1007,11 @@ class AdminManager {
         $password = $_POST['password'] ?? '';
         $username = $_POST['username'] ?? '';
 
-        /* マルチユーザーログイン試行 */
-        if ($username !== '') {
-            $multiUser = self::tryMultiUserLogin($username, $password);
-            if ($multiUser !== null) {
-                self::clearLoginRate($ip);
-                session_regenerate_id(true);
-                $_SESSION['l'] = true;
-                $_SESSION['ap_username'] = $multiUser['username'];
-                $_SESSION['ap_role'] = $multiUser['role'];
-                self::logActivity('ログイン: ' . $multiUser['username'] . ' (' . $multiUser['role'] . ')');
-                \AIS\System\DiagnosticsManager::log('security', 'ログイン成功', ['username' => $multiUser['username']]);
-                header('Location: ./');
-                exit;
-            }
-        }
-
-        /* 従来の単一パスワード認証 */
-        if (!password_verify($password, $passwordHash)) {
+        /* ユーザー認証（users.json） */
+        $multiUser = self::tryMultiUserLogin($username, $password);
+        if ($multiUser === null) {
             self::recordLoginFailure($ip);
-            \AIS\System\DiagnosticsManager::log('security', 'ログイン失敗（パスワード不一致）');
+            \AIS\System\DiagnosticsManager::log('security', 'ログイン失敗', ['username' => $username]);
             $attemptsLeft = self::getRemainingAttempts($ip);
             if ($attemptsLeft > 0) {
                 return \AIS\Core\I18n::t('auth.wrong_password', ['attempts' => $attemptsLeft]);
@@ -1035,18 +1020,18 @@ class AdminManager {
         }
 
         self::clearLoginRate($ip);
-        if (password_needs_rehash($passwordHash, self::preferredHashAlgo())) {
-            self::savePassword($_POST['new'] ?? $password);
-        }
+
         if (!empty($_POST['new'])) {
-            self::savePassword($_POST['new']);
+            self::changeUserPassword($username, $_POST['new']);
             return \AIS\Core\I18n::t('auth.password_changed');
         }
+
         session_regenerate_id(true);
         $_SESSION['l'] = true;
-        $_SESSION['ap_username'] = 'admin';
-        $_SESSION['ap_role'] = 'admin';
-        \AIS\System\DiagnosticsManager::log('security', 'ログイン成功', ['username' => 'admin']);
+        $_SESSION['ap_username'] = $multiUser['username'];
+        $_SESSION['ap_role'] = $multiUser['role'];
+        self::logActivity('ログイン: ' . $multiUser['username'] . ' (' . $multiUser['role'] . ')');
+        \AIS\System\DiagnosticsManager::log('security', 'ログイン成功', ['username' => $multiUser['username']]);
         header('Location: ./');
         exit;
     }
@@ -1055,9 +1040,39 @@ class AdminManager {
         return defined('PASSWORD_ARGON2ID') ? PASSWORD_ARGON2ID : PASSWORD_BCRYPT;
     }
 
+    /**
+     * デフォルト admin ユーザーのパスワードを設定する。
+     * users.json に admin ユーザーが存在しない場合は作成する。
+     */
     public static function savePassword(string $p): string {
         $hash = password_hash($p, self::preferredHashAlgo());
-        \APF\Utilities\JsonStorage::write('auth.json', ['password_hash' => $hash], \AIS\Core\AppContext::settingsDir());
+        $dir = \AIS\Core\AppContext::settingsDir();
+        $users = \APF\Utilities\JsonStorage::read(self::USERS_FILE, $dir);
+        if (!isset($users['admin'])) {
+            $users['admin'] = [
+                'password_hash' => $hash,
+                'role' => 'admin',
+                'created_at' => date('c'),
+                'active' => true,
+            ];
+        } else {
+            $users['admin']['password_hash'] = $hash;
+        }
+        \APF\Utilities\JsonStorage::write(self::USERS_FILE, $users, $dir);
+        return $hash;
+    }
+
+    /**
+     * 指定ユーザーのパスワードを変更する。
+     */
+    public static function changeUserPassword(string $username, string $p): string {
+        $hash = password_hash($p, self::preferredHashAlgo());
+        $dir = \AIS\Core\AppContext::settingsDir();
+        $users = \APF\Utilities\JsonStorage::read(self::USERS_FILE, $dir);
+        if (isset($users[$username])) {
+            $users[$username]['password_hash'] = $hash;
+            \APF\Utilities\JsonStorage::write(self::USERS_FILE, $users, $dir);
+        }
         return $hash;
     }
 
@@ -1105,14 +1120,14 @@ class AdminManager {
     /* ── CSRF ── */
 
     public static function csrfToken(): string {
-        /* Ver.1.9: キー名を csrf_token に統一 */
+        /* キー名を csrf_token に統一 */
         if (empty($_SESSION['csrf_token'])) $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
         return $_SESSION['csrf_token'];
     }
 
     public static function verifyCsrf(): void {
         $token = $_POST['csrf'] ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? '');
-        /* Ver.1.9: キー名を csrf_token に統一（後方互換フォールバック付き） */
+        /* キー名を csrf_token に統一（後方互換フォールバック付き） */
         $sessionCsrf = $_SESSION['csrf_token'] ?? $_SESSION['csrf'] ?? '';
         if ($sessionCsrf === '' || $token === '' || !hash_equals($sessionCsrf, $token)) {
             \AIS\System\DiagnosticsManager::log('security', 'CSRF 検証失敗');

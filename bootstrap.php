@@ -155,7 +155,7 @@ $container->lazy(\AIS\System\HealthMonitor::class, fn() => new \AIS\System\Healt
 
 /* RateLimiter — API レート制限で使用 */
 $container->lazy(\ACE\Api\RateLimiter::class, fn() => new \ACE\Api\RateLimiter(
-    function_exists('settings_dir') ? settings_dir() : 'data/settings'
+    \AIS\Core\AppContext::settingsDir()
 ));
 
 /**
