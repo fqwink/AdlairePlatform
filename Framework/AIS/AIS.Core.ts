@@ -10,7 +10,7 @@
  * @license Adlaire License Ver.2.0
  */
 
-import type { LocaleId, TranslationDict } from "../types.ts";
+import type { AdlaireClient, LocaleId, TranslationDict } from "../types.ts";
 
 import type {
   AppContextInterface,
@@ -83,14 +83,40 @@ export class AppContext implements AppContextInterface, AppContextPaths {
     return { ...this.data };
   }
 
-  async loadFromFile(path: string): Promise<void> {
-    const content = await Deno.readTextFile(path);
-    const parsed = JSON.parse(content);
-    this.data = { ...this.data, ...parsed };
+  /**
+   * ACS 経由でファイルを読み込む。ASS PHP サーバに委譲。
+   * path は "dir/filename" 形式（例: "settings/site.json"）
+   */
+  async loadFromFile(path: string, client?: AdlaireClient): Promise<void> {
+    if (client) {
+      const parts = path.replace(/^\.\/data\//, "").split("/");
+      const file = parts.pop() ?? path;
+      const dir = parts.join("/") || "settings";
+      const data = await client.storage.read<Record<string, unknown>>(file, dir);
+      if (data) {
+        this.data = { ...this.data, ...data };
+      }
+    } else {
+      // フォールバック: Deno 直接アクセス（開発時のみ）
+      const content = await Deno.readTextFile(path);
+      const parsed = JSON.parse(content);
+      this.data = { ...this.data, ...parsed };
+    }
   }
 
-  async saveToFile(path: string): Promise<void> {
-    await Deno.writeTextFile(path, JSON.stringify(this.data, null, 2));
+  /**
+   * ACS 経由でファイルを書き込む。ASS PHP サーバに委譲。
+   */
+  async saveToFile(path: string, client?: AdlaireClient): Promise<void> {
+    if (client) {
+      const parts = path.replace(/^\.\/data\//, "").split("/");
+      const file = parts.pop() ?? path;
+      const dir = parts.join("/") || "settings";
+      await client.storage.write(file, this.data, dir);
+    } else {
+      // フォールバック: Deno 直接アクセス（開発時のみ）
+      await Deno.writeTextFile(path, JSON.stringify(this.data, null, 2));
+    }
   }
 
   validate(schema: Record<string, string>): string[] {
@@ -150,13 +176,22 @@ export class I18n implements I18nInterface {
   private translations: Record<string, string> = {};
   private nestedTranslations: TranslationDict = {};
 
-  async init(basePath?: string): Promise<void> {
-    const dir = basePath ?? "./locales";
-    const file = `${dir}/${this.locale}.json`;
+  /**
+   * ACS 経由で翻訳ファイルを読み込む。ASS PHP サーバに委譲。
+   */
+  async init(basePath?: string, client?: AdlaireClient): Promise<void> {
+    const file = `${this.locale}.json`;
 
     try {
-      const content = await Deno.readTextFile(file);
-      this.nestedTranslations = JSON.parse(content);
+      if (client) {
+        const data = await client.storage.read<TranslationDict>(file, "settings");
+        this.nestedTranslations = data ?? {};
+      } else {
+        // フォールバック: Deno 直接アクセス（開発時のみ）
+        const dir = basePath ?? "./locales";
+        const content = await Deno.readTextFile(`${dir}/${file}`);
+        this.nestedTranslations = JSON.parse(content);
+      }
       this.translations = this.flattenDict(this.nestedTranslations);
     } catch {
       this.translations = {};

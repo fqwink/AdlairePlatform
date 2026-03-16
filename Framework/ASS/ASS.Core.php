@@ -21,6 +21,7 @@ use ASS\Utilities\Token;
 use ASS\Utilities\PathSecurity;
 use ASS\Utilities\MimeType;
 use ASS\Utilities\GitCommand;
+use ASS\Utilities\AdminTemplate;
 
 // ─────────────────────────────────────────────
 // 認証サービス
@@ -588,5 +589,313 @@ final class GitService implements GitServiceInterface
             'clean' => empty($changes),
             'changes' => $changes,
         ];
+    }
+}
+
+// ─────────────────────────────────────────────
+// ユーザー管理サービス（管理画面用）
+// ─────────────────────────────────────────────
+
+final class UserManager
+{
+    private string $dataDir;
+
+    public function __construct(string $dataDir)
+    {
+        $this->dataDir = $dataDir;
+    }
+
+    /** 全ユーザーを取得する（パスワードハッシュ除外） */
+    public function listUsers(): array
+    {
+        $users = $this->loadUsers();
+        return array_map(fn(array $u) => [
+            'id' => $u['id'],
+            'username' => $u['username'],
+            'role' => $u['role'] ?? 'admin',
+        ], $users);
+    }
+
+    /** ユーザーを追加する */
+    public function addUser(string $username, string $password, string $role = 'admin'): array
+    {
+        if ($username === '' || $password === '') {
+            return ['success' => false, 'error' => 'Username and password required'];
+        }
+
+        $users = $this->loadUsers();
+
+        foreach ($users as $user) {
+            if ($user['username'] === $username) {
+                return ['success' => false, 'error' => 'Username already exists'];
+            }
+        }
+
+        $users[] = [
+            'id' => Token::generate(16),
+            'username' => $username,
+            'password' => Token::sha256($password),
+            'role' => in_array($role, ['admin', 'editor', 'viewer'], true) ? $role : 'admin',
+        ];
+
+        $this->saveUsers($users);
+        return ['success' => true];
+    }
+
+    /** ユーザーを削除する */
+    public function deleteUser(string $id): array
+    {
+        $users = $this->loadUsers();
+        $filtered = array_values(array_filter($users, fn(array $u) => $u['id'] !== $id));
+
+        if (count($filtered) === count($users)) {
+            return ['success' => false, 'error' => 'User not found'];
+        }
+
+        if (count($filtered) === 0) {
+            return ['success' => false, 'error' => 'Cannot delete the last user'];
+        }
+
+        $this->saveUsers($filtered);
+        return ['success' => true];
+    }
+
+    /** パスワードを変更する */
+    public function changePassword(string $id, string $newPassword): array
+    {
+        if ($newPassword === '') {
+            return ['success' => false, 'error' => 'Password required'];
+        }
+
+        $users = $this->loadUsers();
+        $found = false;
+
+        foreach ($users as &$user) {
+            if ($user['id'] === $id) {
+                $user['password'] = Token::sha256($newPassword);
+                $found = true;
+                break;
+            }
+        }
+        unset($user);
+
+        if (!$found) {
+            return ['success' => false, 'error' => 'User not found'];
+        }
+
+        $this->saveUsers($users);
+        return ['success' => true];
+    }
+
+    /** ロールを変更する */
+    public function changeRole(string $id, string $role): array
+    {
+        if (!in_array($role, ['admin', 'editor', 'viewer'], true)) {
+            return ['success' => false, 'error' => 'Invalid role'];
+        }
+
+        $users = $this->loadUsers();
+        $found = false;
+
+        foreach ($users as &$user) {
+            if ($user['id'] === $id) {
+                $user['role'] = $role;
+                $found = true;
+                break;
+            }
+        }
+        unset($user);
+
+        if (!$found) {
+            return ['success' => false, 'error' => 'User not found'];
+        }
+
+        $this->saveUsers($users);
+        return ['success' => true];
+    }
+
+    private function loadUsers(): array
+    {
+        $path = $this->usersPath();
+        if (!file_exists($path)) {
+            return [];
+        }
+        $data = json_decode(file_get_contents($path) ?: '[]', true);
+        return is_array($data) ? $data : [];
+    }
+
+    private function saveUsers(array $users): void
+    {
+        $dir = dirname($this->usersPath());
+        if (!is_dir($dir)) {
+            mkdir($dir, 0755, true);
+        }
+        file_put_contents(
+            $this->usersPath(),
+            json_encode($users, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT),
+            LOCK_EX
+        );
+    }
+
+    private function usersPath(): string
+    {
+        return $this->dataDir . '/settings/users.json';
+    }
+}
+
+// ─────────────────────────────────────────────
+// セッション管理サービス（管理画面用）
+// ─────────────────────────────────────────────
+
+final class SessionAdmin
+{
+    private SessionManager $sessions;
+    private CsrfManager $csrf;
+
+    public function __construct(SessionManager $sessions, CsrfManager $csrf)
+    {
+        $this->sessions = $sessions;
+        $this->csrf = $csrf;
+    }
+
+    /** アクティブセッション一覧 */
+    public function listSessions(): array
+    {
+        return $this->sessions->listAll();
+    }
+
+    /** 特定セッションを強制ログアウト */
+    public function forceLogout(string $sessionId): void
+    {
+        $this->sessions->destroy($sessionId);
+    }
+
+    /** 全セッションを強制ログアウト */
+    public function forceLogoutAll(): int
+    {
+        return $this->sessions->destroyAll();
+    }
+
+    /** 期限切れセッションを一括削除 */
+    public function purgeExpiredSessions(): int
+    {
+        return $this->sessions->purgeExpired();
+    }
+
+    /** 期限切れCSRFトークンを一括削除 */
+    public function purgeExpiredCsrf(): int
+    {
+        return $this->csrf->purgeExpired();
+    }
+}
+
+// ─────────────────────────────────────────────
+// サーバ診断サービス（管理画面用）
+// ─────────────────────────────────────────────
+
+final class ServerDiagnostics
+{
+    private string $dataDir;
+    private string $repoDir;
+
+    public function __construct(string $dataDir, string $repoDir)
+    {
+        $this->dataDir = $dataDir;
+        $this->repoDir = $repoDir;
+    }
+
+    /** サーバ情報を取得する */
+    public function getServerInfo(): array
+    {
+        return [
+            'php_version' => PHP_VERSION,
+            'php_sapi' => PHP_SAPI,
+            'os' => PHP_OS_FAMILY . ' ' . php_uname('r'),
+            'hostname' => gethostname() ?: 'unknown',
+            'server_time' => gmdate('Y-m-d\TH:i:s\Z'),
+            'timezone' => date_default_timezone_get(),
+            'memory_limit' => ini_get('memory_limit') ?: 'unknown',
+            'max_upload' => ini_get('upload_max_filesize') ?: 'unknown',
+            'post_max_size' => ini_get('post_max_size') ?: 'unknown',
+            'max_execution_time' => ini_get('max_execution_time') ?: 'unknown',
+            'extensions' => get_loaded_extensions(),
+        ];
+    }
+
+    /** ストレージ使用量を取得する */
+    public function getStorageStats(): array
+    {
+        $dirs = ['settings', 'content', 'collections', 'uploads', 'cache', 'backups', 'logs'];
+        $stats = [];
+
+        foreach ($dirs as $dir) {
+            $path = $this->dataDir . '/' . $dir;
+            if (!is_dir($path)) {
+                $stats[$dir] = ['files' => 0, 'size' => 0, 'sizeHuman' => '0 B'];
+                continue;
+            }
+
+            $files = 0;
+            $size = 0;
+            $iterator = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($path, \FilesystemIterator::SKIP_DOTS));
+            foreach ($iterator as $file) {
+                if ($file->isFile()) {
+                    $files++;
+                    $size += $file->getSize();
+                }
+            }
+
+            $stats[$dir] = [
+                'files' => $files,
+                'size' => $size,
+                'sizeHuman' => self::humanSize($size),
+            ];
+        }
+
+        // ディスク空き容量
+        $free = disk_free_space($this->dataDir);
+        $total = disk_total_space($this->dataDir);
+        $stats['_disk'] = [
+            'free' => $free !== false ? self::humanSize((int) $free) : 'unknown',
+            'total' => $total !== false ? self::humanSize((int) $total) : 'unknown',
+        ];
+
+        return $stats;
+    }
+
+    /** PHP拡張機能の状態を確認する */
+    public function checkRequirements(): array
+    {
+        $checks = [];
+
+        $required = ['json', 'mbstring', 'gd'];
+        foreach ($required as $ext) {
+            $checks[$ext] = [
+                'required' => true,
+                'loaded' => extension_loaded($ext),
+            ];
+        }
+
+        $optional = ['openssl', 'curl', 'zip', 'intl'];
+        foreach ($optional as $ext) {
+            $checks[$ext] = [
+                'required' => false,
+                'loaded' => extension_loaded($ext),
+            ];
+        }
+
+        return $checks;
+    }
+
+    public static function humanSize(int $bytes): string
+    {
+        $units = ['B', 'KB', 'MB', 'GB'];
+        $i = 0;
+        $size = (float) $bytes;
+        while ($size >= 1024 && $i < count($units) - 1) {
+            $size /= 1024;
+            $i++;
+        }
+        return round($size, 1) . ' ' . $units[$i];
     }
 }

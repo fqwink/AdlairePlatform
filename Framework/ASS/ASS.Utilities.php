@@ -150,6 +150,51 @@ final class SessionManager
         return $count;
     }
 
+    /** 全アクティブセッション一覧を取得する */
+    public function listAll(): array
+    {
+        $files = glob($this->storagePath . '/sess_*.json');
+        if ($files === false) {
+            return [];
+        }
+
+        $sessions = [];
+        $now = time();
+        foreach ($files as $file) {
+            $raw = file_get_contents($file);
+            if ($raw === false) {
+                continue;
+            }
+            $session = json_decode($raw, true);
+            if (!is_array($session)) {
+                continue;
+            }
+            if (($session['expiresTimestamp'] ?? 0) >= $now) {
+                unset($session['expiresTimestamp']);
+                $sessions[] = $session;
+            }
+        }
+
+        return $sessions;
+    }
+
+    /** 全セッションを破棄する */
+    public function destroyAll(): int
+    {
+        $files = glob($this->storagePath . '/sess_*.json');
+        if ($files === false) {
+            return 0;
+        }
+
+        $count = 0;
+        foreach ($files as $file) {
+            unlink($file);
+            $count++;
+        }
+
+        return $count;
+    }
+
     private function sessionPath(string $id): string
     {
         return $this->storagePath . '/sess_' . preg_replace('/[^a-zA-Z0-9_-]/', '', $id) . '.json';
@@ -283,6 +328,187 @@ final class MimeType
     {
         $ext = pathinfo($path, PATHINFO_EXTENSION);
         return self::fromExtension($ext);
+    }
+}
+
+// ─────────────────────────────────────────────
+// Git コマンド実行ユーティリティ
+// ─────────────────────────────────────────────
+
+// ─────────────────────────────────────────────
+// HTML テンプレートエンジン（管理画面用）
+// ─────────────────────────────────────────────
+
+final class AdminTemplate
+{
+    /**
+     * 管理画面の HTML を生成する。
+     *
+     * @param string $title ページタイトル
+     * @param string $content メインコンテンツ HTML
+     * @param string $activePage アクティブなナビゲーション項目
+     */
+    public static function render(string $title, string $content, string $activePage = ''): string
+    {
+        $nav = self::buildNav($activePage);
+        $css = self::getStyles();
+
+        return <<<HTML
+        <!DOCTYPE html>
+        <html lang="ja">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>{$title} - ASS Admin</title>
+            <style>{$css}</style>
+        </head>
+        <body>
+            <div class="layout">
+                <nav class="sidebar">{$nav}</nav>
+                <main class="main">
+                    <header class="header"><h1>{$title}</h1></header>
+                    <div class="content">{$content}</div>
+                </main>
+            </div>
+            <script>
+            function assApi(method, url, body) {
+                const opts = { method, headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin' };
+                if (body) opts.body = JSON.stringify(body);
+                return fetch(url, opts).then(r => r.json());
+            }
+            function confirmAction(msg, fn) { if (confirm(msg)) fn(); }
+            </script>
+        </body>
+        </html>
+        HTML;
+    }
+
+    /** ログインページを生成する */
+    public static function renderLogin(string $error = ''): string
+    {
+        $css = self::getStyles();
+        $errorHtml = $error !== '' ? '<p class="alert alert-error">' . self::esc($error) . '</p>' : '';
+
+        return <<<HTML
+        <!DOCTYPE html>
+        <html lang="ja">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Login - ASS Admin</title>
+            <style>{$css}</style>
+        </head>
+        <body>
+            <div class="login-wrap">
+                <div class="login-box">
+                    <h1>ASS Admin</h1>
+                    <p class="subtitle">Adlaire Server System</p>
+                    {$errorHtml}
+                    <form method="POST" action="/ass-admin/login">
+                        <div class="form-group">
+                            <label for="username">Username</label>
+                            <input type="text" id="username" name="username" required autofocus>
+                        </div>
+                        <div class="form-group">
+                            <label for="password">Password</label>
+                            <input type="password" id="password" name="password" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-full">Login</button>
+                    </form>
+                </div>
+            </div>
+        </body>
+        </html>
+        HTML;
+    }
+
+    /** HTML エスケープ */
+    public static function esc(string $value): string
+    {
+        return htmlspecialchars($value, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    }
+
+    private static function buildNav(string $active): string
+    {
+        $items = [
+            ['url' => '/ass-admin/', 'label' => 'Dashboard', 'id' => 'dashboard'],
+            ['url' => '/ass-admin/users', 'label' => 'Users', 'id' => 'users'],
+            ['url' => '/ass-admin/sessions', 'label' => 'Sessions', 'id' => 'sessions'],
+            ['url' => '/ass-admin/server', 'label' => 'Server', 'id' => 'server'],
+            ['url' => '/ass-admin/git', 'label' => 'Git', 'id' => 'git'],
+            ['url' => '/ass-admin/storage', 'label' => 'Storage', 'id' => 'storage'],
+        ];
+
+        $html = '<div class="sidebar-brand">ASS Admin</div><ul class="nav-list">';
+        foreach ($items as $item) {
+            $cls = $item['id'] === $active ? ' class="active"' : '';
+            $html .= "<li{$cls}><a href=\"{$item['url']}\">{$item['label']}</a></li>";
+        }
+        $html .= '</ul><div class="nav-footer"><a href="/ass-admin/logout">Logout</a></div>';
+
+        return $html;
+    }
+
+    private static function getStyles(): string
+    {
+        return <<<'CSS'
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f5f5f5; color: #333; font-size: 14px; }
+        .layout { display: flex; min-height: 100vh; }
+        .sidebar { width: 220px; background: #1a1a2e; color: #e0e0e0; padding: 0; flex-shrink: 0; display: flex; flex-direction: column; }
+        .sidebar-brand { padding: 20px 16px; font-size: 18px; font-weight: 700; color: #fff; border-bottom: 1px solid #2a2a4a; }
+        .nav-list { list-style: none; padding: 8px 0; flex: 1; }
+        .nav-list li a { display: block; padding: 10px 16px; color: #b0b0c0; text-decoration: none; transition: background .15s; }
+        .nav-list li a:hover { background: #2a2a4a; color: #fff; }
+        .nav-list li.active a { background: #16213e; color: #fff; border-left: 3px solid #4a9eff; }
+        .nav-footer { padding: 16px; border-top: 1px solid #2a2a4a; }
+        .nav-footer a { color: #b0b0c0; text-decoration: none; }
+        .main { flex: 1; display: flex; flex-direction: column; }
+        .header { padding: 20px 24px; background: #fff; border-bottom: 1px solid #e0e0e0; }
+        .header h1 { font-size: 20px; font-weight: 600; }
+        .content { padding: 24px; flex: 1; }
+        .card { background: #fff; border-radius: 8px; padding: 20px; margin-bottom: 16px; border: 1px solid #e0e0e0; }
+        .card h2 { font-size: 16px; margin-bottom: 12px; color: #555; }
+        .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 24px; }
+        .stat-card { background: #fff; border-radius: 8px; padding: 16px; border: 1px solid #e0e0e0; }
+        .stat-card .label { font-size: 12px; color: #888; text-transform: uppercase; }
+        .stat-card .value { font-size: 24px; font-weight: 700; margin-top: 4px; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #eee; }
+        th { font-weight: 600; color: #555; font-size: 12px; text-transform: uppercase; background: #fafafa; }
+        .btn { display: inline-block; padding: 8px 16px; border-radius: 6px; border: none; cursor: pointer; font-size: 13px; text-decoration: none; transition: background .15s; }
+        .btn-primary { background: #4a9eff; color: #fff; }
+        .btn-primary:hover { background: #3a8eef; }
+        .btn-danger { background: #ef4444; color: #fff; }
+        .btn-danger:hover { background: #dc2626; }
+        .btn-sm { padding: 4px 10px; font-size: 12px; }
+        .btn-full { width: 100%; }
+        .form-group { margin-bottom: 14px; }
+        .form-group label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 4px; color: #555; }
+        .form-group input, .form-group select { width: 100%; padding: 8px 12px; border: 1px solid #d0d0d0; border-radius: 6px; font-size: 14px; }
+        .form-group input:focus, .form-group select:focus { outline: none; border-color: #4a9eff; box-shadow: 0 0 0 2px rgba(74,158,255,.2); }
+        .form-inline { display: flex; gap: 8px; align-items: end; }
+        .form-inline .form-group { margin-bottom: 0; }
+        .alert { padding: 10px 14px; border-radius: 6px; margin-bottom: 16px; font-size: 13px; }
+        .alert-success { background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; }
+        .alert-error { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+        .alert-info { background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; }
+        .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+        .badge-ok { background: #d1fae5; color: #065f46; }
+        .badge-warn { background: #fef3c7; color: #92400e; }
+        .badge-error { background: #fee2e2; color: #991b1b; }
+        .badge-admin { background: #dbeafe; color: #1e40af; }
+        .badge-editor { background: #e0e7ff; color: #3730a3; }
+        .badge-viewer { background: #f3f4f6; color: #374151; }
+        .mono { font-family: "SF Mono", "Fira Code", monospace; font-size: 12px; }
+        .login-wrap { display: flex; align-items: center; justify-content: center; min-height: 100vh; background: #1a1a2e; }
+        .login-box { background: #fff; padding: 32px; border-radius: 12px; width: 360px; }
+        .login-box h1 { font-size: 22px; text-align: center; margin-bottom: 4px; }
+        .login-box .subtitle { text-align: center; color: #888; margin-bottom: 24px; font-size: 13px; }
+        .pre-wrap { white-space: pre-wrap; word-break: break-all; background: #f9fafb; padding: 12px; border-radius: 6px; font-family: monospace; font-size: 12px; max-height: 300px; overflow: auto; }
+        .mt-8 { margin-top: 8px; } .mt-16 { margin-top: 16px; } .mb-16 { margin-bottom: 16px; }
+        .flex { display: flex; } .gap-8 { gap: 8px; } .items-center { align-items: center; } .justify-between { display: flex; justify-content: space-between; align-items: center; }
+        CSS;
     }
 }
 

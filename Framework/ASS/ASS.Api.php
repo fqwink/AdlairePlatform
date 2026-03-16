@@ -21,9 +21,13 @@ use ASS\Core\AuthService;
 use ASS\Core\StorageService;
 use ASS\Core\FileService;
 use ASS\Core\GitService;
+use ASS\Core\UserManager;
+use ASS\Core\SessionAdmin;
+use ASS\Core\ServerDiagnostics;
 use ASS\Utilities\SessionManager;
 use ASS\Utilities\CsrfManager;
 use ASS\Utilities\MimeType;
+use ASS\Utilities\AdminTemplate;
 
 // ─────────────────────────────────────────────
 // アプリケーション（エントリポイント）
@@ -38,6 +42,10 @@ final class Application
     private StorageService $storage;
     private FileService $files;
     private GitService $git;
+    private UserManager $userManager;
+    private SessionAdmin $sessionAdmin;
+    private ServerDiagnostics $diagnostics;
+    private SessionManager $sessions;
     private Router $router;
 
     private function __construct(string $dataDir, string $repoDir)
@@ -63,10 +71,14 @@ final class Application
         $sessions = new SessionManager($sessionDir);
         $csrf = new CsrfManager($csrfDir);
 
+        $app->sessions = $sessions;
         $app->auth = new AuthService($dataDir, $sessions, $csrf);
         $app->storage = new StorageService($dataDir);
         $app->files = new FileService($dataDir);
         $app->git = new GitService($dataDir, $repoDir);
+        $app->userManager = new UserManager($dataDir);
+        $app->sessionAdmin = new SessionAdmin($sessions, $csrf);
+        $app->diagnostics = new ServerDiagnostics($dataDir, $repoDir);
 
         // ルーター初期化
         $app->router = new Router();
@@ -140,6 +152,24 @@ final class Application
 
         // ── ヘルスチェック ──
         $r->get('/health', $this->handleHealth(...));
+
+        // ── 管理画面 ──
+        $r->get('/ass-admin/', $this->adminDashboard(...));
+        $r->get('/ass-admin/login', $this->adminLoginPage(...));
+        $r->post('/ass-admin/login', $this->adminLoginAction(...));
+        $r->get('/ass-admin/logout', $this->adminLogout(...));
+        $r->get('/ass-admin/users', $this->adminUsers(...));
+        $r->post('/ass-admin/users/add', $this->adminUserAdd(...));
+        $r->post('/ass-admin/users/delete', $this->adminUserDelete(...));
+        $r->post('/ass-admin/users/password', $this->adminUserPassword(...));
+        $r->post('/ass-admin/users/role', $this->adminUserRole(...));
+        $r->get('/ass-admin/sessions', $this->adminSessions(...));
+        $r->post('/ass-admin/sessions/destroy', $this->adminSessionDestroy(...));
+        $r->post('/ass-admin/sessions/destroy-all', $this->adminSessionDestroyAll(...));
+        $r->post('/ass-admin/sessions/purge', $this->adminSessionPurge(...));
+        $r->get('/ass-admin/server', $this->adminServer(...));
+        $r->get('/ass-admin/git', $this->adminGit(...));
+        $r->get('/ass-admin/storage', $this->adminStorage(...));
     }
 
     // ─────────────────────────────────────────
@@ -626,5 +656,582 @@ final class Application
             'time' => gmdate('Y-m-d\TH:i:s\Z'),
             'checks' => $checks,
         ]));
+    }
+
+    // ─────────────────────────────────────────
+    // 管理画面: 認証ヘルパー
+    // ─────────────────────────────────────────
+
+    private function requireAdminSession(Request $request, Response $response): ?array
+    {
+        $token = $request->getCookie('ass_session') ?? '';
+        if ($token === '') {
+            $this->adminRedirect($response, '/ass-admin/login');
+            return null;
+        }
+
+        $session = $this->auth->getSession($token);
+        if ($session === null) {
+            $response->clearCookie('ass_session');
+            $this->adminRedirect($response, '/ass-admin/login');
+            return null;
+        }
+
+        return $session;
+    }
+
+    private function adminRedirect(Response $response, string $url): void
+    {
+        $response->setHeader('Location', $url);
+        $response->json([], 302);
+    }
+
+    /**
+     * HTML レスポンスを送信する。
+     * Response クラスの json() は JSON 専用のため、直接出力する。
+     */
+    private function sendHtml(Response $response, string $html, int $status = 200): void
+    {
+        http_response_code($status);
+        header('Content-Type: text/html; charset=UTF-8');
+        header('X-Content-Type-Options: nosniff');
+        header('X-Frame-Options: DENY');
+        echo $html;
+    }
+
+    // ─────────────────────────────────────────
+    // 管理画面: ログイン/ログアウト
+    // ─────────────────────────────────────────
+
+    private function adminLoginPage(Request $request, Response $response): void
+    {
+        $token = $request->getCookie('ass_session') ?? '';
+        if ($token !== '' && $this->auth->getSession($token) !== null) {
+            $this->adminRedirect($response, '/ass-admin/');
+            return;
+        }
+
+        $this->sendHtml($response, AdminTemplate::renderLogin());
+    }
+
+    private function adminLoginAction(Request $request, Response $response): void
+    {
+        $body = $request->getBody();
+        $username = $body['username'] ?? ($_POST['username'] ?? '');
+        $password = $body['password'] ?? ($_POST['password'] ?? '');
+
+        $result = $this->auth->authenticate($username, $password);
+
+        if (!$result['authenticated']) {
+            $this->sendHtml($response, AdminTemplate::renderLogin('Invalid credentials'), 401);
+            return;
+        }
+
+        $response->setCookie('ass_session', $result['token'], [
+            'expires' => time() + 3600,
+            'httponly' => true,
+            'samesite' => 'Strict',
+        ]);
+        $this->adminRedirect($response, '/ass-admin/');
+    }
+
+    private function adminLogout(Request $request, Response $response): void
+    {
+        $token = $request->getCookie('ass_session') ?? '';
+        if ($token !== '') {
+            $this->auth->logout($token);
+        }
+        $response->clearCookie('ass_session');
+        $this->adminRedirect($response, '/ass-admin/login');
+    }
+
+    // ─────────────────────────────────────────
+    // 管理画面: ダッシュボード
+    // ─────────────────────────────────────────
+
+    private function adminDashboard(Request $request, Response $response): void
+    {
+        if ($this->requireAdminSession($request, $response) === null) {
+            return;
+        }
+
+        $e = fn(string $s) => AdminTemplate::esc($s);
+        $users = $this->userManager->listUsers();
+        $sessions = $this->sessionAdmin->listSessions();
+        $storageStats = $this->diagnostics->getStorageStats();
+        $gitStatus = $this->git->status();
+        $serverInfo = $this->diagnostics->getServerInfo();
+
+        $totalFiles = 0;
+        $totalSize = 0;
+        foreach ($storageStats as $k => $v) {
+            if ($k !== '_disk' && isset($v['files'])) {
+                $totalFiles += $v['files'];
+                $totalSize += $v['size'];
+            }
+        }
+
+        $gitBadge = $gitStatus['clean']
+            ? '<span class="badge badge-ok">Clean</span>'
+            : '<span class="badge badge-warn">' . count($gitStatus['changes']) . ' changes</span>';
+
+        $content = <<<HTML
+        <div class="stats">
+            <div class="stat-card"><div class="label">Users</div><div class="value">{$e((string)count($users))}</div></div>
+            <div class="stat-card"><div class="label">Active Sessions</div><div class="value">{$e((string)count($sessions))}</div></div>
+            <div class="stat-card"><div class="label">Files</div><div class="value">{$e((string)$totalFiles)}</div></div>
+            <div class="stat-card"><div class="label">Storage</div><div class="value">{$e(ServerDiagnostics::humanSize($totalSize))}</div></div>
+        </div>
+        <div class="card">
+            <h2>Server</h2>
+            <table>
+                <tr><td>PHP</td><td>{$e($serverInfo['php_version'])} ({$e($serverInfo['php_sapi'])})</td></tr>
+                <tr><td>OS</td><td>{$e($serverInfo['os'])}</td></tr>
+                <tr><td>Disk</td><td>{$e($storageStats['_disk']['free'] ?? 'unknown')} free / {$e($storageStats['_disk']['total'] ?? 'unknown')} total</td></tr>
+                <tr><td>Git</td><td>{$gitBadge}</td></tr>
+            </table>
+        </div>
+        HTML;
+
+        $this->sendHtml($response, AdminTemplate::render('Dashboard', $content, 'dashboard'));
+    }
+
+    // ─────────────────────────────────────────
+    // 管理画面: ユーザー管理
+    // ─────────────────────────────────────────
+
+    private function adminUsers(Request $request, Response $response): void
+    {
+        if ($this->requireAdminSession($request, $response) === null) {
+            return;
+        }
+
+        $e = fn(string $s) => AdminTemplate::esc($s);
+        $msg = $request->getQuery('msg', '');
+        $err = $request->getQuery('err', '');
+        $users = $this->userManager->listUsers();
+
+        $alert = '';
+        if ($msg !== '') {
+            $alert = '<div class="alert alert-success">' . $e($msg) . '</div>';
+        }
+        if ($err !== '') {
+            $alert = '<div class="alert alert-error">' . $e($err) . '</div>';
+        }
+
+        $rows = '';
+        foreach ($users as $u) {
+            $badge = '<span class="badge badge-' . $e($u['role']) . '">' . $e($u['role']) . '</span>';
+            $rows .= <<<HTML
+            <tr>
+                <td class="mono">{$e($u['id'])}</td>
+                <td>{$e($u['username'])}</td>
+                <td>{$badge}</td>
+                <td>
+                    <form method="POST" action="/ass-admin/users/delete" style="display:inline">
+                        <input type="hidden" name="id" value="{$e($u['id'])}">
+                        <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Delete user {$e($u['username'])}?')">Delete</button>
+                    </form>
+                </td>
+            </tr>
+            HTML;
+        }
+
+        $content = <<<HTML
+        {$alert}
+        <div class="card">
+            <h2>Add User</h2>
+            <form method="POST" action="/ass-admin/users/add">
+                <div class="form-inline">
+                    <div class="form-group"><label>Username</label><input type="text" name="username" required></div>
+                    <div class="form-group"><label>Password</label><input type="password" name="password" required></div>
+                    <div class="form-group">
+                        <label>Role</label>
+                        <select name="role"><option value="admin">admin</option><option value="editor">editor</option><option value="viewer">viewer</option></select>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Add</button>
+                </div>
+            </form>
+        </div>
+        <div class="card">
+            <h2>Users ({$e((string)count($users))})</h2>
+            <table>
+                <thead><tr><th>ID</th><th>Username</th><th>Role</th><th>Actions</th></tr></thead>
+                <tbody>{$rows}</tbody>
+            </table>
+        </div>
+        <div class="card">
+            <h2>Change Password</h2>
+            <form method="POST" action="/ass-admin/users/password">
+                <div class="form-inline">
+                    <div class="form-group">
+                        <label>User</label>
+                        <select name="id">
+        HTML;
+
+        foreach ($users as $u) {
+            $content .= '<option value="' . $e($u['id']) . '">' . $e($u['username']) . '</option>';
+        }
+
+        $content .= <<<HTML
+                        </select>
+                    </div>
+                    <div class="form-group"><label>New Password</label><input type="password" name="password" required></div>
+                    <button type="submit" class="btn btn-primary">Change</button>
+                </div>
+            </form>
+        </div>
+        HTML;
+
+        $this->sendHtml($response, AdminTemplate::render('Users', $content, 'users'));
+    }
+
+    private function adminUserAdd(Request $request, Response $response): void
+    {
+        if ($this->requireAdminSession($request, $response) === null) {
+            return;
+        }
+
+        $body = $request->getBody();
+        $username = $body['username'] ?? ($_POST['username'] ?? '');
+        $password = $body['password'] ?? ($_POST['password'] ?? '');
+        $role = $body['role'] ?? ($_POST['role'] ?? 'admin');
+
+        $result = $this->userManager->addUser($username, $password, $role);
+
+        if ($result['success']) {
+            $this->adminRedirect($response, '/ass-admin/users?msg=User+added');
+        } else {
+            $this->adminRedirect($response, '/ass-admin/users?err=' . urlencode($result['error'] ?? 'Failed'));
+        }
+    }
+
+    private function adminUserDelete(Request $request, Response $response): void
+    {
+        if ($this->requireAdminSession($request, $response) === null) {
+            return;
+        }
+
+        $body = $request->getBody();
+        $id = $body['id'] ?? ($_POST['id'] ?? '');
+        $result = $this->userManager->deleteUser($id);
+
+        if ($result['success']) {
+            $this->adminRedirect($response, '/ass-admin/users?msg=User+deleted');
+        } else {
+            $this->adminRedirect($response, '/ass-admin/users?err=' . urlencode($result['error'] ?? 'Failed'));
+        }
+    }
+
+    private function adminUserPassword(Request $request, Response $response): void
+    {
+        if ($this->requireAdminSession($request, $response) === null) {
+            return;
+        }
+
+        $body = $request->getBody();
+        $id = $body['id'] ?? ($_POST['id'] ?? '');
+        $password = $body['password'] ?? ($_POST['password'] ?? '');
+        $result = $this->userManager->changePassword($id, $password);
+
+        if ($result['success']) {
+            $this->adminRedirect($response, '/ass-admin/users?msg=Password+changed');
+        } else {
+            $this->adminRedirect($response, '/ass-admin/users?err=' . urlencode($result['error'] ?? 'Failed'));
+        }
+    }
+
+    private function adminUserRole(Request $request, Response $response): void
+    {
+        if ($this->requireAdminSession($request, $response) === null) {
+            return;
+        }
+
+        $body = $request->getBody();
+        $id = $body['id'] ?? ($_POST['id'] ?? '');
+        $role = $body['role'] ?? ($_POST['role'] ?? '');
+        $result = $this->userManager->changeRole($id, $role);
+
+        if ($result['success']) {
+            $this->adminRedirect($response, '/ass-admin/users?msg=Role+changed');
+        } else {
+            $this->adminRedirect($response, '/ass-admin/users?err=' . urlencode($result['error'] ?? 'Failed'));
+        }
+    }
+
+    // ─────────────────────────────────────────
+    // 管理画面: セッション管理
+    // ─────────────────────────────────────────
+
+    private function adminSessions(Request $request, Response $response): void
+    {
+        if ($this->requireAdminSession($request, $response) === null) {
+            return;
+        }
+
+        $e = fn(string $s) => AdminTemplate::esc($s);
+        $msg = $request->getQuery('msg', '');
+        $sessions = $this->sessionAdmin->listSessions();
+
+        $alert = $msg !== '' ? '<div class="alert alert-success">' . $e($msg) . '</div>' : '';
+
+        $rows = '';
+        foreach ($sessions as $s) {
+            $rows .= <<<HTML
+            <tr>
+                <td class="mono">{$e(substr($s['id'] ?? '', 0, 16))}...</td>
+                <td>{$e($s['userId'] ?? '')}</td>
+                <td><span class="badge badge-{$e($s['role'] ?? 'viewer')}">{$e($s['role'] ?? '')}</span></td>
+                <td>{$e($s['createdAt'] ?? '')}</td>
+                <td>{$e($s['expiresAt'] ?? '')}</td>
+                <td>
+                    <form method="POST" action="/ass-admin/sessions/destroy" style="display:inline">
+                        <input type="hidden" name="id" value="{$e($s['id'] ?? '')}">
+                        <button type="submit" class="btn btn-danger btn-sm">Force Logout</button>
+                    </form>
+                </td>
+            </tr>
+            HTML;
+        }
+
+        $content = <<<HTML
+        {$alert}
+        <div class="justify-between mb-16">
+            <span></span>
+            <div class="flex gap-8">
+                <form method="POST" action="/ass-admin/sessions/purge" style="display:inline">
+                    <button type="submit" class="btn btn-primary">Purge Expired</button>
+                </form>
+                <form method="POST" action="/ass-admin/sessions/destroy-all" style="display:inline">
+                    <button type="submit" class="btn btn-danger" onclick="return confirm('Force logout ALL sessions?')">Destroy All</button>
+                </form>
+            </div>
+        </div>
+        <div class="card">
+            <h2>Active Sessions ({$e((string)count($sessions))})</h2>
+            <table>
+                <thead><tr><th>Session ID</th><th>User ID</th><th>Role</th><th>Created</th><th>Expires</th><th>Actions</th></tr></thead>
+                <tbody>{$rows}</tbody>
+            </table>
+        </div>
+        HTML;
+
+        $this->sendHtml($response, AdminTemplate::render('Sessions', $content, 'sessions'));
+    }
+
+    private function adminSessionDestroy(Request $request, Response $response): void
+    {
+        if ($this->requireAdminSession($request, $response) === null) {
+            return;
+        }
+
+        $body = $request->getBody();
+        $id = $body['id'] ?? ($_POST['id'] ?? '');
+        $this->sessionAdmin->forceLogout($id);
+        $this->adminRedirect($response, '/ass-admin/sessions?msg=Session+destroyed');
+    }
+
+    private function adminSessionDestroyAll(Request $request, Response $response): void
+    {
+        if ($this->requireAdminSession($request, $response) === null) {
+            return;
+        }
+
+        $count = $this->sessionAdmin->forceLogoutAll();
+        $this->adminRedirect($response, '/ass-admin/sessions?msg=' . $count . '+sessions+destroyed');
+    }
+
+    private function adminSessionPurge(Request $request, Response $response): void
+    {
+        if ($this->requireAdminSession($request, $response) === null) {
+            return;
+        }
+
+        $expired = $this->sessionAdmin->purgeExpiredSessions();
+        $csrf = $this->sessionAdmin->purgeExpiredCsrf();
+        $this->adminRedirect($response, '/ass-admin/sessions?msg=Purged+' . $expired . '+sessions+and+' . $csrf . '+CSRF+tokens');
+    }
+
+    // ─────────────────────────────────────────
+    // 管理画面: サーバ情報
+    // ─────────────────────────────────────────
+
+    private function adminServer(Request $request, Response $response): void
+    {
+        if ($this->requireAdminSession($request, $response) === null) {
+            return;
+        }
+
+        $e = fn(string $s) => AdminTemplate::esc($s);
+        $info = $this->diagnostics->getServerInfo();
+        $reqs = $this->diagnostics->checkRequirements();
+
+        $infoRows = '';
+        $fields = [
+            'PHP Version' => $info['php_version'],
+            'SAPI' => $info['php_sapi'],
+            'OS' => $info['os'],
+            'Hostname' => $info['hostname'],
+            'Server Time' => $info['server_time'],
+            'Timezone' => $info['timezone'],
+            'Memory Limit' => $info['memory_limit'],
+            'Max Upload' => $info['max_upload'],
+            'Post Max Size' => $info['post_max_size'],
+            'Max Execution Time' => $info['max_execution_time'] . 's',
+        ];
+        foreach ($fields as $label => $value) {
+            $infoRows .= "<tr><td>{$e($label)}</td><td class=\"mono\">{$e($value)}</td></tr>";
+        }
+
+        $reqRows = '';
+        foreach ($reqs as $ext => $check) {
+            $status = $check['loaded']
+                ? '<span class="badge badge-ok">Loaded</span>'
+                : ($check['required'] ? '<span class="badge badge-error">Missing</span>' : '<span class="badge badge-warn">Not loaded</span>');
+            $reqLabel = $check['required'] ? 'Required' : 'Optional';
+            $reqRows .= "<tr><td class=\"mono\">{$e($ext)}</td><td>{$e($reqLabel)}</td><td>{$status}</td></tr>";
+        }
+
+        $extList = $e(implode(', ', $info['extensions']));
+
+        $content = <<<HTML
+        <div class="card">
+            <h2>Server Information</h2>
+            <table><tbody>{$infoRows}</tbody></table>
+        </div>
+        <div class="card">
+            <h2>PHP Extensions</h2>
+            <table>
+                <thead><tr><th>Extension</th><th>Type</th><th>Status</th></tr></thead>
+                <tbody>{$reqRows}</tbody>
+            </table>
+        </div>
+        <div class="card">
+            <h2>All Loaded Extensions</h2>
+            <div class="pre-wrap">{$extList}</div>
+        </div>
+        HTML;
+
+        $this->sendHtml($response, AdminTemplate::render('Server', $content, 'server'));
+    }
+
+    // ─────────────────────────────────────────
+    // 管理画面: Git
+    // ─────────────────────────────────────────
+
+    private function adminGit(Request $request, Response $response): void
+    {
+        if ($this->requireAdminSession($request, $response) === null) {
+            return;
+        }
+
+        $e = fn(string $s) => AdminTemplate::esc($s);
+        $config = $this->git->getConfig();
+        $status = $this->git->status();
+        $logData = $this->git->log(10);
+
+        $statusBadge = $status['clean']
+            ? '<span class="badge badge-ok">Clean</span>'
+            : '<span class="badge badge-warn">' . count($status['changes']) . ' uncommitted changes</span>';
+
+        $changesRows = '';
+        foreach ($status['changes'] as $change) {
+            $changesRows .= "<tr><td class=\"mono\">{$e($change['status'])}</td><td>{$e($change['file'])}</td></tr>";
+        }
+
+        $commitRows = '';
+        foreach ($logData['commits'] as $commit) {
+            $shortHash = substr($commit['hash'], 0, 8);
+            $commitRows .= <<<HTML
+            <tr>
+                <td class="mono">{$e($shortHash)}</td>
+                <td>{$e($commit['message'])}</td>
+                <td>{$e($commit['author'])}</td>
+                <td>{$e($commit['date'])}</td>
+            </tr>
+            HTML;
+        }
+
+        $content = <<<HTML
+        <div class="card">
+            <h2>Configuration</h2>
+            <table>
+                <tr><td>Remote URL</td><td class="mono">{$e($config['remoteUrl'] ?: '(not set)')}</td></tr>
+                <tr><td>Branch</td><td class="mono">{$e($config['branch'])}</td></tr>
+                <tr><td>User Name</td><td>{$e($config['userName'] ?: '(not set)')}</td></tr>
+                <tr><td>User Email</td><td>{$e($config['userEmail'] ?: '(not set)')}</td></tr>
+            </table>
+        </div>
+        <div class="card">
+            <h2>Status {$statusBadge}</h2>
+        HTML;
+
+        if (!$status['clean']) {
+            $content .= <<<HTML
+            <table>
+                <thead><tr><th>Status</th><th>File</th></tr></thead>
+                <tbody>{$changesRows}</tbody>
+            </table>
+            HTML;
+        }
+
+        $content .= <<<HTML
+        </div>
+        <div class="card">
+            <h2>Recent Commits</h2>
+            <table>
+                <thead><tr><th>Hash</th><th>Message</th><th>Author</th><th>Date</th></tr></thead>
+                <tbody>{$commitRows}</tbody>
+            </table>
+        </div>
+        HTML;
+
+        $this->sendHtml($response, AdminTemplate::render('Git', $content, 'git'));
+    }
+
+    // ─────────────────────────────────────────
+    // 管理画面: ストレージ
+    // ─────────────────────────────────────────
+
+    private function adminStorage(Request $request, Response $response): void
+    {
+        if ($this->requireAdminSession($request, $response) === null) {
+            return;
+        }
+
+        $e = fn(string $s) => AdminTemplate::esc($s);
+        $stats = $this->diagnostics->getStorageStats();
+
+        $rows = '';
+        foreach ($stats as $dir => $info) {
+            if ($dir === '_disk') {
+                continue;
+            }
+            $rows .= <<<HTML
+            <tr>
+                <td class="mono">{$e($dir)}/</td>
+                <td>{$e((string)$info['files'])}</td>
+                <td>{$e($info['sizeHuman'])}</td>
+            </tr>
+            HTML;
+        }
+
+        $disk = $stats['_disk'] ?? [];
+
+        $content = <<<HTML
+        <div class="stats">
+            <div class="stat-card"><div class="label">Disk Free</div><div class="value">{$e($disk['free'] ?? 'unknown')}</div></div>
+            <div class="stat-card"><div class="label">Disk Total</div><div class="value">{$e($disk['total'] ?? 'unknown')}</div></div>
+        </div>
+        <div class="card">
+            <h2>Directory Usage</h2>
+            <table>
+                <thead><tr><th>Directory</th><th>Files</th><th>Size</th></tr></thead>
+                <tbody>{$rows}</tbody>
+            </table>
+        </div>
+        HTML;
+
+        $this->sendHtml($response, AdminTemplate::render('Storage', $content, 'storage'));
     }
 }

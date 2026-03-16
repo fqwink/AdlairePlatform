@@ -81,38 +81,22 @@ export class DiagnosticsManager implements DiagnosticsManagerInterface {
     this.level = level;
   }
 
-  async healthCheck(detailed?: boolean): Promise<HealthCheckResult> {
-    const checks: Record<
-      string,
-      { status: "ok" | "warning" | "error"; message: string; value?: unknown }
-    > = {};
-
-    // ストレージチェック
-    const storageOk = await this.client.storage.exists("site.json", "settings");
-    checks["storage"] = {
-      status: storageOk ? "ok" : "warning",
-      message: storageOk ? "Storage accessible" : "Settings not found",
-    };
-
-    // メモリ使用量（Deno）
-    if (detailed) {
-      const mem = Deno.memoryUsage();
-      checks["memory"] = {
-        status: mem.heapUsed < 512 * 1024 * 1024 ? "ok" : "warning",
-        message: `Heap: ${Math.round(mem.heapUsed / 1024 / 1024)}MB`,
-        value: mem.heapUsed,
-      };
+  async healthCheck(_detailed?: boolean): Promise<HealthCheckResult> {
+    // ASS PHP サーバのヘルスチェックに委譲
+    const resp = await this.client.http.get<HealthCheckResult>("/health");
+    if (resp.ok && resp.data) {
+      return resp.data;
     }
 
-    const hasError = Object.values(checks).some((c) => c.status === "error");
-    const hasWarning = Object.values(checks).some((c) => c.status === "warning");
-
+    // ASS 接続失敗時のフォールバック
     return {
-      status: hasError ? "error" : hasWarning ? "degraded" : "ok",
+      status: "degraded",
       version: "Ver.2.1-41",
-      runtime: `deno/${Deno.version.deno}`,
+      runtime: "deno (ASS unreachable)",
       time: new Date().toISOString(),
-      checks,
+      checks: {
+        server: { status: "error", message: "ASS server unreachable" },
+      },
     };
   }
 
@@ -211,6 +195,11 @@ export class ApiCache implements ApiCacheInterface {
 // GitService — Git 操作サービス
 // ============================================================================
 
+/**
+ * GitService — ASS PHP サーバ経由で Git 操作を行う。
+ *
+ * Deno.Command による直接実行を廃止し、ACS 経由で ASS の Git API を呼び出す。
+ */
 export class GitService implements GitServiceInterface {
   constructor(private readonly client: AdlaireClient) {}
 
@@ -226,114 +215,51 @@ export class GitService implements GitServiceInterface {
   }
 
   async testConnection(): Promise<GitResult> {
-    const config = await this.loadConfig();
-    if (!config.repoUrl) {
-      return { success: false, output: "", error: "No repository URL configured" };
+    const resp = await this.client.http.get<{ reachable: boolean; error?: string }>("/api/git/test");
+    if (!resp.ok || !resp.data) {
+      return { success: false, output: "", error: resp.error ?? "Connection test failed" };
     }
-    // テスト接続は Deno.Command で git ls-remote を実行
-    try {
-      const cmd = new Deno.Command("git", {
-        args: ["ls-remote", "--heads", config.repoUrl],
-        stdout: "piped",
-        stderr: "piped",
-      });
-      const result = await cmd.output();
-      return {
-        success: result.success,
-        output: new TextDecoder().decode(result.stdout),
-        error: result.success ? undefined : new TextDecoder().decode(result.stderr),
-      };
-    } catch (error: unknown) {
-      return {
-        success: false,
-        output: "",
-        error: error instanceof Error ? error.message : "Git command failed",
-      };
-    }
-  }
-
-  pull(): Promise<GitResult> {
-    return this.runGit(["pull", "origin"]);
-  }
-
-  async push(message?: string): Promise<GitResult> {
-    if (message) {
-      const addResult = await this.runGit(["add", "-A"]);
-      if (!addResult.success) return addResult;
-
-      const commitResult = await this.runGit(["commit", "-m", message]);
-      if (!commitResult.success) return commitResult;
-    }
-    return this.runGit(["push", "origin"]);
-  }
-
-  async log(limit: number = 20): Promise<GitLogEntry[]> {
-    const result = await this.runGit([
-      "log",
-      `--max-count=${limit}`,
-      "--format=%H|%s|%an|%aI",
-    ]);
-
-    if (!result.success) return [];
-
-    return result.output
-      .trim()
-      .split("\n")
-      .filter(Boolean)
-      .map((line) => {
-        const parts = line.split("|");
-        const hash = parts[0];
-        const date = parts.pop() ?? "";
-        const author = parts.pop() ?? "";
-        const message = parts.slice(1).join("|");
-        return { hash, message, author, date };
-      });
-  }
-
-  async status(): Promise<GitStatus> {
-    const result = await this.runGit(["status", "--porcelain"]);
-    const branchResult = await this.runGit(["branch", "--show-current"]);
-
-    const lines = result.output.trim().split("\n").filter(Boolean);
-    const modified = lines.filter((l) => l.startsWith(" M") || l.startsWith("M")).map((l) =>
-      l.slice(3)
-    );
-    const untracked = lines.filter((l) => l.startsWith("??")).map((l) => l.slice(3));
-
     return {
-      branch: branchResult.output.trim() || "main",
-      clean: lines.length === 0,
-      modified,
-      untracked,
-      ahead: 0,
-      behind: 0,
+      success: resp.data.reachable,
+      output: resp.data.reachable ? "Connection successful" : "",
+      error: resp.data.error,
     };
   }
 
-  createPreviewBranch(name: string): Promise<GitResult> {
-    return this.runGit(["checkout", "-b", name]);
+  async pull(): Promise<GitResult> {
+    const resp = await this.client.http.post<{ success: boolean; message: string }>("/api/git/pull", {});
+    if (!resp.ok || !resp.data) {
+      return { success: false, output: "", error: resp.error ?? "Pull failed" };
+    }
+    return { success: resp.data.success, output: resp.data.message, error: resp.data.success ? undefined : resp.data.message };
   }
 
-  private async runGit(args: string[]): Promise<GitResult> {
-    try {
-      const cmd = new Deno.Command("git", {
-        args,
-        stdout: "piped",
-        stderr: "piped",
-      });
-      const result = await cmd.output();
-      return {
-        success: result.success,
-        output: new TextDecoder().decode(result.stdout),
-        error: result.success ? undefined : new TextDecoder().decode(result.stderr),
-      };
-    } catch (error: unknown) {
-      return {
-        success: false,
-        output: "",
-        error: error instanceof Error ? error.message : "Git command failed",
-      };
+  async push(_message?: string): Promise<GitResult> {
+    const resp = await this.client.http.post<{ success: boolean; message: string }>("/api/git/push", {});
+    if (!resp.ok || !resp.data) {
+      return { success: false, output: "", error: resp.error ?? "Push failed" };
     }
+    return { success: resp.data.success, output: resp.data.message, error: resp.data.success ? undefined : resp.data.message };
+  }
+
+  async log(limit: number = 20): Promise<GitLogEntry[]> {
+    const resp = await this.client.http.get<{ commits: GitLogEntry[] }>(`/api/git/log?limit=${limit}`);
+    if (!resp.ok || !resp.data) return [];
+    return resp.data.commits;
+  }
+
+  async status(): Promise<GitStatus> {
+    const resp = await this.client.http.get<{ clean: boolean; changes: { file: string; status: string }[] }>("/api/git/status");
+    if (!resp.ok || !resp.data) {
+      return { branch: "main", clean: true, modified: [], untracked: [], ahead: 0, behind: 0 };
+    }
+    const modified = resp.data.changes.filter((c) => c.status !== "??").map((c) => c.file);
+    const untracked = resp.data.changes.filter((c) => c.status === "??").map((c) => c.file);
+    return { branch: "main", clean: resp.data.clean, modified, untracked, ahead: 0, behind: 0 };
+  }
+
+  async createPreviewBranch(_name: string): Promise<GitResult> {
+    return { success: false, output: "", error: "Preview branches are managed by ASS server" };
   }
 }
 
@@ -352,14 +278,25 @@ export class UpdateService implements UpdateServiceInterface {
     });
   }
 
-  checkEnvironment(): Promise<EnvironmentCheck> {
-    return Promise.resolve({
-      runtimeVersion: `deno/${Deno.version.deno}`,
+  async checkEnvironment(): Promise<EnvironmentCheck> {
+    // ASS PHP サーバの環境情報に委譲
+    const resp = await this.client.http.get<EnvironmentCheck>("/health");
+    if (resp.ok && resp.data) {
+      return {
+        runtimeVersion: (resp.data as unknown as Record<string, string>).runtime ?? "unknown",
+        requiredVersion: "Ver.2.1-41",
+        writable: true,
+        diskSpace: 0,
+        issues: [],
+      };
+    }
+    return {
+      runtimeVersion: "unknown",
       requiredVersion: "Ver.2.1-41",
       writable: true,
       diskSpace: 0,
-      issues: [],
-    });
+      issues: ["ASS server unreachable"],
+    };
   }
 
   executeApplyUpdate(): Promise<UpdateApplyResult> {
