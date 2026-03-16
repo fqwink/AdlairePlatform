@@ -65,7 +65,7 @@ class CacheStore {
             return null;
         }
 
-        /* Ver.1.9: unserialize → JSON に置換（オブジェクトインジェクション防止） */
+        /* unserialize → JSON に置換（オブジェクトインジェクション防止） */
         $data = json_decode($content, true);
         if (!is_array($data)) {
             /* レガシー serialize 形式のフォールバック読み取り（読み取り専用、次回保存時にJSON化） */
@@ -100,7 +100,7 @@ class CacheStore {
             'expires_at' => $ttl > 0 ? time() + $ttl : 0,
         ];
 
-        /* Ver.1.9: JSON 形式で保存（serialize 廃止） */
+        /* JSON 形式で保存（serialize 廃止） */
         file_put_contents($path, json_encode($data, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR), LOCK_EX);
     }
 
