@@ -110,7 +110,7 @@ export class DiagnosticsManager implements DiagnosticsManagerInterface {
     return {
       status: hasError ? "error" : hasWarning ? "degraded" : "ok",
       version: "Ver.2.1-41",
-      php: `deno/${Deno.version.deno}`,
+      runtime: `deno/${Deno.version.deno}`,
       time: new Date().toISOString(),
       checks,
     };
@@ -350,7 +350,7 @@ export class UpdateService implements UpdateServiceInterface {
 
   checkEnvironment(): Promise<EnvironmentCheck> {
     return Promise.resolve({
-      phpVersion: `deno/${Deno.version.deno}`,
+      runtimeVersion: `deno/${Deno.version.deno}`,
       requiredVersion: "Ver.2.1-41",
       writable: true,
       diskSpace: 0,

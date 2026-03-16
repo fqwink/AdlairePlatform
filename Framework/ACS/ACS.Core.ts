@@ -500,6 +500,7 @@ export class FileService implements FileModuleInterface {
 export class EventSourceService implements EventSourceInterface {
   private source: EventSource | null = null;
   private listeners = new Map<string, Set<(data: unknown) => void>>();
+  private nativeListeners = new Map<string, Map<Function, Function>>();
   private state = ConnectionState.DISCONNECTED;
 
   constructor(private readonly baseUrl: string) {}
@@ -525,8 +526,12 @@ export class EventSourceService implements EventSourceInterface {
     this.source.onmessage = (event) => {
       const callbacks = this.listeners.get("message");
       if (callbacks) {
-        const data = JSON.parse(event.data);
-        for (const cb of callbacks) cb(data);
+        try {
+          const data = JSON.parse(event.data);
+          for (const cb of callbacks) cb(data);
+        } catch {
+          // Non-JSON message data — skip
+        }
       }
     };
   }
@@ -600,12 +605,12 @@ export async function withRetry<T>(
 }
 
 // ============================================================================
-// Convenience: createClient
+// Convenience: createBasicClient
 // ============================================================================
 
 /**
- * AdlaireClient のショートカット生成関数
+ * AdlaireClient のショートカット生成関数（基本構成）
  */
-export function createClient(config: ClientConfig): AdlaireClient {
+export function createBasicClient(config: ClientConfig): AdlaireClient {
   return new ClientFactory().create(config);
 }

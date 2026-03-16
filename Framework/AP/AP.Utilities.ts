@@ -124,6 +124,14 @@ export class RateLimitMiddleware implements MiddlewareInterface {
   ): ResponseInterface | Promise<ResponseInterface> {
     const key = request.ip();
     const now = Date.now();
+
+    // Periodic cleanup of stale entries
+    if (this.requests.size > 1000) {
+      for (const [ip, entry] of this.requests) {
+        if (now > entry.resetAt) this.requests.delete(ip);
+      }
+    }
+
     const entry = this.requests.get(key);
 
     if (!entry || now > entry.resetAt) {

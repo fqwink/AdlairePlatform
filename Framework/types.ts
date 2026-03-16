@@ -429,7 +429,7 @@ export type DiagLevel = "debug" | "info" | "warning" | "error" | "critical";
 export interface HealthCheckResult {
   readonly status: "ok" | "degraded" | "error";
   readonly version: string;
-  readonly php: string;
+  readonly runtime: string;
   readonly time: string;
   readonly checks?: Record<
     string,

@@ -80,7 +80,7 @@ export class TemplateRenderer implements TemplateRendererInterface {
     let offset = 0;
 
     while (true) {
-      const openMatch = tpl.substring(offset).match(/\{\{#each\s+(\w+)\}\}/);
+      const openMatch = tpl.substring(offset).match(/\{\{#each\s+([\w.]+)\}\}/);
       if (!openMatch || openMatch.index === undefined) break;
 
       const tagStart = offset + openMatch.index;
@@ -95,7 +95,7 @@ export class TemplateRenderer implements TemplateRendererInterface {
 
       const closeTagLen = "{{/each}}".length;
       const body = tpl.substring(tagEnd, closeEnd - closeTagLen);
-      const items = ctx[key];
+      const items = this.resolveValue(key, ctx);
 
       let replacement = "";
       if (Array.isArray(items)) {
@@ -370,15 +370,27 @@ export class MarkdownService implements MarkdownServiceInterface {
     // 打ち消し線
     html = html.replace(/~~(.+?)~~/g, "<del>$1</del>");
 
-    // 順序なしリスト
-    html = html.replace(/^(?:[-*+])\s+(.+)$/gm, "<li>$1</li>");
-    html = html.replace(/(<li>[\s\S]*?<\/li>)/g, (match) => {
-      if (!match.startsWith("<ul>")) return `<ul>${match}</ul>`;
-      return match;
-    });
+    // 順序なしリスト — consecutive lines starting with -, *, +
+    html = html.replace(
+      /(^(?:[-*+])\s+.+$\n?)+/gm,
+      (block) => {
+        const items = block.trim().split("\n").map((line) =>
+          `<li>${line.replace(/^[-*+]\s+/, "")}</li>`
+        ).join("\n");
+        return `<ul>\n${items}\n</ul>`;
+      },
+    );
 
-    // 順序付きリスト
-    html = html.replace(/^\d+\.\s+(.+)$/gm, "<li>$1</li>");
+    // 順序付きリスト — consecutive lines starting with number.
+    html = html.replace(
+      /(^\d+\.\s+.+$\n?)+/gm,
+      (block) => {
+        const items = block.trim().split("\n").map((line) =>
+          `<li>${line.replace(/^\d+\.\s+/, "")}</li>`
+        ).join("\n");
+        return `<ol>\n${items}\n</ol>`;
+      },
+    );
 
     // 引用
     html = html.replace(/^>\s+(.+)$/gm, "<blockquote><p>$1</p></blockquote>");

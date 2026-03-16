@@ -35,7 +35,7 @@ import {
  * ResponseData → ResponseInterface 変換ヘルパー
  */
 function wrapController(
-  fn: (ctx: RequestContext) => Promise<ResponseData>,
+  fn: (ctx: RequestContext) => ResponseData | Promise<ResponseData>,
 ): (req: RequestInterface) => Promise<ResponseInterface> {
   return async (req: RequestInterface): Promise<ResponseInterface> => {
     const data = await fn(req.toContext());

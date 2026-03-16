@@ -152,7 +152,7 @@ export interface UpdateServiceInterface {
 }
 
 export interface EnvironmentCheck {
-  readonly phpVersion: string;
+  readonly runtimeVersion: string;
   readonly requiredVersion: string;
   readonly writable: boolean;
   readonly diskSpace: number;

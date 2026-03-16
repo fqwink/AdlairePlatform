@@ -45,24 +45,23 @@ export class WebhookService implements WebhookServiceInterface {
     secret?: string,
   ): Promise<boolean> {
     const hooks = await this.listWebhooks();
-    hooks.push({ url, label, events, secret, enabled: true });
-    return this.client.storage.write("webhooks.json", hooks, "settings");
+    const updated = [...hooks, { url, label, events, secret, enabled: true }];
+    return this.client.storage.write("webhooks.json", updated, "settings");
   }
 
   async deleteWebhook(index: number): Promise<boolean> {
     const hooks = await this.listWebhooks();
     if (index < 0 || index >= hooks.length) return false;
-    hooks.splice(index, 1);
-    return this.client.storage.write("webhooks.json", hooks, "settings");
+    const updated = hooks.filter((_, i) => i !== index);
+    return this.client.storage.write("webhooks.json", updated, "settings");
   }
 
   async toggleWebhook(index: number): Promise<boolean> {
     const hooks = await this.listWebhooks();
     if (index < 0 || index >= hooks.length) return false;
 
-    const mutable = { ...hooks[index], enabled: !hooks[index].enabled };
-    hooks[index] = mutable;
-    return this.client.storage.write("webhooks.json", hooks, "settings");
+    const updated = hooks.map((h, i) => i === index ? { ...h, enabled: !h.enabled } : h);
+    return this.client.storage.write("webhooks.json", updated, "settings");
   }
 
   async dispatch(event: WebhookEvent, data: Record<string, unknown>): Promise<void> {
