@@ -138,3 +138,284 @@ import { AuthService } from "../ACS/ACS.Core.ts";
 | **型参照のみ許可** | `ACS.d.ts` からの `import type` のみを許可する |
 | **直接 fetch 禁止** | 各フレームワークは `fetch()` を直接呼び出してはならない |
 | **初期化順序** | ACS の初期化（`globalThis.__acs` の公開）は bootstrap 処理の最初に実行しなければならない |
+
+---
+
+## 4. フレームワーク一覧
+
+### 4.1 一覧表
+
+AdlairePlatform を構成するフレームワークは以下の通りである。
+
+| 接頭辞 | 正式名称 | 用途 | 言語 | ファイル数 |
+|--------|---------|------|------|-----------|
+| **APF** | Adlaire Platform Foundation | DI コンテナ、EventBus、Router 等のプラットフォーム基盤を提供する | TypeScript | 5 |
+| **ACS** | Adlaire Client Services | サーバとの通信を一元的に担うクライアントエンジン（§3 参照） | TypeScript | 5 |
+| **ACE** | Adlaire Content Engine | コレクション、コンテンツ、メタデータの管理を行う | TypeScript | 5 + アセット |
+| **AIS** | Adlaire Infrastructure Services | アプリケーションコンテキスト、i18n、API キャッシュ、診断を提供する | TypeScript | 5 |
+| **AP** | Adlaire Platform | 認証、ロギング、セキュリティヘッダー等のミドルウェアとクライアントモジュールを提供する | TypeScript | 5 + JsEngine |
+| **ASG** | Adlaire Static Generator | Markdown パース、テンプレートレンダリング、静的サイトビルドを行う | TypeScript | 5 |
+| **ASS** | Adlaire Server System | 認証、ストレージ、ファイル、Git 等のサーバサイドサービスを実装する | PHP | 5 |
+| **ADS** | Adlaire Design System | ベーススタイル、コンポーネントスタイル、エディタスタイルを定義する | CSS | 3 |
+| **AEB** | Adlaire Editor & Blocks | エディタのブロックシステムを提供する | TypeScript | 3 |
+
+### 4.2 各フレームワークの構成
+
+#### APF — Adlaire Platform Foundation
+
+| ファイル | 概要 |
+|---------|------|
+| `APF.Core.ts` | Container、EventBus、Request、Response、Router を定義する |
+| `APF.Interface.ts` | プラットフォーム基盤のインターフェースを定義する |
+| `APF.Class.ts` | 定数およびクラスを定義する |
+| `APF.Api.ts` | システムルートの登録を行う |
+| `APF.Utilities.ts` | FileSystem ユーティリティを提供する |
+
+#### ACS — Adlaire Client Services
+
+ACS の詳細仕様は §3 を参照すること。
+
+| ファイル | 概要 |
+|---------|------|
+| `ACS.Core.ts` | HTTP クライアント、認証モジュール、ストレージモジュールを実装する |
+| `ACS.Interface.ts` | 公開インターフェースを定義する |
+| `ACS.Class.ts` | API エンドポイント定数、ストレージディレクトリ定数を定義する |
+| `ACS.Api.ts` | API ルートの登録を行う |
+| `ACS.Utilities.ts` | ユーティリティ関数を提供する |
+
+#### ACE — Adlaire Content Engine
+
+| ファイル | 概要 |
+|---------|------|
+| `ACE.Core.ts` | CollectionManager、ContentManager、MetaManager を実装する |
+| `ACE.Interface.ts` | コンテンツ管理のインターフェースを定義する |
+| `ACE.Class.ts` | 定数およびクラスを定義する |
+| `ACE.Api.ts` | コレクションルートの登録を行う |
+| `ACE.Utilities.ts` | ユーティリティ関数を提供する |
+| `AdminEngine/` | 管理画面の HTML および CSS アセットを格納する |
+
+#### AIS — Adlaire Infrastructure Services
+
+| ファイル | 概要 |
+|---------|------|
+| `AIS.Core.ts` | AppContext、I18n を実装する |
+| `AIS.Interface.ts` | インフラストラクチャのインターフェースを定義する |
+| `AIS.Class.ts` | 定数およびクラスを定義する |
+| `AIS.Api.ts` | インフラルートの登録を行う |
+| `AIS.Utilities.ts` | ApiCache、DiagnosticsManager を提供する |
+
+#### AP — Adlaire Platform
+
+| ファイル | 概要 |
+|---------|------|
+| `AP.Core.ts` | AuthMiddleware、RequestLoggingMiddleware、SecurityHeadersMiddleware を実装する |
+| `AP.Interface.ts` | プラットフォームのインターフェースを定義する |
+| `AP.Class.ts` | 定数およびクラスを定義する |
+| `AP.Api.ts` | プラットフォームルートの登録を行う |
+| `AP.Utilities.ts` | ユーティリティ関数を提供する |
+| `JsEngine/` | ブラウザ向けクライアントモジュール群を格納する（API クライアント、ダッシュボード、エディタ等） |
+
+#### ASG — Adlaire Static Generator
+
+| ファイル | 概要 |
+|---------|------|
+| `ASG.Core.ts` | Builder、MarkdownService、TemplateRenderer を実装する |
+| `ASG.Interface.ts` | 静的生成のインターフェースを定義する |
+| `ASG.Class.ts` | 定数およびクラスを定義する |
+| `ASG.Api.ts` | ジェネレータルートの登録を行う |
+| `ASG.Utilities.ts` | ユーティリティ関数を提供する |
+
+#### ASS — Adlaire Server System
+
+| ファイル | 概要 |
+|---------|------|
+| `ASS.Core.php` | AuthService、StorageService、FileService、GitService を実装する |
+| `ASS.Interface.php` | サーバサイドのインターフェースを定義する |
+| `ASS.Class.php` | 定数およびクラスを定義する |
+| `ASS.Api.php` | API ハンドラの登録を行う |
+| `ASS.Utilities.php` | ユーティリティ関数を提供する |
+
+#### ADS — Adlaire Design System
+
+| ファイル | 概要 |
+|---------|------|
+| `ADS.Base.css` | ベーススタイルおよびリセットを定義する |
+| `ADS.Components.css` | コンポーネント固有のスタイルを定義する |
+| `ADS.Editor.css` | エディタ・管理画面向けのスタイルを定義する |
+
+#### AEB — Adlaire Editor & Blocks
+
+| ファイル | 概要 |
+|---------|------|
+| `AEB.Core.ts` | エディタのブロックシステムを実装する |
+| `AEB.Blocks.ts` | ブロックの型定義と実装を提供する |
+| `AEB.Utils.ts` | ユーティリティ関数を提供する |
+
+### 4.3 言語別フレームワークリスト
+
+#### TypeScript
+
+| 接頭辞 | 正式名称 | ファイル数 |
+|--------|---------|-----------|
+| **APF** | Adlaire Platform Foundation | 5 |
+| **ACS** | Adlaire Client Services | 5 |
+| **ACE** | Adlaire Content Engine | 5 + アセット |
+| **AIS** | Adlaire Infrastructure Services | 5 |
+| **AP** | Adlaire Platform | 5 + JsEngine |
+| **ASG** | Adlaire Static Generator | 5 |
+| **AEB** | Adlaire Editor & Blocks | 3 |
+
+#### PHP
+
+| 接頭辞 | 正式名称 | ファイル数 |
+|--------|---------|-----------|
+| **ASS** | Adlaire Server System | 5 |
+
+#### CSS
+
+| 接頭辞 | 正式名称 | ファイル数 |
+|--------|---------|-----------|
+| **ADS** | Adlaire Design System | 3 |
+
+### 4.4 開発言語・ランタイム
+
+AdlairePlatform で使用する言語およびランタイムは以下の通りである。
+
+| 言語 / ランタイム | バージョン | 用途 | 対象フレームワーク |
+|------------------|-----------|------|-------------------|
+| **Deno** | 2.x 以上 | TypeScript ランタイムおよびツールチェーン（型チェック、リント、フォーマット、テスト） | APF, ACS, ACE, AIS, AP, ASG, AEB |
+| **TypeScript** | Deno 内蔵（Strict モード） | サーバサイドおよびクライアントサイドのフレームワーク実装 | APF, ACS, ACE, AIS, AP, ASG, AEB |
+| **PHP** | 8.4 以上 | サーバサイドのビジネスロジック実装 | ASS |
+| **CSS** | CSS3 | デザインシステムのスタイル定義 | ADS |
+| **HTML** | HTML5 | 管理画面等のアセット | ACE（AdminEngine） |
+
+> **バージョン情報の取得元**
+>
+> | 言語 / ランタイム | 取得元 |
+> |------------------|--------|
+> | Deno | `README.md` Prerequisites（`Deno 2.x or later`）、`main.ts` にて `Deno.version.deno` で動的取得 |
+> | TypeScript | `deno.json` の `compilerOptions`（`strict: true`, `noImplicitAny: true`） |
+> | PHP | 実行環境（`PHP 8.4.18`）、全ファイルで `declare(strict_types=1)` を使用、`match` 式（PHP 8.0+ 機能）を使用 |
+
+#### ランタイム規定
+
+| ルール | 内容 |
+|--------|------|
+| **Deno 必須** | TypeScript フレームワークの実行・型チェック・リント・フォーマット・テストはすべて Deno で行う |
+| **Strict モード必須** | TypeScript のコンパイラオプションは `strict: true` および `noImplicitAny: true` を有効にしなければならない |
+| **ブラウザ向け設定** | クライアントサイドのコード（JsEngine、AEB）は `browser.deno.json` の設定に従い、DOM 型定義（`dom`, `dom.iterable`, `dom.asynciterable`, `esnext`）を使用する |
+| **Node.js 禁止** | Node.js ランタイムおよび npm パッケージの使用を禁止する（§2.1 外部依存ゼロに準ずる） |
+| **PHP バージョン固定** | ASS は PHP 8.4 以上で動作しなければならない。全ファイルで `declare(strict_types=1)` を宣言すること |
+
+---
+
+## 5. ファイル構成規則
+
+### 5.1 ディレクトリ構成
+
+各フレームワークは `Framework/` 配下にフレームワーク接頭辞と同名のディレクトリを持つ。ディレクトリ構成は以下の通りである。
+
+```
+Framework/
+├── {PREFIX}/                 # 各フレームワークディレクトリ
+│   ├── {PREFIX}.Core.ts      # Core コンポーネント（必須）
+│   ├── {PREFIX}.Interface.ts # その他コンポーネント（任意）
+│   ├── {PREFIX}.Class.ts
+│   ├── {PREFIX}.Api.ts
+│   ├── {PREFIX}.Utilities.ts
+│   └── {SubDir}/             # サブディレクトリ（任意）
+├── mod.ts                    # バレルエクスポート（エントリポイント）
+├── types.ts                  # 共通型定義
+└── browser.deno.json         # コンパイラ設定
+```
+
+#### ディレクトリ配置ルール
+
+| ルール | 内容 |
+|--------|------|
+| **1 フレームワーク 1 ディレクトリ** | 各フレームワークは `Framework/{PREFIX}/` に配置しなければならない |
+| **接頭辞一致** | ディレクトリ名はフレームワーク接頭辞と一致させなければならない（例: ACS → `Framework/ACS/`） |
+| **フラット原則** | コンポーネントファイルはディレクトリ直下に配置する。ネストは禁止する |
+| **サブディレクトリ** | アセットやクライアントモジュール等、コンポーネント以外のファイルはサブディレクトリに配置してもよい（例: `AP/JsEngine/`、`ACE/AdminEngine/`） |
+
+### 5.2 命名規則
+
+#### コンポーネントファイル名
+
+コンポーネントファイルは `{PREFIX}.{ComponentName}.{ext}` の形式で命名する。
+
+| 要素 | 規則 |
+|------|------|
+| **接頭辞（PREFIX）** | フレームワークの略称を大文字で記述する（例: `ACS`、`AP`、`ASS`） |
+| **コンポーネント名** | PascalCase で記述する（例: `Core`、`Interface`、`Utilities`） |
+| **区切り文字** | ドット（`.`）で接頭辞とコンポーネント名を区切る |
+| **拡張子** | TypeScript は `.ts`、PHP は `.php`、CSS は `.css` とする |
+
+**例:**
+
+```
+ACS.Core.ts         # TypeScript コンポーネント
+ASS.Api.php         # PHP コンポーネント
+ADS.Components.css  # CSS コンポーネント
+```
+
+#### ディレクトリ名
+
+| 要素 | 規則 |
+|------|------|
+| **フレームワークディレクトリ** | フレームワーク接頭辞と同一の大文字表記とする（例: `ACS/`、`APF/`） |
+| **サブディレクトリ** | PascalCase で命名する（例: `JsEngine/`、`AdminEngine/`） |
+
+#### サブディレクトリ内ファイル名
+
+サブディレクトリ内のファイルはコンポーネントファイルとは異なる命名規則に従う。
+
+| 要素 | 規則 |
+|------|------|
+| **クライアントモジュール** | kebab-case で命名する（例: `ap-api-client.ts`、`aeb-adapter.ts`） |
+| **HTML アセット** | 小文字で命名する（例: `dashboard.html`、`login.html`） |
+| **CSS アセット** | 小文字で命名する（例: `dashboard.css`） |
+| **型定義ファイル** | kebab-case に `.d.ts` を付与する（例: `browser-types.d.ts`） |
+
+### 5.3 コンポーネント配置
+
+#### 言語別の構成パターン
+
+各フレームワークは使用する言語に応じて以下のいずれかの構成パターンに従う。
+
+**TypeScript フレームワーク（標準パターン）**
+
+| ファイル | 配置 |
+|---------|------|
+| `{PREFIX}.Core.ts` | 必須 |
+| `{PREFIX}.Interface.ts` | 任意 |
+| `{PREFIX}.Class.ts` | 任意 |
+| `{PREFIX}.Api.ts` | 任意 |
+| `{PREFIX}.Utilities.ts` | 任意 |
+
+**PHP フレームワーク（ASS）**
+
+| ファイル | 配置 |
+|---------|------|
+| `ASS.Core.php` | 必須 |
+| `ASS.Interface.php` | 任意 |
+| `ASS.Class.php` | 任意 |
+| `ASS.Api.php` | 任意 |
+| `ASS.Utilities.php` | 任意 |
+
+**CSS フレームワーク（ADS）**
+
+| ファイル | 配置 |
+|---------|------|
+| `ADS.Base.css` | 必須 |
+| `ADS.Components.css` | 任意 |
+| `ADS.Editor.css` | 任意 |
+
+#### サブディレクトリの配置ルール
+
+| ルール | 内容 |
+|--------|------|
+| **目的限定** | サブディレクトリはクライアントモジュールやアセットなど、コンポーネント以外のファイルを格納する目的でのみ使用する |
+| **5 ファイル上限の対象外** | サブディレクトリ内のファイルは §2.1 の「1 エンジン 5 ファイル原則」の上限に含めない |
+| **命名の独立性** | サブディレクトリ内のファイルはコンポーネントの命名規則（`{PREFIX}.{Name}.{ext}`）に従う必要はない |
+
