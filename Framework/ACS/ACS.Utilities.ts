@@ -86,12 +86,12 @@ export function extractData<T>(response: { ok: boolean; data?: T; error?: string
  * FormData にオブジェクトのフィールドを追加する
  */
 export function objectToFormData(
-  obj: Record<string, string | number | boolean | Blob | File | undefined>,
+  obj: Record<string, string | number | boolean | Blob | undefined>,
 ): FormData {
   const fd = new FormData();
   for (const [key, value] of Object.entries(obj)) {
     if (value === undefined) continue;
-    if (value instanceof Blob || value instanceof File) {
+    if (value instanceof Blob) {
       fd.append(key, value);
     } else {
       fd.append(key, String(value));

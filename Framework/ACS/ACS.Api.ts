@@ -15,12 +15,14 @@ import { ClientFactory } from "./ACS.Core.ts";
 /**
  * 環境設定からクライアントを初期化する
  */
-export function createClient(config?: Partial<ClientConfig>): AdlaireClient {
+export function createClient(config?: Partial<ClientConfig> & { token?: string | null }): AdlaireClient {
   const factory = new ClientFactory();
   const fullConfig: ClientConfig = {
     baseUrl: config?.baseUrl ?? "",
-    token: config?.token ?? null,
     timeout: config?.timeout ?? 30000,
+    headers: config?.token
+      ? { ...config?.headers, Authorization: `Bearer ${config.token}` }
+      : config?.headers,
   };
   return factory.create(fullConfig);
 }

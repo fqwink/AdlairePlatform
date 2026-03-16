@@ -10,7 +10,7 @@
  */
 
 import type { RouterInterface, MiddlewareInterface, RequestInterface, ResponseInterface } from "../APF/APF.Interface.ts";
-import type { AdlaireClient } from "../types.ts";
+import type { AdlaireClient, ResponseData, RequestContext } from "../types.ts";
 import { Response } from "../APF/APF.Core.ts";
 import {
   AuthController,
@@ -25,6 +25,18 @@ import {
   DiagnosticController,
   BaseController,
 } from "./AP.Core.ts";
+
+/**
+ * ResponseData → ResponseInterface 変換ヘルパー
+ */
+function wrapController(
+  fn: (ctx: RequestContext) => Promise<ResponseData>,
+): (req: RequestInterface) => Promise<ResponseInterface> {
+  return async (req: RequestInterface): Promise<ResponseInterface> => {
+    const data = await fn(req.toContext());
+    return new Response(data.body, data.statusCode, data.headers);
+  };
+}
 
 /**
  * 全コントローラーのルートを登録する
@@ -57,34 +69,34 @@ export function registerPlatformRoutes(
   const api = new ApiController(client, controllers);
 
   // ── 認証（ミドルウェア不要） ──
-  router.get("/login", (req) => auth.showLogin(req.toContext()));
-  router.post("/login", (req) => auth.authenticate(req.toContext()));
-  router.post("/logout", (req) => auth.logout(req.toContext()));
+  router.get("/login", wrapController((ctx) => auth.showLogin(ctx)));
+  router.post("/login", wrapController((ctx) => auth.authenticate(ctx)));
+  router.post("/logout", wrapController((ctx) => auth.logout(ctx)));
 
   // ── 認証必須エリア ──
   const mwOptions = authMiddleware ? { middleware: [authMiddleware] } : {};
 
   router.group({ prefix: "/admin", ...mwOptions }, (r) => {
-    r.get("/", (req) => dashboard.index(req.toContext()));
+    r.get("/", wrapController((ctx) => dashboard.index(ctx)));
 
     // 統合 POST アクションディスパッチャ
-    r.post("/api", (req) => api.dispatch(req.toContext()));
+    r.post("/api", wrapController((ctx) => api.dispatch(ctx)));
 
     // Git
-    r.get("/git/status", (req) => git.status(req.toContext()));
-    r.get("/git/log", (req) => git.log(req.toContext()));
+    r.get("/git/status", wrapController((ctx) => git.status(ctx)));
+    r.get("/git/log", wrapController((ctx) => git.log(ctx)));
 
     // Static
-    r.get("/static/status", (req) => staticCtrl.status(req.toContext()));
+    r.get("/static/status", wrapController((ctx) => staticCtrl.status(ctx)));
 
     // Update
-    r.get("/update/check", (req) => update.check(req.toContext()));
-    r.get("/update/env", (req) => update.checkEnv(req.toContext()));
-    r.get("/update/backups", (req) => update.listBackups(req.toContext()));
+    r.get("/update/check", wrapController((ctx) => update.check(ctx)));
+    r.get("/update/env", wrapController((ctx) => update.checkEnv(ctx)));
+    r.get("/update/backups", wrapController((ctx) => update.listBackups(ctx)));
 
     // Diagnostic
-    r.get("/diagnostic/health", (req) => diagnostic.health(req.toContext()));
-    r.get("/diagnostic/summary", (req) => diagnostic.getSummary(req.toContext()));
-    r.get("/diagnostic/logs", (req) => diagnostic.getLogs(req.toContext()));
+    r.get("/diagnostic/health", wrapController((ctx) => diagnostic.health(ctx)));
+    r.get("/diagnostic/summary", wrapController((ctx) => diagnostic.getSummary(ctx)));
+    r.get("/diagnostic/logs", wrapController((ctx) => diagnostic.getLogs(ctx)));
   });
 }

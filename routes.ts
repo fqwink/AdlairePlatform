@@ -28,10 +28,45 @@ import {
   CollectionManager,
   ContentManager,
   MetaManager,
-  Generator,
-  HybridResolver,
-  BuildCache,
+  TemplateRenderer,
+  MarkdownService,
+  Builder,
+  FileSystem,
 } from "./Framework/mod.ts";
+
+import { Generator, HybridResolver, BuildCache, SiteRouter } from "./Framework/ASG/ASG.Core.ts";
+import type { StaticFileSystemInterface } from "./Framework/ASG/ASG.Interface.ts";
+
+/**
+ * APF FileSystem を ASG StaticFileSystemInterface に適合させるアダプター
+ */
+class StaticFileSystem extends FileSystem implements StaticFileSystemInterface {
+  async listFiles(dir: string, ext?: string): Promise<string[]> {
+    const files: string[] = [];
+    try {
+      for await (const entry of Deno.readDir(dir)) {
+        if (!entry.isFile) continue;
+        if (ext && !entry.name.endsWith(ext)) continue;
+        files.push(`${dir}/${entry.name}`);
+      }
+    } catch {
+      // directory doesn't exist
+    }
+    return files;
+  }
+
+  async getHash(path: string): Promise<string> {
+    try {
+      const content = await Deno.readFile(path);
+      const hashBuffer = await crypto.subtle.digest("SHA-256", content);
+      return Array.from(new Uint8Array(hashBuffer))
+        .map((b) => b.toString(16).padStart(2, "0"))
+        .join("");
+    } catch {
+      return "";
+    }
+  }
+}
 
 /**
  * 全ルートを登録する
@@ -92,9 +127,26 @@ export function registerRoutes(app: ApplicationFacade): void {
   // ══════════════════════════════════════════════════
   // 静的サイトビルド API (ASG)
   // ══════════════════════════════════════════════════
-  const resolver = new HybridResolver(client);
-  const buildCache = new BuildCache(client);
-  const generator = new Generator(resolver, buildCache, client);
+  const basePath = app.context.get<string>("basePath", Deno.cwd());
+  const fs = new StaticFileSystem();
+  const templateRenderer = new TemplateRenderer();
+  const markdownService = new MarkdownService();
+  const builder = new Builder(templateRenderer);
+  const buildCache = new BuildCache(`${basePath}/data/cache`, fs);
+  const generator = new Generator(
+    {
+      outputDir: `${basePath}/static`,
+      contentDir: `${basePath}/data/content`,
+      themeDir: `${basePath}/themes`,
+      baseUrl: app.context.get<string>("url", ""),
+      cleanUrls: app.context.get<boolean>("cleanUrls", true),
+    },
+    fs,
+    buildCache,
+    builder,
+    templateRenderer,
+    markdownService,
+  );
   registerGeneratorRoutes(router, generator);
 
   // ══════════════════════════════════════════════════

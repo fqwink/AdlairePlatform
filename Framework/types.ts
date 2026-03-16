@@ -742,7 +742,9 @@ export type LocaleId = "ja" | "en" | string;
 /**
  * 翻訳辞書
  */
-export type TranslationDict = Record<string, string | TranslationDict>;
+export interface TranslationDict {
+  [key: string]: string | TranslationDict;
+}
 
 // ============================================================================
 // Rate Limiting

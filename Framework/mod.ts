@@ -69,6 +69,6 @@ export { registerPlatformRoutes } from "./AP/AP.Api.ts";
 
 // ── ACS (Client Services) ──
 export { ClientFactory, HttpTransport, AuthService, StorageService, FileService, EventSourceService } from "./ACS/ACS.Core.ts";
-export { ApiError, AuthenticationError, NetworkError, StorageError } from "./ACS/ACS.Class.ts";
-export { buildUrl, buildHeaders, parseApiResponse } from "./ACS/ACS.Utilities.ts";
+export { NetworkError, TimeoutError, ServerError, AuthError, ConnectionState } from "./ACS/ACS.Class.ts";
+export { joinUrl, buildQueryString, bearerHeader, csrfHeader, jsonHeaders, extractData, objectToFormData, calculateBackoff } from "./ACS/ACS.Utilities.ts";
 export { createClient, createMockClient } from "./ACS/ACS.Api.ts";

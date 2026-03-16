@@ -39,13 +39,6 @@ export function registerGeneratorRoutes(
     return Response.json({ ok: true, data: result });
   });
 
-  // 単一ページビルド
-  router.post("/api/build/page/{slug}", async (req: RequestInterface) => {
-    const slug = String(req.param("slug"));
-    const result = await generator.buildSingle(slug);
-    return Response.json({ ok: true, data: result });
-  });
-
   // クリーン
   router.post("/api/build/clean", async () => {
     await generator.clean();
