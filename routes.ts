@@ -98,7 +98,7 @@ export function registerRoutes(app: ApplicationFacade): void {
   router.get("/health", () =>
     Response.json({
       status: "ok",
-      version: "Ver.2.2-43",
+      version: "Ver.2.3-44",
       runtime: `deno/${Deno.version.deno}`,
       time: new Date().toISOString(),
     }));
