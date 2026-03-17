@@ -400,7 +400,7 @@ ADS.Components.css  # CSS コンポーネント
 
 ## §7 変更管理
 
-本ルールブックのバージョン管理は、[`VERSIONING.md`](./VERSIONING.md) に定めるバージョン規則に準拠する。変更履歴は git log で管理する。
+変更履歴は git log で管理する。
 
 ### §7.1 ルールのライフサイクル
 
