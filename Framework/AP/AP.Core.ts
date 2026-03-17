@@ -778,7 +778,7 @@ export class StaticController extends BaseController implements StaticController
 
 export class UpdateController extends BaseController implements UpdateControllerInterface {
   check(_request: RequestContext): ResponseData {
-    return this.ok({ available: false, currentVersion: "Ver.2.2-43" });
+    return this.ok({ available: false, currentVersion: "Ver.2.3-44" });
   }
 
   async checkEnv(_request: RequestContext): Promise<ResponseData> {

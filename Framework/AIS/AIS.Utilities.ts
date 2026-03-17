@@ -97,7 +97,7 @@ export class DiagnosticsManager implements DiagnosticsManagerInterface {
     // ASS 接続失敗時のフォールバック
     return {
       status: "degraded",
-      version: "Ver.2.2-43",
+      version: "Ver.2.3-44",
       runtime: "deno (ASS unreachable)",
       time: new Date().toISOString(),
       checks: {
@@ -302,8 +302,8 @@ export class UpdateService implements UpdateServiceInterface {
   checkUpdate(): Promise<UpdateInfo> {
     return Promise.resolve({
       available: false,
-      currentVersion: "Ver.2.2-43",
-      latestVersion: "Ver.2.2-43",
+      currentVersion: "Ver.2.3-44",
+      latestVersion: "Ver.2.3-44",
     });
   }
 
@@ -313,7 +313,7 @@ export class UpdateService implements UpdateServiceInterface {
     if (resp.ok && resp.data) {
       return {
         runtimeVersion: (resp.data as unknown as Record<string, string>).runtime ?? "unknown",
-        requiredVersion: "Ver.2.2-43",
+        requiredVersion: "Ver.2.3-44",
         writable: true,
         diskSpace: 0,
         issues: [],
@@ -321,7 +321,7 @@ export class UpdateService implements UpdateServiceInterface {
     }
     return {
       runtimeVersion: "unknown",
-      requiredVersion: "Ver.2.2-43",
+      requiredVersion: "Ver.2.3-44",
       writable: true,
       diskSpace: 0,
       issues: ["ASS server unreachable"],
@@ -331,8 +331,8 @@ export class UpdateService implements UpdateServiceInterface {
   executeApplyUpdate(): Promise<UpdateApplyResult> {
     return Promise.resolve({
       success: false,
-      fromVersion: "Ver.2.2-43",
-      toVersion: "Ver.2.2-43",
+      fromVersion: "Ver.2.3-44",
+      toVersion: "Ver.2.3-44",
       error: "No update available",
     });
   }

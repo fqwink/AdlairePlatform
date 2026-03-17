@@ -6,6 +6,45 @@
 
 ---
 
+## AdlairePlatform Ver.2.3-44（2026-03-17）— 全フレームワーク横断バグ修正（7回反復解析）
+
+ソースコード全体を7回反復解析し、セキュリティ・堅牢性・パフォーマンスの改善を実施。後方互換を維持。
+
+### セキュリティ修正
+
+- **CORS Origin リフレクション** — ASS.Api.php が任意の Origin を無条件で反射していた脆弱性を修正（空 Origin 時はヘッダーを付与しない）
+- **静的ファイル配信パストラバーサル** — main.ts の URL エンコード済みトラバーサル（`%2e%2e`）バイパスを防止（`decodeURIComponent` を事前適用）
+- **Str.safePath() バイパス** — `....//` → `../` パターンによる `..` 除去のバイパスを防止（セグメント分割方式に変更）
+- **Markdown URL XSS** — ASG MarkdownService の `sanitizeUrl()` が HTML 属性特殊文字をエスケープせず、属性インジェクションが可能だった問題を修正
+
+### バグ修正
+
+- **Container 循環依存** — APF DI コンテナの `make()` に循環依存検出を追加（無限再帰によるスタックオーバーフロー防止）
+- **AuthService 二重キャスト** — ACS `login()` / `verify()` の不要な `as unknown as AuthResult` 二重キャストを除去
+- **EventSourceService 型安全** — `nativeListeners` の `Function` 型を `(data: unknown) => void` に厳密化
+- **ContentManager N+1** — ACE `listItems()` がファイルごとに個別 HTTP リクエストを発行していた N+1 問題を `readMany()` バッチ読み込みで解消
+- **MetaManager YAML エスケープ** — `buildMeta()` がコロン以外の YAML 特殊文字（`#`, `{`, `}`, `[`, `]` 等）を含む値をエスケープしなかった問題を修正
+- **main.ts 変数シャドウイング** — 静的ファイル配信ブロック内の `themeDir` が外側の同名変数をシャドウイングしていた問題を修正
+- **ASS.Api.php バージョン文字列** — ヘルスチェック API のバージョンが `'2.1'` にハードコードされていた問題を修正
+- **Git ログ制限** — `git/log` API の `limit` パラメータに上下限バリデーション（1〜100）を追加
+
+### パフォーマンス改善
+
+- **EventBus 挿入最適化** — APF `listen()` のリスナー追加を全件ソートから二分探索挿入に変更（O(n log n) → O(n)）
+- **BuildCache デュアルハッシュ** — ASG の djb2 単一ハッシュを djb2+FNV デュアルハッシュに変更（短キーの衝突確率を低減）
+
+### メモリ管理
+
+- **ApiCache 上限追加** — AIS ApiCache に `maxSize`（デフォルト500件）と期限切れエントリのエビクションを追加（無限成長防止）
+- **DiagnosticsManager イベント上限** — `events` 配列に `maxEvents`（10,000件）上限を追加し、超過時に古いエントリの10%を削除
+
+### バージョン情報
+
+- ドキュメント表記: Ver.2.3-44（VERSIONING.md 準拠）
+- 累積ビルド番号: 44（Ver.2.2-43 からの1コミット）
+
+---
+
 ## AdlairePlatform Ver.2.2-43（2026-03-16）— セキュリティ修正・フレームワーク改良
 
 セキュリティ修正および堅牢性改善を主体とした内部改良バージョン。後方互換を維持。
@@ -49,7 +88,7 @@
 
 ### バージョン情報
 
-- ドキュメント表記: Ver.2.2-43（VERSIONING.md 準拠）
+- ドキュメント表記: Ver.2.2-43（VERSIONING.md 準拠、Ver.2.3-44 にて更新）
 - 累積ビルド番号: 43（Ver.2.1-41 からの2コミット）
 
 ---

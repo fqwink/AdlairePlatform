@@ -655,7 +655,7 @@ final class Application
 
         $response->json(ApiResponse::ok([
             'status' => $allOk ? 'ok' : 'degraded',
-            'version' => 'Ver.2.2-43',
+            'version' => 'Ver.2.3-44',
             'runtime' => 'PHP ' . PHP_VERSION,
             'time' => gmdate('Y-m-d\TH:i:s\Z'),
             'checks' => $checks,
