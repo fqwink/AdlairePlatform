@@ -26,123 +26,29 @@ Ver.0.1-1 | 最終更新: 2026-03-16
 
 ---
 
-## 2. 共有型定義（`Framework/types.ts`）
+## 2. 型定義方針
 
-全フレームワークが参照する唯一の共通型定義ファイルである。フレームワーク間の直接 `import` は禁止し、型の共有は本ファイルを通じて行う。
+FRAMEWORK_RULEBOOK §2.1「共有型ファイルの作成禁止」に準拠する。複数のフレームワークから参照される共有型ファイルの作成は禁止する。
 
-### 2.1 汎用型
+### 2.1 基本規則
 
-| 型 | 用途 |
-|---|------|
-| `ApiResponse<T>` | API レスポンスの標準形式（`ok`, `data`, `error`, `errors`） |
-| `PaginatedResponse<T>` | ページネーション付きレスポンス |
+- 各フレームワークが必要とする型は、そのフレームワーク自身が定義する
+- ACS が `ACS.d.ts` で公開している型を参照する場合は、`import type` により参照する
+- フレームワーク間の直接 `import` は禁止する
 
-### 2.2 HTTP・ルーティング型
+### 2.2 ACS 型参照
 
-| 型 | 用途 |
-|---|------|
-| `HttpMethodValue` | HTTP メソッドの文字列リテラル型（`GET` / `POST` / `PUT` / `PATCH` / `DELETE` / `HEAD` / `OPTIONS`） |
-| `RouteDefinition` | ルート定義（`method`, `path`, `handler`, `middleware`, `name`） |
-| `RequestContext` | リクエストコンテキスト（`method`, `path`, `query`, `postData`, `headers`, `body`, `ip`, `requestId`） |
-| `ResponseData` | レスポンスデータ（`statusCode`, `headers`, `body`, `contentType`） |
-| `MiddlewareId` | ミドルウェア識別子（`auth` / `csrf` / `rate_limit` / `security_headers` / `request_logging` / `cors`） |
+ACS のインターフェース型（`AdlaireClient`, `AuthModule`, `StorageModule`, `FileModule`, `HttpModule` 等）は `ACS/ACS.d.ts` に定義される。各フレームワークがこれらの型を必要とする場合は、以下の形式で参照する。
 
-### 2.3 認証・セッション型
+```typescript
+import type { AdlaireClient } from "../ACS/ACS.d.ts";
+```
 
-| 型 | 用途 |
-|---|------|
-| `AuthResult` | 認証結果（`authenticated`, `user`, `token`, `error`） |
-| `SessionInfo` | セッション情報（`id`, `userId`, `role`, `createdAt`, `expiresAt`, `data`） |
-| `UserInfo` | ユーザー情報（`id`, `username`, `role`, `createdAt`, `lastLogin`） |
-| `UserRole` | ユーザーロール（`admin` / `editor` / `viewer`） |
+値を伴う `import` は禁止し、`import type` による型定義のみの参照に限定する。
 
-### 2.4 コンテンツ型
+### 2.3 フレームワーク固有型
 
-| 型 | 用途 |
-|---|------|
-| `PageData` | ページデータ（`slug`, `title`, `content`, `html`, `meta`） |
-| `PageMeta` | ページメタ情報（`title`, `description`, `keywords`, `template`, `draft`, `date`, `author`） |
-| `RedirectRule` | リダイレクト定義（`from`, `to`, `status`） |
-
-### 2.5 コレクション型
-
-| 型 | 用途 |
-|---|------|
-| `CollectionSchema` | コレクション定義スキーマ（`name`, `label`, `directory`, `format`, `fields`, `sortBy`, `sortOrder`） |
-| `FieldDef` | フィールド定義（`type`, `required`, `default`, `min`, `max`, `label`, `options`） |
-| `FieldType` | フィールドタイプ（`string` / `text` / `number` / `boolean` / `date` / `datetime` / `array` / `image` / `select`） |
-| `CollectionItem` | コレクションアイテム（`slug`, `collection`, `meta`, `body`, `html`） |
-| `ItemMeta` | アイテムメタデータ（`title`, `date`, `draft`, `tags`） |
-| `CollectionSummary` | コレクション要約情報（`name`, `label`, `directory`, `format`, `count`） |
-
-### 2.6 静的サイト生成型
-
-| 型 | 用途 |
-|---|------|
-| `BuildStatusValue` | ビルドステータス（`pending` / `building` / `complete` / `error`） |
-| `BuildResult` | ビルド結果（`status`, `stats`, `changedFiles`, `warnings`, `elapsed`） |
-| `BuildStats` | ビルド統計情報（`total`, `built`, `skipped`, `deleted`, `errors`, `assets`） |
-| `BuildManifest` | ビルドマニフェスト — 差分ビルドの判断材料（`changed`, `added`, `deleted`, `unchanged`） |
-| `BuildState` | ビルド状態の永続化形式（`hashes`, `settings_hash`, `theme_hash`, `timestamp`） |
-| `ThemeConfig` | テーマ設定（`name`, `directory`, `templates`, `assets`, `partials`） |
-| `TemplateContext` | テンプレートコンテキスト（`site`, `page`, `pages`, `collections`, `navigation`） |
-| `NavigationItem` | ナビゲーション項目（`label`, `url`, `active`, `children`） |
-| `SitemapEntry` | サイトマップエントリ（`url`, `lastmod`, `changefreq`, `priority`） |
-
-### 2.7 サイト設定・診断型
-
-| 型 | 用途 |
-|---|------|
-| `SiteSettings` | サイト設定（`title`, `description`, `url`, `language`, `theme`） |
-| `DiagnosticsReport` | 診断レポート（`events`, `summary`, `collectedAt`） |
-| `DiagEvent` | 診断イベント（`channel`, `level`, `message`, `context`, `timestamp`） |
-| `DiagLevel` | 診断レベル（`debug` / `info` / `warning` / `error` / `critical`） |
-| `HealthCheckResult` | ヘルスチェック結果（`status`, `version`, `runtime`, `time`, `checks`） |
-
-### 2.8 デプロイ・更新型
-
-| 型 | 用途 |
-|---|------|
-| `GitResult` | Git 操作結果（`success`, `output`, `error`） |
-| `GitStatus` | Git ステータス（`branch`, `clean`, `modified`, `untracked`, `ahead`, `behind`） |
-| `GitLogEntry` | Git コミットログ（`hash`, `message`, `author`, `date`） |
-| `UpdateInfo` | アップデート情報（`available`, `currentVersion`, `latestVersion`, `releaseNotes`） |
-| `BackupEntry` | バックアップエントリ（`name`, `createdAt`, `size`, `version`） |
-
-### 2.9 Webhook・リビジョン型
-
-| 型 | 用途 |
-|---|------|
-| `WebhookConfig` | Webhook 設定（`url`, `label`, `events`, `secret`, `enabled`） |
-| `WebhookEvent` | Webhook イベント種別（`content.created` / `content.updated` / `content.deleted` / `build.started` / `build.completed` / `deploy.completed`） |
-| `RevisionEntry` | リビジョンエントリ（`file`, `timestamp`, `size`, `user`, `restored`, `pinned`） |
-
-### 2.10 ACS インターフェース型
-
-| 型 | 用途 |
-|---|------|
-| `AdlaireClient` | ACS の中核インターフェース（`auth`, `storage`, `files`, `http`） |
-| `AuthModule` | 認証モジュール（`login`, `logout`, `session`, `verify`） |
-| `StorageModule` | ストレージモジュール（`read`, `write`, `delete`, `exists`, `list`） |
-| `FileModule` | ファイルモジュール（`upload`, `download`, `delete`, `exists`, `info`） |
-| `HttpModule` | HTTP モジュール（`get`, `post`, `put`, `delete`） |
-| `WriteOperation` | 書き込み操作結果（`success`, `path`, `size`, `error`） |
-
-### 2.11 その他の型
-
-| 型 | 用途 |
-|---|------|
-| `ValidationRules` | バリデーションルール定義 |
-| `ValidationErrors` | バリデーションエラー |
-| `LogLevelValue` | ログレベル |
-| `SearchResult` | 検索結果（`collection`, `slug`, `title`, `preview`, `score`） |
-| `LocaleId` | ロケール識別子 |
-| `TranslationDict` | 翻訳辞書 |
-| `RateLimitConfig` | レートリミット設定 |
-| `CorsConfig` | CORS 設定 |
-| `ImageInfo` | 画像情報（`width`, `height`, `mime`, `size`, `aspect`） |
-| `FrontMatterResult` | Front matter パース結果（`meta`, `body`） |
-| `ActionDefinition` | アクション定義（`name`, `handler`, `requiresAuth`, `requiresCsrf`） |
+各フレームワークが必要とする型は、そのエンジン内のコンポーネントで定義する。他のフレームワークの型定義を直接参照してはならない。
 
 ---
 
