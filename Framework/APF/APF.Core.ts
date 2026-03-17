@@ -35,6 +35,7 @@ export class Container implements ContainerInterface {
   private factories = new Map<string, (...args: unknown[]) => unknown>();
   private singletons = new Map<string, unknown>();
   private isSingleton = new Set<string>();
+  private resolving = new Set<string>();
 
   bind(name: string, factory: (...args: unknown[]) => unknown): void {
     this.factories.set(name, factory);
@@ -57,13 +58,22 @@ export class Container implements ContainerInterface {
       throw new Error(`No binding for: ${name}`);
     }
 
-    const instance = factory();
-
-    if (this.isSingleton.has(name)) {
-      this.singletons.set(name, instance);
+    if (this.resolving.has(name)) {
+      throw new Error(`Circular dependency detected while resolving: ${name}`);
     }
 
-    return instance as T;
+    this.resolving.add(name);
+    try {
+      const instance = factory();
+
+      if (this.isSingleton.has(name)) {
+        this.singletons.set(name, instance);
+      }
+
+      return instance as T;
+    } finally {
+      this.resolving.delete(name);
+    }
   }
 
   has(name: string): boolean {
@@ -597,8 +607,15 @@ export class EventBus implements EventBusInterface {
       this.listeners.set(event, []);
     }
     const list = this.listeners.get(event)!;
-    list.push({ fn: listener, priority });
-    list.sort((a, b) => b.priority - a.priority);
+    // Binary insertion to maintain sorted order (descending priority)
+    let lo = 0;
+    let hi = list.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >>> 1;
+      if (list[mid].priority >= priority) lo = mid + 1;
+      else hi = mid;
+    }
+    list.splice(lo, 0, { fn: listener, priority });
   }
 
   dispatch(event: string, data?: Record<string, unknown>): unknown[] {

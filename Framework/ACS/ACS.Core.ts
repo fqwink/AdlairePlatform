@@ -268,7 +268,7 @@ export class AuthService implements AuthModuleInterface {
     });
 
     if (result.ok && result.data) {
-      const authResult = result.data as unknown as AuthResult;
+      const authResult = result.data;
       if (authResult.authenticated && authResult.user) {
         this.currentSession = {
           id: "",
@@ -309,7 +309,7 @@ export class AuthService implements AuthModuleInterface {
       token,
     });
     if (result.ok && result.data) {
-      return result.data as unknown as AuthResult;
+      return result.data;
     }
     return { authenticated: false, user: null };
   }
@@ -503,7 +503,7 @@ export class FileService implements FileModuleInterface {
 export class EventSourceService implements EventSourceInterface {
   private source: EventSource | null = null;
   private listeners = new Map<string, Set<(data: unknown) => void>>();
-  private nativeListeners = new Map<string, Map<Function, Function>>();
+  private nativeListeners = new Map<string, Map<(data: unknown) => void, EventListener>>();
   private state = ConnectionState.DISCONNECTED;
 
   constructor(private readonly baseUrl: string) {}
@@ -597,7 +597,7 @@ export class EventSourceService implements EventSourceInterface {
     if (eventMap && this.source) {
       const wrapper = eventMap.get(callback);
       if (wrapper) {
-        this.source.removeEventListener(event, wrapper as EventListener);
+        this.source.removeEventListener(event, wrapper);
         eventMap.delete(callback);
       }
     }

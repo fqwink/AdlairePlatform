@@ -504,13 +504,22 @@ export class MarkdownService implements MarkdownServiceInterface {
     const trimmed = url.trim();
     // Only allow http, https, mailto, and relative URLs
     if (/^(https?:|mailto:|\/|#|\.)/i.test(trimmed)) {
-      return trimmed;
+      return this.escapeHtmlAttr(trimmed);
     }
     // Block javascript:, data:, vbscript:, etc.
     if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(trimmed)) {
       return "#";
     }
-    return trimmed;
+    return this.escapeHtmlAttr(trimmed);
+  }
+
+  private escapeHtmlAttr(str: string): string {
+    return str
+      .replace(/&/g, "&amp;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
   }
 }
 

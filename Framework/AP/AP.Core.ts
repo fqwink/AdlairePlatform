@@ -84,6 +84,14 @@ export abstract class BaseController implements BaseControllerInterface {
   }
 
   /**
+   * スラッグの形式を検証する（英数字、ハイフン、アンダースコア）
+   */
+  protected isValidSlug(value: string, allowSlash = false): boolean {
+    const pattern = allowSlash ? /^[a-zA-Z0-9_\-/]+$/ : /^[a-zA-Z0-9_-]+$/;
+    return pattern.test(value);
+  }
+
+  /**
    * POST body からパース済みデータを取得する
    */
   protected parseBody(request: RequestContext): Record<string, unknown> {
@@ -201,7 +209,7 @@ export class AdminController extends BaseController implements AdminControllerIn
     }
 
     // Validate page slug to prevent path traversal
-    if (/[^a-zA-Z0-9_\-/]/.test(page)) {
+    if (!this.isValidSlug(page, true)) {
       return this.error("Invalid page slug");
     }
 
@@ -239,7 +247,7 @@ export class AdminController extends BaseController implements AdminControllerIn
 
     if (!page) return this.error("page is required");
 
-    if (/[^a-zA-Z0-9_-]/.test(page)) {
+    if (!this.isValidSlug(page)) {
       return this.error("Invalid page slug");
     }
 
@@ -251,7 +259,7 @@ export class AdminController extends BaseController implements AdminControllerIn
     const page = String(this.getParam(request, "page", ""));
     if (!page) return this.error("page is required");
 
-    if (/[^a-zA-Z0-9_-]/.test(page)) {
+    if (!this.isValidSlug(page)) {
       return this.error("Invalid page slug");
     }
 
@@ -266,10 +274,10 @@ export class AdminController extends BaseController implements AdminControllerIn
 
     if (!page || !rev) return this.error("page and revision are required");
 
-    if (/[^a-zA-Z0-9_-]/.test(page)) {
+    if (!this.isValidSlug(page)) {
       return this.error("Invalid page slug");
     }
-    if (/[^a-zA-Z0-9_.-]/.test(rev)) {
+    if (!/^[a-zA-Z0-9_.-]+$/.test(rev)) {
       return this.error("Invalid revision ID");
     }
 
@@ -284,10 +292,10 @@ export class AdminController extends BaseController implements AdminControllerIn
 
     if (!page || !rev) return this.error("page and revision are required");
 
-    if (/[^a-zA-Z0-9_-]/.test(page)) {
+    if (!this.isValidSlug(page)) {
       return this.error("Invalid page slug");
     }
-    if (/[^a-zA-Z0-9_.-]/.test(rev)) {
+    if (!/^[a-zA-Z0-9_.-]+$/.test(rev)) {
       return this.error("Invalid revision ID");
     }
 
@@ -306,10 +314,10 @@ export class AdminController extends BaseController implements AdminControllerIn
 
     if (!page || !rev) return this.error("page and revision are required");
 
-    if (/[^a-zA-Z0-9_-]/.test(page)) {
+    if (!this.isValidSlug(page)) {
       return this.error("Invalid page slug");
     }
-    if (/[^a-zA-Z0-9_.-]/.test(rev)) {
+    if (!/^[a-zA-Z0-9_.-]+$/.test(rev)) {
       return this.error("Invalid revision ID");
     }
 
@@ -329,13 +337,30 @@ export class AdminController extends BaseController implements AdminControllerIn
 
     if (!page) return this.error("page is required");
 
-    if (/[^a-zA-Z0-9_-]/.test(page)) {
+    if (!this.isValidSlug(page)) {
       return this.error("Invalid page slug");
     }
 
     const all = await this.client.storage.list(`revisions/${page}`, ".json");
-    // 簡易検索 - ファイル名マッチ
-    const matched = all.filter((f) => f.includes(query));
+    if (!query) {
+      return this.ok({ results: all });
+    }
+    // ファイル名マッチ + リビジョン内容のテキスト検索
+    const lowerQuery = query.toLowerCase();
+    const matched: string[] = [];
+    for (const f of all) {
+      if (f.toLowerCase().includes(lowerQuery)) {
+        matched.push(f);
+        continue;
+      }
+      const data = await this.client.storage.read<Record<string, unknown>>(
+        f,
+        `revisions/${page}`,
+      );
+      if (data && JSON.stringify(data).toLowerCase().includes(lowerQuery)) {
+        matched.push(f);
+      }
+    }
     return this.ok({ results: matched });
   }
 
@@ -344,9 +369,13 @@ export class AdminController extends BaseController implements AdminControllerIn
     const username = String(body.username ?? "");
     const password = String(body.password ?? "");
     const role = String(body.role ?? "editor");
+    const allowedRoles = ["admin", "editor", "viewer"];
 
     if (!username || !password) {
       return this.error("username and password are required");
+    }
+    if (!allowedRoles.includes(role)) {
+      return this.error(`Invalid role. Allowed: ${allowedRoles.join(", ")}`);
     }
 
     const users = (await this.client.storage.read<Record<string, unknown>[]>(
@@ -484,7 +513,7 @@ export class CollectionController extends BaseController implements CollectionCo
       return this.error("collection and slug are required");
     }
 
-    if (/[^a-zA-Z0-9_-]/.test(collection) || /[^a-zA-Z0-9_-]/.test(slug)) {
+    if (!this.isValidSlug(collection) || !this.isValidSlug(slug)) {
       return this.error("Invalid collection or slug");
     }
 
@@ -506,7 +535,7 @@ export class CollectionController extends BaseController implements CollectionCo
       return this.error("collection and slug are required");
     }
 
-    if (/[^a-zA-Z0-9_-]/.test(collection) || /[^a-zA-Z0-9_-]/.test(slug)) {
+    if (!this.isValidSlug(collection) || !this.isValidSlug(slug)) {
       return this.error("Invalid collection or slug");
     }
 
@@ -585,6 +614,9 @@ export class GitController extends BaseController implements GitControllerInterf
     const body = this.parseBody(request);
     const branch = String(body.branch ?? "");
     if (!branch) return this.error("branch is required");
+    if (!/^[a-zA-Z0-9_\-/.]+$/.test(branch)) {
+      return this.error("Invalid branch name");
+    }
     return this.ok({ branch, preview: true });
   }
 }
@@ -608,7 +640,12 @@ export class WebhookController extends BaseController implements WebhookControll
       }
       // Block private/internal IPs
       const host = parsed.hostname;
-      if (host === "localhost" || host === "127.0.0.1" || host === "0.0.0.0" || host.startsWith("192.168.") || host.startsWith("10.") || host.startsWith("172.") || host === "169.254.169.254") {
+      if (
+        host === "localhost" || host === "127.0.0.1" || host === "0.0.0.0" ||
+        host === "::1" || host === "169.254.169.254" ||
+        host.startsWith("192.168.") || host.startsWith("10.") ||
+        WebhookController._isPrivate172(host)
+      ) {
         return this.error("Internal URLs are not allowed");
       }
     } catch {
@@ -667,12 +704,41 @@ export class WebhookController extends BaseController implements WebhookControll
     return this.ok({ id, enabled: hook.enabled });
   }
 
-  test(request: RequestContext): ResponseData {
+  async test(request: RequestContext): Promise<ResponseData> {
     const body = this.parseBody(request);
     const id = String(body.id ?? "");
 
     if (!id) return this.error("id is required");
-    return this.ok({ id, tested: true, status: 200 });
+
+    const hooks = (await this.client.storage.read<Record<string, unknown>[]>(
+      "webhooks.json",
+      "settings",
+    )) ?? [];
+
+    const hook = hooks.find((h) => h.id === id);
+    if (!hook) return this.error("Webhook not found", 404);
+
+    const url = String(hook.url ?? "");
+    if (!url) return this.error("Webhook has no URL configured");
+
+    try {
+      const resp = await this.client.http.post(url, {
+        event: "test",
+        timestamp: new Date().toISOString(),
+        webhookId: id,
+      });
+      return this.ok({ id, tested: true, status: resp.ok ? 200 : 0 });
+    } catch {
+      return this.ok({ id, tested: true, status: 0 });
+    }
+  }
+
+  private static _isPrivate172(host: string): boolean {
+    if (!host.startsWith("172.")) return false;
+    const parts = host.split(".");
+    if (parts.length < 2) return false;
+    const second = parseInt(parts[1], 10);
+    return second >= 16 && second <= 31;
   }
 }
 
@@ -712,7 +778,7 @@ export class StaticController extends BaseController implements StaticController
 
 export class UpdateController extends BaseController implements UpdateControllerInterface {
   check(_request: RequestContext): ResponseData {
-    return this.ok({ available: false, currentVersion: "Ver.2.1-41" });
+    return this.ok({ available: false, currentVersion: "Ver.2.2-43" });
   }
 
   async checkEnv(_request: RequestContext): Promise<ResponseData> {
@@ -735,7 +801,7 @@ export class UpdateController extends BaseController implements UpdateController
     const backup = String(body.backup ?? "");
     if (!backup) return this.error("backup is required");
 
-    if (!/^[a-zA-Z0-9._-]+\.zip$/.test(backup)) {
+    if (!/^[a-zA-Z0-9_-]+(?:\.[a-zA-Z0-9_-]+)*\.zip$/.test(backup)) {
       return this.error("Invalid backup filename");
     }
 
@@ -747,7 +813,7 @@ export class UpdateController extends BaseController implements UpdateController
     const backup = String(body.backup ?? "");
     if (!backup) return this.error("backup is required");
 
-    if (!/^[a-zA-Z0-9._-]+\.zip$/.test(backup)) {
+    if (!/^[a-zA-Z0-9_-]+(?:\.[a-zA-Z0-9_-]+)*\.zip$/.test(backup)) {
       return this.error("Invalid backup filename");
     }
 
@@ -772,6 +838,10 @@ export class DiagnosticController extends BaseController implements DiagnosticCo
   async setLevel(request: RequestContext): Promise<ResponseData> {
     const body = this.parseBody(request);
     const level = String(body.level ?? "info");
+    const allowedLevels = ["debug", "info", "warning", "error", "critical"];
+    if (!allowedLevels.includes(level)) {
+      return this.error(`Invalid level. Allowed: ${allowedLevels.join(", ")}`);
+    }
 
     const config = (await this.client.storage.read<Record<string, unknown>>(
       "diagnostic.json",
@@ -832,34 +902,48 @@ export class ActionDispatcher implements ActionDispatcherInterface {
     this.controllers = controllers;
   }
 
-  handle(request: RequestContext): Promise<ResponseData> {
-    // Use pre-parsed postData (supports JSON, URL-encoded, and FormData)
-    const body = request.postData ?? {};
-    const actionName = String(
-      body.ap_action ?? body.action ?? request.query["ap_action"] ?? "",
-    );
+  async handle(request: RequestContext): Promise<ResponseData> {
+    try {
+      // Use pre-parsed postData (supports JSON, URL-encoded, and FormData)
+      const body = request.postData ?? {};
+      const actionName = String(
+        body.ap_action ?? body.action ?? request.query["ap_action"] ?? "",
+      );
 
-    if (!actionName) {
-      throw new UnknownActionError("(empty)");
+      if (!actionName) {
+        return ActionDispatcher._errorResponse("Unknown action: (empty)", 400);
+      }
+
+      const mapping = ACTION_MAP[actionName];
+      if (!mapping) {
+        return ActionDispatcher._errorResponse(`Unknown action: ${actionName}`, 400);
+      }
+
+      const controller = this.controllers[mapping.controller];
+      if (!controller) {
+        return ActionDispatcher._errorResponse(`Controller not registered: ${mapping.controller}`, 500);
+      }
+
+      const action = controller.getAction(mapping.method);
+      if (!action) {
+        return ActionDispatcher._errorResponse(`Action not found: ${mapping.controller}.${mapping.method}`, 500);
+      }
+
+      const result = action(request);
+      return result instanceof Promise ? result : Promise.resolve(result);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Internal server error";
+      return ActionDispatcher._errorResponse(message, 500);
     }
+  }
 
-    const mapping = ACTION_MAP[actionName];
-    if (!mapping) {
-      throw new UnknownActionError(actionName);
-    }
-
-    const controller = this.controllers[mapping.controller];
-    if (!controller) {
-      throw new ControllerError(`Controller not registered: ${mapping.controller}`);
-    }
-
-    const action = controller.getAction(mapping.method);
-    if (!action) {
-      throw new ControllerError(`Action not found: ${mapping.controller}.${mapping.method}`);
-    }
-
-    const result = action(request);
-    return result instanceof Promise ? result : Promise.resolve(result);
+  private static _errorResponse(message: string, statusCode: number): ResponseData {
+    return {
+      statusCode,
+      headers: { "Content-Type": "application/json; charset=utf-8" },
+      body: JSON.stringify({ ok: false, error: message }),
+      contentType: "application/json",
+    };
   }
 
   registeredActions(): ActionDefinition[] {

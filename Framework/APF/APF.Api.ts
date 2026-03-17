@@ -37,7 +37,7 @@ export function registerSystemRoutes(router: RouterInterface): void {
       ok: true,
       data: {
         platform: "Adlaire",
-        version: "Ver.2.1-41",
+        version: "Ver.2.2-43",
         framework: "APF",
       },
     }));

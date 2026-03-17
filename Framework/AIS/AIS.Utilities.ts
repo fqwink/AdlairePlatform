@@ -41,11 +41,17 @@ export class DiagnosticsManager implements DiagnosticsManagerInterface {
   private level: "basic" | "extended" | "debug" = "basic";
   private events: DiagEvent[] = [];
   private timings: Record<string, number> = {};
+  private readonly maxEvents = 10000;
 
   constructor(private readonly client: AdlaireClient) {}
 
   log(channel: string, message: string, context?: Record<string, unknown>): void {
     if (!this.enabled) return;
+
+    if (this.events.length >= this.maxEvents) {
+      // Drop oldest 10% to avoid constant shifting
+      this.events = this.events.slice(Math.floor(this.maxEvents * 0.1));
+    }
 
     this.events.push({
       channel,
@@ -91,7 +97,7 @@ export class DiagnosticsManager implements DiagnosticsManagerInterface {
     // ASS 接続失敗時のフォールバック
     return {
       status: "degraded",
-      version: "Ver.2.1-41",
+      version: "Ver.2.2-43",
       runtime: "deno (ASS unreachable)",
       time: new Date().toISOString(),
       checks: {
@@ -170,6 +176,11 @@ export class DiagnosticsManager implements DiagnosticsManagerInterface {
 
 export class ApiCache implements ApiCacheInterface {
   private cache = new Map<string, { value: unknown; expiresAt: number }>();
+  private readonly maxSize: number;
+
+  constructor(maxSize: number = 500) {
+    this.maxSize = maxSize;
+  }
 
   async remember<T>(key: string, ttl: number, callback: () => Promise<T>): Promise<T> {
     const cached = this.cache.get(key);
@@ -178,6 +189,15 @@ export class ApiCache implements ApiCacheInterface {
     }
 
     const value = await callback();
+    // Evict expired entries when approaching max size
+    if (this.cache.size >= this.maxSize) {
+      this.evictExpired();
+    }
+    // If still at max, remove oldest entry
+    if (this.cache.size >= this.maxSize) {
+      const firstKey = this.cache.keys().next().value;
+      if (firstKey !== undefined) this.cache.delete(firstKey);
+    }
     this.cache.set(key, { value, expiresAt: Date.now() + ttl * 1000 });
     return value;
   }
@@ -185,6 +205,15 @@ export class ApiCache implements ApiCacheInterface {
   invalidateContent(): void {
     for (const key of this.cache.keys()) {
       if (key.startsWith("content:") || key.startsWith("collection:")) {
+        this.cache.delete(key);
+      }
+    }
+  }
+
+  private evictExpired(): void {
+    const now = Date.now();
+    for (const [key, entry] of this.cache) {
+      if (entry.expiresAt <= now) {
         this.cache.delete(key);
       }
     }
@@ -273,8 +302,8 @@ export class UpdateService implements UpdateServiceInterface {
   checkUpdate(): Promise<UpdateInfo> {
     return Promise.resolve({
       available: false,
-      currentVersion: "Ver.2.1-41",
-      latestVersion: "Ver.2.1-41",
+      currentVersion: "Ver.2.2-43",
+      latestVersion: "Ver.2.2-43",
     });
   }
 
@@ -284,7 +313,7 @@ export class UpdateService implements UpdateServiceInterface {
     if (resp.ok && resp.data) {
       return {
         runtimeVersion: (resp.data as unknown as Record<string, string>).runtime ?? "unknown",
-        requiredVersion: "Ver.2.1-41",
+        requiredVersion: "Ver.2.2-43",
         writable: true,
         diskSpace: 0,
         issues: [],
@@ -292,7 +321,7 @@ export class UpdateService implements UpdateServiceInterface {
     }
     return {
       runtimeVersion: "unknown",
-      requiredVersion: "Ver.2.1-41",
+      requiredVersion: "Ver.2.2-43",
       writable: true,
       diskSpace: 0,
       issues: ["ASS server unreachable"],
@@ -302,8 +331,8 @@ export class UpdateService implements UpdateServiceInterface {
   executeApplyUpdate(): Promise<UpdateApplyResult> {
     return Promise.resolve({
       success: false,
-      fromVersion: "Ver.2.1-41",
-      toVersion: "Ver.2.1-41",
+      fromVersion: "Ver.2.2-43",
+      toVersion: "Ver.2.2-43",
       error: "No update available",
     });
   }
