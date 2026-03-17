@@ -380,7 +380,6 @@ Framework/
 │   ├── {PREFIX}.Utilities.ts
 │   └── {SubDir}/             # サブディレクトリ（任意）
 ├── mod.ts                    # バレルエクスポート（エントリポイント）
-├── types.ts                  # 共通型定義
 └── browser.deno.json         # コンパイラ設定
 ```
 
