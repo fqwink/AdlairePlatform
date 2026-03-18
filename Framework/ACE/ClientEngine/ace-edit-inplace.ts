@@ -112,7 +112,7 @@
 				const ta = document.createElement('textarea');
 				ta.name = 'textarea';
 				ta.id   = `${el.id}_field`;
-				if (el.title) ta.setAttribute('title', a.title);
+				if (el.title) ta.setAttribute('title', el.title);
 				ta.value = el.innerHTML.replace(/<br\s*\/?>/gi, '\n');
 				ta.addEventListener('blur', function handler() {
 					ta.removeEventListener('blur', handler);

@@ -383,7 +383,7 @@
 				self.disabled = false;
 				showResult(res.ok ? '送信しました' : (res.error || '送信失敗'));
 				if (res.ok) loadSummary();
-			}).catch(() => { btn.disabled = false; });
+			}).catch(() => { self.disabled = false; });
 		});
 
 		/* ログクリア */
