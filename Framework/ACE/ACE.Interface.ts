@@ -11,19 +11,10 @@
 
 import type {
   ApiResponse,
-  CollectionItem,
-  CollectionSchema,
-  CollectionSummary,
-  FieldDef,
   FrontMatterResult,
-  ItemMeta,
   PageData,
-  RevisionEntry,
-  SearchResult,
   ValidationErrors,
-  WebhookConfig,
-  WebhookEvent,
-} from "../types.ts";
+} from "../ACS/ACS.d.ts";
 
 // ============================================================================
 // Collection Management
@@ -156,4 +147,131 @@ export interface RevisionServiceInterface {
   restore(slug: string, file: string): Promise<boolean>;
   pin(slug: string, file: string): Promise<boolean>;
   search(slug: string, query: string): Promise<RevisionEntry[]>;
+}
+
+// ============================================================================
+// ACE-Specific Types
+// ============================================================================
+
+/**
+ * コレクション定義スキーマ
+ */
+export interface CollectionSchema {
+  readonly name: string;
+  readonly label: string;
+  readonly directory: string;
+  readonly format: "markdown";
+  readonly fields: Record<string, FieldDef>;
+  readonly sortBy?: string;
+  readonly sortOrder?: "asc" | "desc";
+  readonly perPage?: number;
+  readonly template?: string;
+  readonly indexTemplate?: string;
+  readonly createdAt?: string;
+}
+
+/**
+ * フィールド定義
+ */
+export interface FieldDef {
+  readonly type: FieldType;
+  readonly required?: boolean;
+  readonly default?: unknown;
+  readonly min?: number | string;
+  readonly max?: number | string;
+  readonly label?: string;
+  readonly description?: string;
+  readonly options?: string[];
+}
+
+/**
+ * フィールドタイプ
+ */
+export type FieldType =
+  | "string"
+  | "text"
+  | "number"
+  | "boolean"
+  | "date"
+  | "datetime"
+  | "array"
+  | "image"
+  | "select";
+
+/**
+ * コレクションアイテム — Markdown ファイル1件分
+ */
+export interface CollectionItem {
+  readonly slug: string;
+  readonly collection: string;
+  readonly meta: ItemMeta;
+  readonly body: string;
+  readonly html?: string;
+}
+
+/**
+ * アイテムメタデータ
+ */
+export interface ItemMeta {
+  readonly title: string;
+  readonly date?: string;
+  readonly draft?: boolean;
+  readonly tags?: string[];
+  readonly [key: string]: unknown;
+}
+
+/**
+ * コレクション一覧の要約情報
+ */
+export interface CollectionSummary {
+  readonly name: string;
+  readonly label: string;
+  readonly directory: string;
+  readonly format: string;
+  readonly count: number;
+}
+
+/**
+ * Webhook 設定
+ */
+export interface WebhookConfig {
+  readonly url: string;
+  readonly label: string;
+  readonly events: WebhookEvent[];
+  readonly secret?: string;
+  readonly enabled: boolean;
+}
+
+/**
+ * Webhook イベント種別
+ */
+export type WebhookEvent =
+  | "content.created"
+  | "content.updated"
+  | "content.deleted"
+  | "build.started"
+  | "build.completed"
+  | "deploy.completed";
+
+/**
+ * リビジョンエントリ
+ */
+export interface RevisionEntry {
+  readonly file: string;
+  readonly timestamp: string;
+  readonly size: number;
+  readonly user: string;
+  readonly restored: boolean;
+  readonly pinned: boolean;
+}
+
+/**
+ * 検索結果
+ */
+export interface SearchResult {
+  readonly collection: string;
+  readonly slug: string;
+  readonly title: string;
+  readonly preview: string;
+  readonly score?: number;
 }

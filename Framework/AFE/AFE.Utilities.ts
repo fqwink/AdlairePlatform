@@ -11,7 +11,7 @@
  * @license Adlaire License Ver.2.0
  */
 
-import type { ValidationErrors, ValidationRules } from "../types.ts";
+import type { ValidationErrors, ValidationRules } from "../ACS/ACS.d.ts";
 
 import type {
   ConfigInterface,

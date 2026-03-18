@@ -16,27 +16,25 @@
  * @license Adlaire License Ver.2.0
  */
 
-import type {
-  BuildManifest,
-  BuildResult,
-  BuildState,
-  BuildStats,
-  PageData,
-  RedirectRule,
-  SitemapEntry,
-  TemplateContext,
-} from "../types.ts";
+import type { PageData } from "../ACS/ACS.d.ts";
 
 import type {
   BuildCacheInterface,
   BuilderInterface,
+  BuildManifest,
+  BuildResult,
+  BuildState,
+  BuildStats,
   DeployerInterface,
   GeneratorConfig,
   GeneratorInterface,
   GeneratorStatus,
   MarkdownServiceInterface,
+  RedirectRule,
+  SitemapEntry,
   SiteRouterInterface,
   StaticFileSystemInterface,
+  TemplateContext,
   TemplateRendererInterface,
 } from "./ASG.Interface.ts";
 

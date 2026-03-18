@@ -17,7 +17,7 @@ import type {
   RequestInterface,
   ResponseConstructor,
   ResponseInterface,
-} from "../types.ts";
+} from "../ACS/ACS.d.ts";
 
 // ============================================================================
 // CsrfMiddleware — CSRF 保護

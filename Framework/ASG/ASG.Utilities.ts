@@ -10,14 +10,14 @@
  * @license Adlaire License Ver.2.0
  */
 
-import type { FrontMatterResult, ThemeConfig } from "../types.ts";
-
 import type {
   BuilderInterface,
+  FrontMatterResult,
   MarkdownServiceInterface,
   StaticFileSystemInterface,
   TemplateHelper,
   TemplateRendererInterface,
+  ThemeConfig,
   ThemeManagerInterface,
 } from "./ASG.Interface.ts";
 

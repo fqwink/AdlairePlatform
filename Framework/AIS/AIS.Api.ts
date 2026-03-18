@@ -12,7 +12,7 @@ import type {
   RequestInterface,
   ResponseConstructor,
   RouterInterface,
-} from "../types.ts";
+} from "../ACS/ACS.d.ts";
 import type { AppContextInterface, I18nInterface } from "./AIS.Interface.ts";
 
 /**

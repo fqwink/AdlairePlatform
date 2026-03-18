@@ -19,7 +19,7 @@ import type {
   SessionInfo,
   StorageModule,
   WriteOperation,
-} from "../types.ts";
+} from "./ACS.d.ts";
 
 // ============================================================================
 // Client Factory

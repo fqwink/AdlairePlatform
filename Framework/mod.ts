@@ -14,7 +14,9 @@
  */
 
 // ── Types ──
-export type * from "./types.ts";
+// FRAMEWORK_RULEBOOK v3.0 §2.1: 共有型ファイル禁止
+// 各フレームワークは ACS.d.ts から直接 import type する
+export type * from "./ACS/ACS.d.ts";
 
 // ── AFE (Adlaire Foundation Engine) ──
 export {

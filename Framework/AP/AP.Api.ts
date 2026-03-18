@@ -10,14 +10,15 @@
  */
 
 import type {
+  AdlaireClient,
   MiddlewareInterface,
+  RequestContext,
   RequestInterface,
   ResponseConstructor,
+  ResponseData,
   ResponseInterface,
   RouterInterface,
-} from "../types.ts";
-import type { AdlaireClient } from "../ACS/ACS.d.ts";
-import type { RequestContext, ResponseData } from "../types.ts";
+} from "../ACS/ACS.d.ts";
 import {
   AdminController,
   ApiController,

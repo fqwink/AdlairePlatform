@@ -13,23 +13,23 @@
 
 import type {
   AdlaireClient,
-  CollectionItem,
-  CollectionSchema,
-  CollectionSummary,
-  FieldDef,
   FrontMatterResult,
-  ItemMeta,
-  SearchResult,
   ValidationErrors,
-} from "../types.ts";
+} from "../ACS/ACS.d.ts";
 
 import type {
+  CollectionItem,
   CollectionManagerInterface,
+  CollectionSchema,
+  CollectionSummary,
   ContentManagerInterface,
   ContentValidatorInterface,
+  FieldDef,
+  ItemMeta,
   ItemSaveData,
   ListItemsOptions,
   MetaManagerInterface,
+  SearchResult,
 } from "./ACE.Interface.ts";
 
 import { CollectionError, SLUG_PATTERN } from "./ACE.Class.ts";

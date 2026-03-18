@@ -10,12 +10,12 @@
  */
 
 import type {
-  ActionDefinition,
   AdlaireClient,
   ApiResponse,
   RequestContext,
   ResponseData,
-} from "../types.ts";
+} from "../ACS/ACS.d.ts";
+import type { ActionDefinition } from "./AP.Interface.ts";
 
 import type {
   ActionDispatcherInterface,

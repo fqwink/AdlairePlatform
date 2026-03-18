@@ -12,15 +12,15 @@
 import type {
   AdlaireClient,
   ApiResponse,
-  RevisionEntry,
-  WebhookConfig,
-  WebhookEvent,
-} from "../types.ts";
+} from "../ACS/ACS.d.ts";
 
 import type {
   ApiEndpointHandler,
   ApiRouterInterface,
+  RevisionEntry,
   RevisionServiceInterface,
+  WebhookConfig,
+  WebhookEvent,
   WebhookServiceInterface,
 } from "./ACE.Interface.ts";
 

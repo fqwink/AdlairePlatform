@@ -16,7 +16,7 @@ import type {
   ImageInfo,
   SessionInfo,
   WriteOperation,
-} from "../types.ts";
+} from "./ACS.d.ts";
 
 import type {
   AuthChangeCallback,

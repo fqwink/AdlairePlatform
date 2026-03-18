@@ -9,26 +9,24 @@
  * @license Adlaire License Ver.2.0
  */
 
-import type {
-  AdlaireClient,
-  BackupEntry,
-  DiagEvent,
-  DiagnosticsReport,
-  GitLogEntry,
-  GitResult,
-  GitStatus,
-  HealthCheckResult,
-  UpdateInfo,
-} from "../types.ts";
+import type { AdlaireClient } from "../ACS/ACS.d.ts";
 
 import type {
   ApiCacheInterface,
+  BackupEntry,
+  DiagEvent,
   DiagnosticsConfig,
   DiagnosticsManagerInterface,
+  DiagnosticsReport,
   EnvironmentCheck,
+  GitLogEntry,
+  GitResult,
   GitServiceConfig,
   GitServiceInterface,
+  GitStatus,
+  HealthCheckResult,
   UpdateApplyResult,
+  UpdateInfo,
   UpdateServiceInterface,
 } from "./AIS.Interface.ts";
 

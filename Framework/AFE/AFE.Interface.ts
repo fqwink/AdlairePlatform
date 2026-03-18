@@ -18,7 +18,7 @@ import type {
   ResponseData,
   RouteDefinition,
   ValidationErrors,
-} from "../types.ts";
+} from "../ACS/ACS.d.ts";
 
 // ============================================================================
 // Router

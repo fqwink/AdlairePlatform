@@ -12,7 +12,7 @@
  * @license Adlaire License Ver.2.0
  */
 
-import type { HttpMethodValue, RequestContext, ResponseData, RouteDefinition } from "../types.ts";
+import type { HttpMethodValue, RequestContext, ResponseData, RouteDefinition } from "../ACS/ACS.d.ts";
 
 import type {
   EventBusInterface,

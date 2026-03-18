@@ -9,18 +9,6 @@
  * @license Adlaire License Ver.2.0
  */
 
-import type {
-  BackupEntry,
-  DiagnosticsReport,
-  GitLogEntry,
-  GitResult,
-  GitStatus,
-  HealthCheckResult,
-  LocaleId,
-  TranslationDict,
-  UpdateInfo,
-} from "../types.ts";
-
 // ============================================================================
 // App Context
 // ============================================================================
@@ -176,4 +164,135 @@ export interface UpdaterInterface {
   applyUpdate(zipUrl: string, targetVersion: string): Promise<boolean>;
   rollback(backupName: string): Promise<boolean>;
   getLastError(): string;
+}
+
+// ============================================================================
+// AIS-specific Types
+// ============================================================================
+
+/**
+ * サイト設定
+ */
+export interface SiteSettings {
+  readonly title: string;
+  readonly description: string;
+  readonly url: string;
+  readonly language: string;
+  readonly theme: string;
+  readonly timezone?: string;
+  readonly perPage?: number;
+  readonly cleanUrls?: boolean;
+  readonly minifyHtml?: boolean;
+  readonly [key: string]: unknown;
+}
+
+/**
+ * 診断レポート
+ */
+export interface DiagnosticsReport {
+  readonly events: DiagEvent[];
+  readonly summary: {
+    readonly total: number;
+    readonly byChannel: Record<string, number>;
+    readonly byLevel: Record<string, number>;
+  };
+  readonly collectedAt: string;
+}
+
+/**
+ * 診断イベント
+ */
+export interface DiagEvent {
+  readonly channel: string;
+  readonly level: DiagLevel;
+  readonly message: string;
+  readonly context: Record<string, unknown>;
+  readonly timestamp: string;
+}
+
+/**
+ * 診断レベル
+ */
+export type DiagLevel = "debug" | "info" | "warning" | "error" | "critical";
+
+/**
+ * ヘルスチェック結果
+ */
+export interface HealthCheckResult {
+  readonly status: "ok" | "degraded" | "error";
+  readonly version: string;
+  readonly runtime: string;
+  readonly time: string;
+  readonly checks?: Record<
+    string,
+    {
+      readonly status: "ok" | "warning" | "error";
+      readonly message: string;
+      readonly value?: unknown;
+    }
+  >;
+}
+
+/**
+ * Git 操作結果
+ */
+export interface GitResult {
+  readonly success: boolean;
+  readonly output: string;
+  readonly error?: string;
+}
+
+/**
+ * Git ステータス
+ */
+export interface GitStatus {
+  readonly branch: string;
+  readonly clean: boolean;
+  readonly modified: string[];
+  readonly untracked: string[];
+  readonly ahead: number;
+  readonly behind: number;
+}
+
+/**
+ * Git コミットログ
+ */
+export interface GitLogEntry {
+  readonly hash: string;
+  readonly message: string;
+  readonly author: string;
+  readonly date: string;
+}
+
+/**
+ * アップデート情報
+ */
+export interface UpdateInfo {
+  readonly available: boolean;
+  readonly currentVersion: string;
+  readonly latestVersion: string;
+  readonly releaseNotes?: string;
+  readonly downloadUrl?: string;
+}
+
+/**
+ * バックアップエントリ
+ */
+export interface BackupEntry {
+  readonly name: string;
+  readonly createdAt: string;
+  readonly size: number;
+  readonly version: string;
+}
+
+/**
+ * ロケール識別子
+ */
+export type LocaleId = "ja" | "en" | string;
+
+/**
+ * 翻訳辞書
+ */
+export interface TranslationDict {
+  [key: string]: string | TranslationDict;
 }

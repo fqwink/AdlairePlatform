@@ -9,7 +9,7 @@
  * @license Adlaire License Ver.2.0
  */
 
-import type { HttpMethodValue, LogLevelValue } from "../types.ts";
+import type { HttpMethodValue, LogLevelValue } from "../ACS/ACS.d.ts";
 
 // ============================================================================
 // HttpMethod Enum

@@ -12,7 +12,7 @@ import type {
   RequestInterface,
   ResponseConstructor,
   RouterInterface,
-} from "../types.ts";
+} from "../ACS/ACS.d.ts";
 import type { CollectionManagerInterface, ContentManagerInterface } from "./ACE.Interface.ts";
 
 /**

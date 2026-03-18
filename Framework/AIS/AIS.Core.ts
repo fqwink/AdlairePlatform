@@ -10,13 +10,15 @@
  * @license Adlaire License Ver.2.0
  */
 
-import type { AdlaireClient, LocaleId, TranslationDict } from "../types.ts";
+import type { AdlaireClient } from "../ACS/ACS.d.ts";
 
 import type {
   AppContextInterface,
   AppContextPaths,
   HostInfo,
   I18nInterface,
+  LocaleId,
+  TranslationDict,
 } from "./AIS.Interface.ts";
 
 // ============================================================================

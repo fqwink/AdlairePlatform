@@ -11,7 +11,7 @@
 import type {
   ResponseConstructor,
   RouterInterface,
-} from "../types.ts";
+} from "../ACS/ACS.d.ts";
 import type { GeneratorInterface } from "./ASG.Interface.ts";
 
 /**

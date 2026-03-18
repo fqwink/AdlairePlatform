@@ -9,7 +9,17 @@
  * @license Adlaire License Ver.2.0
  */
 
-import type { ActionDefinition, RequestContext, ResponseData } from "../types.ts";
+import type { RequestContext, ResponseData } from "../ACS/ACS.d.ts";
+
+/**
+ * アクション定義 — POST アクションディスパッチャー用
+ */
+export interface ActionDefinition {
+  readonly name: string;
+  readonly handler: string;
+  readonly requiresAuth: boolean;
+  readonly requiresCsrf: boolean;
+}
 
 /** コントローラーメソッドの戻り値型（同期/非同期どちらも可） */
 type ControllerResult = ResponseData | Promise<ResponseData>;
