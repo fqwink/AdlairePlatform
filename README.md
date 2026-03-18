@@ -127,7 +127,7 @@ Each module follows the **Engine-Driven Model**: 5 files per framework (Core, Ap
 4. Run `deno task lint` and `deno task fmt` before committing.
 5. Run `deno task test` to execute the test suite.
 
-Documentation standards are governed by [docs/DOC_RULEBOOK.md](docs/DOC_RULEBOOK.md). Framework design rules are specified in [docs/FRAMEWORK_RULEBOOK_v2.0.md](docs/FRAMEWORK_RULEBOOK_v2.0.md). Versioning follows the cumulative scheme described in [docs/VERSIONING.md](docs/VERSIONING.md).
+Documentation standards are governed by [docs/DOCUMENT_RULEBOOK.md](docs/DOCUMENT_RULEBOOK.md). Framework design rules are specified in [docs/FRAMEWORK_RULEBOOK_v2.0.md](docs/FRAMEWORK_RULEBOOK_v2.0.md). Versioning follows the cumulative scheme described in [docs/VERSIONING.md](docs/VERSIONING.md).
 
 ---
 
