@@ -51,7 +51,7 @@ function wrapController(
  * 全コントローラーのルートを登録する
  *
  * FRAMEWORK_RULEBOOK §2.1「フレームワーク間依存ゼロ」準拠:
- * APF を直接 import せず、Response を DI で受け取る。
+ * AFE を直接 import せず、ACS.d.ts の型を参照する。
  */
 export function registerPlatformRoutes(
   router: RouterInterface,

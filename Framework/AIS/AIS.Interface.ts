@@ -48,25 +48,6 @@ export interface I18nInterface {
 }
 
 // ============================================================================
-// Service Provider / Container
-// ============================================================================
-
-export interface ServiceProviderInterface {
-  register(): void;
-  boot(): void;
-  provides(): string[];
-}
-
-export interface ServiceContainerInterface {
-  bind(name: string, factory: (...args: unknown[]) => unknown): void;
-  singleton(name: string, factory: (...args: unknown[]) => unknown): void;
-  make<T = unknown>(name: string): T;
-  has(name: string): boolean;
-  register(provider: ServiceProviderInterface): void;
-  boot(): void;
-}
-
-// ============================================================================
 // Diagnostics
 // ============================================================================
 

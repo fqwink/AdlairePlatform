@@ -2,7 +2,7 @@
  * Adlaire Platform (AP) — Interface Definitions
  *
  * コントローラー群のインターフェースを定義する。
- * 各コントローラーは APF.Request を受け取り APF.Response を返す。
+ * 各コントローラーは AFE.Request を受け取り AFE.Response を返す。
  *
  * @package AP
  * @version 2.0.0
