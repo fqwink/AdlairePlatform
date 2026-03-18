@@ -8,7 +8,14 @@
  * @license Adlaire License Ver.2.0
  */
 
-import type { BuildStatusValue } from "../types.ts";
+// ============================================================================
+// Build Status Type
+// ============================================================================
+
+/**
+ * ビルドステータス
+ */
+export type BuildStatusValue = "pending" | "building" | "complete" | "error";
 
 // ============================================================================
 // Build Status Enum

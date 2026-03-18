@@ -5,7 +5,7 @@
  * CSRF 保護ミドルウェアを提供する。
  *
  * FRAMEWORK_RULEBOOK §2.1「フレームワーク間依存ゼロ」準拠:
- * APF を直接 import せず、Response を DI で受け取る。
+ * AFE を直接 import せず、ACS.d.ts の型を参照する。
  *
  * @package AP
  * @version 2.0.0
@@ -17,7 +17,7 @@ import type {
   RequestInterface,
   ResponseConstructor,
   ResponseInterface,
-} from "../types.ts";
+} from "../ACS/ACS.d.ts";
 
 // ============================================================================
 // CsrfMiddleware — CSRF 保護
@@ -231,7 +231,10 @@ export class SecurityHeadersMiddleware implements MiddlewareInterface {
       .withHeader("X-Frame-Options", "DENY")
       .withHeader("X-XSS-Protection", "1; mode=block")
       .withHeader("Referrer-Policy", "strict-origin-when-cross-origin")
-      .withHeader("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self'")
+      .withHeader(
+        "Content-Security-Policy",
+        "default-src 'self'; script-src 'self'; style-src 'self'",
+      )
       .withHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
   }
 }

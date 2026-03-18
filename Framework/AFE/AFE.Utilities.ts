@@ -1,25 +1,26 @@
 /**
- * Adlaire Platform Foundation (APF) — Utilities Module
+ * Adlaire Foundation Engine (AFE) — Utilities Module
  *
  * 文字列操作、配列操作、設定管理、ファイルシステム、バリデーション、
  * キャッシュなどの汎用ユーティリティを提供する。
- * PHP APF.Utilities.php からの移植。
  *
- * @package APF
- * @version 2.0.0
+ * FRAMEWORK_RULEBOOK v3.0 §2.1 準拠
+ *
+ * @package AFE
+ * @version 3.0.0
  * @license Adlaire License Ver.2.0
  */
 
-import type { ValidationErrors, ValidationRules } from "../types.ts";
+import type { ValidationErrors, ValidationRules } from "../ACS/ACS.d.ts";
 
 import type {
   ConfigInterface,
   FileSystemInterface,
   JsonStorageInterface,
   ValidatorInterface,
-} from "./APF.Interface.ts";
+} from "./AFE.Interface.ts";
 
-import { ValidationError } from "./APF.Class.ts";
+import { ValidationError } from "./AFE.Class.ts";
 
 // ============================================================================
 // Str — 文字列ユーティリティ

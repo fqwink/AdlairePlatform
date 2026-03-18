@@ -8,7 +8,7 @@
  * @license Adlaire License Ver.2.0
  */
 
-import type { AdlaireClient } from "../types.ts";
+import type { AdlaireClient } from "./ACS.d.ts";
 import type { ClientConfig } from "./ACS.Interface.ts";
 import { ClientFactory } from "./ACS.Core.ts";
 
@@ -46,6 +46,7 @@ export function createMockClient(overrides?: Partial<AdlaireClient>): AdlaireCli
     },
     storage: {
       read: noop,
+      readMany: noopArr,
       write: noopBool,
       delete: noopBool,
       exists: noopBool,

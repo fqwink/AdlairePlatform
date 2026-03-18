@@ -3,11 +3,13 @@
  *
  * Router にルートとミドルウェアを登録する。
  *
- * @since 2.0.0
+ * FRAMEWORK_RULEBOOK v3.0 §2.1 準拠:
+ * - DI コンテナ廃止、ApplicationFacade プロパティ直接参照
+ *
+ * @since 3.0.0
  * @license Adlaire License Ver.2.0
  */
 
-import type { AdlaireClient } from "./Framework/ACS/ACS.d.ts";
 import type { ApplicationFacade } from "./bootstrap.ts";
 
 import {
@@ -36,7 +38,7 @@ import { BuildCache, Generator } from "./Framework/ASG/ASG.Core.ts";
 import type { StaticFileSystemInterface } from "./Framework/ASG/ASG.Interface.ts";
 
 /**
- * APF FileSystem を ASG StaticFileSystemInterface に適合させるアダプター
+ * AFE FileSystem を ASG StaticFileSystemInterface に適合させるアダプター
  */
 class StaticFileSystem extends FileSystem implements StaticFileSystemInterface {
   async listFiles(dir: string, ext?: string): Promise<string[]> {
@@ -71,7 +73,7 @@ class StaticFileSystem extends FileSystem implements StaticFileSystemInterface {
  */
 export function registerRoutes(app: ApplicationFacade): void {
   const router = app.router;
-  const client = app.container.make<AdlaireClient>("client");
+  const client = globalThis.__acs;
 
   // ══════════════════════════════════════════════════
   // グローバルミドルウェア
@@ -104,13 +106,12 @@ export function registerRoutes(app: ApplicationFacade): void {
     }));
 
   // ══════════════════════════════════════════════════
-  // システムエンドポイント (APF)
+  // システムエンドポイント (AFE)
   // ══════════════════════════════════════════════════
   registerSystemRoutes(router);
 
   // ══════════════════════════════════════════════════
   // コレクション REST API (ACE)
-  // FRAMEWORK_RULEBOOK §2.1 準拠: Response を DI で渡す
   // ══════════════════════════════════════════════════
   const metaManager = new MetaManager();
   const collectionManager = new CollectionManager(client);

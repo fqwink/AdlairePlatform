@@ -1,15 +1,15 @@
 /**
- * Adlaire Platform Foundation (APF) — Data Models & Enums
+ * Adlaire Foundation Engine (AFE) — Data Models & Enums
  *
- * APF 固有の列挙型・データモデルクラスを定義する。
- * FRAMEWORK_RULEBOOK: PHP enum → static readonly クラスパターン
+ * AFE 固有の列挙型・データモデルクラスを定義する。
+ * FRAMEWORK_RULEBOOK v3.0 §2.1 準拠
  *
- * @package APF
- * @version 2.0.0
+ * @package AFE
+ * @version 3.0.0
  * @license Adlaire License Ver.2.0
  */
 
-import type { HttpMethodValue, LogLevelValue } from "../types.ts";
+import type { HttpMethodValue, LogLevelValue } from "../ACS/ACS.d.ts";
 
 // ============================================================================
 // HttpMethod Enum

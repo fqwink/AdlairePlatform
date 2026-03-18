@@ -5,8 +5,8 @@
   "tasks": {
     "start": "deno run --allow-net --allow-read --allow-write --allow-env --allow-run main.ts",
     "dev": "deno run --watch --allow-net --allow-read --allow-write --allow-env --allow-run main.ts",
-    "check": "deno check Framework/**/*.ts main.ts bootstrap.ts routes.ts",
-    "check:browser": "deno check --config Framework/browser.deno.json Framework/AEB/*.ts Framework/AP/JsEngine/*.ts",
+    "check": "deno check Framework/AFE/*.ts Framework/ACS/ACS.*.ts Framework/ACS/ACS.d.ts Framework/ACE/*.ts Framework/AIS/*.ts Framework/ASG/*.ts Framework/AP/*.ts Framework/AEB/AEB.*.ts Framework/mod.ts main.ts bootstrap.ts routes.ts",
+    "check:browser": "deno check --config Framework/browser.deno.json Framework/AEB/*.ts Framework/*/ClientEngine/*.ts",
     "lint": "deno lint",
     "fmt": "deno fmt",
     "test": "deno test --allow-read --allow-write --allow-net tests/"
@@ -18,7 +18,7 @@
     "noUnusedParameters": false
   },
   "lint": {
-    "include": ["Framework/**/*.ts", "main.ts", "bootstrap.ts", "routes.ts", "Framework/AEB/*.ts", "Framework/AP/JsEngine/*.ts"],
+    "include": ["Framework/**/*.ts", "main.ts", "bootstrap.ts", "routes.ts"],
     "exclude": ["Framework/ADS/"],
     "rules": {
       "tags": ["recommended"],
@@ -26,7 +26,7 @@
     }
   },
   "fmt": {
-    "include": ["Framework/**/*.ts", "main.ts", "bootstrap.ts", "routes.ts", "Framework/AEB/*.ts", "Framework/AP/JsEngine/*.ts"],
+    "include": ["Framework/**/*.ts", "main.ts", "bootstrap.ts", "routes.ts"],
     "exclude": ["Framework/ADS/"],
     "useTabs": false,
     "lineWidth": 100,

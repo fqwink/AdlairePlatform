@@ -8,17 +8,14 @@
  * @license Adlaire License Ver.2.0
  */
 
-import type {
-  ResponseConstructor,
-  RouterInterface,
-} from "../types.ts";
+import type { ResponseConstructor, RouterInterface } from "../ACS/ACS.d.ts";
 import type { GeneratorInterface } from "./ASG.Interface.ts";
 
 /**
  * ASG REST エンドポイントを Router に登録する
  *
  * FRAMEWORK_RULEBOOK §2.1「フレームワーク間依存ゼロ」準拠:
- * APF を直接 import せず、Response を DI で受け取る。
+ * AFE を直接 import せず、ACS.d.ts の型を参照する。
  */
 export function registerGeneratorRoutes(
   router: RouterInterface,

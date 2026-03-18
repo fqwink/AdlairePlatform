@@ -1,22 +1,30 @@
 /**
  * Adlaire Infrastructure Services (AIS) — Core Module
  *
- * アプリケーションコンテキスト、i18n、サービスコンテナ、
- * イベントディスパッチャを提供する。
- * PHP AIS.Core.php からの移植。
+ * アプリケーションコンテキスト、i18n、RequestLoggingMiddleware を提供する。
+ *
+ * FRAMEWORK_RULEBOOK v3.0 §4.2 準拠:
+ * - AP の RequestLoggingMiddleware を AIS に統合
  *
  * @package AIS
- * @version 2.0.0
+ * @version 3.0.0
  * @license Adlaire License Ver.2.0
  */
 
-import type { AdlaireClient, LocaleId, TranslationDict } from "../types.ts";
+import type {
+  AdlaireClient,
+  MiddlewareInterface,
+  RequestInterface,
+  ResponseInterface,
+} from "../ACS/ACS.d.ts";
 
 import type {
   AppContextInterface,
   AppContextPaths,
   HostInfo,
   I18nInterface,
+  LocaleId,
+  TranslationDict,
 } from "./AIS.Interface.ts";
 
 // ============================================================================
@@ -251,3 +259,38 @@ export class I18n implements I18nInterface {
   }
 }
 
+// ============================================================================
+// RequestLoggingMiddleware — リクエストログ
+// FRAMEWORK_RULEBOOK v3.0 §4.2: AP から AIS に統合
+// ============================================================================
+
+export class RequestLoggingMiddleware implements MiddlewareInterface {
+  constructor(
+    private readonly logger?: (entry: Record<string, unknown>) => void,
+  ) {}
+
+  async handle(
+    request: RequestInterface,
+    next: (req: RequestInterface) => Promise<ResponseInterface>,
+  ): Promise<ResponseInterface> {
+    const start = performance.now();
+    const response = await next(request);
+    const elapsed = performance.now() - start;
+
+    const entry = {
+      method: request.method(),
+      path: request.path(),
+      status: response.getStatusCode(),
+      elapsed: Math.round(elapsed * 100) / 100,
+      ip: request.ip(),
+      requestId: request.requestId(),
+      timestamp: new Date().toISOString(),
+    };
+
+    if (this.logger) {
+      this.logger(entry);
+    }
+
+    return response;
+  }
+}

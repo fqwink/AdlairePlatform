@@ -9,26 +9,24 @@
  * @license Adlaire License Ver.2.0
  */
 
-import type {
-  AdlaireClient,
-  BackupEntry,
-  DiagEvent,
-  DiagnosticsReport,
-  GitLogEntry,
-  GitResult,
-  GitStatus,
-  HealthCheckResult,
-  UpdateInfo,
-} from "../types.ts";
+import type { AdlaireClient } from "../ACS/ACS.d.ts";
 
 import type {
   ApiCacheInterface,
+  BackupEntry,
+  DiagEvent,
   DiagnosticsConfig,
   DiagnosticsManagerInterface,
+  DiagnosticsReport,
   EnvironmentCheck,
+  GitLogEntry,
+  GitResult,
   GitServiceConfig,
   GitServiceInterface,
+  GitStatus,
+  HealthCheckResult,
   UpdateApplyResult,
+  UpdateInfo,
   UpdateServiceInterface,
 } from "./AIS.Interface.ts";
 
@@ -244,7 +242,9 @@ export class GitService implements GitServiceInterface {
   }
 
   async testConnection(): Promise<GitResult> {
-    const resp = await this.client.http.get<{ reachable: boolean; error?: string }>("/api/git/test");
+    const resp = await this.client.http.get<{ reachable: boolean; error?: string }>(
+      "/api/git/test",
+    );
     if (!resp.ok || !resp.data) {
       return { success: false, output: "", error: resp.error ?? "Connection test failed" };
     }
@@ -256,29 +256,47 @@ export class GitService implements GitServiceInterface {
   }
 
   async pull(): Promise<GitResult> {
-    const resp = await this.client.http.post<{ success: boolean; message: string }>("/api/git/pull", {});
+    const resp = await this.client.http.post<{ success: boolean; message: string }>(
+      "/api/git/pull",
+      {},
+    );
     if (!resp.ok || !resp.data) {
       return { success: false, output: "", error: resp.error ?? "Pull failed" };
     }
-    return { success: resp.data.success, output: resp.data.message, error: resp.data.success ? undefined : resp.data.message };
+    return {
+      success: resp.data.success,
+      output: resp.data.message,
+      error: resp.data.success ? undefined : resp.data.message,
+    };
   }
 
   async push(_message?: string): Promise<GitResult> {
-    const resp = await this.client.http.post<{ success: boolean; message: string }>("/api/git/push", {});
+    const resp = await this.client.http.post<{ success: boolean; message: string }>(
+      "/api/git/push",
+      {},
+    );
     if (!resp.ok || !resp.data) {
       return { success: false, output: "", error: resp.error ?? "Push failed" };
     }
-    return { success: resp.data.success, output: resp.data.message, error: resp.data.success ? undefined : resp.data.message };
+    return {
+      success: resp.data.success,
+      output: resp.data.message,
+      error: resp.data.success ? undefined : resp.data.message,
+    };
   }
 
   async log(limit: number = 20): Promise<GitLogEntry[]> {
-    const resp = await this.client.http.get<{ commits: GitLogEntry[] }>(`/api/git/log?limit=${limit}`);
+    const resp = await this.client.http.get<{ commits: GitLogEntry[] }>(
+      `/api/git/log?limit=${limit}`,
+    );
     if (!resp.ok || !resp.data) return [];
     return resp.data.commits;
   }
 
   async status(): Promise<GitStatus> {
-    const resp = await this.client.http.get<{ clean: boolean; changes: { file: string; status: string }[] }>("/api/git/status");
+    const resp = await this.client.http.get<
+      { clean: boolean; changes: { file: string; status: string }[] }
+    >("/api/git/status");
     if (!resp.ok || !resp.data) {
       return { branch: "main", clean: true, modified: [], untracked: [], ahead: 0, behind: 0 };
     }
@@ -287,8 +305,12 @@ export class GitService implements GitServiceInterface {
     return { branch: "main", clean: resp.data.clean, modified, untracked, ahead: 0, behind: 0 };
   }
 
-  async createPreviewBranch(_name: string): Promise<GitResult> {
-    return { success: false, output: "", error: "Preview branches are managed by ASS server" };
+  createPreviewBranch(_name: string): Promise<GitResult> {
+    return Promise.resolve({
+      success: false,
+      output: "",
+      error: "Preview branches are managed by ASS server",
+    });
   }
 }
 

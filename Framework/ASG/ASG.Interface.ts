@@ -9,20 +9,8 @@
  * @license Adlaire License Ver.2.0
  */
 
-import type {
-  BuildManifest,
-  BuildResult,
-  BuildState,
-  BuildStats,
-  BuildStatusValue,
-  FrontMatterResult,
-  ImageInfo,
-  PageData,
-  RedirectRule,
-  SitemapEntry,
-  TemplateContext,
-  ThemeConfig,
-} from "../types.ts";
+import type { CollectionItem, ImageInfo, PageData, SiteSettings } from "../ACS/ACS.d.ts";
+import type { BuildStatusValue } from "./ASG.Class.ts";
 
 // ============================================================================
 // Generator
@@ -213,4 +201,120 @@ export interface ThemeManagerInterface {
   getTemplate(name: string): string | null;
   getPartials(): Record<string, string>;
   getAssets(): string[];
+}
+
+// ============================================================================
+// ASG-Specific Type Definitions
+// ============================================================================
+
+/**
+ * ビルド結果
+ */
+export interface BuildResult {
+  readonly status: BuildStatusValue;
+  readonly stats: BuildStats;
+  readonly changedFiles: string[];
+  readonly warnings: string[];
+  readonly elapsed: number;
+}
+
+/**
+ * ビルド統計情報
+ */
+export interface BuildStats {
+  readonly total: number;
+  readonly built: number;
+  readonly skipped: number;
+  readonly deleted: number;
+  readonly errors: number;
+  readonly assets: number;
+}
+
+/**
+ * ビルドマニフェスト — 差分ビルドの判断材料
+ */
+export interface BuildManifest {
+  readonly changed: string[];
+  readonly added: string[];
+  readonly deleted: string[];
+  readonly unchanged: string[];
+  readonly stats: {
+    readonly total: number;
+    readonly changed: number;
+    readonly added: number;
+    readonly deleted: number;
+    readonly unchanged: number;
+    readonly needs_build: number;
+  };
+}
+
+/**
+ * ビルド状態の永続化形式
+ */
+export interface BuildState {
+  readonly hashes: Record<string, string>;
+  readonly settings_hash: string;
+  readonly theme_hash: string;
+  readonly timestamp: string;
+  readonly version: string;
+}
+
+/**
+ * テーマ設定
+ */
+export interface ThemeConfig {
+  readonly name: string;
+  readonly directory: string;
+  readonly templates: Record<string, string>;
+  readonly assets: string[];
+  readonly partials?: Record<string, string>;
+}
+
+/**
+ * テンプレートコンテキスト — テンプレートレンダリング時の変数群
+ */
+export interface TemplateContext {
+  readonly site: SiteSettings;
+  readonly page: PageData;
+  readonly pages?: PageData[];
+  readonly collections?: Record<string, CollectionItem[]>;
+  readonly navigation?: NavigationItem[];
+  readonly [key: string]: unknown;
+}
+
+/**
+ * ナビゲーションアイテム
+ */
+export interface NavigationItem {
+  readonly label: string;
+  readonly url: string;
+  readonly active?: boolean;
+  readonly children?: NavigationItem[];
+}
+
+/**
+ * サイトマップエントリ
+ */
+export interface SitemapEntry {
+  readonly url: string;
+  readonly lastmod?: string;
+  readonly changefreq?: "always" | "hourly" | "daily" | "weekly" | "monthly" | "yearly" | "never";
+  readonly priority?: number;
+}
+
+/**
+ * リダイレクト定義
+ */
+export interface RedirectRule {
+  readonly from: string;
+  readonly to: string;
+  readonly status: 301 | 302;
+}
+
+/**
+ * Front matter パース結果
+ */
+export interface FrontMatterResult {
+  readonly meta: Record<string, unknown>;
+  readonly body: string;
 }
