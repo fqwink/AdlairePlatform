@@ -11,7 +11,7 @@ Ver.2.0 | 最終更新: 2026-03-16
 | `README.md` | プロジェクトを紹介する | 公開 |
 | `RELEASE-NOTES.md` | リリースノートを記載する | 公開 |
 | `docs/VERSIONING.md` | バージョニング規則を定める | 社内限定 |
-| `docs/DOC_RULEBOOK.md` | ドキュメント管理ルールを定める（本書） | 社内限定 |
+| `docs/DOCUMENT_RULEBOOK.md` | ドキュメント管理ルールを定める（本書） | 社内限定 |
 | `docs/AdlairePlatform_DetailedDesign.md` | 詳細設計を記載する（**開発の最上位準拠文書**） | 社内限定 |
 | `docs/FRAMEWORK_RULEBOOK_v2.0.md` | フレームワーク規約を定める | 社内限定 |
 | `docs/Licenses/LICENSE_Ver.2.0.md` | Adlaire License Ver.2.0 を記載する | 公開 |
@@ -51,7 +51,7 @@ Ver.X.Y-Z | 最終更新: YYYY-MM-DD
 1. `docs/AdlairePlatform_DetailedDesign.md` — 設計仕様の最上位準拠文書
 2. `docs/FRAMEWORK_RULEBOOK_v2.0.md` — フレームワーク規約
 3. `docs/VERSIONING.md` — バージョニング規則
-4. `docs/DOC_RULEBOOK.md` — ドキュメント管理ルール（本書）
+4. `docs/DOCUMENT_RULEBOOK.md` — ドキュメント管理ルール（本書）
 
 ドキュメント間に矛盾がある場合は、上位の文書が優先される。
 

@@ -643,7 +643,7 @@ class TemplateRenderer {
 
 1. `docs/FRAMEWORK_RULEBOOK_v3.0.md` — フレームワーク規約
 2. `docs/VERSIONING.md` — バージョニング規則
-3. `docs/DOC_RULEBOOK.md` — ドキュメント管理ルール
+3. `docs/DOCUMENT_RULEBOOK.md` — ドキュメント管理ルール
 
 ---
 
