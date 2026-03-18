@@ -27,7 +27,7 @@ import type {
   RouterInterface,
 } from "./AFE.Interface.ts";
 
-import { NotFoundError } from "./AFE.Class.ts";
+
 
 // ============================================================================
 // Router

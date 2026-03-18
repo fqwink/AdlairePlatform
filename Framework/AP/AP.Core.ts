@@ -33,7 +33,7 @@ import type {
   WebhookControllerInterface,
 } from "./AP.Interface.ts";
 
-import { ACTION_MAP, ControllerError, UnknownActionError } from "./AP.Class.ts";
+import { ACTION_MAP } from "./AP.Class.ts";
 
 // ============================================================================
 // BaseController — コントローラー基底クラス
@@ -902,7 +902,7 @@ export class ActionDispatcher implements ActionDispatcherInterface {
     this.controllers = controllers;
   }
 
-  async handle(request: RequestContext): Promise<ResponseData> {
+  handle(request: RequestContext): Promise<ResponseData> {
     try {
       // Use pre-parsed postData (supports JSON, URL-encoded, and FormData)
       const body = request.postData ?? {};
@@ -911,29 +911,29 @@ export class ActionDispatcher implements ActionDispatcherInterface {
       );
 
       if (!actionName) {
-        return ActionDispatcher._errorResponse("Unknown action: (empty)", 400);
+        return Promise.resolve(ActionDispatcher._errorResponse("Unknown action: (empty)", 400));
       }
 
       const mapping = ACTION_MAP[actionName];
       if (!mapping) {
-        return ActionDispatcher._errorResponse(`Unknown action: ${actionName}`, 400);
+        return Promise.resolve(ActionDispatcher._errorResponse(`Unknown action: ${actionName}`, 400));
       }
 
       const controller = this.controllers[mapping.controller];
       if (!controller) {
-        return ActionDispatcher._errorResponse(`Controller not registered: ${mapping.controller}`, 500);
+        return Promise.resolve(ActionDispatcher._errorResponse(`Controller not registered: ${mapping.controller}`, 500));
       }
 
       const action = controller.getAction(mapping.method);
       if (!action) {
-        return ActionDispatcher._errorResponse(`Action not found: ${mapping.controller}.${mapping.method}`, 500);
+        return Promise.resolve(ActionDispatcher._errorResponse(`Action not found: ${mapping.controller}.${mapping.method}`, 500));
       }
 
       const result = action(request);
       return result instanceof Promise ? result : Promise.resolve(result);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Internal server error";
-      return ActionDispatcher._errorResponse(message, 500);
+      return Promise.resolve(ActionDispatcher._errorResponse(message, 500));
     }
   }
 

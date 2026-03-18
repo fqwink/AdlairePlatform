@@ -99,7 +99,7 @@
 		set: (v: boolean) => { _apChanging = v; },
 		configurable: true
 	});
-	window._apFieldSave = fieldSave;
+	globalThis._apFieldSave = fieldSave;
 
 	/* ── DOM Ready ── */
 	document.addEventListener('DOMContentLoaded', () => {
@@ -108,18 +108,18 @@
 			el.addEventListener('click', function (this: HTMLSpanElement) {
 				if (_apChanging) return;
 				_apChanging = true;
-				const a  = this;
+				const el = this as HTMLSpanElement;
 				const ta = document.createElement('textarea');
 				ta.name = 'textarea';
-				ta.id   = `${a.id}_field`;
-				if (a.title) ta.setAttribute('title', a.title);
-				ta.value = a.innerHTML.replace(/<br\s*\/?>/gi, '\n');
+				ta.id   = `${el.id}_field`;
+				if (el.title) ta.setAttribute('title', a.title);
+				ta.value = el.innerHTML.replace(/<br\s*\/?>/gi, '\n');
 				ta.addEventListener('blur', function handler() {
 					ta.removeEventListener('blur', handler);
 					fieldSave(ta.id.replace(/_field$/, ""), nl2br(ta.value));
 				});
-				a.innerHTML = '';
-				a.appendChild(ta);
+				el.innerHTML = '';
+				el.appendChild(ta);
 				ta.focus();
 				if (typeof apAutosize === 'function') apAutosize(ta);
 			});

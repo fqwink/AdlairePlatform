@@ -12,6 +12,7 @@
  *
  * @global {Object} AP
  */
+// deno-lint-ignore no-unused-vars
 const AP: APGlobal = ((): APGlobal => {
 
 	/* ── CSRF トークン ── */

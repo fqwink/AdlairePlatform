@@ -29,7 +29,6 @@ import { createClient } from "./Framework/ACS/ACS.Api.ts";
 // ============================================================================
 
 declare global {
-  // deno-lint-ignore no-var
   var __acs: AdlaireClient;
 }
 

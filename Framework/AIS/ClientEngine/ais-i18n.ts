@@ -11,11 +11,11 @@
 (function (): void {
 	'use strict';
 
-	const AP: APGlobal = window.AP || ({} as APGlobal);
-	window.AP = AP;
+	const AP: APGlobal = globalThis.AP || ({} as APGlobal);
+	globalThis.AP = AP;
 
 	/** 翻訳データ（サーバーから注入） */
-	const _data: Record<string, string> = window.__AP_I18N__ || {};
+	const _data: Record<string, string> = globalThis.__AP_I18N__ || {};
 
 	/**
 	 * 翻訳キーから翻訳文字列を取得
@@ -34,7 +34,7 @@
 
 	/** 現在のロケールを返す */
 	AP.locale = function (): string {
-		return window.__AP_LOCALE__ || 'ja';
+		return globalThis.__AP_LOCALE__ || 'ja';
 	};
 
 })();

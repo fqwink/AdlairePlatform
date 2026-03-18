@@ -189,8 +189,8 @@ export const dom = {
   offset(el: HTMLElement): { top: number; left: number } {
     const rect = el.getBoundingClientRect();
     return {
-      top: rect.top + window.pageYOffset,
-      left: rect.left + window.pageXOffset
+      top: rect.top + globalThis.pageYOffset,
+      left: rect.left + globalThis.pageXOffset
     };
   },
   position(el: HTMLElement): { top: number; left: number } {
@@ -242,7 +242,7 @@ export const dom = {
 export const selection = {
   _saved: null as SavedSelection | null,
   get(): Selection | null {
-    return window.getSelection();
+    return globalThis.getSelection();
   },
   getRange(): Range | null {
     const sel = this.get();
@@ -442,7 +442,7 @@ export const keyboard = {
     return () => element.removeEventListener('keydown', listener);
   },
   isCursorAtStart(element: HTMLElement): boolean {
-    const sel = window.getSelection();
+    const sel = globalThis.getSelection();
     if (!sel || sel.rangeCount === 0) return false;
     const range = sel.getRangeAt(0);
     if (range.startOffset !== 0) return false;
@@ -457,7 +457,7 @@ export const keyboard = {
     return true;
   },
   isCursorAtEnd(element: HTMLElement): boolean {
-    const sel = window.getSelection();
+    const sel = globalThis.getSelection();
     if (!sel || sel.rangeCount === 0) return false;
     const range = sel.getRangeAt(0);
     let node: Node | null = range.endContainer;

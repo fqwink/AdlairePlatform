@@ -63,7 +63,7 @@
 		const checkBtn = document.getElementById('ap-check-update') as HTMLButtonElement | null;
 		if (checkBtn) {
 			checkBtn.addEventListener('click', function (this: HTMLButtonElement) {
-				const btn = this;
+				const btn = this as HTMLButtonElement;
 				btn.disabled = true;
 				if (statusEl) statusEl.textContent = '確認中...';
 				if (resultEl) resultEl.innerHTML = '';

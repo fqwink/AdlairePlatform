@@ -285,8 +285,8 @@ export class GitService implements GitServiceInterface {
     return { branch: "main", clean: resp.data.clean, modified, untracked, ahead: 0, behind: 0 };
   }
 
-  async createPreviewBranch(_name: string): Promise<GitResult> {
-    return { success: false, output: "", error: "Preview branches are managed by ASS server" };
+  createPreviewBranch(_name: string): Promise<GitResult> {
+    return Promise.resolve({ success: false, output: "", error: "Preview branches are managed by ASS server" });
   }
 }
 

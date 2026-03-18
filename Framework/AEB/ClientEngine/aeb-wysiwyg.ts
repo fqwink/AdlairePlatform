@@ -100,8 +100,8 @@ interface HistoryPanelState {
 
 /* ── AEB EventBus 連携 ── */
 function _emitAEB(event: string, detail: Record<string, unknown>): void {
-	if (window.__AP_EventBus__ && typeof window.__AP_EventBus__.emit === 'function') {
-		try { window.__AP_EventBus__.emit(event, detail); } catch (_) { /* ignore */ }
+	if (globalThis.__AP_EventBus__ && typeof globalThis.__AP_EventBus__.emit === 'function') {
+		try { globalThis.__AP_EventBus__.emit(event, detail); } catch (_) { /* ignore */ }
 	}
 }
 
@@ -388,7 +388,7 @@ function _activate(span: HTMLElement): void {
 	if (_active) return;
 	_active = true;
 	_currentSpan = span;
-	if (typeof window._apChanging !== 'undefined') window._apChanging = true;
+	if (typeof globalThis._apChanging !== 'undefined') globalThis._apChanging = true;
 
 	const originalHtml: string = span.innerHTML;
 
@@ -804,7 +804,7 @@ function _renderListBlock(el: HTMLElement, block: WysiwygBlock): void {
 	/* リスト特殊キー処理 */
 	list.addEventListener('keydown', (e: KeyboardEvent): void => {
 		if (e.key === 'Enter') {
-			const sel = window.getSelection();
+			const sel = globalThis.getSelection();
 			const anchorNode = sel?.anchorNode as Node | null;
 			const li = (anchorNode as HTMLElement)?.closest?.('li') || (anchorNode?.parentElement as HTMLElement)?.closest?.('li');
 			if (li && li.textContent?.trim() === '') {
@@ -1075,7 +1075,7 @@ function _attachBlockKeyHandler(contentWrap: HTMLElement, block: WysiwygBlock, e
 			&& block.type !== 'table' && block.type !== 'checklist') {
 			e.preventDefault();
 			/* カーソル以降のコンテンツを抽出 */
-			const sel = window.getSelection();
+			const sel = globalThis.getSelection();
 			if (!sel || !sel.rangeCount) return;
 			const range = sel.getRangeAt(0);
 			range.deleteContents();
@@ -1246,7 +1246,7 @@ function _focusBlock(block: WysiwygBlock, pos?: string): void {
 /* ── カーソルユーティリティ ── */
 
 function _isCursorAtStart(el: HTMLElement): boolean {
-	const sel = window.getSelection();
+	const sel = globalThis.getSelection();
 	if (!sel || !sel.rangeCount) return false;
 	const range = sel.getRangeAt(0);
 	if (!range.collapsed) return false;
@@ -1257,7 +1257,7 @@ function _isCursorAtStart(el: HTMLElement): boolean {
 }
 
 function _isCursorAtEnd(el: HTMLElement): boolean {
-	const sel = window.getSelection();
+	const sel = globalThis.getSelection();
 	if (!sel || !sel.rangeCount) return false;
 	const range = sel.getRangeAt(0);
 	if (!range.collapsed) return false;
@@ -1269,7 +1269,7 @@ function _isCursorAtEnd(el: HTMLElement): boolean {
 
 function _setCursorToStart(el: HTMLElement): void {
 	const range = document.createRange();
-	const sel = window.getSelection();
+	const sel = globalThis.getSelection();
 	if (!sel) return;
 	range.selectNodeContents(el);
 	range.collapse(true);
@@ -1279,7 +1279,7 @@ function _setCursorToStart(el: HTMLElement): void {
 
 function _setCursorToEnd(el: HTMLElement): void {
 	const range = document.createRange();
-	const sel = window.getSelection();
+	const sel = globalThis.getSelection();
 	if (!sel) return;
 	range.selectNodeContents(el);
 	range.collapse(false);
@@ -1301,7 +1301,7 @@ function _setCursorAtOffset(el: HTMLElement, htmlOffset: number): void {
 			const range = document.createRange();
 			range.setStart(walker.currentNode, idx);
 			range.collapse(true);
-			const sel = window.getSelection();
+			const sel = globalThis.getSelection();
 			if (sel) {
 				sel.removeAllRanges();
 				sel.addRange(range);
@@ -1487,7 +1487,7 @@ function _toggleInline(cmd: string): void {
 }
 
 function _toggleInlineCode(): void {
-	const sel = window.getSelection();
+	const sel = globalThis.getSelection();
 	if (!sel || !sel.rangeCount || sel.isCollapsed) return;
 	const range = sel.getRangeAt(0);
 
@@ -1516,7 +1516,7 @@ function _toggleInlineCode(): void {
 }
 
 function _toggleMarker(): void {
-	const sel = window.getSelection();
+	const sel = globalThis.getSelection();
 	if (!sel || !sel.rangeCount || sel.isCollapsed) return;
 	const range = sel.getRangeAt(0);
 
@@ -1542,7 +1542,7 @@ function _toggleMarker(): void {
 }
 
 function _showLinkInput(): void {
-	const sel = window.getSelection();
+	const sel = globalThis.getSelection();
 	if (!sel || !sel.rangeCount || sel.isCollapsed) {
 		const url = prompt('URL を入力してください:');
 		if (url?.trim()) {
@@ -1584,7 +1584,7 @@ const INLINE_TB_TOOLS: InlineTool[] = [
 
 function _onSelectionChange(): void {
 	if (!_active || !_blocksEl) return;
-	const sel = window.getSelection();
+	const sel = globalThis.getSelection();
 	if (!sel || !sel.rangeCount || sel.isCollapsed) { _hideInlineToolbar(); return; }
 
 	/* 選択がブロックコンテナ内かチェック */
@@ -1638,16 +1638,16 @@ function _showInlineToolbar(range: Range): void {
 
 	const rect = range.getBoundingClientRect();
 	_inlineToolbar.style.display = 'flex';
-	let top: number = window.scrollY + rect.top - 40;
-	let left: number = window.scrollX + rect.left + rect.width / 2;
+	const top: number = globalThis.scrollY + rect.top - 40;
+	const left: number = globalThis.scrollX + rect.left + rect.width / 2;
 	_inlineToolbar.style.top = top + 'px';
 	_inlineToolbar.style.left = left + 'px';
 	/* ビューポートクランプ */
 	requestAnimationFrame((): void => {
 		if (!_inlineToolbar) return;
 		const tbRect = _inlineToolbar.getBoundingClientRect();
-		if (tbRect.top < 0) _inlineToolbar!.style.top = (window.scrollY + rect.bottom + 4) + 'px';
-		if (tbRect.right > window.innerWidth) _inlineToolbar!.style.left = (window.innerWidth - tbRect.width - 8) + 'px';
+		if (tbRect.top < 0) _inlineToolbar!.style.top = (globalThis.scrollY + rect.bottom + 4) + 'px';
+		if (tbRect.right > globalThis.innerWidth) _inlineToolbar!.style.left = (globalThis.innerWidth - tbRect.width - 8) + 'px';
 		if (tbRect.left < 0) _inlineToolbar!.style.left = '4px';
 	});
 }
@@ -1660,7 +1660,7 @@ function _hideInlineToolbar(): void {
    "/" スラッシュコマンドメニュー
    ══════════════════════════════════════════════ */
 
-function _showSlashMenu(target: HTMLElement): void {
+function _showSlashMenu(_target: HTMLElement): void {
 	const filtered = SLASH_COMMANDS.filter((c: SlashCommand): boolean =>
 		_slashFilter === '' ||
 		c.label.toLowerCase().includes(_slashFilter) ||
@@ -1693,12 +1693,12 @@ function _showSlashMenu(target: HTMLElement): void {
 	});
 
 	/* 位置計算 */
-	const sel = window.getSelection();
+	const sel = globalThis.getSelection();
 	if (sel && sel.rangeCount) {
 		const rect = sel.getRangeAt(0).getBoundingClientRect();
 		_slashMenu.style.display = 'block';
-		let top: number = window.scrollY + rect.bottom + 4;
-		let left: number = window.scrollX + rect.left;
+		let top: number = globalThis.scrollY + rect.bottom + 4;
+		let left: number = globalThis.scrollX + rect.left;
 
 		/* DOM追加後に実寸でビューポートクランプ (Ph3-F) */
 		_slashMenu.style.top = top + 'px';
@@ -1706,8 +1706,8 @@ function _showSlashMenu(target: HTMLElement): void {
 		requestAnimationFrame((): void => {
 			if (!_slashMenu) return;
 			const menuRect = _slashMenu.getBoundingClientRect();
-			if (menuRect.bottom > window.innerHeight) top = window.scrollY + rect.top - menuRect.height - 4;
-			if (menuRect.right > window.innerWidth) left = window.innerWidth - menuRect.width - 8;
+			if (menuRect.bottom > globalThis.innerHeight) top = globalThis.scrollY + rect.top - menuRect.height - 4;
+			if (menuRect.right > globalThis.innerWidth) left = globalThis.innerWidth - menuRect.width - 8;
 			_slashMenu!.style.top = top + 'px';
 			_slashMenu!.style.left = Math.max(4, left) + 'px';
 		});
@@ -1896,8 +1896,8 @@ function _showTypePopup(block: WysiwygBlock, blockEl: HTMLElement): void {
 	const handleEl = blockEl.querySelector('.ap-wy-block-handle') as HTMLElement | null;
 	if (!handleEl) return;
 	const handleRect = handleEl.getBoundingClientRect();
-	let top: number = window.scrollY + handleRect.bottom + 2;
-	let left: number = window.scrollX + handleRect.left;
+	let top: number = globalThis.scrollY + handleRect.bottom + 2;
+	let left: number = globalThis.scrollX + handleRect.left;
 
 	/* ビューポートクランプ (Ph3-G) */
 	_typePopup.style.top = top + 'px';
@@ -1905,8 +1905,8 @@ function _showTypePopup(block: WysiwygBlock, blockEl: HTMLElement): void {
 	requestAnimationFrame((): void => {
 		if (!_typePopup) return;
 		const popRect = _typePopup.getBoundingClientRect();
-		if (popRect.bottom > window.innerHeight) top = window.scrollY + handleRect.top - popRect.height - 2;
-		if (popRect.right > window.innerWidth) left = window.innerWidth - popRect.width - 8;
+		if (popRect.bottom > globalThis.innerHeight) top = globalThis.scrollY + handleRect.top - popRect.height - 2;
+		if (popRect.right > globalThis.innerWidth) left = globalThis.innerWidth - popRect.width - 8;
 		_typePopup!.style.top = top + 'px';
 		_typePopup!.style.left = Math.max(4, left) + 'px';
 	});
@@ -2352,8 +2352,8 @@ function _renderRevisionTab(container: HTMLElement, span: HTMLElement): void {
 	});
 }
 
-function _renderRevisionList(container: HTMLElement, revisions: Revision[], fieldname: string, span: HTMLElement, cmpBtn: HTMLButtonElement): void {
-	revisions.forEach((rev: Revision, idx: number): void => {
+function _renderRevisionList(container: HTMLElement, revisions: Revision[], fieldname: string, span: HTMLElement, _cmpBtn: HTMLButtonElement): void {
+	revisions.forEach((rev: Revision, _idx: number): void => {
 		const item: HTMLDivElement = document.createElement('div');
 		item.className = 'ap-wy-history-item';
 		item.setAttribute('tabindex', '0');
@@ -2555,7 +2555,7 @@ function _pinRevision(fieldname: string, revFile: string, callback?: () => void)
 	  .catch((e: Error): void => { console.warn('pinRevision:', e.message); if (callback) callback(); });
 }
 
-function _restoreRevision(fieldname: string, revFile: string, span: HTMLElement): void {
+function _restoreRevision(fieldname: string, revFile: string, _span: HTMLElement): void {
 	const csrf = _getCsrf();
 	_setStatus('復元中...');
 	fetch('/', {
@@ -2572,7 +2572,7 @@ function _restoreRevision(fieldname: string, revFile: string, span: HTMLElement)
 			try {
 				blocks = _parseHtmlToBlocks(String(data.content));
 				if (!Array.isArray(blocks)) throw new Error('invalid blocks');
-			} catch (err) {
+			} catch (_err) {
 				_setStatus('\u26A0 復元失敗: コンテンツの解析エラー');
 				setTimeout((): void => { _setStatus(''); }, 5000);
 				return;
@@ -2668,7 +2668,7 @@ function _stripTags(html: string): string {
 	try {
 		const doc = new DOMParser().parseFromString(html || '', 'text/html');
 		return (doc.body.textContent || '').trim();
-	} catch (e) {
+	} catch (_e) {
 		return (html || '').replace(/<[^>]*>/g, '').trim();
 	}
 }
@@ -2722,7 +2722,7 @@ function _renderDiffView(container: HTMLElement, diff: DiffResult, keepEl: HTMLE
 			i++;
 		} else {
 			/* 連続する equal 行をカウント */
-			let eqStart: number = i;
+			const eqStart: number = i;
 			while (i < diff.length && diff[i].type === 'equal') i++;
 			const eqCount: number = i - eqStart;
 			if (eqCount <= FOLD_THRESHOLD) {
@@ -2797,7 +2797,7 @@ function _manualSave(span: HTMLElement): void {
 	document.removeEventListener('selectionchange', _onSelectionChange);
 	if (_docHandler) { document.removeEventListener('mousedown', _docHandler); _docHandler = null; }
 	if (_inlineToolbar) { _inlineToolbar.remove(); _inlineToolbar = null; }
-	if (typeof window._apChanging !== 'undefined') window._apChanging = false;
+	if (typeof globalThis._apChanging !== 'undefined') globalThis._apChanging = false;
 
 	/* ブロックからHTML生成 */
 	_syncAllBlocks();
@@ -2808,7 +2808,7 @@ function _manualSave(span: HTMLElement): void {
 	_dropLine = null;
 	_blocks = [];
 	span.innerHTML = html || (span.getAttribute('title') || '');
-	if (typeof window._apFieldSave === 'function') window._apFieldSave(span.id, html);
+	if (typeof globalThis._apFieldSave === 'function') globalThis._apFieldSave(span.id, html);
 	else console.error('[AP WYSIWYG] _apFieldSave not available');
 	_emitAEB('editor:save', { fieldId: span.id, html: html });
 }
@@ -2823,7 +2823,7 @@ function _cancel(span: HTMLElement, originalHtml: string): void {
 	document.removeEventListener('selectionchange', _onSelectionChange);
 	if (_docHandler) { document.removeEventListener('mousedown', _docHandler); _docHandler = null; }
 	if (_inlineToolbar) { _inlineToolbar.remove(); _inlineToolbar = null; }
-	if (typeof window._apChanging !== 'undefined') window._apChanging = false;
+	if (typeof globalThis._apChanging !== 'undefined') globalThis._apChanging = false;
 
 	_currentSpan = null;
 	_blocksEl = null;

@@ -55,7 +55,7 @@
 	]);
 
 	/* ── グローバルに公開 ── */
-	window.AEB = {
+	globalThis.AEB = {
 		/* Core コンポーネント */
 		EventBus: Core.EventBus,
 		BlockRegistry: Core.BlockRegistry,
@@ -87,11 +87,11 @@
 	} as Window['AEB'];
 
 	/* ── グローバル EventBus インスタンス（ap-events.js 互換） ── */
-	if (!window.__AP_EventBus__) {
-		window.__AP_EventBus__ = new Core.EventBus();
+	if (!globalThis.__AP_EventBus__) {
+		globalThis.__AP_EventBus__ = new Core.EventBus();
 	}
 
 	/* ── 読み込み完了通知 ── */
-	window.dispatchEvent(new CustomEvent('aeb:ready', { detail: window.AEB }));
+	globalThis.dispatchEvent(new CustomEvent('aeb:ready', { detail: globalThis.AEB }));
 	console.debug('[AEB Adapter] Framework modules loaded');
 })();

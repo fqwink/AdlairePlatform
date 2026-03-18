@@ -273,7 +273,7 @@
 		}
 
 		function updatePreview(): void {
-			const body = (document.getElementById('ap-editor-edit-body') as HTMLTextAreaElement | null)?.value ?? '';
+			const _body = (document.getElementById('ap-editor-edit-body') as HTMLTextAreaElement | null)?.value ?? '';
 			const previewEl = document.getElementById('ap-editor-preview-html');
 			if (!previewEl) return;
 			/* サーバーサイドで Markdown 変換する API を使用 */

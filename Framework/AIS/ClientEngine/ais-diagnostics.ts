@@ -378,9 +378,9 @@
 		(document.getElementById('ap-diag-send-now') as HTMLButtonElement | null)?.addEventListener('click', function (this: HTMLButtonElement) {
 			if (!confirm('診断データを今すぐ開発元へ送信しますか？')) return;
 			this.disabled = true;
-			const btn = this;
+			const self = this as HTMLButtonElement;
 			post('diag_send_now').then(res => {
-				btn.disabled = false;
+				self.disabled = false;
 				showResult(res.ok ? '送信しました' : (res.error || '送信失敗'));
 				if (res.ok) loadSummary();
 			}).catch(() => { btn.disabled = false; });
