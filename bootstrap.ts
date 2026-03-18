@@ -1,16 +1,19 @@
 /**
  * AdlairePlatform — ブートストラップ
  *
- * DI コンテナ初期化、サービス登録、イベントリスナー設定。
+ * ApplicationFacade 初期化、サービス登録、イベントリスナー設定。
  *
- * @since 2.0.0
+ * FRAMEWORK_RULEBOOK v3.0 §2.1 準拠:
+ * - DI コンテナパターンは廃止
+ * - サービス間の依存解決は ApplicationFacade のプロパティ直接参照により行う
+ *
+ * @since 3.0.0
  * @license Adlaire License Ver.2.0
  */
 
 import {
   ApiCache,
   AppContext,
-  Container,
   DiagnosticsManager,
   EventBus,
   I18n,
@@ -32,37 +35,36 @@ declare global {
 
 // ============================================================================
 // Application — グローバルファサード
+// FRAMEWORK_RULEBOOK v3.0 §2.1: DI コンテナ廃止、プロパティ直接参照
 // ============================================================================
 
 export class ApplicationFacade {
   private static instance: ApplicationFacade | null = null;
 
-  readonly container: Container;
   readonly router: Router;
   readonly events: EventBus;
   readonly context: AppContext;
   readonly i18n: I18n;
+  readonly diagnostics: DiagnosticsManager;
+  readonly apiCache: ApiCache;
+  readonly webhookService: WebhookService;
 
-  private constructor(basePath: string) {
-    this.container = new Container();
+  private constructor(basePath: string, client: AdlaireClient) {
     this.router = new Router();
     this.events = new EventBus();
     this.context = new AppContext(basePath);
     this.i18n = new I18n();
-
-    // コアサービスをコンテナに登録
-    this.container.singleton("router", () => this.router);
-    this.container.singleton("events", () => this.events);
-    this.container.singleton("context", () => this.context);
-    this.container.singleton("i18n", () => this.i18n);
+    this.diagnostics = new DiagnosticsManager(client);
+    this.apiCache = new ApiCache();
+    this.webhookService = new WebhookService(client);
   }
 
-  static boot(basePath: string): ApplicationFacade {
+  static boot(basePath: string, client: AdlaireClient): ApplicationFacade {
     if (ApplicationFacade.instance) {
       return ApplicationFacade.instance;
     }
 
-    const app = new ApplicationFacade(basePath);
+    const app = new ApplicationFacade(basePath, client);
     ApplicationFacade.instance = app;
     return app;
   }
@@ -97,7 +99,6 @@ export interface BootstrapOptions {
 
 export async function bootstrap(options: BootstrapOptions = {}): Promise<ApplicationFacade> {
   const basePath = options.basePath ?? Deno.cwd();
-  const app = ApplicationFacade.boot(basePath);
 
   // ACS クライアント生成 — FRAMEWORK_RULEBOOK §3.5「初期化順序」準拠
   // ACS の初期化（globalThis.__acs の公開）は bootstrap 処理の最初に実行する
@@ -106,7 +107,8 @@ export async function bootstrap(options: BootstrapOptions = {}): Promise<Applica
     token: options.token ?? null,
   });
   globalThis.__acs = client;
-  app.container.singleton("client", () => client);
+
+  const app = ApplicationFacade.boot(basePath, client);
 
   // 設定ファイル読み込み
   try {
@@ -120,35 +122,23 @@ export async function bootstrap(options: BootstrapOptions = {}): Promise<Applica
   app.i18n.setLocale(locale);
   await app.i18n.init(`${basePath}/lang`);
 
-  // 診断マネージャ
-  const diagnostics = new DiagnosticsManager(client);
-  app.container.singleton("diagnostics", () => diagnostics);
-
-  // API キャッシュ
-  const apiCache = new ApiCache();
-  app.container.singleton("apiCache", () => apiCache);
-
-  // Webhook サービス
-  const webhookService = new WebhookService(client);
-  app.container.singleton("webhookService", () => webhookService);
-
   // ── イベントリスナー登録 ──
 
   // コンテンツ変更 → Webhook 自動配信
   app.events.listen("content.changed", (data) => {
     const event = String(data.event ?? "page.updated");
     const payload = (data.payload ?? {}) as Record<string, unknown>;
-    webhookService.dispatch(event as Parameters<typeof webhookService.dispatch>[0], payload);
+    app.webhookService.dispatch(event as Parameters<typeof app.webhookService.dispatch>[0], payload);
   });
 
   // ログインイベント → 診断ログ
   app.events.listen("auth.login", (data) => {
-    diagnostics.log("security", "イベント: ログイン", data);
+    app.diagnostics.log("security", "イベント: ログイン", data);
   });
 
   // キャッシュ無効化
   app.events.listen("cache.invalidate", () => {
-    apiCache.invalidateContent();
+    app.apiCache.invalidateContent();
   });
 
   return app;

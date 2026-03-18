@@ -90,10 +90,19 @@ export type UserRole = "admin" | "editor" | "viewer";
  */
 export interface StorageModule {
   read<T = unknown>(file: string, directory?: string): Promise<T | null>;
+  readMany<T = unknown>(requests: ReadManyRequest[]): Promise<(T | null)[]>;
   write(file: string, data: unknown, directory?: string): Promise<boolean>;
   delete(file: string, directory?: string): Promise<boolean>;
   exists(file: string, directory?: string): Promise<boolean>;
   list(directory: string, extension?: string): Promise<string[]>;
+}
+
+/**
+ * readMany 用リクエスト
+ */
+export interface ReadManyRequest {
+  readonly file: string;
+  readonly directory?: string;
 }
 
 // ============================================================================

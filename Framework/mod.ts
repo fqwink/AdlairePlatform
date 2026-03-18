@@ -4,24 +4,28 @@
  * 全フレームワークモジュールの公開 API を一箇所から re-export する。
  * main.ts, bootstrap.ts, routes.ts が使用するエクスポートのみ含む。
  *
+ * FRAMEWORK_RULEBOOK v3.0 §2.1 準拠:
+ * - DI コンテナパターンは廃止（Container は削除）
+ * - APF → AFE リネーム
+ *
  * @package AdlairePlatform
- * @version 2.0.0
+ * @version 3.0.0
  * @license Adlaire License Ver.2.0
  */
 
 // ── Types ──
 export type * from "./types.ts";
 
-// ── APF (Platform Foundation) ──
+// ── AFE (Adlaire Foundation Engine) ──
 export {
-  Container,
   EventBus,
+  MiddlewarePipeline,
   Request,
   Response,
   Router,
-} from "./APF/APF.Core.ts";
-export { FileSystem } from "./APF/APF.Utilities.ts";
-export { registerSystemRoutes } from "./APF/APF.Api.ts";
+} from "./AFE/AFE.Core.ts";
+export { FileSystem } from "./AFE/AFE.Utilities.ts";
+export { registerSystemRoutes } from "./AFE/AFE.Api.ts";
 
 // ── ACS (Adlaire Client Services) ──
 export { ClientFactory, createBasicClient } from "./ACS/ACS.Core.ts";

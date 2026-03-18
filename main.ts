@@ -90,15 +90,15 @@ async function main(): Promise<void> {
         const request = await Request.fromDenoRequest(denoReq);
         request.setParams(resolved.params);
 
-        const { MiddlewarePipeline } = await import("./Framework/APF/APF.Core.ts");
+        const { MiddlewarePipeline } = await import("./Framework/AFE/AFE.Core.ts");
         const response = await MiddlewarePipeline.run(
           request,
           resolved.middleware,
           resolved.handler as (
-            req: import("./Framework/APF/APF.Interface.ts").RequestInterface,
+            req: import("./Framework/AFE/AFE.Interface.ts").RequestInterface,
           ) =>
-            | import("./Framework/APF/APF.Interface.ts").ResponseInterface
-            | Promise<import("./Framework/APF/APF.Interface.ts").ResponseInterface>,
+            | import("./Framework/AFE/AFE.Interface.ts").ResponseInterface
+            | Promise<import("./Framework/AFE/AFE.Interface.ts").ResponseInterface>,
         );
         return (response as InstanceType<typeof Response>).toDenoResponse();
       } catch (error: unknown) {

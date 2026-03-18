@@ -46,6 +46,7 @@ export function createMockClient(overrides?: Partial<AdlaireClient>): AdlaireCli
     },
     storage: {
       read: noop,
+      readMany: noopArr,
       write: noopBool,
       delete: noopBool,
       exists: noopBool,

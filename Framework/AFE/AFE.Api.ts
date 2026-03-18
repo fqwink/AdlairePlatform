@@ -1,24 +1,26 @@
 /**
- * Adlaire Platform Foundation (APF) — API Adapter Layer
+ * Adlaire Foundation Engine (AFE) — API Adapter Layer
  *
- * APF のサービスを ACS 経由で公開する REST エンドポイントアダプター。
+ * AFE のサービスを ACS 経由で公開する REST エンドポイントアダプター。
  * Router 登録用のルートファクトリを提供する。
  *
- * @package APF
- * @version 2.0.0
+ * FRAMEWORK_RULEBOOK v3.0 §2.1 準拠
+ *
+ * @package AFE
+ * @version 3.0.0
  * @license Adlaire License Ver.2.0
  */
 
-import type { ResponseInterface } from "./APF.Interface.ts";
-import type { RouterInterface } from "./APF.Interface.ts";
-import { Response } from "./APF.Core.ts";
+import type { ResponseInterface } from "./AFE.Interface.ts";
+import type { RouterInterface } from "./AFE.Interface.ts";
+import { Response } from "./AFE.Core.ts";
 
 // ============================================================================
 // Health / System Endpoints
 // ============================================================================
 
 /**
- * APF 標準ルートを Router に登録する
+ * AFE 標準ルートを Router に登録する
  */
 export function registerSystemRoutes(router: RouterInterface): void {
   router.get("/api/health", () =>
@@ -38,7 +40,7 @@ export function registerSystemRoutes(router: RouterInterface): void {
       data: {
         platform: "Adlaire",
         version: "Ver.2.3-44",
-        framework: "APF",
+        framework: "AFE",
       },
     }));
 }

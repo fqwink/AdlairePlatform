@@ -1,18 +1,20 @@
 /**
- * Adlaire Platform Foundation (APF) — Core Module
+ * Adlaire Foundation Engine (AFE) — Core Module
  *
- * DI コンテナ、Router、Request/Response、Middleware パイプラインを提供する。
- * PHP APF.Core.php + APF.Middleware.php からの移植。
+ * Router、Request/Response、Middleware パイプライン、EventBus を提供する。
  *
- * @package APF
- * @version 2.0.0
+ * FRAMEWORK_RULEBOOK v3.0 §2.1 準拠:
+ * - DI コンテナパターンは廃止
+ * - サービス間の依存解決は ApplicationFacade のプロパティ直接参照により行う
+ *
+ * @package AFE
+ * @version 3.0.0
  * @license Adlaire License Ver.2.0
  */
 
 import type { HttpMethodValue, RequestContext, ResponseData, RouteDefinition } from "../types.ts";
 
 import type {
-  ContainerInterface,
   EventBusInterface,
   EventListener,
   MiddlewareInterface,
@@ -23,63 +25,9 @@ import type {
   RouteGroupOptions,
   RouteHandler,
   RouterInterface,
-} from "./APF.Interface.ts";
+} from "./AFE.Interface.ts";
 
-import { NotFoundError } from "./APF.Class.ts";
-
-// ============================================================================
-// Container — DI コンテナ
-// ============================================================================
-
-export class Container implements ContainerInterface {
-  private factories = new Map<string, (...args: unknown[]) => unknown>();
-  private singletons = new Map<string, unknown>();
-  private isSingleton = new Set<string>();
-  private resolving = new Set<string>();
-
-  bind(name: string, factory: (...args: unknown[]) => unknown): void {
-    this.factories.set(name, factory);
-    this.isSingleton.delete(name);
-    this.singletons.delete(name);
-  }
-
-  singleton(name: string, factory: (...args: unknown[]) => unknown): void {
-    this.factories.set(name, factory);
-    this.isSingleton.add(name);
-  }
-
-  make<T = unknown>(name: string): T {
-    if (this.singletons.has(name)) {
-      return this.singletons.get(name) as T;
-    }
-
-    const factory = this.factories.get(name);
-    if (!factory) {
-      throw new Error(`No binding for: ${name}`);
-    }
-
-    if (this.resolving.has(name)) {
-      throw new Error(`Circular dependency detected while resolving: ${name}`);
-    }
-
-    this.resolving.add(name);
-    try {
-      const instance = factory();
-
-      if (this.isSingleton.has(name)) {
-        this.singletons.set(name, instance);
-      }
-
-      return instance as T;
-    } finally {
-      this.resolving.delete(name);
-    }
-  }
-
-  has(name: string): boolean {
-    return this.factories.has(name);
-  }
-}
+import { NotFoundError } from "./AFE.Class.ts";
 
 // ============================================================================
 // Router

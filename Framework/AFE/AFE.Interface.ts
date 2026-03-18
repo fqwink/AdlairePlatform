@@ -1,11 +1,14 @@
 /**
- * Adlaire Platform Foundation (APF) — Interface Definitions
+ * Adlaire Foundation Engine (AFE) — Interface Definitions
  *
- * DI コンテナ、Router、Request/Response、Middleware、イベントバスなど
- * APF が公開する全インターフェースを定義する。
+ * Router、Request/Response、Middleware、イベントバスなど
+ * AFE が公開する全インターフェースを定義する。
  *
- * @package APF
- * @version 2.0.0
+ * FRAMEWORK_RULEBOOK v3.0 §2.1 準拠:
+ * - DI コンテナパターンは廃止（ContainerInterface は削除）
+ *
+ * @package AFE
+ * @version 3.0.0
  * @license Adlaire License Ver.2.0
  */
 
@@ -16,17 +19,6 @@ import type {
   RouteDefinition,
   ValidationErrors,
 } from "../types.ts";
-
-// ============================================================================
-// DI Container
-// ============================================================================
-
-export interface ContainerInterface {
-  bind(name: string, factory: (...args: unknown[]) => unknown): void;
-  singleton(name: string, factory: (...args: unknown[]) => unknown): void;
-  make<T = unknown>(name: string): T;
-  has(name: string): boolean;
-}
 
 // ============================================================================
 // Router
