@@ -43,7 +43,7 @@ export { WebhookService } from "./ACE/ACE.Utilities.ts";
 export { registerCollectionRoutes } from "./ACE/ACE.Api.ts";
 
 // ── AIS (Infrastructure Services) ──
-export { AppContext, I18n } from "./AIS/AIS.Core.ts";
+export { AppContext, I18n, RequestLoggingMiddleware } from "./AIS/AIS.Core.ts";
 export { ApiCache, DiagnosticsManager } from "./AIS/AIS.Utilities.ts";
 export { registerInfraRoutes } from "./AIS/AIS.Api.ts";
 
@@ -51,13 +51,12 @@ export { registerInfraRoutes } from "./AIS/AIS.Api.ts";
 export { Builder, MarkdownService, TemplateRenderer } from "./ASG/ASG.Utilities.ts";
 export { registerGeneratorRoutes } from "./ASG/ASG.Api.ts";
 
-// ── AP (Platform Controllers) ──
+// ── AP (Platform Controllers — 段階的廃止予定) ──
 export {
   AuthMiddleware,
   CorsMiddleware,
   CsrfMiddleware,
   RateLimitMiddleware,
-  RequestLoggingMiddleware,
   SecurityHeadersMiddleware,
 } from "./AP/AP.Utilities.ts";
 export { registerPlatformRoutes } from "./AP/AP.Api.ts";
