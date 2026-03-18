@@ -1,5 +1,5 @@
 /// <reference lib="dom" />
-/// <reference path="./browser-types.d.ts" />
+/// <reference path="../../ACS/ClientEngine/browser-types.d.ts" />
 
 /**
  * ap-search.ts - 静的サイト用クライアントサイド検索

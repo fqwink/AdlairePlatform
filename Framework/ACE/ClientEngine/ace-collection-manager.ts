@@ -1,5 +1,5 @@
 /// <reference lib="dom" />
-/// <reference path="./browser-types.d.ts" />
+/// <reference path="../../ACS/ClientEngine/browser-types.d.ts" />
 /**
  * collection_manager.ts - コレクション管理 UI
  *

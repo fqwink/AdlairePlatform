@@ -1,5 +1,5 @@
 /// <reference lib="dom" />
-/// <reference path="./browser-types.d.ts" />
+/// <reference path="../../ACS/ClientEngine/browser-types.d.ts" />
 /**
  * diagnostics.ts - 診断データ管理 UI
  *

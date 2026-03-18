@@ -1,5 +1,5 @@
 /// <reference lib="dom" />
-/// <reference path="./browser-types.d.ts" />
+/// <reference path="../../ACS/ClientEngine/browser-types.d.ts" />
 
 /**
  * AEB Adapter - ES6 モジュール → グローバルスコープブリッジ

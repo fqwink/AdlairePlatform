@@ -1,5 +1,5 @@
 /// <reference lib="dom" />
-/// <reference path="./browser-types.d.ts" />
+/// <reference path="../../ACS/ClientEngine/browser-types.d.ts" />
 /**
  * static_builder.ts — ダッシュボード上の静的書き出し管理 UI
  *
