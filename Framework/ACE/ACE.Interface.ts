@@ -9,12 +9,7 @@
  * @license Adlaire License Ver.2.0
  */
 
-import type {
-  ApiResponse,
-  FrontMatterResult,
-  PageData,
-  ValidationErrors,
-} from "../ACS/ACS.d.ts";
+import type { ApiResponse, FrontMatterResult, PageData, ValidationErrors } from "../ACS/ACS.d.ts";
 
 // ============================================================================
 // Collection Management

@@ -604,7 +604,9 @@ export interface AuthModule {
  */
 export interface StorageModule {
   read<T = unknown>(file: string, directory?: string): Promise<T | null>;
-  readMany<T = unknown>(requests: Array<{ file: string; directory?: string }>): Promise<Array<T | null>>;
+  readMany<T = unknown>(
+    requests: Array<{ file: string; directory?: string }>,
+  ): Promise<Array<T | null>>;
   write(file: string, data: unknown, directory?: string): Promise<boolean>;
   delete(file: string, directory?: string): Promise<boolean>;
   exists(file: string, directory?: string): Promise<boolean>;

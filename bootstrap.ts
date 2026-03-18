@@ -127,7 +127,10 @@ export async function bootstrap(options: BootstrapOptions = {}): Promise<Applica
   app.events.listen("content.changed", (data) => {
     const event = String(data.event ?? "page.updated");
     const payload = (data.payload ?? {}) as Record<string, unknown>;
-    app.webhookService.dispatch(event as Parameters<typeof app.webhookService.dispatch>[0], payload);
+    app.webhookService.dispatch(
+      event as Parameters<typeof app.webhookService.dispatch>[0],
+      payload,
+    );
   });
 
   // ログインイベント → 診断ログ

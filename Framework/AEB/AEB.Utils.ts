@@ -24,28 +24,55 @@ export interface SavedSelection {
  */
 export const sanitizer = {
   allowedTags: [
-    'p', 'br', 'span', 'div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
-    'strong', 'b', 'em', 'i', 'u', 's', 'mark', 'code',
-    'a', 'ul', 'ol', 'li', 'blockquote', 'pre',
-    'table', 'thead', 'tbody', 'tr', 'th', 'td', 'img'
+    "p",
+    "br",
+    "span",
+    "div",
+    "h1",
+    "h2",
+    "h3",
+    "h4",
+    "h5",
+    "h6",
+    "strong",
+    "b",
+    "em",
+    "i",
+    "u",
+    "s",
+    "mark",
+    "code",
+    "a",
+    "ul",
+    "ol",
+    "li",
+    "blockquote",
+    "pre",
+    "table",
+    "thead",
+    "tbody",
+    "tr",
+    "th",
+    "td",
+    "img",
   ] as string[],
   allowedAttributes: {
-    'a': ['href', 'title', 'target', 'rel'],
-    'img': ['src', 'alt', 'title', 'width', 'height'],
-    'td': ['colspan', 'rowspan'],
-    'th': ['colspan', 'rowspan'],
-    '*': ['class', 'id', 'data-*']
+    "a": ["href", "title", "target", "rel"],
+    "img": ["src", "alt", "title", "width", "height"],
+    "td": ["colspan", "rowspan"],
+    "th": ["colspan", "rowspan"],
+    "*": ["class", "id", "data-*"],
   } as Record<string, string[]>,
   clean(html: string): string {
-    if (!html || typeof html !== 'string') return '';
-    const temp = document.createElement('div');
+    if (!html || typeof html !== "string") return "";
+    const temp = document.createElement("div");
     temp.innerHTML = html;
     this._cleanNode(temp);
     return temp.innerHTML;
   },
   _cleanNode(node: Element): void {
     const nodesToRemove: ChildNode[] = [];
-    Array.from(node.childNodes).forEach(child => {
+    Array.from(node.childNodes).forEach((child) => {
       if (child.nodeType === Node.ELEMENT_NODE) {
         const el = child as Element;
         const tagName = el.tagName.toLowerCase();
@@ -59,19 +86,19 @@ export const sanitizer = {
         nodesToRemove.push(child);
       }
     });
-    nodesToRemove.forEach(node => node.remove());
+    nodesToRemove.forEach((node) => node.remove());
   },
   _cleanAttributes(element: Element): void {
     const tagName = element.tagName.toLowerCase();
     const allowedAttrs = this.allowedAttributes[tagName] || [];
-    const globalAttrs = this.allowedAttributes['*'] || [];
+    const globalAttrs = this.allowedAttributes["*"] || [];
     const allAllowed = [...allowedAttrs, ...globalAttrs];
     const attributesToRemove: string[] = [];
-    Array.from(element.attributes).forEach(attr => {
+    Array.from(element.attributes).forEach((attr) => {
       const attrName = attr.name.toLowerCase();
       let isAllowed = false;
       for (const allowed of allAllowed) {
-        if (allowed.endsWith('*')) {
+        if (allowed.endsWith("*")) {
           const prefix = allowed.slice(0, -1);
           if (attrName.startsWith(prefix)) {
             isAllowed = true;
@@ -86,52 +113,58 @@ export const sanitizer = {
         attributesToRemove.push(attrName);
       }
     });
-    attributesToRemove.forEach(name => element.removeAttribute(name));
+    attributesToRemove.forEach((name) => element.removeAttribute(name));
   },
   _isDangerousAttributeValue(name: string, value: string): boolean {
     if (!value) return false;
     const lowerValue = value.toLowerCase().trim();
-    if (name === 'href' || name === 'src') {
-      if (lowerValue.startsWith('javascript:') ||
-          lowerValue.startsWith('data:text/html') ||
-          lowerValue.startsWith('vbscript:')) {
+    if (name === "href" || name === "src") {
+      if (
+        lowerValue.startsWith("javascript:") ||
+        lowerValue.startsWith("data:text/html") ||
+        lowerValue.startsWith("vbscript:")
+      ) {
         return true;
       }
     }
-    if (name.startsWith('on')) {
+    if (name.startsWith("on")) {
       return true;
     }
     return false;
   },
   stripTags(html: string): string {
-    const temp = document.createElement('div');
+    const temp = document.createElement("div");
     temp.innerHTML = html;
-    return temp.textContent || temp.innerText || '';
+    return temp.textContent || temp.innerText || "";
   },
   escape(text: string): string {
-    const div = document.createElement('div');
+    const div = document.createElement("div");
     div.textContent = text;
     return div.innerHTML;
   },
   unescape(html: string): string {
-    const div = document.createElement('div');
+    const div = document.createElement("div");
     div.innerHTML = html;
-    return div.textContent || div.innerText || '';
-  }
+    return div.textContent || div.innerText || "";
+  },
 };
 
 /**
  * dom - DOM manipulation utilities
  */
 export const dom = {
-  create(tag: string, attrs: Record<string, unknown> = {}, content: string | Node | Node[] | null = null): HTMLElement {
+  create(
+    tag: string,
+    attrs: Record<string, unknown> = {},
+    content: string | Node | Node[] | null = null,
+  ): HTMLElement {
     const el = document.createElement(tag);
     Object.entries(attrs).forEach(([key, value]) => {
-      if (key === 'class') {
+      if (key === "class") {
         el.className = value as string;
-      } else if (key === 'style' && typeof value === 'object') {
+      } else if (key === "style" && typeof value === "object") {
         Object.assign(el.style, value);
-      } else if (key.startsWith('data-')) {
+      } else if (key.startsWith("data-")) {
         el.setAttribute(key, value as string);
       } else {
         (el as unknown as Record<string, unknown>)[key] = value;
@@ -143,12 +176,12 @@ export const dom = {
     return el;
   },
   setContent(el: HTMLElement, content: string | Node | Node[]): void {
-    if (typeof content === 'string') {
+    if (typeof content === "string") {
       el.textContent = content;
     } else if (content instanceof Node) {
       el.appendChild(content);
     } else if (Array.isArray(content)) {
-      content.forEach(child => {
+      content.forEach((child) => {
         if (child instanceof Node) {
           el.appendChild(child);
         }
@@ -156,14 +189,14 @@ export const dom = {
     }
   },
   append(parent: HTMLElement, ...children: Node[]): void {
-    children.forEach(child => {
+    children.forEach((child) => {
       if (child instanceof Node) {
         parent.appendChild(child);
       }
     });
   },
   prepend(parent: HTMLElement, ...children: Node[]): void {
-    children.reverse().forEach(child => {
+    children.reverse().forEach((child) => {
       if (child instanceof Node) {
         parent.insertBefore(child, parent.firstChild);
       }
@@ -190,17 +223,22 @@ export const dom = {
     const rect = el.getBoundingClientRect();
     return {
       top: rect.top + globalThis.pageYOffset,
-      left: rect.left + globalThis.pageXOffset
+      left: rect.left + globalThis.pageXOffset,
     };
   },
   position(el: HTMLElement): { top: number; left: number } {
     return {
       top: el.offsetTop,
-      left: el.offsetLeft
+      left: el.offsetLeft,
     };
   },
-  on(el: HTMLElement, event: string, selectorOrHandler: string | EventListener, handler?: EventListener): () => void {
-    if (typeof selectorOrHandler === 'function') {
+  on(
+    el: HTMLElement,
+    event: string,
+    selectorOrHandler: string | EventListener,
+    handler?: EventListener,
+  ): () => void {
+    if (typeof selectorOrHandler === "function") {
       el.addEventListener(event, selectorOrHandler);
       return () => el.removeEventListener(event, selectorOrHandler);
     } else {
@@ -218,7 +256,7 @@ export const dom = {
     const evt = new CustomEvent(event, {
       detail,
       bubbles: true,
-      cancelable: true
+      cancelable: true,
     });
     el.dispatchEvent(evt);
   },
@@ -233,7 +271,7 @@ export const dom = {
   },
   hasClass(el: HTMLElement, className: string): boolean {
     return el.classList.contains(className);
-  }
+  },
 };
 
 /**
@@ -259,7 +297,7 @@ export const selection = {
       startContainer: range.startContainer,
       startOffset: range.startOffset,
       endContainer: range.endContainer,
-      endOffset: range.endOffset
+      endOffset: range.endOffset,
     };
     return this._saved;
   },
@@ -274,7 +312,7 @@ export const selection = {
       sel!.addRange(range);
       return true;
     } catch (error) {
-      console.warn('[Selection] Failed to restore selection:', error);
+      console.warn("[Selection] Failed to restore selection:", error);
       return false;
     }
   },
@@ -293,7 +331,7 @@ export const selection = {
   },
   getText(): string {
     const sel = this.get();
-    return sel ? sel.toString() : '';
+    return sel ? sel.toString() : "";
   },
   isInsideElement(element: HTMLElement): boolean {
     const sel = this.get();
@@ -346,7 +384,7 @@ export const selection = {
       range.surroundContents(element);
       return true;
     } catch (error) {
-      console.warn('[Selection] Failed to wrap selection:', error);
+      console.warn("[Selection] Failed to wrap selection:", error);
       return false;
     }
   },
@@ -367,7 +405,7 @@ export const selection = {
     const fragment = range.createContextualFragment(html);
     range.deleteContents();
     range.insertNode(fragment);
-  }
+  },
 };
 
 /**
@@ -389,9 +427,20 @@ interface ParsedShortcut {
  */
 export const keyboard = {
   keys: {
-    BACKSPACE: 8, TAB: 9, ENTER: 13, SHIFT: 16, CTRL: 17, ALT: 18,
-    ESC: 27, SPACE: 32, LEFT: 37, UP: 38, RIGHT: 39, DOWN: 40,
-    DELETE: 46, CMD: 91
+    BACKSPACE: 8,
+    TAB: 9,
+    ENTER: 13,
+    SHIFT: 16,
+    CTRL: 17,
+    ALT: 18,
+    ESC: 27,
+    SPACE: 32,
+    LEFT: 37,
+    UP: 38,
+    RIGHT: 39,
+    DOWN: 40,
+    DELETE: 46,
+    CMD: 91,
   } as Record<string, number>,
   isModifier(e: KeyboardEvent): boolean {
     return e.ctrlKey || e.shiftKey || e.altKey || e.metaKey;
@@ -403,14 +452,14 @@ export const keyboard = {
     return /Mac|iPhone|iPod|iPad/i.test(navigator.platform);
   },
   _parseShortcut(shortcut: string): ParsedShortcut {
-    const parts = shortcut.toLowerCase().split('+');
+    const parts = shortcut.toLowerCase().split("+");
     const key = parts.pop()!;
     const modifiers = {
-      ctrl: parts.includes('ctrl'),
-      shift: parts.includes('shift'),
-      alt: parts.includes('alt'),
-      meta: parts.includes('meta') || parts.includes('cmd'),
-      mod: parts.includes('mod')
+      ctrl: parts.includes("ctrl"),
+      shift: parts.includes("shift"),
+      alt: parts.includes("alt"),
+      meta: parts.includes("meta") || parts.includes("cmd"),
+      mod: parts.includes("mod"),
     };
     return { key, modifiers };
   },
@@ -426,20 +475,28 @@ export const keyboard = {
     }
     if (parsed.modifiers.shift && !e.shiftKey) return false;
     if (parsed.modifiers.alt && !e.altKey) return false;
-    if (e.ctrlKey && !parsed.modifiers.ctrl && !(parsed.modifiers.mod && !this.isMac())) return false;
+    if (e.ctrlKey && !parsed.modifiers.ctrl && !(parsed.modifiers.mod && !this.isMac())) {
+      return false;
+    }
     if (e.shiftKey && !parsed.modifiers.shift) return false;
     if (e.altKey && !parsed.modifiers.alt) return false;
-    if (e.metaKey && !parsed.modifiers.meta && !(parsed.modifiers.mod && this.isMac())) return false;
+    if (e.metaKey && !parsed.modifiers.meta && !(parsed.modifiers.mod && this.isMac())) {
+      return false;
+    }
     return true;
   },
-  on(element: HTMLElement | Document, shortcut: string, handler: (e: KeyboardEvent) => void): () => void {
+  on(
+    element: HTMLElement | Document,
+    shortcut: string,
+    handler: (e: KeyboardEvent) => void,
+  ): () => void {
     const listener = (e: Event) => {
       if (this.matches(e as KeyboardEvent, shortcut)) {
         handler(e as KeyboardEvent);
       }
     };
-    element.addEventListener('keydown', listener);
-    return () => element.removeEventListener('keydown', listener);
+    element.addEventListener("keydown", listener);
+    return () => element.removeEventListener("keydown", listener);
   },
   isCursorAtStart(element: HTMLElement): boolean {
     const sel = globalThis.getSelection();
@@ -473,23 +530,26 @@ export const keyboard = {
   },
   getShortcutString(e: KeyboardEvent): string {
     const parts: string[] = [];
-    if (e.ctrlKey) parts.push('Ctrl');
-    if (e.shiftKey) parts.push('Shift');
-    if (e.altKey) parts.push('Alt');
-    if (e.metaKey) parts.push(this.isMac() ? 'Cmd' : 'Meta');
+    if (e.ctrlKey) parts.push("Ctrl");
+    if (e.shiftKey) parts.push("Shift");
+    if (e.altKey) parts.push("Alt");
+    if (e.metaKey) parts.push(this.isMac() ? "Cmd" : "Meta");
     if (e.key && e.key.length === 1) {
       parts.push(e.key.toUpperCase());
     } else if (e.key) {
       parts.push(e.key);
     }
-    return parts.join('+');
+    return parts.join("+");
   },
   preventEditorDefaults(e: KeyboardEvent): boolean {
     const shortcuts = [
-      'mod+b', 'mod+i', 'mod+u',
-      'mod+s',
-      'mod+z', 'mod+shift+z',
-      'mod+a'
+      "mod+b",
+      "mod+i",
+      "mod+u",
+      "mod+s",
+      "mod+z",
+      "mod+shift+z",
+      "mod+a",
     ];
     for (const shortcut of shortcuts) {
       if (this.matches(e, shortcut)) {
@@ -498,5 +558,5 @@ export const keyboard = {
       }
     }
     return false;
-  }
+  },
 };

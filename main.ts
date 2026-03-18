@@ -142,12 +142,14 @@ async function main(): Promise<void> {
           ttf: "font/ttf",
           eot: "application/vnd.ms-fontobject",
         };
-        return applySecurityHeaders(new globalThis.Response(file, {
-          headers: {
-            "Content-Type": contentTypes[ext] ?? "application/octet-stream",
-            "Cache-Control": "public, max-age=86400",
-          },
-        }));
+        return applySecurityHeaders(
+          new globalThis.Response(file, {
+            headers: {
+              "Content-Type": contentTypes[ext] ?? "application/octet-stream",
+              "Cache-Control": "public, max-age=86400",
+            },
+          }),
+        );
       } catch {
         return new globalThis.Response("Not Found", { status: 404 });
       }

@@ -1,7 +1,7 @@
 /// <reference lib="dom" />
 /// <reference path="./browser-types.d.ts" />
 
-'use strict';
+"use strict";
 /**
  * ap-events.ts — AdlairePlatform イベントバス
  *
@@ -21,78 +21,76 @@
  * @requires AP (ap-utils.js)
  */
 ((): void => {
+  type EventCallback = (data: unknown) => void;
 
-	type EventCallback = (data: unknown) => void;
+  let listeners: Record<string, Array<EventCallback>> = {};
 
-	let listeners: Record<string, Array<EventCallback>> = {};
+  /**
+   * イベントリスナーを登録
+   * @param event イベント名
+   * @param callback コールバック
+   * @returns リスナー解除関数
+   */
+  const on = (event: string, callback: EventCallback): () => void => {
+    if (!listeners[event]) listeners[event] = [];
+    listeners[event].push(callback);
+    return () => off(event, callback);
+  };
 
-	/**
-	 * イベントリスナーを登録
-	 * @param event イベント名
-	 * @param callback コールバック
-	 * @returns リスナー解除関数
-	 */
-	const on = (event: string, callback: EventCallback): (() => void) => {
-		if (!listeners[event]) listeners[event] = [];
-		listeners[event].push(callback);
-		return () => off(event, callback);
-	};
+  /**
+   * 一度だけ実行されるリスナーを登録
+   */
+  const once = (event: string, callback: EventCallback): void => {
+    const wrapper: EventCallback = (data: unknown) => {
+      callback(data);
+      off(event, wrapper);
+    };
+    on(event, wrapper);
+  };
 
-	/**
-	 * 一度だけ実行されるリスナーを登録
-	 */
-	const once = (event: string, callback: EventCallback): void => {
-		const wrapper: EventCallback = (data: unknown) => {
-			callback(data);
-			off(event, wrapper);
-		};
-		on(event, wrapper);
-	};
+  /**
+   * イベントリスナーを解除
+   */
+  const off = (event: string, callback: EventCallback): void => {
+    if (!listeners[event]) return;
+    listeners[event] = listeners[event].filter((cb: EventCallback) => cb !== callback);
+    if (listeners[event].length === 0) delete listeners[event];
+  };
 
-	/**
-	 * イベントリスナーを解除
-	 */
-	const off = (event: string, callback: EventCallback): void => {
-		if (!listeners[event]) return;
-		listeners[event] = listeners[event].filter((cb: EventCallback) => cb !== callback);
-		if (listeners[event].length === 0) delete listeners[event];
-	};
+  /**
+   * イベントを発火
+   * @param event イベント名
+   * @param data イベントデータ
+   */
+  const emit = (event: string, data?: unknown): void => {
+    if (!listeners[event]) return;
+    const cbs: Array<EventCallback> = [...listeners[event]]; /* コピーして安全にイテレート */
+    for (const cb of cbs) {
+      try {
+        cb(data);
+      } catch (e) {
+        console.error(`[AP.events] Error in "${event}":`, e);
+      }
+    }
+  };
 
-	/**
-	 * イベントを発火
-	 * @param event イベント名
-	 * @param data イベントデータ
-	 */
-	const emit = (event: string, data?: unknown): void => {
-		if (!listeners[event]) return;
-		const cbs: Array<EventCallback> = [...listeners[event]]; /* コピーして安全にイテレート */
-		for (const cb of cbs) {
-			try {
-				cb(data);
-			} catch (e) {
-				console.error(`[AP.events] Error in "${event}":`, e);
-			}
-		}
-	};
+  /**
+   * 指定イベントまたは全リスナーをクリア
+   */
+  const clear = (event?: string): void => {
+    if (event) {
+      delete listeners[event];
+    } else {
+      listeners = {};
+    }
+  };
 
-	/**
-	 * 指定イベントまたは全リスナーをクリア
-	 */
-	const clear = (event?: string): void => {
-		if (event) {
-			delete listeners[event];
-		} else {
-			listeners = {};
-		}
-	};
-
-	/* AP オブジェクトに統合 */
-	if (typeof AP !== 'undefined') {
-		AP.on    = on;
-		AP.once  = once;
-		AP.off   = off;
-		AP.emit  = emit;
-		AP.clearEvents = clear;
-	}
-
+  /* AP オブジェクトに統合 */
+  if (typeof AP !== "undefined") {
+    AP.on = on;
+    AP.once = once;
+    AP.off = off;
+    AP.emit = emit;
+    AP.clearEvents = clear;
+  }
 })();

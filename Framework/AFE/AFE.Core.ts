@@ -12,7 +12,12 @@
  * @license Adlaire License Ver.2.0
  */
 
-import type { HttpMethodValue, RequestContext, ResponseData, RouteDefinition } from "../ACS/ACS.d.ts";
+import type {
+  HttpMethodValue,
+  RequestContext,
+  ResponseData,
+  RouteDefinition,
+} from "../ACS/ACS.d.ts";
 
 import type {
   EventBusInterface,
@@ -26,8 +31,6 @@ import type {
   RouteHandler,
   RouterInterface,
 } from "./AFE.Interface.ts";
-
-
 
 // ============================================================================
 // Router
@@ -294,7 +297,9 @@ export class Request implements RequestInterface {
       } catch { /* non-JSON body */ }
     } else if (body && headers["content-type"]?.includes("application/x-www-form-urlencoded")) {
       const params = new URLSearchParams(body);
-      params.forEach((v, k) => { postData[k] = v; });
+      params.forEach((v, k) => {
+        postData[k] = v;
+      });
     } else if (headers["content-type"]?.includes("multipart/form-data")) {
       // Re-create the request to parse FormData (body was consumed as text above)
       try {
@@ -491,7 +496,9 @@ export class Response implements ResponseInterface {
       statusCode: this._statusCode,
       headers: { ...this._headers },
       body: this._body,
-      contentType: Object.entries(this._headers).find(([k]) => k.toLowerCase() === "content-type")?.[1] ?? "text/plain",
+      contentType:
+        Object.entries(this._headers).find(([k]) => k.toLowerCase() === "content-type")?.[1] ??
+          "text/plain",
     };
   }
 

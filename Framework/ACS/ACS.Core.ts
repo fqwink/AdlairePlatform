@@ -232,7 +232,9 @@ export class HttpTransport implements HttpModuleInterface {
       if (error instanceof DOMException && error.name === "AbortError") {
         throw new TimeoutError(this.timeout, url);
       }
-      if (error instanceof NetworkError || error instanceof AuthError || error instanceof ServerError) {
+      if (
+        error instanceof NetworkError || error instanceof AuthError || error instanceof ServerError
+      ) {
         throw error;
       }
       throw new NetworkError(

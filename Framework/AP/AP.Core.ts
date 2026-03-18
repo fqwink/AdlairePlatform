@@ -9,12 +9,7 @@
  * @license Adlaire License Ver.2.0
  */
 
-import type {
-  AdlaireClient,
-  ApiResponse,
-  RequestContext,
-  ResponseData,
-} from "../ACS/ACS.d.ts";
+import type { AdlaireClient, ApiResponse, RequestContext, ResponseData } from "../ACS/ACS.d.ts";
 import type { ActionDefinition } from "./AP.Interface.ts";
 
 import type {
@@ -577,7 +572,9 @@ export class GitController extends BaseController implements GitControllerInterf
     };
 
     const resp = await this.client.http.post("/api/git/configure", config);
-    return resp.ok ? this.ok({ configured: true, ...config }) : this.error(resp.error ?? "Configure failed");
+    return resp.ok
+      ? this.ok({ configured: true, ...config })
+      : this.error(resp.error ?? "Configure failed");
   }
 
   async test(_request: RequestContext): Promise<ResponseData> {
@@ -916,17 +913,26 @@ export class ActionDispatcher implements ActionDispatcherInterface {
 
       const mapping = ACTION_MAP[actionName];
       if (!mapping) {
-        return Promise.resolve(ActionDispatcher._errorResponse(`Unknown action: ${actionName}`, 400));
+        return Promise.resolve(
+          ActionDispatcher._errorResponse(`Unknown action: ${actionName}`, 400),
+        );
       }
 
       const controller = this.controllers[mapping.controller];
       if (!controller) {
-        return Promise.resolve(ActionDispatcher._errorResponse(`Controller not registered: ${mapping.controller}`, 500));
+        return Promise.resolve(
+          ActionDispatcher._errorResponse(`Controller not registered: ${mapping.controller}`, 500),
+        );
       }
 
       const action = controller.getAction(mapping.method);
       if (!action) {
-        return Promise.resolve(ActionDispatcher._errorResponse(`Action not found: ${mapping.controller}.${mapping.method}`, 500));
+        return Promise.resolve(
+          ActionDispatcher._errorResponse(
+            `Action not found: ${mapping.controller}.${mapping.method}`,
+            500,
+          ),
+        );
       }
 
       const result = action(request);

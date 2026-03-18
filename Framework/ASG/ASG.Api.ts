@@ -8,10 +8,7 @@
  * @license Adlaire License Ver.2.0
  */
 
-import type {
-  ResponseConstructor,
-  RouterInterface,
-} from "../ACS/ACS.d.ts";
+import type { ResponseConstructor, RouterInterface } from "../ACS/ACS.d.ts";
 import type { GeneratorInterface } from "./ASG.Interface.ts";
 
 /**

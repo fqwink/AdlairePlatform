@@ -91,7 +91,7 @@ export class EventBus {
 
   emit(event: string, data?: unknown): void {
     if (!this.listeners.has(event)) return;
-    this.listeners.get(event)!.forEach(callback => {
+    this.listeners.get(event)!.forEach((callback) => {
       try {
         callback(data);
       } catch (error) {
@@ -127,7 +127,7 @@ export class BlockRegistry {
     if (this.blocks.has(type)) {
       throw new Error(`[BlockRegistry] Block type "${type}" is already registered`);
     }
-    if (typeof BlockClass !== 'function') {
+    if (typeof BlockClass !== "function") {
       throw new Error(`[BlockRegistry] BlockClass for "${type}" must be a class/constructor`);
     }
     this.blocks.set(type, BlockClass);
@@ -145,7 +145,11 @@ export class BlockRegistry {
     return this.blocks.get(type);
   }
 
-  create(type: string, data: Record<string, unknown> = {}, config: Record<string, unknown> = {}): unknown {
+  create(
+    type: string,
+    data: Record<string, unknown> = {},
+    config: Record<string, unknown> = {},
+  ): unknown {
     const BlockClass = this.blocks.get(type);
     if (!BlockClass) {
       throw new Error(`[BlockRegistry] Block type "${type}" is not registered`);
@@ -165,7 +169,7 @@ export class BlockRegistry {
   getAll(): Array<{ type: string; BlockClass: new (...args: unknown[]) => unknown }> {
     return Array.from(this.blocks.entries()).map(([type, BlockClass]) => ({
       type,
-      BlockClass
+      BlockClass,
     }));
   }
 
@@ -225,7 +229,7 @@ export class StateManager {
 
   notify(key: string, newValue: unknown, oldValue: unknown): void {
     if (!this.subscribers.has(key)) return;
-    this.subscribers.get(key)!.forEach(callback => {
+    this.subscribers.get(key)!.forEach((callback) => {
       try {
         callback(newValue, oldValue);
       } catch (error) {
@@ -241,7 +245,7 @@ export class StateManager {
   reset(initialState: Record<string, unknown> = {}): void {
     const oldKeys = Object.keys(this.state);
     this.state = { ...initialState };
-    oldKeys.forEach(key => {
+    oldKeys.forEach((key) => {
       if (!(key in this.state)) {
         this.notify(key, undefined, undefined);
       }
@@ -330,7 +334,7 @@ export class HistoryManager<T = unknown> {
       position: this.position,
       canUndo: this.canUndo(),
       canRedo: this.canRedo(),
-      limit: this.limit
+      limit: this.limit,
     };
   }
 
@@ -355,9 +359,9 @@ export class HistoryManager<T = unknown> {
   }
 
   _clone(obj: T): T {
-    if (obj === null || typeof obj !== 'object') return obj;
+    if (obj === null || typeof obj !== "object") return obj;
     try {
-      if (typeof structuredClone === 'function') {
+      if (typeof structuredClone === "function") {
         return structuredClone(obj);
       }
       return JSON.parse(JSON.stringify(obj));
@@ -366,7 +370,7 @@ export class HistoryManager<T = unknown> {
       try {
         return JSON.parse(JSON.stringify(obj));
       } catch {
-        console.warn('[HistoryManager] Failed to clone state, creating shallow copy');
+        console.warn("[HistoryManager] Failed to clone state, creating shallow copy");
         if (Array.isArray(obj)) {
           return [...obj] as unknown as T;
         }
@@ -401,10 +405,10 @@ export class Editor {
       autosave: false,
       autosaveInterval: 30000,
       historyLimit: 50,
-      placeholder: 'Start typing...',
+      placeholder: "Start typing...",
       readOnly: false,
-      minHeight: '300px',
-      ...config
+      minHeight: "300px",
+      ...config,
     };
 
     if (!this.config.holder) {
@@ -417,7 +421,7 @@ export class Editor {
       blocks: [],
       currentBlockId: null,
       isReady: false,
-      readOnly: this.config.readOnly
+      readOnly: this.config.readOnly,
     });
     this.history = new HistoryManager<BlockData[]>(this.config.historyLimit);
 
@@ -439,54 +443,54 @@ export class Editor {
       this._setupAutosave();
     }
     this.isInitialized = true;
-    this.state.set('isReady', true);
-    this.events.emit('ready', { editor: this });
+    this.state.set("isReady", true);
+    this.events.emit("ready", { editor: this });
   }
 
   private _createWrapper(): void {
-    this.wrapper = document.createElement('div') as HTMLDivElement;
-    this.wrapper.className = 'aeb-editor';
-    this.wrapper.setAttribute('data-editor', 'true');
+    this.wrapper = document.createElement("div") as HTMLDivElement;
+    this.wrapper.className = "aeb-editor";
+    this.wrapper.setAttribute("data-editor", "true");
     if (this.config.minHeight) {
       this.wrapper.style.minHeight = this.config.minHeight;
     }
-    this.blocksContainer = document.createElement('div') as HTMLDivElement;
-    this.blocksContainer.className = 'aeb-blocks';
+    this.blocksContainer = document.createElement("div") as HTMLDivElement;
+    this.blocksContainer.className = "aeb-blocks";
     this.wrapper.appendChild(this.blocksContainer);
     this.holder.appendChild(this.wrapper);
   }
 
   private _setupEventListeners(): void {
-    this.wrapper!.addEventListener('keydown', this._handleKeyDown);
-    this.wrapper!.addEventListener('input', this._handleInput);
-    this.state.subscribe('blocks', (blocks: unknown) => {
-      this.events.emit('blocks:changed', { blocks });
+    this.wrapper!.addEventListener("keydown", this._handleKeyDown);
+    this.wrapper!.addEventListener("input", this._handleInput);
+    this.state.subscribe("blocks", (blocks: unknown) => {
+      this.events.emit("blocks:changed", { blocks });
       if (this._restoringHistory) return;
       this._saveToHistory();
     });
   }
 
   private _onKeyDown(e: KeyboardEvent): void {
-    if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+    if ((e.ctrlKey || e.metaKey) && e.key === "z" && !e.shiftKey) {
       e.preventDefault();
       this.undo();
       return;
     }
-    if ((e.ctrlKey || e.metaKey) && e.key === 'z' && e.shiftKey) {
+    if ((e.ctrlKey || e.metaKey) && e.key === "z" && e.shiftKey) {
       e.preventDefault();
       this.redo();
       return;
     }
-    if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+    if ((e.ctrlKey || e.metaKey) && e.key === "s") {
       e.preventDefault();
       this.save();
       return;
     }
-    this.events.emit('keydown', { event: e, editor: this });
+    this.events.emit("keydown", { event: e, editor: this });
   }
 
   private _onInput(e: Event): void {
-    this.events.emit('input', { event: e, editor: this });
+    this.events.emit("input", { event: e, editor: this });
   }
 
   private _setupAutosave(): void {
@@ -496,38 +500,42 @@ export class Editor {
   }
 
   render(blocksData: BlockData[] = []): void {
-    this.blocksContainer.innerHTML = '';
+    this.blocksContainer.innerHTML = "";
     const blockInstances: BlockInstance[] = [];
     blocksData.forEach((blockData, index) => {
       try {
-        const block = this.blocks.create(blockData.type, blockData.data, this.config as unknown as Record<string, unknown>) as BlockInstance['instance'];
+        const block = this.blocks.create(
+          blockData.type,
+          blockData.data,
+          this.config as unknown as Record<string, unknown>,
+        ) as BlockInstance["instance"];
         const blockElement = block.render();
         // Use stable block ID from data if available, otherwise generate
         const blockId = (blockData.data?._blockId as string) || `block-${index}-${blockData.type}`;
-        blockElement.setAttribute('data-block-id', blockId);
-        blockElement.setAttribute('data-block-type', blockData.type);
+        blockElement.setAttribute("data-block-id", blockId);
+        blockElement.setAttribute("data-block-type", blockData.type);
         this.blocksContainer.appendChild(blockElement);
         blockInstances.push({
           id: blockId,
           type: blockData.type,
           instance: block,
-          element: blockElement
+          element: blockElement,
         });
       } catch (error) {
-        console.error('[Editor] Error rendering block:', error);
+        console.error("[Editor] Error rendering block:", error);
       }
     });
-    this.state.set('blocks', blockInstances);
-    this.events.emit('rendered', { blocks: blockInstances });
+    this.state.set("blocks", blockInstances);
+    this.events.emit("rendered", { blocks: blockInstances });
   }
 
   save(): BlockData[] {
-    const blocks = (this.state.get('blocks') as BlockInstance[]) || [];
-    const serialized: BlockData[] = blocks.map(blockInfo => ({
+    const blocks = (this.state.get("blocks") as BlockInstance[]) || [];
+    const serialized: BlockData[] = blocks.map((blockInfo) => ({
       type: blockInfo.type,
-      data: blockInfo.instance.save ? blockInfo.instance.save() : {}
+      data: blockInfo.instance.save ? blockInfo.instance.save() : {},
     }));
-    this.events.emit('save', { blocks: serialized });
+    this.events.emit("save", { blocks: serialized });
     return serialized;
   }
 
@@ -542,7 +550,7 @@ export class Editor {
       this._restoringHistory = true;
       this.render(previousState);
       this._restoringHistory = false;
-      this.events.emit('undo', { state: previousState });
+      this.events.emit("undo", { state: previousState });
     }
   }
 
@@ -552,23 +560,23 @@ export class Editor {
       this._restoringHistory = true;
       this.render(nextState);
       this._restoringHistory = false;
-      this.events.emit('redo', { state: nextState });
+      this.events.emit("redo", { state: nextState });
     }
   }
 
   clear(): void {
     this.render([]);
     this.history.clear();
-    this.events.emit('cleared');
+    this.events.emit("cleared");
   }
 
   destroy(): void {
     if (this.autosaveTimer) {
       clearInterval(this.autosaveTimer);
     }
-    this.wrapper!.removeEventListener('keydown', this._handleKeyDown);
-    this.wrapper!.removeEventListener('input', this._handleInput);
-    this.events.emit('destroyed');
+    this.wrapper!.removeEventListener("keydown", this._handleKeyDown);
+    this.wrapper!.removeEventListener("input", this._handleInput);
+    this.events.emit("destroyed");
     this.events.clear();
     this.state.clearSubscribers();
     this.history.clear();
@@ -584,6 +592,6 @@ export class Editor {
 
   updateConfig(updates: Partial<EditorConfig>): void {
     this.config = { ...this.config, ...updates };
-    this.events.emit('config:updated', { config: this.config });
+    this.events.emit("config:updated", { config: this.config });
   }
 }

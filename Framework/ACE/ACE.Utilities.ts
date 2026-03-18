@@ -9,10 +9,7 @@
  * @license Adlaire License Ver.2.0
  */
 
-import type {
-  AdlaireClient,
-  ApiResponse,
-} from "../ACS/ACS.d.ts";
+import type { AdlaireClient, ApiResponse } from "../ACS/ACS.d.ts";
 
 import type {
   ApiEndpointHandler,

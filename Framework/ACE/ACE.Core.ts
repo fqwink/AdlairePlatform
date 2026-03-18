@@ -11,11 +11,7 @@
  * @license Adlaire License Ver.2.0
  */
 
-import type {
-  AdlaireClient,
-  FrontMatterResult,
-  ValidationErrors,
-} from "../ACS/ACS.d.ts";
+import type { AdlaireClient, FrontMatterResult, ValidationErrors } from "../ACS/ACS.d.ts";
 
 import type {
   CollectionItem,

@@ -318,4 +318,3 @@ export interface FrontMatterResult {
   readonly meta: Record<string, unknown>;
   readonly body: string;
 }
-

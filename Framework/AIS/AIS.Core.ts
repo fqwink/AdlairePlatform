@@ -11,7 +11,12 @@
  * @license Adlaire License Ver.2.0
  */
 
-import type { AdlaireClient, MiddlewareInterface, RequestInterface, ResponseInterface } from "../ACS/ACS.d.ts";
+import type {
+  AdlaireClient,
+  MiddlewareInterface,
+  RequestInterface,
+  ResponseInterface,
+} from "../ACS/ACS.d.ts";
 
 import type {
   AppContextInterface,
@@ -289,4 +294,3 @@ export class RequestLoggingMiddleware implements MiddlewareInterface {
     return response;
   }
 }
-

@@ -19,13 +19,7 @@
 export type * from "./ACS/ACS.d.ts";
 
 // ── AFE (Adlaire Foundation Engine) ──
-export {
-  EventBus,
-  MiddlewarePipeline,
-  Request,
-  Response,
-  Router,
-} from "./AFE/AFE.Core.ts";
+export { EventBus, MiddlewarePipeline, Request, Response, Router } from "./AFE/AFE.Core.ts";
 export { FileSystem } from "./AFE/AFE.Utilities.ts";
 export { registerSystemRoutes } from "./AFE/AFE.Api.ts";
 
@@ -34,11 +28,7 @@ export { ClientFactory, createBasicClient } from "./ACS/ACS.Core.ts";
 export { createClient, createMockClient } from "./ACS/ACS.Api.ts";
 
 // ── ACE (Content Engine) ──
-export {
-  CollectionManager,
-  ContentManager,
-  MetaManager,
-} from "./ACE/ACE.Core.ts";
+export { CollectionManager, ContentManager, MetaManager } from "./ACE/ACE.Core.ts";
 export { WebhookService } from "./ACE/ACE.Utilities.ts";
 export { registerCollectionRoutes } from "./ACE/ACE.Api.ts";
 
