@@ -27,9 +27,11 @@ export class CsrfMiddleware implements MiddlewareInterface {
   private readonly tokenName = "csrf_token";
   private tokens = new Map<string, number>();
   private readonly ttlMs: number;
+  private readonly maxTokens: number;
 
-  constructor(private readonly Response: ResponseConstructor, ttlMs: number = 3600000) {
+  constructor(private readonly Response: ResponseConstructor, ttlMs: number = 3600000, maxTokens: number = 10000) {
     this.ttlMs = ttlMs;
+    this.maxTokens = maxTokens;
   }
 
   handle(
@@ -55,9 +57,22 @@ export class CsrfMiddleware implements MiddlewareInterface {
   }
 
   generateToken(): string {
+    // Enforce size limit before adding new tokens
+    if (this.tokens.size >= this.maxTokens) {
+      this.cleanup();
+    }
+    // If still at limit after cleanup, evict oldest tokens
+    if (this.tokens.size >= this.maxTokens) {
+      const excess = this.tokens.size - this.maxTokens + 1;
+      let removed = 0;
+      for (const key of this.tokens.keys()) {
+        if (removed >= excess) break;
+        this.tokens.delete(key);
+        removed++;
+      }
+    }
     const token = crypto.randomUUID();
     this.tokens.set(token, Date.now());
-    this.cleanup();
     return token;
   }
 

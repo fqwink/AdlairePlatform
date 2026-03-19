@@ -792,13 +792,31 @@ export class CssMinifier {
    * CSS を最小化する（calc() 式を保持）
    */
   static minify(css: string): string {
-    // calc() 内の空白を保護
+    // calc() 内の空白を保護（ネストされた括弧に対応）
     const calcExpressions: string[] = [];
-    let result = css.replace(/calc\([^)]+\)/g, (match) => {
+    let result = "";
+    let pos = 0;
+    while (pos < css.length) {
+      const calcIdx = css.indexOf("calc(", pos);
+      if (calcIdx === -1) {
+        result += css.substring(pos);
+        break;
+      }
+      result += css.substring(pos, calcIdx);
+      // Find matching closing paren accounting for nesting
+      let depth = 1;
+      let i = calcIdx + 5; // length of "calc("
+      while (i < css.length && depth > 0) {
+        if (css[i] === "(") depth++;
+        else if (css[i] === ")") depth--;
+        i++;
+      }
+      const fullMatch = css.substring(calcIdx, i);
       const idx = calcExpressions.length;
-      calcExpressions.push(match);
-      return `\x00CALC_${idx}\x00`;
-    });
+      calcExpressions.push(fullMatch);
+      result += `\x00CALC_${idx}\x00`;
+      pos = i;
+    }
 
     // コメント除去
     result = result.replace(/\/\*[\s\S]*?\*\//g, "");

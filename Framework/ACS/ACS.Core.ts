@@ -297,7 +297,13 @@ export class AuthService implements AuthModuleInterface {
 
   async session(): Promise<SessionInfo | null> {
     if (this.currentSession && this.sessionCachedAt && Date.now() - this.sessionCachedAt < 300000) {
-      return this.currentSession;
+      // Check if the cached session has expired
+      if (this.currentSession.expiresAt && new Date(this.currentSession.expiresAt).getTime() < Date.now()) {
+        this.currentSession = null;
+        this.sessionCachedAt = null;
+      } else {
+        return this.currentSession;
+      }
     }
     const result = await this.http.get<SessionInfo>(API_ENDPOINTS.AUTH_SESSION);
     if (result.ok && result.data) {
@@ -567,6 +573,7 @@ export class EventSourceService implements EventSourceInterface {
       this.source.close();
       this.source = null;
     }
+    this.nativeListeners.clear();
     this.state = ConnectionState.DISCONNECTED;
   }
 
