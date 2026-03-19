@@ -176,10 +176,10 @@ AdlairePlatform/
 
 矛盾がある場合は上位が優先される。
 
-1. `docs/AdlairePlatform_DetailedDesign.md` — 詳細設計（最上位準拠文書）
-2. `docs/FRAMEWORK_RULEBOOK_v3.0.md` — フレームワーク規約
-3. `docs/VERSIONING.md` — バージョニング規則
-4. `docs/DOCUMENT_RULEBOOK.md` — ドキュメント管理ルール
+1. `docs/AdlairePlatform_DetailedDesign.md` — 詳細設計
+2. `docs/FRAMEWORK_RULEBOOK_v3.0.md` — フレームワーク規約（設計、実装の最上位準拠文書）
+3. `docs/VERSIONING.md` — バージョニング規則（バージョンの最上位準拠文書）
+4. `docs/DOCUMENT_RULEBOOK.md` — ドキュメント管理ルール（ドキュメントの最上位準拠文書）
 
 ## 初期化順序
 
