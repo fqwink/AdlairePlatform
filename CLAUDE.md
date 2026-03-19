@@ -37,19 +37,6 @@ deno task test         # テスト実行
 
 各フレームワークは「エンジン」として自己完結する。以下の厳格なルールに従うこと。
 
-### エンジン一覧
-
-| 接頭辞 | 名称 | 言語 | 用途 | ファイル数 |
-|--------|------|------|------|-----------|
-| **AFE** | Adlaire Foundation Engine | TypeScript | Router、Request、Response、EventBus、MiddlewarePipeline 等の基盤 | 5 |
-| **ACS** | Adlaire Client Services | TypeScript | サーバ通信の一元化（`globalThis.__acs`）（§3 参照） | 5 |
-| **ACE** | Adlaire Content Engine | TypeScript | コレクション・コンテンツ・メタデータ管理、管理画面 UI | 5 + クライアントモジュール |
-| **AIS** | Adlaire Infrastructure Services | TypeScript | AppContext、i18n、API キャッシュ、診断、リクエストロギング | 5 |
-| **ASG** | Adlaire Static Generator | TypeScript | Markdown パース・テンプレートレンダリング・静的サイトビルド | 5 |
-| **ASS** | Adlaire Server System | PHP | 認証・セキュリティ・ストレージ・ファイル操作・Git 等のサーバサイドサービス | 5 |
-| **ADS** | Adlaire Design System | CSS | ベーススタイル・コンポーネントスタイル・エディタスタイル・管理画面スタイル | 3 + アセット |
-| **AEB** | Adlaire Editor & Blocks | TypeScript | ブロックエディタ・WYSIWYG | 3 + クライアントモジュール |
-
 ### 絶対に守るべきルール
 
 1. **1 エンジン 5 ファイル原則**: Core（必須）+ 最大 4 コンポーネント。サブディレクトリ内ファイルは上限に含めない。例外は Adlaire Group の承認を要する（FRAMEWORK_RULEBOOK §2.2）
@@ -81,33 +68,6 @@ ACS は `globalThis.__acs` として `auth`・`storage`・`files`・`http` の 4
 - **凍結**: `globalThis.__acs` に代入するオブジェクトは `Object.freeze()` で凍結
 - **再代入禁止**: `globalThis.__acs` への代入は ACS エントリモジュール評価時の 1 回のみ
 - **動的 import 禁止**: ACS エントリモジュールを `import()` 式で読み込むことは禁止
-
-## ファイル構成
-
-```
-AdlairePlatform/
-├── main.ts                  # HTTP サーバエントリポイント
-├── bootstrap.ts             # ApplicationFacade 初期化
-├── routes.ts                # ルート・ミドルウェア登録
-├── deno.json                # Deno 設定・タスク定義
-├── Framework/
-│   ├── mod.ts               # バレルエクスポート
-│   ├── browser.deno.json    # ブラウザ向けコンパイラ設定
-│   ├── {PREFIX}/            # 各エンジンディレクトリ
-│   │   ├── {PREFIX}.Core.ts # Core（必須）
-│   │   ├── {PREFIX}.Interface.ts
-│   │   ├── {PREFIX}.Class.ts
-│   │   ├── {PREFIX}.Api.ts
-│   │   ├── {PREFIX}.Utilities.ts
-│   │   ├── {PREFIX}.d.ts    # 公開型定義（ACS のみ）
-│   │   └── ClientEngine/    # クライアントモジュール（任意）
-├── data/                    # JSON ストレージ
-│   ├── content/             # ページ・コレクション・リビジョン
-│   └── settings/            # アプリ設定・認証・API キー
-├── themes/                  # テーマテンプレート
-├── lang/                    # i18n（ja.json, en.json）
-└── docs/                    # 内部ドキュメント
-```
 
 ### 命名規則
 
