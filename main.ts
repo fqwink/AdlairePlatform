@@ -50,7 +50,7 @@ async function main(): Promise<void> {
   // Application の Router に全ルートをコピー（内部 Router と統合）
   const router = app.router;
 
-  console.log(`Adlaire Platform v${AP_VERSION}`);
+  console.log(`Adlaire Platform ${AP_VERSION}`);
   console.log(`Runtime: Deno ${Deno.version.deno}`);
   console.log(`Listening on http://localhost:${port}`);
 

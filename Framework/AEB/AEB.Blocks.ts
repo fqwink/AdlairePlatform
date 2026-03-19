@@ -11,6 +11,7 @@
  */
 
 import type { EditorConfig } from "./AEB.Core.ts";
+import { sanitizer } from "./AEB.Utils.ts";
 
 /**
  * BlockConfig - Static configuration for a block type
@@ -191,9 +192,7 @@ export class ParagraphBlock extends BaseBlock {
   }
 
   private _sanitize(html: string): string {
-    const div = document.createElement("div");
-    div.textContent = html;
-    return div.innerHTML;
+    return sanitizer.clean(html);
   }
 
   static override get config(): BlockConfig {
@@ -284,9 +283,7 @@ export class HeadingBlock extends BaseBlock {
   }
 
   private _sanitize(html: string): string {
-    const div = document.createElement("div");
-    div.textContent = html;
-    return div.innerHTML;
+    return sanitizer.clean(html);
   }
 
   static override get config(): BlockConfig {
@@ -349,9 +346,7 @@ export class ListBlock extends BaseBlock {
   }
 
   private _sanitize(html: string): string {
-    const div = document.createElement("div");
-    div.textContent = html;
-    return div.innerHTML;
+    return sanitizer.clean(html);
   }
 
   override validate(data: Partial<ListData>): boolean {
@@ -409,9 +404,7 @@ export class QuoteBlock extends BaseBlock {
   }
 
   private _sanitize(html: string): string {
-    const div = document.createElement("div");
-    div.textContent = html;
-    return div.innerHTML;
+    return sanitizer.clean(html);
   }
 
   override validate(data: Partial<QuoteData>): boolean {

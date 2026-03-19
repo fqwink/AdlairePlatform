@@ -366,16 +366,12 @@ export class HistoryManager<T = unknown> {
       }
       return JSON.parse(JSON.stringify(obj));
     } catch {
-      // Deep copy fallback for non-serializable objects
-      try {
-        return JSON.parse(JSON.stringify(obj));
-      } catch {
-        console.warn("[HistoryManager] Failed to clone state, creating shallow copy");
-        if (Array.isArray(obj)) {
-          return [...obj] as unknown as T;
-        }
-        return { ...obj };
+      // Shallow copy fallback for non-serializable objects
+      console.warn("[HistoryManager] Failed to clone state, creating shallow copy");
+      if (Array.isArray(obj)) {
+        return [...obj] as unknown as T;
       }
+      return { ...obj };
     }
   }
 }
@@ -540,8 +536,13 @@ export class Editor {
   }
 
   private _saveToHistory(): void {
-    const currentState = this.save();
-    this.history.push(currentState);
+    // Serialize blocks without emitting "save" event (which is for explicit user saves)
+    const blocks = (this.state.get("blocks") as BlockInstance[]) || [];
+    const serialized: BlockData[] = blocks.map((blockInfo) => ({
+      type: blockInfo.type,
+      data: blockInfo.instance.save ? blockInfo.instance.save() : {},
+    }));
+    this.history.push(serialized);
   }
 
   undo(): void {

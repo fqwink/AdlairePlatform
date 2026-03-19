@@ -79,7 +79,10 @@ export class Generator implements GeneratorInterface {
         try {
           const html = this.builder.buildPage(slug, page.content, this.buildContext(page, pages));
           const outPath = this.resolveOutputPath(slug);
-          await this.fs.ensureDir(outPath.substring(0, outPath.lastIndexOf("/")));
+          const lastSlash = outPath.lastIndexOf("/");
+          if (lastSlash > 0) {
+            await this.fs.ensureDir(outPath.substring(0, lastSlash));
+          }
           await this.fs.write(outPath, html);
           hashes[slug] = this.cache.getContentHash(page.content);
           changedFiles.push(outPath);
@@ -159,7 +162,10 @@ export class Generator implements GeneratorInterface {
         try {
           const html = this.builder.buildPage(slug, page.content, this.buildContext(page, pages));
           const outPath = this.resolveOutputPath(slug);
-          await this.fs.ensureDir(outPath.substring(0, outPath.lastIndexOf("/")));
+          const lastSlash = outPath.lastIndexOf("/");
+          if (lastSlash > 0) {
+            await this.fs.ensureDir(outPath.substring(0, lastSlash));
+          }
           await this.fs.write(outPath, html);
           changedFiles.push(outPath);
           built++;
@@ -786,13 +792,31 @@ export class CssMinifier {
    * CSS を最小化する（calc() 式を保持）
    */
   static minify(css: string): string {
-    // calc() 内の空白を保護
+    // calc() 内の空白を保護（ネストされた括弧に対応）
     const calcExpressions: string[] = [];
-    let result = css.replace(/calc\([^)]+\)/g, (match) => {
+    let result = "";
+    let pos = 0;
+    while (pos < css.length) {
+      const calcIdx = css.indexOf("calc(", pos);
+      if (calcIdx === -1) {
+        result += css.substring(pos);
+        break;
+      }
+      result += css.substring(pos, calcIdx);
+      // Find matching closing paren accounting for nesting
+      let depth = 1;
+      let i = calcIdx + 5; // length of "calc("
+      while (i < css.length && depth > 0) {
+        if (css[i] === "(") depth++;
+        else if (css[i] === ")") depth--;
+        i++;
+      }
+      const fullMatch = css.substring(calcIdx, i);
       const idx = calcExpressions.length;
-      calcExpressions.push(match);
-      return `\x00CALC_${idx}\x00`;
-    });
+      calcExpressions.push(fullMatch);
+      result += `\x00CALC_${idx}\x00`;
+      pos = i;
+    }
 
     // コメント除去
     result = result.replace(/\/\*[\s\S]*?\*\//g, "");

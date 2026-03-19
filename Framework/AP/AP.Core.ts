@@ -83,7 +83,12 @@ export abstract class BaseController implements BaseControllerInterface {
    */
   protected isValidSlug(value: string, allowSlash = false): boolean {
     const pattern = allowSlash ? /^[a-zA-Z0-9_\-/]+$/ : /^[a-zA-Z0-9_-]+$/;
-    return pattern.test(value);
+    if (!pattern.test(value)) return false;
+    // Block path traversal patterns even when slashes are allowed
+    if (allowSlash && (value.includes("..") || value.startsWith("/") || value.endsWith("/"))) {
+      return false;
+    }
+    return true;
   }
 
   /**
@@ -382,12 +387,13 @@ export class AdminController extends BaseController implements AdminControllerIn
       return this.error("User already exists");
     }
 
-    // Hash password using Web Crypto API
+    // Hash password with random salt using Web Crypto API
+    const salt = crypto.randomUUID();
     const encoder = new TextEncoder();
-    const data = encoder.encode(password);
+    const data = encoder.encode(salt + password);
     const hashBuffer = await crypto.subtle.digest("SHA-256", data);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
-    const passwordHash = hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+    const passwordHash = salt + ":" + hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
 
     users.push({ username, passwordHash, role, createdAt: new Date().toISOString() });
     await this.client.storage.write("users.json", users, "settings");
@@ -612,6 +618,10 @@ export class GitController extends BaseController implements GitControllerInterf
     const branch = String(body.branch ?? "");
     if (!branch) return this.error("branch is required");
     if (!/^[a-zA-Z0-9_\-/.]+$/.test(branch)) {
+      return this.error("Invalid branch name");
+    }
+    // Block path traversal and dangerous patterns
+    if (branch.includes("..") || branch.startsWith("/") || branch.endsWith("/")) {
       return this.error("Invalid branch name");
     }
     return this.ok({ branch, preview: true });

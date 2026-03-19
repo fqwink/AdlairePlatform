@@ -308,8 +308,9 @@ export const selection = {
       range.setStart(this._saved.startContainer, this._saved.startOffset);
       range.setEnd(this._saved.endContainer, this._saved.endOffset);
       const sel = this.get();
-      sel!.removeAllRanges();
-      sel!.addRange(range);
+      if (!sel) return false;
+      sel.removeAllRanges();
+      sel.addRange(range);
       return true;
     } catch (error) {
       console.warn("[Selection] Failed to restore selection:", error);
@@ -323,11 +324,12 @@ export const selection = {
     }
   },
   selectAll(element: Node): void {
+    const sel = this.get();
+    if (!sel) return;
     const range = document.createRange();
     range.selectNodeContents(element);
-    const sel = this.get();
-    sel!.removeAllRanges();
-    sel!.addRange(range);
+    sel.removeAllRanges();
+    sel.addRange(range);
   },
   getText(): string {
     const sel = this.get();
@@ -361,19 +363,21 @@ export const selection = {
     return range ? range.getBoundingClientRect() : null;
   },
   setRange(startNode: Node, startOffset: number, endNode: Node, endOffset: number): void {
+    const sel = this.get();
+    if (!sel) return;
     const range = document.createRange();
     range.setStart(startNode, startOffset);
     range.setEnd(endNode, endOffset);
-    const sel = this.get();
-    sel!.removeAllRanges();
-    sel!.addRange(range);
+    sel.removeAllRanges();
+    sel.addRange(range);
   },
   collapse(toStart: boolean = false): void {
     const sel = this.get();
     if (sel) {
-      sel.collapseToEnd();
       if (toStart) {
         sel.collapseToStart();
+      } else {
+        sel.collapseToEnd();
       }
     }
   },
@@ -391,13 +395,14 @@ export const selection = {
   insertNode(node: Node): void {
     const range = this.getRange();
     if (!range) return;
+    const sel = this.get();
+    if (!sel) return;
     range.deleteContents();
     range.insertNode(node);
     range.setStartAfter(node);
     range.setEndAfter(node);
-    const sel = this.get();
-    sel!.removeAllRanges();
-    sel!.addRange(range);
+    sel.removeAllRanges();
+    sel.addRange(range);
   },
   insertHTML(html: string): void {
     const range = this.getRange();
