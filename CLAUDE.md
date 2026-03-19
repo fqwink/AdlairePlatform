@@ -39,28 +39,29 @@ deno task test         # テスト実行
 
 ### エンジン一覧
 
-| 接頭辞 | 名称 | 言語 | 用途 |
-|--------|------|------|------|
-| **AFE** | Adlaire Foundation Engine | TypeScript | Router、Request、Response、EventBus、Middleware 基盤 |
-| **ACS** | Adlaire Client Services | TypeScript | サーバ通信の一元化（`globalThis.__acs`） |
-| **ACE** | Adlaire Content Engine | TypeScript | コレクション・コンテンツ管理 |
-| **AIS** | Adlaire Infrastructure Services | TypeScript | AppContext、i18n、診断、キャッシュ |
-| **ASG** | Adlaire Static Generator | TypeScript | テンプレート・Markdown・静的サイトビルド |
-| **AP** | Adlaire Platform Controllers | TypeScript | 認証・管理・API コントローラ |
-| **AEB** | Adlaire Editor & Blocks | TypeScript | ブロックエディタ・WYSIWYG |
-| **ADS** | Adlaire Design System | CSS | スタイル定義 |
-| **ASS** | Adlaire Server System | PHP | サーバサイドサービス |
+| 接頭辞 | 名称 | 言語 | 用途 | ファイル数 |
+|--------|------|------|------|-----------|
+| **AFE** | Adlaire Foundation Engine | TypeScript | Router、Request、Response、EventBus、MiddlewarePipeline 等の基盤 | 5 |
+| **ACS** | Adlaire Client Services | TypeScript | サーバ通信の一元化（`globalThis.__acs`）（§3 参照） | 5 |
+| **ACE** | Adlaire Content Engine | TypeScript | コレクション・コンテンツ・メタデータ管理、管理画面 UI | 5 + クライアントモジュール |
+| **AIS** | Adlaire Infrastructure Services | TypeScript | AppContext、i18n、API キャッシュ、診断、リクエストロギング | 5 |
+| **ASG** | Adlaire Static Generator | TypeScript | Markdown パース・テンプレートレンダリング・静的サイトビルド | 5 |
+| **ASS** | Adlaire Server System | PHP | 認証・セキュリティ・ストレージ・ファイル操作・Git 等のサーバサイドサービス | 5 |
+| **ADS** | Adlaire Design System | CSS | ベーススタイル・コンポーネントスタイル・エディタスタイル・管理画面スタイル | 3 + アセット |
+| **AEB** | Adlaire Editor & Blocks | TypeScript | ブロックエディタ・WYSIWYG | 3 + クライアントモジュール |
 
 ### 絶対に守るべきルール
 
-1. **1 エンジン最大 5 ファイル**: Core（必須）+ 最大 4 コンポーネント。サブディレクトリ内ファイルは上限に含めない
-2. **外部依存ゼロ**: npm パッケージ・サードパーティライブラリの使用禁止。Deno 標準ライブラリのみ
-3. **フレームワーク間 import 禁止**: 他エンジンの実装を直接 `import` してはならない
-4. **DI コンテナ禁止**: `ApplicationFacade` のプロパティ直接参照を使用
-5. **共有型ファイル禁止**: 各エンジンが独自に型を定義する。ACS 型のみ `import type` で `ACS.d.ts` から参照可
-6. **ACS 経由通信**: サーバ通信はすべて `globalThis.__acs` 経由。直接 `fetch()` 禁止
-7. **Core 限定参照**: `globalThis.__acs` を参照できるのは各エンジンの Core のみ
-8. **Node.js 禁止**: Node.js ランタイムおよび npm の使用禁止
+1. **1 エンジン 5 ファイル原則**: Core（必須）+ 最大 4 コンポーネント。サブディレクトリ内ファイルは上限に含めない。例外は Adlaire Group の承認を要する（FRAMEWORK_RULEBOOK §2.2）
+2. **自己完結**: 各エンジンは他のエンジンの存在を前提とした設計を禁止する
+3. **エンジン内協調（Core 経由）**: 同一エンジン内のコンポーネント間で参照が必要な場合は、必ず Core を介す。Core 以外のコンポーネント同士の直接参照は禁止
+4. **外部依存ゼロ**: サードパーティライブラリおよび外部パッケージへの依存は禁止。言語標準ライブラリのみ
+5. **フレームワーク間依存ゼロ**: 他エンジンの実装を直接 `import` してはならない（ACS を含む）。サーバ通信は `globalThis.__acs` 経由
+6. **DI コンテナ禁止**: `ApplicationFacade` のプロパティ直接参照を使用
+7. **共有型ファイル禁止**: 各エンジンが独自に型を定義する。ACS 型のみ `import type` で `ACS.d.ts` から参照可
+8. **ACS 経由通信**: サーバ通信はすべて `globalThis.__acs` 経由。直接 `fetch()` 禁止
+9. **Core 限定参照**: `globalThis.__acs` を参照できるのは各エンジンの Core のみ。Core 以外が ACS 機能を必要とする場合は Core を介して間接的に利用
+10. **Node.js 禁止**: Node.js ランタイムおよび npm の使用禁止
 
 ### ACS グローバルシングルトン
 
@@ -73,6 +74,13 @@ import { AuthService } from "../ACS/ACS.Core.ts";
 ```
 
 ACS は `globalThis.__acs` として `auth`・`storage`・`files`・`http` の 4 名前空間を公開する。初期化は bootstrap で最初に実行される。
+
+#### モジュールキャッシュ方式（FRAMEWORK_RULEBOOK §3.5）
+
+- **トップレベル生成**: ACS インスタンスはエントリモジュールのトップレベルで生成。遅延初期化禁止
+- **凍結**: `globalThis.__acs` に代入するオブジェクトは `Object.freeze()` で凍結
+- **再代入禁止**: `globalThis.__acs` への代入は ACS エントリモジュール評価時の 1 回のみ
+- **動的 import 禁止**: ACS エントリモジュールを `import()` 式で読み込むことは禁止
 
 ## ファイル構成
 
@@ -91,6 +99,7 @@ AdlairePlatform/
 │   │   ├── {PREFIX}.Class.ts
 │   │   ├── {PREFIX}.Api.ts
 │   │   ├── {PREFIX}.Utilities.ts
+│   │   ├── {PREFIX}.d.ts    # 公開型定義（ACS のみ）
 │   │   └── ClientEngine/    # クライアントモジュール（任意）
 ├── data/                    # JSON ストレージ
 │   ├── content/             # ページ・コレクション・リビジョン
@@ -133,7 +142,8 @@ AdlairePlatform/
 
 - エラークラスは各エンジンの Class コンポーネントに定義
 - 他エンジンのエラークラスの直接参照禁止
-- エンジン外部に公開する関数は例外をスローせず結果型で返却
+- **結果型の必須化**: エンジン外部に公開する関数は例外をスローせず、成功と失敗を表す結果型で返却
+- **エンジン内例外の公開境界捕捉**: エンジン内部での例外スローは許容するが、公開境界で必ず捕捉すること
 - ACS 通信エラーのリトライは ACS 自身が行う。呼び出し側の独自リトライ禁止
 
 ### API エラーレスポンス形式
@@ -141,6 +151,16 @@ AdlairePlatform/
 ```json
 { "ok": false, "error": "エラーメッセージ", "errors": {} }
 ```
+
+#### HTTP ステータスコード
+
+| ステータス | 用途 |
+|-----------|------|
+| `400` | リクエストパラメータの不正、バリデーションエラー |
+| `401` | 認証が必要、またはトークンが無効 |
+| `403` | 認証済みだがアクセス権限がない |
+| `404` | リソースが存在しない |
+| `500` | サーバ内部エラー |
 
 ## バージョニング
 
