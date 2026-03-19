@@ -195,9 +195,15 @@ export class ContentManager implements ContentManagerInterface {
     const sortBy = options?.sortBy ?? "date";
     const sortOrder = options?.sortOrder ?? "desc";
     items.sort((a, b) => {
-      const va = String((a.meta as Record<string, unknown>)[sortBy] ?? "");
-      const vb = String((b.meta as Record<string, unknown>)[sortBy] ?? "");
-      return sortOrder === "desc" ? vb.localeCompare(va) : va.localeCompare(vb);
+      const rawA = (a.meta as Record<string, unknown>)[sortBy];
+      const rawB = (b.meta as Record<string, unknown>)[sortBy];
+      let cmp: number;
+      if (typeof rawA === "number" && typeof rawB === "number") {
+        cmp = rawA - rawB;
+      } else {
+        cmp = String(rawA ?? "").localeCompare(String(rawB ?? ""));
+      }
+      return sortOrder === "desc" ? -cmp : cmp;
     });
 
     // ページネーション
@@ -250,7 +256,7 @@ export class ContentManager implements ContentManagerInterface {
 
 export class MetaManager implements MetaManagerInterface {
   extractMeta(content: string): FrontMatterResult {
-    const fmRegex = /^---\r?\n([\s\S]*?)\r?\n---\r?\n([\s\S]*)$/;
+    const fmRegex = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n([\s\S]*))?$/;
     const match = fmRegex.exec(content);
 
     if (!match) {
@@ -258,7 +264,7 @@ export class MetaManager implements MetaManagerInterface {
     }
 
     const meta = this.parseYaml(match[1]);
-    return { meta, body: match[2] };
+    return { meta, body: match[2] ?? "" };
   }
 
   buildMeta(meta: Record<string, unknown>): string {

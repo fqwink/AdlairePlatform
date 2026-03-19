@@ -83,7 +83,12 @@ export abstract class BaseController implements BaseControllerInterface {
    */
   protected isValidSlug(value: string, allowSlash = false): boolean {
     const pattern = allowSlash ? /^[a-zA-Z0-9_\-/]+$/ : /^[a-zA-Z0-9_-]+$/;
-    return pattern.test(value);
+    if (!pattern.test(value)) return false;
+    // Block path traversal patterns even when slashes are allowed
+    if (allowSlash && (value.includes("..") || value.startsWith("/") || value.endsWith("/"))) {
+      return false;
+    }
+    return true;
   }
 
   /**

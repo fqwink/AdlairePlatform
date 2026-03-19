@@ -79,7 +79,10 @@ export class Generator implements GeneratorInterface {
         try {
           const html = this.builder.buildPage(slug, page.content, this.buildContext(page, pages));
           const outPath = this.resolveOutputPath(slug);
-          await this.fs.ensureDir(outPath.substring(0, outPath.lastIndexOf("/")));
+          const lastSlash = outPath.lastIndexOf("/");
+          if (lastSlash > 0) {
+            await this.fs.ensureDir(outPath.substring(0, lastSlash));
+          }
           await this.fs.write(outPath, html);
           hashes[slug] = this.cache.getContentHash(page.content);
           changedFiles.push(outPath);
@@ -159,7 +162,10 @@ export class Generator implements GeneratorInterface {
         try {
           const html = this.builder.buildPage(slug, page.content, this.buildContext(page, pages));
           const outPath = this.resolveOutputPath(slug);
-          await this.fs.ensureDir(outPath.substring(0, outPath.lastIndexOf("/")));
+          const lastSlash = outPath.lastIndexOf("/");
+          if (lastSlash > 0) {
+            await this.fs.ensureDir(outPath.substring(0, lastSlash));
+          }
           await this.fs.write(outPath, html);
           changedFiles.push(outPath);
           built++;

@@ -61,6 +61,12 @@ export class DiagnosticsManager implements DiagnosticsManagerInterface {
   }
 
   logEnvironmentIssue(message: string, context?: Record<string, unknown>): void {
+    if (!this.enabled) return;
+
+    if (this.events.length >= this.maxEvents) {
+      this.events = this.events.slice(Math.floor(this.maxEvents * 0.1));
+    }
+
     this.events.push({
       channel: "environment",
       level: "warning",

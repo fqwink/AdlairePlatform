@@ -366,16 +366,12 @@ export class HistoryManager<T = unknown> {
       }
       return JSON.parse(JSON.stringify(obj));
     } catch {
-      // Deep copy fallback for non-serializable objects
-      try {
-        return JSON.parse(JSON.stringify(obj));
-      } catch {
-        console.warn("[HistoryManager] Failed to clone state, creating shallow copy");
-        if (Array.isArray(obj)) {
-          return [...obj] as unknown as T;
-        }
-        return { ...obj };
+      // Shallow copy fallback for non-serializable objects
+      console.warn("[HistoryManager] Failed to clone state, creating shallow copy");
+      if (Array.isArray(obj)) {
+        return [...obj] as unknown as T;
       }
+      return { ...obj };
     }
   }
 }

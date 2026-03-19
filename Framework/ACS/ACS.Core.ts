@@ -272,12 +272,13 @@ export class AuthService implements AuthModuleInterface {
     if (result.ok && result.data) {
       const authResult = result.data;
       if (authResult.authenticated && authResult.user) {
+        const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
         this.currentSession = {
-          id: "",
+          id: crypto.randomUUID(),
           userId: authResult.user.id,
           role: authResult.user.role,
           createdAt: new Date().toISOString(),
-          expiresAt: "",
+          expiresAt,
           data: {},
         };
         this.sessionCachedAt = Date.now();

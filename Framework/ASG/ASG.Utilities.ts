@@ -249,7 +249,7 @@ export class TemplateRenderer implements TemplateRendererInterface {
 
       if (nextOpen !== -1 && nextOpen < nextClose) {
         depth++;
-        pos = nextOpen + 1;
+        pos = nextOpen + openMatch![0].length;
       } else {
         depth--;
         pos = nextClose + closeStr.length;
@@ -303,7 +303,7 @@ export class MarkdownService implements MarkdownServiceInterface {
    * ```
    */
   parseFrontmatter(content: string): FrontMatterResult {
-    const fmRegex = /^---\r?\n([\s\S]*?)\r?\n---\r?\n([\s\S]*)$/;
+    const fmRegex = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n([\s\S]*))?$/;
     const match = fmRegex.exec(content);
 
     if (!match) {
@@ -311,7 +311,7 @@ export class MarkdownService implements MarkdownServiceInterface {
     }
 
     const yamlStr = match[1];
-    const body = match[2];
+    const body = match[2] ?? "";
     const meta = this.parseSimpleYaml(yamlStr);
 
     return { meta, body };
@@ -669,6 +669,10 @@ export class Builder implements BuilderInterface {
   }
 
   private escapeAttr(str: string): string {
-    return str.replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    return str
+      .replace(/&/g, "&amp;")
+      .replace(/"/g, "&quot;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
   }
 }
